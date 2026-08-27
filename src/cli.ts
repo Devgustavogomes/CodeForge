@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { registerInitCommand } from "./commands/init.js";
+import { registerInitCommand } from "./cli/commands/init.js";
 
 const program = new Command();
 
