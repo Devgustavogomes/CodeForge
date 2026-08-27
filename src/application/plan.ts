@@ -59,7 +59,9 @@ ${rulesContent}
 ${specContent}
 
 --- ACTION REQUIRED ---
-Please generate the JSON files and save them in .codeforge/tasks/${specName}/`;
+1. Generate the JSON files and save them in .codeforge/tasks/${specName}/
+2. RUN THE VALIDATION COMMAND: codeforge plan validate ${specName}
+3. If validation fails, fix the errors and run it again. Do not stop until it passes.`;
 
   return {
     notInitialized: false,

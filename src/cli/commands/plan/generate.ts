@@ -1,10 +1,13 @@
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { getAvailableSpecs, preparePlanningPrompt } from "../../application/plan.js";
+import {
+  getAvailableSpecs,
+  preparePlanningPrompt,
+} from "../../../application/plan.js";
 
-export function registerPlanCommand(program: Command): void {
-  program
-    .command("plan [spec]")
+export function registerPlanGenerateCommand(plan: Command): void {
+  plan
+    .command("generate [spec]")
     .description("Generate a planning prompt for an AI agent")
     .action(async (spec?: string) => {
       const workspacePath = process.cwd();
@@ -12,23 +15,27 @@ export function registerPlanCommand(program: Command): void {
 
       if (!selectedSpec) {
         const specs = getAvailableSpecs(workspacePath);
-        
+
         if (specs.length === 0) {
-          console.error("\n✗ No specs found. Create one first using `codeforge spec create <name>`.\n");
+          console.error(
+            "\n✗ No specs found. Create one first using `codeforge spec create <name>`.\n",
+          );
           process.exitCode = 1;
           return;
         }
 
         selectedSpec = await select({
-          message: "Select a spec to plan:",
-          choices: specs.map(s => ({ name: s, value: s }))
+          message: "Select a spec to generate a plan prompt for:",
+          choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
 
       const result = preparePlanningPrompt(workspacePath, selectedSpec);
 
       if (result.notInitialized) {
-        console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
+        console.error(
+          "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+        );
         process.exitCode = 1;
         return;
       }
