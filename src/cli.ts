@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { registerInitCommand } from "./cli/commands/init.js";
 import { registerSpecCreateCommand } from "./cli/commands/spec/create.js";
+import { registerPlanCommand } from "./cli/commands/plan.js";
 
 const program = new Command();
 
@@ -12,6 +13,7 @@ program
   .version("0.1.0");
 
 registerInitCommand(program);
+registerPlanCommand(program);
 
 const spec = program
   .command("spec")
