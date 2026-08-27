@@ -2,44 +2,25 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { fileURLToPath } from "node:url";
 import { initializeWorkspace } from "../../src/application/initialize-workspace.js";
-
-const REAL_RULES_DIR = path.join(
-  fileURLToPath(import.meta.url),
-  "..",
-  "..",
-  "..",
-  "src",
-  "rules"
-);
 
 function makeTempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "codeforge-test-"));
 }
 
-function makeFakeRulesDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "codeforge-rules-"));
-  fs.writeFileSync(path.join(dir, "planning.md"), "# Planning Rules\n", "utf-8");
-  return dir;
-}
-
 describe("initializeWorkspace", () => {
   let tempDir: string;
-  let fakeRulesDir: string;
 
   beforeEach(() => {
     tempDir = makeTempDir();
-    fakeRulesDir = makeFakeRulesDir();
   });
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
-    fs.rmSync(fakeRulesDir, { recursive: true, force: true });
   });
 
   it("creates the .codeforge directory structure", () => {
-    initializeWorkspace(tempDir, fakeRulesDir);
+    initializeWorkspace(tempDir);
 
     const root = path.join(tempDir, ".codeforge");
     expect(fs.existsSync(root)).toBe(true);
@@ -47,7 +28,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates all expected subdirectories (no plans/)", () => {
-    initializeWorkspace(tempDir, fakeRulesDir);
+    initializeWorkspace(tempDir);
 
     const subdirs = ["specs", "tasks", "executions", "rules"];
     for (const sub of subdirs) {
@@ -61,21 +42,21 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates config.yaml", () => {
-    initializeWorkspace(tempDir, fakeRulesDir);
+    initializeWorkspace(tempDir);
 
     const configPath = path.join(tempDir, ".codeforge", "config.yaml");
     expect(fs.existsSync(configPath)).toBe(true);
   });
 
-  it("copies all files from rulesSourceDir into .codeforge/rules/", () => {
-    initializeWorkspace(tempDir, fakeRulesDir);
+  it("creates rules/planning.md from embedded ts constant", () => {
+    initializeWorkspace(tempDir);
 
     const planningPath = path.join(tempDir, ".codeforge", "rules", "planning.md");
     expect(fs.existsSync(planningPath)).toBe(true);
   });
 
-  it("planning.md contains the expected sections (real rules file)", () => {
-    initializeWorkspace(tempDir, REAL_RULES_DIR);
+  it("planning.md contains the expected sections", () => {
+    initializeWorkspace(tempDir);
 
     const planningPath = path.join(tempDir, ".codeforge", "rules", "planning.md");
     const content = fs.readFileSync(planningPath, "utf-8");
@@ -89,7 +70,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates metadata.json with initialized: true", () => {
-    initializeWorkspace(tempDir, fakeRulesDir);
+    initializeWorkspace(tempDir);
 
     const metadataPath = path.join(tempDir, ".codeforge", "metadata.json");
     expect(fs.existsSync(metadataPath)).toBe(true);
@@ -101,7 +82,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("returns the list of created entries", () => {
-    const result = initializeWorkspace(tempDir, fakeRulesDir);
+    const result = initializeWorkspace(tempDir);
 
     expect(result.alreadyInitialized).toBe(false);
     expect(result.created).toContain(".codeforge/");
@@ -118,21 +99,21 @@ describe("initializeWorkspace", () => {
   });
 
   it("returns alreadyInitialized: true on second run", () => {
-    initializeWorkspace(tempDir, fakeRulesDir);
-    const result = initializeWorkspace(tempDir, fakeRulesDir);
+    initializeWorkspace(tempDir);
+    const result = initializeWorkspace(tempDir);
 
     expect(result.alreadyInitialized).toBe(true);
     expect(result.created).toHaveLength(0);
   });
 
   it("does not overwrite existing files on second run", () => {
-    initializeWorkspace(tempDir, fakeRulesDir);
+    initializeWorkspace(tempDir);
 
     const configPath = path.join(tempDir, ".codeforge", "config.yaml");
     const originalContent = fs.readFileSync(configPath, "utf-8");
     fs.writeFileSync(configPath, "# modified by user\n", "utf-8");
 
-    initializeWorkspace(tempDir, fakeRulesDir);
+    initializeWorkspace(tempDir);
 
     const contentAfter = fs.readFileSync(configPath, "utf-8");
     expect(contentAfter).toBe("# modified by user\n");
@@ -144,7 +125,7 @@ describe("initializeWorkspace", () => {
     fs.mkdirSync(root);
     fs.writeFileSync(path.join(root, "config.yaml"), "# partial\n", "utf-8");
 
-    const result = initializeWorkspace(tempDir, fakeRulesDir);
+    const result = initializeWorkspace(tempDir);
     expect(result.alreadyInitialized).toBe(false);
 
     const metadataPath = path.join(root, "metadata.json");
