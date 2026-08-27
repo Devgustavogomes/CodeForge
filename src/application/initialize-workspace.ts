@@ -1,14 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const CODEFORGE_DIR = ".codeforge";
 const METADATA_FILE = "metadata.json";
 
-const SUBDIRECTORIES = ["specs", "plans", "tasks", "executions", "rules"];
+const SUBDIRECTORIES = ["specs", "tasks", "executions", "rules"];
 
 const DEFAULT_CONFIG = `# CodeForge Configuration
 version: "1.0"
 `;
+
+const DEFAULT_RULES_SOURCE_DIR = path.join(
+  fileURLToPath(import.meta.url),
+  "..",
+  "..",
+  "rules"
+);
 
 interface WorkspaceMetadata {
   initialized: boolean;
@@ -21,7 +29,10 @@ export interface InitResult {
   created: string[];
 }
 
-export function initializeWorkspace(workspacePath: string): InitResult {
+export function initializeWorkspace(
+  workspacePath: string,
+  rulesSourceDir: string = DEFAULT_RULES_SOURCE_DIR
+): InitResult {
   const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
   const metadataPath = path.join(codeforgeRoot, METADATA_FILE);
 
@@ -52,6 +63,17 @@ export function initializeWorkspace(workspacePath: string): InitResult {
     }
   }
 
+  // Copy rule files from rulesSourceDir into .codeforge/rules/
+  const rulesDestDir = path.join(codeforgeRoot, "rules");
+  const ruleFiles = fs.readdirSync(rulesSourceDir);
+  for (const file of ruleFiles) {
+    const src = path.join(rulesSourceDir, file);
+    const dest = path.join(rulesDestDir, file);
+    fs.copyFileSync(src, dest);
+    created.push(`${CODEFORGE_DIR}/rules/${file}`);
+  }
+
+  // Written last — signals that initialization completed successfully.
   const metadata: WorkspaceMetadata = {
     initialized: true,
     version: "1.0",
