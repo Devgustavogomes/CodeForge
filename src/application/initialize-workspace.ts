@@ -7,10 +7,6 @@ const METADATA_FILE = "metadata.json";
 
 const SUBDIRECTORIES = ["specs", "tasks", "executions", "rules"];
 
-const DEFAULT_CONFIG = `# CodeForge Configuration
-version: "1.0"
-`;
-
 interface WorkspaceMetadata {
   initialized: boolean;
   version: string;
@@ -22,7 +18,10 @@ export interface InitResult {
   created: string[];
 }
 
-export function initializeWorkspace(workspacePath: string): InitResult {
+export function initializeWorkspace(
+  workspacePath: string,
+  agentCommand: string = "",
+): InitResult {
   const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
   const metadataPath = path.join(codeforgeRoot, METADATA_FILE);
 
@@ -37,13 +36,18 @@ export function initializeWorkspace(workspacePath: string): InitResult {
   const created: string[] = [];
 
   if (!fs.existsSync(codeforgeRoot)) {
-    fs.mkdirSync(codeforgeRoot);
+    fs.mkdirSync(codeforgeRoot, { recursive: true });
     created.push(`${CODEFORGE_DIR}/`);
   }
 
   const configPath = path.join(codeforgeRoot, "config.yaml");
-  fs.writeFileSync(configPath, DEFAULT_CONFIG, "utf-8");
-  created.push(`${CODEFORGE_DIR}/config.yaml`);
+  if (!fs.existsSync(configPath)) {
+    const configContent = `version: "1.0"
+agent_command: "${agentCommand}"
+`;
+    fs.writeFileSync(configPath, configContent, "utf-8");
+    created.push(`${CODEFORGE_DIR}/config.yaml`);
+  }
 
   for (const sub of SUBDIRECTORIES) {
     const dirPath = path.join(codeforgeRoot, sub);
@@ -69,4 +73,3 @@ export function initializeWorkspace(workspacePath: string): InitResult {
 
   return { alreadyInitialized: false, created };
 }
-
