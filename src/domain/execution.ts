@@ -1,21 +1,8 @@
-export type ExecutionStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "blocked";
+export type TaskStatus = "pending" | "running" | "completed" | "failed";
 
-export interface Execution {
-  id: string;
-
-  taskId: string;
-
-  status: ExecutionStatus;
-
-  attempt: number;
-
-  startedAt?: Date;
-  finishedAt?: Date;
-
-  error?: string;
+export interface SpecExecutionState {
+  specId: string;
+  status: "running" | "completed" | "failed";
+  tasks: Record<string, { status: TaskStatus }>;
+  updatedAt: string;
 }

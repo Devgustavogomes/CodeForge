@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^8.7.0",
-    "commander": "^14.0.0"
+    "commander": "^14.0.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.10",
