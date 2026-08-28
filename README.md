@@ -329,6 +329,9 @@ The agent you already use performs the AI work.
 - \`codeforge task retry <spec> <task-id>\`
   Returns a failed or stuck Task to the pending state so it can be executed again.
 
+- \`codeforge task info [spec] [task-id]\`
+  Displays detailed information about a specific Task. If arguments are omitted, it opens an interactive selector.
+
 ### Status
 
 - \`codeforge status <spec>\`
@@ -641,6 +644,7 @@ O CodeForge não chama a API de um LLM e não exige chaves de API. O agente que 
 - \`codeforge status <spec>\` - Mostra painel de andamento
 - \`codeforge task complete <spec> <task-id>\` - Completa uma task
 - \`codeforge task retry <spec> <task-id>\` - Retorna task com erro para pendente
+- \`codeforge task info [spec] [task-id]\` - Mostra os detalhes completos de uma task (abre seleção interativa se os argumentos forem omitidos)
 
 ## Por que o CodeForge?
 

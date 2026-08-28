@@ -15,6 +15,7 @@ export async function runInteractiveMenu(): Promise<void> {
       { name: "➜ Validar plano de tarefas (plan validate)", value: "plan validate" },
       { name: "➜ Executar tarefas (run)", value: "run" },
       { name: "➜ Ver dashboard de progresso (status)", value: "status" },
+      { name: "➜ Ver informações de uma task (task info)", value: "task info" },
       { name: "➜ Sair", value: "exit" },
     ],
   });

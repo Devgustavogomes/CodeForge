@@ -9,6 +9,7 @@ import { registerRunCommand } from "./cli/commands/run.js";
 import { registerStatusCommand } from "./cli/commands/status.js";
 import { registerTaskCompleteCommand } from "./cli/commands/task/complete.js";
 import { registerTaskRetryCommand } from "./cli/commands/task/retry.js";
+import { registerTaskInfoCommand } from "./cli/commands/task/info.js";
 
 import { runInteractiveMenu } from "./cli/interactive.js";
 
@@ -42,6 +43,7 @@ const task = program
 
 registerTaskCompleteCommand(task);
 registerTaskRetryCommand(task);
+registerTaskInfoCommand(task);
 
 if (process.argv.length === 2) {
   // Run interactive menu if no arguments are provided
