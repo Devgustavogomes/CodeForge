@@ -289,6 +289,11 @@ The agent you already use performs the AI work.
 
 ## Commands
 
+### Interactive Menu
+
+- \`codeforge\`
+  Running the command without any arguments opens an interactive menu that guides you through all available actions (Init, Create Spec, Plan, Execute, Status).
+
 ### Setup
 
 - \`codeforge init\`
@@ -627,6 +632,7 @@ O CodeForge não chama a API de um LLM e não exige chaves de API. O agente que 
 
 ## Comandos Principais
 
+- \`codeforge\` - Abre um menu interativo com todas as opções abaixo
 - \`codeforge init\` - Inicializa o projeto
 - \`codeforge spec create <nome>\` - Cria uma nova spec
 - \`codeforge plan generate <spec>\` - Gera prompt para planejar as tasks

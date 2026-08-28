@@ -10,6 +10,8 @@ import { registerStatusCommand } from "./cli/commands/status.js";
 import { registerTaskCompleteCommand } from "./cli/commands/task/complete.js";
 import { registerTaskRetryCommand } from "./cli/commands/task/retry.js";
 
+import { runInteractiveMenu } from "./cli/interactive.js";
+
 const program = new Command();
 
 program
@@ -41,4 +43,12 @@ const task = program
 registerTaskCompleteCommand(task);
 registerTaskRetryCommand(task);
 
-program.parse();
+if (process.argv.length === 2) {
+  // Run interactive menu if no arguments are provided
+  runInteractiveMenu().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else {
+  program.parse();
+}
