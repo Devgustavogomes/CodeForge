@@ -1,11 +1,21 @@
 {
-  "name": "codeforge",
-  "private": true,
-  "type": "module",
+  "name": "codeforge-cli",
   "version": "0.1.0",
+  "description": "Agent-agnostic CLI for structuring and orchestrating AI-assisted software development.",
+  "type": "module",
   "bin": {
     "codeforge": "./dist/cli.js"
   },
+  "keywords": [
+    "ai",
+    "cli",
+    "agent",
+    "llm",
+    "workflow",
+    "development"
+  ],
+  "author": "Gustavo",
+  "license": "MIT",
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "tsc",
