@@ -47,15 +47,6 @@ describe("initializeWorkspace", () => {
     expect(fs.existsSync(configPath)).toBe(true);
     const content = fs.readFileSync(configPath, "utf-8");
     expect(content).toContain('version: "1.0"');
-    expect(content).toContain('agent_command: ""');
-  });
-
-  it("creates config.yaml with provided agent_command", () => {
-    initializeWorkspace(tempDir, "npx claude-code");
-    const configPath = path.join(tempDir, ".codeforge", "config.yaml");
-    expect(fs.existsSync(configPath)).toBe(true);
-    const content = fs.readFileSync(configPath, "utf-8");
-    expect(content).toContain('agent_command: "npx claude-code"');
   });
 
   it("creates rules/planning.md from embedded ts constant", () => {

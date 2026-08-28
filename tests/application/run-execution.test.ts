@@ -9,7 +9,7 @@ function makeTempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "codeforge-test-run-"));
 }
 
-function makeWorkspace(tempDir: string, withConfigCommand: boolean = false): void {
+function makeWorkspace(tempDir: string): void {
   const root = path.join(tempDir, ".codeforge");
   fs.mkdirSync(root);
   fs.mkdirSync(path.join(root, "specs"));
@@ -19,11 +19,7 @@ function makeWorkspace(tempDir: string, withConfigCommand: boolean = false): voi
     JSON.stringify({ initialized: true }),
     "utf-8"
   );
-  if (withConfigCommand) {
-    fs.writeFileSync(path.join(root, "config.yaml"), 'agent_command: "node -e \\"console.log(\'fake agent run\')\\""\n');
-  } else {
-    fs.writeFileSync(path.join(root, "config.yaml"), 'agent_command: ""\n');
-  }
+  fs.writeFileSync(path.join(root, "config.yaml"), 'version: "1.0"\n');
 }
 
 function writeTask(tempDir: string, id: string, deps: string[] = []) {
@@ -58,8 +54,8 @@ describe("runExecution", () => {
     expect(result.notInitialized).toBe(true);
   });
 
-  it("initializes execution state on first run and requests manual execution if no command", () => {
-    makeWorkspace(tempDir, false);
+  it("initializes execution state on first run and requests manual execution", () => {
+    makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", []);
     
     const result = runExecution(tempDir, "test-spec");
@@ -78,7 +74,7 @@ describe("runExecution", () => {
   });
 
   it("finds next task automatically when previous is completed", () => {
-    makeWorkspace(tempDir, false);
+    makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", []);
     writeTask(tempDir, "TASK-002", ["TASK-001"]); // depends on 1
 
@@ -96,7 +92,7 @@ describe("runExecution", () => {
   });
 
   it("detects when all tasks are finished", () => {
-    makeWorkspace(tempDir, false);
+    makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", []);
 
     runExecution(tempDir, "test-spec");
@@ -108,21 +104,5 @@ describe("runExecution", () => {
 
     const state = JSON.parse(fs.readFileSync(path.join(tempDir, ".codeforge", "executions", "test-spec.json"), "utf-8"));
     expect(state.status).toBe("completed");
-  });
-
-  it("executes tasks fully autonomously if agent_command is set", () => {
-    makeWorkspace(tempDir, true); // sets a fake node command that succeeds instantly
-    writeTask(tempDir, "TASK-001", []);
-    writeTask(tempDir, "TASK-002", ["TASK-001"]);
-
-    const res = runExecution(tempDir, "test-spec");
-    
-    // It should have executed both tasks in the loop automatically!
-    expect(res.finished).toBe(true);
-    expect(res.tasksCompleted).toBe(2);
-
-    const state = JSON.parse(fs.readFileSync(path.join(tempDir, ".codeforge", "executions", "test-spec.json"), "utf-8"));
-    expect(state.tasks["TASK-001"].status).toBe("completed");
-    expect(state.tasks["TASK-002"].status).toBe("completed");
   });
 });

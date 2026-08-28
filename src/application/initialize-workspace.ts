@@ -20,7 +20,6 @@ export interface InitResult {
 
 export function initializeWorkspace(
   workspacePath: string,
-  agentCommand: string = "",
 ): InitResult {
   const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
   const metadataPath = path.join(codeforgeRoot, METADATA_FILE);
@@ -42,9 +41,7 @@ export function initializeWorkspace(
 
   const configPath = path.join(codeforgeRoot, "config.yaml");
   if (!fs.existsSync(configPath)) {
-    const configContent = `version: "1.0"
-agent_command: "${agentCommand}"
-`;
+    const configContent = `version: "1.0"\n`;
     fs.writeFileSync(configPath, configContent, "utf-8");
     created.push(`${CODEFORGE_DIR}/config.yaml`);
   }
@@ -73,3 +70,4 @@ agent_command: "${agentCommand}"
 
   return { alreadyInitialized: false, created };
 }
+
