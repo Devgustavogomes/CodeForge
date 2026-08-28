@@ -2,11 +2,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { planningRule } from "../rules/planning.js";
 import { runningRule } from "../rules/running.js";
+import { docsRule } from "../rules/docs.js";
 
 const CODEFORGE_DIR = ".codeforge";
 const METADATA_FILE = "metadata.json";
 
-const SUBDIRECTORIES = ["specs", "tasks", "executions", "rules"];
+const SUBDIRECTORIES = ["specs", "tasks", "executions", "rules", "docs"];
 
 interface WorkspaceMetadata {
   initialized: boolean;
@@ -64,6 +65,19 @@ export function initializeWorkspace(
   const runningRulesPath = path.join(codeforgeRoot, "rules", "running.md");
   fs.writeFileSync(runningRulesPath, runningRule, "utf-8");
   created.push(`${CODEFORGE_DIR}/rules/running.md`);
+
+  // Write docs rules
+  const docsRulesPath = path.join(codeforgeRoot, "rules", "docs.md");
+  fs.writeFileSync(docsRulesPath, docsRule, "utf-8");
+  created.push(`${CODEFORGE_DIR}/rules/docs.md`);
+
+  // Write docs/manifest.json
+  const docsManifestPath = path.join(codeforgeRoot, "docs", "manifest.json");
+  if (!fs.existsSync(docsManifestPath)) {
+    const docsManifestContent = JSON.stringify({ version: "1.0", documents: {} }, null, 2);
+    fs.writeFileSync(docsManifestPath, docsManifestContent, "utf-8");
+    created.push(`${CODEFORGE_DIR}/docs/manifest.json`);
+  }
 
   // Written last — signals that initialization completed successfully.
   const metadata: WorkspaceMetadata = {
