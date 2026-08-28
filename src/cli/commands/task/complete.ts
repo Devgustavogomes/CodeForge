@@ -1,9 +1,7 @@
 import { Command } from "commander";
-import { markTaskCompleted } from "../../application/run-execution.js";
+import { markTaskCompleted } from "../../../application/run-execution.js";
 
-export function registerTaskCommand(program: Command): void {
-  const task = program.command("task").description("Manage individual tasks during manual execution");
-
+export function registerTaskCompleteCommand(task: Command): void {
   task
     .command("complete <spec> <taskId>")
     .description("Mark a task as completed")

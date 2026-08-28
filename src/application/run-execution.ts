@@ -181,3 +181,30 @@ export function markTaskCompleted(
   return true;
 }
 
+export function retryTask(
+  workspacePath: string,
+  specName: string,
+  taskId: string,
+): { success: boolean; reason?: string } {
+  const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
+  const executionsDir = path.join(codeforgeRoot, "executions");
+  const state = loadState(executionsDir, specName);
+
+  if (!state || !state.tasks[taskId]) {
+    return { success: false, reason: "Task or spec execution not found." };
+  }
+
+  const currentStatus = state.tasks[taskId].status;
+
+  if (currentStatus === "pending") {
+    return { success: false, reason: "Task is already pending." };
+  }
+
+  if (currentStatus === "completed") {
+    return { success: false, reason: "Task is already completed. Use 'task reset' if you want to redo it." };
+  }
+
+  state.tasks[taskId].status = "pending";
+  saveState(executionsDir, state);
+  return { success: true };
+}
