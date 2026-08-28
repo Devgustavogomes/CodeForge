@@ -25,7 +25,13 @@ export function buildContextPrompt(workspacePath: string, specName: string, task
     filesContext = "No specific files provided in context.";
   }
 
+  const runningRulesPath = path.join(codeforgeRoot, "rules", "running.md");
+  const runningRulesContent = fs.existsSync(runningRulesPath) ? fs.readFileSync(runningRulesPath, "utf-8") : "Execution rules not found.";
+
   return `SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)
+
+--- EXECUTION RULES ---
+${runningRulesContent}
 
 You are tasked with implementing: ${task.id} - ${task.title}
 

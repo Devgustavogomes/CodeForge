@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { planningRule } from "../rules/planning.js";
+import { runningRule } from "../rules/running.js";
 
 const CODEFORGE_DIR = ".codeforge";
 const METADATA_FILE = "metadata.json";
@@ -58,6 +59,11 @@ export function initializeWorkspace(
   const planningRulesPath = path.join(codeforgeRoot, "rules", "planning.md");
   fs.writeFileSync(planningRulesPath, planningRule, "utf-8");
   created.push(`${CODEFORGE_DIR}/rules/planning.md`);
+
+  // Write running rules
+  const runningRulesPath = path.join(codeforgeRoot, "rules", "running.md");
+  fs.writeFileSync(runningRulesPath, runningRule, "utf-8");
+  created.push(`${CODEFORGE_DIR}/rules/running.md`);
 
   // Written last — signals that initialization completed successfully.
   const metadata: WorkspaceMetadata = {

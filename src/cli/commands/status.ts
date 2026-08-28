@@ -6,8 +6,9 @@ import { getSpecStatus, formatStatusOutput } from "../../application/status.js";
 export function registerStatusCommand(program: Command): void {
   program
     .command("status [spec]")
-    .description("Show execution progress for a spec")
-    .action(async (spec?: string) => {
+    .description("Show execution progress for a spec (watches by default)")
+    .option("--once", "Print status once and exit")
+    .action(async (spec: string | undefined, options: { once?: boolean }) => {
       const workspacePath = process.cwd();
       let specName = spec;
 
@@ -26,25 +27,65 @@ export function registerStatusCommand(program: Command): void {
         });
       }
 
-      const result = getSpecStatus(workspacePath, specName);
+      // Validate once before entering loop
+      const initial = getSpecStatus(workspacePath, specName);
 
-      if (result.notInitialized) {
+      if (initial.notInitialized) {
         console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
         process.exitCode = 1;
         return;
       }
 
-      if (result.specNotFound) {
+      if (initial.specNotFound) {
         console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
         process.exitCode = 1;
         return;
       }
 
-      if (result.noExecution) {
+      if (initial.noExecution) {
         console.log(`\n○ No execution started for spec '${specName}'. Run \`codeforge run ${specName}\` to begin.\n`);
         return;
       }
 
-      console.log(formatStatusOutput(result));
+      if (options.once) {
+        console.log(formatStatusOutput(initial));
+        return;
+      }
+
+      // Watch mode — enter alternate screen buffer (like vim/htop)
+      process.stdout.write("\x1b[?1049h\x1b[?25l");
+
+      const cleanup = () => {
+        clearInterval(interval);
+        // Leave alternate screen buffer and restore cursor
+        process.stdout.write("\x1b[?25h\x1b[?1049l");
+      };
+
+      const render = () => {
+        const result = getSpecStatus(workspacePath, specName);
+        process.stdout.write("\x1b[H");
+        process.stdout.write(formatStatusOutput(result));
+        process.stdout.write("  \x1b[2mWatching for changes... (Ctrl+C to exit)\x1b[0m\n\n");
+        return result;
+      };
+
+      let lastResult = render();
+
+      const interval = setInterval(() => {
+        lastResult = render();
+
+        const allDone = lastResult.tasks.every((t) => t.status === "completed");
+        if (allDone) {
+          cleanup();
+          console.log(`\n🎉 All tasks for spec '${specName}' completed!\n`);
+        }
+      }, 2000);
+
+      process.stdout.on("resize", () => render());
+
+      process.on("SIGINT", () => {
+        cleanup();
+        process.exit(0);
+      });
     });
 }
