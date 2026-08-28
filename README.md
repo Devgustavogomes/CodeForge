@@ -39,7 +39,7 @@ CodeForge provides the **process, state, context, and deterministic validation**
 ## Installation
 
 ```bash
-npm install -g codeforge
+npm install -g codeforge-engine
 ```
 
 For development:
@@ -538,7 +538,7 @@ O CodeForge fornece o **processo, estado, contexto e validação determinística
 ## Instalação
 
 ```bash
-npm install -g codeforge
+npm install -g codeforge-engine
 ```
 
 Para desenvolvimento:
