@@ -56,20 +56,20 @@ describe("getSpecStatus", () => {
 
   it("returns notInitialized when metadata is missing", () => {
     const result = getSpecStatus(tempDir, "test-spec");
-    expect(result.notInitialized).toBe(true);
+    expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound when tasks directory is missing", () => {
     makeWorkspace(tempDir);
     const result = getSpecStatus(tempDir, "nonexistent");
-    expect(result.specNotFound).toBe(true);
+    expect(result.kind).toBe("spec-not-found");
   });
 
   it("returns noExecution when no execution state exists", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", "Setup", []);
     const result = getSpecStatus(tempDir, "test-spec");
-    expect(result.noExecution).toBe(true);
+    expect(result.kind).toBe("no-execution");
   });
 
   it("returns task statuses from execution state", () => {
@@ -91,11 +91,14 @@ describe("getSpecStatus", () => {
 
     const result = getSpecStatus(tempDir, "test-spec");
 
-    expect(result.specStatus).toBe("running");
-    expect(result.tasks).toHaveLength(3);
-    expect(result.tasks[0]).toMatchObject({ id: "TASK-001", status: "completed", title: "Setup project" });
-    expect(result.tasks[1]).toMatchObject({ id: "TASK-002", status: "running", title: "Add routes" });
-    expect(result.tasks[2]).toMatchObject({ id: "TASK-003", status: "pending", title: "Add tests" });
+    expect(result.kind).toBe("status");
+    if (result.kind === "status") {
+      expect(result.specStatus).toBe("running");
+      expect(result.tasks).toHaveLength(3);
+      expect(result.tasks[0]).toMatchObject({ id: "TASK-001", status: "completed", title: "Setup project" });
+      expect(result.tasks[1]).toMatchObject({ id: "TASK-002", status: "running", title: "Add routes" });
+      expect(result.tasks[2]).toMatchObject({ id: "TASK-003", status: "pending", title: "Add tests" });
+    }
   });
 
   it("includes dependencies in task info", () => {
@@ -115,8 +118,11 @@ describe("getSpecStatus", () => {
 
     const result = getSpecStatus(tempDir, "test-spec");
 
-    expect(result.tasks[0].dependencies).toEqual([]);
-    expect(result.tasks[1].dependencies).toEqual(["TASK-001"]);
+    expect(result.kind).toBe("status");
+    if (result.kind === "status") {
+      expect(result.tasks[0].dependencies).toEqual([]);
+      expect(result.tasks[1].dependencies).toEqual(["TASK-001"]);
+    }
   });
 
   it("returns tasks sorted by ID", () => {
@@ -137,16 +143,17 @@ describe("getSpecStatus", () => {
     });
 
     const result = getSpecStatus(tempDir, "test-spec");
-    expect(result.tasks.map((t) => t.id)).toEqual(["TASK-001", "TASK-002", "TASK-003"]);
+    expect(result.kind).toBe("status");
+    if (result.kind === "status") {
+      expect(result.tasks.map((t) => t.id)).toEqual(["TASK-001", "TASK-002", "TASK-003"]);
+    }
   });
 });
 
 describe("formatStatusOutput", () => {
   it("shows progress bar and task list", () => {
     const output = formatStatusOutput({
-      notInitialized: false,
-      specNotFound: false,
-      noExecution: false,
+      kind: "status",
       specName: "todo-api",
       specStatus: "running",
       tasks: [
@@ -167,9 +174,7 @@ describe("formatStatusOutput", () => {
 
   it("shows 100% when all tasks completed", () => {
     const output = formatStatusOutput({
-      notInitialized: false,
-      specNotFound: false,
-      noExecution: false,
+      kind: "status",
       specName: "test",
       specStatus: "completed",
       tasks: [

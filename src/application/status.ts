@@ -12,15 +12,11 @@ export interface TaskStatusInfo {
   dependencies: string[];
 }
 
-export interface StatusResult {
-  notInitialized: boolean;
-  specNotFound: boolean;
-  noExecution: boolean;
-  specName: string;
-  specStatus: string;
-  tasks: TaskStatusInfo[];
-  updatedAt: string;
-}
+export type StatusResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "no-execution"; specName: string }
+  | { kind: "status"; specName: string; specStatus: string; tasks: TaskStatusInfo[]; updatedAt: string };
 
 export function getSpecStatus(
   workspacePath: string,
@@ -29,41 +25,17 @@ export function getSpecStatus(
   const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
 
   if (!fs.existsSync(path.join(codeforgeRoot, "metadata.json"))) {
-    return {
-      notInitialized: true,
-      specNotFound: false,
-      noExecution: false,
-      specName,
-      specStatus: "",
-      tasks: [],
-      updatedAt: "",
-    };
+    return { kind: "not-initialized" };
   }
 
   const tasksDir = path.join(codeforgeRoot, "tasks", specName);
   if (!fs.existsSync(tasksDir)) {
-    return {
-      notInitialized: false,
-      specNotFound: true,
-      noExecution: false,
-      specName,
-      specStatus: "",
-      tasks: [],
-      updatedAt: "",
-    };
+    return { kind: "spec-not-found" };
   }
 
   const statePath = path.join(codeforgeRoot, "executions", `${specName}.json`);
   if (!fs.existsSync(statePath)) {
-    return {
-      notInitialized: false,
-      specNotFound: false,
-      noExecution: true,
-      specName,
-      specStatus: "",
-      tasks: [],
-      updatedAt: "",
-    };
+    return { kind: "no-execution", specName };
   }
 
   const state = JSON.parse(
@@ -90,9 +62,7 @@ export function getSpecStatus(
   tasks.sort((a, b) => a.id.localeCompare(b.id));
 
   return {
-    notInitialized: false,
-    specNotFound: false,
-    noExecution: false,
+    kind: "status",
     specName,
     specStatus: state.status,
     tasks,
@@ -118,7 +88,7 @@ const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
 const DIM = "\x1b[2m";
 
-export function formatStatusOutput(result: StatusResult): string {
+export function formatStatusOutput(result: Extract<StatusResult, { kind: "status" }>): string {
   const lines: string[] = [];
 
   const total = result.tasks.length;

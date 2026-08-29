@@ -30,26 +30,24 @@ export function registerStatusCommand(program: Command): void {
       // Validate once before entering loop
       const initial = getSpecStatus(workspacePath, specName);
 
-      if (initial.notInitialized) {
-        console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
-        process.exitCode = 1;
-        return;
-      }
-
-      if (initial.specNotFound) {
-        console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if (initial.noExecution) {
-        console.log(`\n○ No execution started for spec '${specName}'. Run \`codeforge run ${specName}\` to begin.\n`);
-        return;
-      }
-
-      if (options.once) {
-        console.log(formatStatusOutput(initial));
-        return;
+      switch (initial.kind) {
+        case "not-initialized":
+          console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
+          process.exitCode = 1;
+          return;
+        case "spec-not-found":
+          console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
+          process.exitCode = 1;
+          return;
+        case "no-execution":
+          console.log(`\n○ No execution started for spec '${specName}'. Run \`codeforge run ${specName}\` to begin.\n`);
+          return;
+        case "status":
+          if (options.once) {
+            console.log(formatStatusOutput(initial));
+            return;
+          }
+          break;
       }
 
       // Watch mode — enter alternate screen buffer (like vim/htop)
@@ -64,8 +62,12 @@ export function registerStatusCommand(program: Command): void {
       const render = () => {
         const result = getSpecStatus(workspacePath, specName);
         process.stdout.write("\x1b[H");
-        process.stdout.write(formatStatusOutput(result));
-        process.stdout.write("  \x1b[2mWatching for changes... (Ctrl+C to exit)\x1b[0m\n\n");
+        if (result.kind === "status") {
+          process.stdout.write(formatStatusOutput(result));
+          process.stdout.write("  \x1b[2mWatching for changes... (Ctrl+C to exit)\x1b[0m\n\n");
+        } else {
+          process.stdout.write("  \x1b[2mWaiting for execution to start... (Ctrl+C to exit)\x1b[0m\n\n");
+        }
         return result;
       };
 
@@ -74,10 +76,12 @@ export function registerStatusCommand(program: Command): void {
       const interval = setInterval(() => {
         lastResult = render();
 
-        const allDone = lastResult.tasks.every((t) => t.status === "completed");
-        if (allDone) {
-          cleanup();
-          console.log(`\n🎉 All tasks for spec '${specName}' completed!\n`);
+        if (lastResult.kind === "status") {
+          const allDone = lastResult.tasks.every((t) => t.status === "completed");
+          if (allDone) {
+            cleanup();
+            console.log(`\n🎉 All tasks for spec '${specName}' completed!\n`);
+          }
         }
       }, 2000);
 
