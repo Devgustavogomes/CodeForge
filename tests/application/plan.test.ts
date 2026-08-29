@@ -62,17 +62,14 @@ describe("preparePlanningPrompt", () => {
 
   it("returns notInitialized if metadata.json is missing", () => {
     const result = preparePlanningPrompt(tempDir, "auth");
-    expect(result.notInitialized).toBe(true);
-    expect(result.prompt).toBe("");
+    expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound if spec does not exist", () => {
     makeWorkspace(tempDir);
     const result = preparePlanningPrompt(tempDir, "missing-spec");
     
-    expect(result.notInitialized).toBe(false);
-    expect(result.specNotFound).toBe(true);
-    expect(result.prompt).toBe("");
+    expect(result.kind).toBe("spec-not-found");
   });
 
   it("generates the prompt correctly and creates tasks folder", () => {
@@ -92,13 +89,13 @@ describe("preparePlanningPrompt", () => {
 
     const result = preparePlanningPrompt(tempDir, "auth");
 
-    expect(result.notInitialized).toBe(false);
-    expect(result.specNotFound).toBe(false);
-
-    expect(result.prompt).toContain("SYSTEM PROMPT FOR AI AGENT");
-    expect(result.prompt).toContain("PLANNING RULES");
-    expect(result.prompt).toContain("AUTH SPEC");
-    expect(result.prompt).toContain(".codeforge/tasks/auth/");
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") {
+      expect(result.prompt).toContain("SYSTEM PROMPT FOR AI AGENT");
+      expect(result.prompt).toContain("--- SPEC: auth ---");
+      expect(result.prompt).toContain("--- RULES ---");
+      expect(result.prompt).toContain(".codeforge/tasks/auth/");
+    }
 
     // Verifies tasks directory was created
     expect(fs.existsSync(path.join(tempDir, ".codeforge", "tasks", "auth"))).toBe(true);

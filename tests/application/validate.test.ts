@@ -53,8 +53,7 @@ describe("validatePlan", () => {
 
   it("returns notInitialized if metadata missing", () => {
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.notInitialized).toBe(true);
-    expect(result.valid).toBe(false);
+    expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound if tasks dir missing", () => {
@@ -63,16 +62,17 @@ describe("validatePlan", () => {
     fs.writeFileSync(path.join(root, "metadata.json"), "{}");
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.specNotFound).toBe(true);
-    expect(result.valid).toBe(false);
+    expect(result.kind).toBe("spec-not-found");
   });
 
   it("fails if no JSON files found", () => {
     makeWorkspace(tempDir);
     const result = validatePlan(tempDir, "test-spec");
     
-    expect(result.valid).toBe(false);
-    expect(result.errors[0]).toContain("No JSON files found");
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.errors[0]).toContain("No JSON files found");
+    }
   });
 
   it("fails on invalid JSON syntax", () => {
@@ -81,8 +81,10 @@ describe("validatePlan", () => {
     fs.writeFileSync(p, "{ invalid_json: true }");
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.valid).toBe(false);
-    expect(result.errors[0]).toContain("is not valid JSON");
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.errors[0]).toContain("is not valid JSON");
+    }
   });
 
   it("fails if required fields are missing", () => {
@@ -91,8 +93,10 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", { id: "TASK-001", dependencies: [] });
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes("missing required field: \"title\""))).toBe(true);
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.errors.some(e => e.includes("missing required field: \"title\""))).toBe(true);
+    }
   });
 
   it("fails if id inside file does not match filename", () => {
@@ -100,8 +104,10 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-002"), "TASK-001.json");
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes("does not match filename"))).toBe(true);
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.errors.some(e => e.includes("does not match filename"))).toBe(true);
+    }
   });
 
   it("fails if a dependency does not exist", () => {
@@ -109,8 +115,10 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-999"]));
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes("depends on nonexistent task: TASK-999"))).toBe(true);
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.errors.some(e => e.includes("depends on nonexistent task"))).toBe(true);
+    }
   });
 
   it("fails on circular dependency (A -> B -> A)", () => {
@@ -119,8 +127,10 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-002", ["TASK-001"]));
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes("Circular dependency detected"))).toBe(true);
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.errors.some(e => e.includes("Circular dependency detected"))).toBe(true);
+    }
   });
 
   it("fails on self circular dependency (A -> A)", () => {
@@ -128,8 +138,10 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-001"]));
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.valid).toBe(false);
-    expect(result.errors.some(e => e.includes("Circular dependency detected"))).toBe(true);
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.errors.some(e => e.includes("Circular dependency detected"))).toBe(true);
+    }
   });
 
   it("succeeds on valid linear DAG (A -> B -> C)", () => {
@@ -139,8 +151,7 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-002"]));
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.errors).toEqual([]);
-    expect(result.valid).toBe(true);
+    expect(result.kind).toBe("valid");
   });
 
   it("succeeds on complex valid DAG", () => {
@@ -158,8 +169,7 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-002"]));
 
     const result = validatePlan(tempDir, "test-spec");
-    expect(result.errors).toEqual([]);
-    expect(result.valid).toBe(true);
+    expect(result.kind).toBe("valid");
   });
 
   it("can validate a single task and skips DAG checks", () => {
@@ -168,8 +178,7 @@ describe("validatePlan", () => {
 
     // Validating only TASK-001 skips DAG, so it should be valid
     const result = validatePlan(tempDir, "test-spec", "TASK-001");
-    expect(result.errors).toEqual([]);
-    expect(result.valid).toBe(true);
+    expect(result.kind).toBe("valid");
   });
 
   it("returns error if single task file does not exist", () => {
@@ -177,7 +186,9 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-001"));
 
     const result = validatePlan(tempDir, "test-spec", "TASK-002");
-    expect(result.valid).toBe(false);
-    expect(result.errors[0]).toContain("Task file TASK-002.json not found");
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.errors[0]).toContain("Task file TASK-002.json not found");
+    }
   });
 });

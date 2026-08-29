@@ -28,34 +28,32 @@ export function registerPlanValidateCommand(plan: Command): void {
 
       const result = validatePlan(workspacePath, specName, taskId);
 
-      if (result.notInitialized) {
-        console.error(
-          "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-        );
-        process.exitCode = 1;
-        return;
+      switch (result.kind) {
+        case "not-initialized":
+          console.error(
+            "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+          );
+          process.exitCode = 1;
+          break;
+        case "spec-not-found":
+          console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
+          process.exitCode = 1;
+          break;
+        case "invalid":
+          console.error(`\n✗ Validation failed for plan '${specName}':\n`);
+          for (const err of result.errors) {
+            console.error(`  - ${err}`);
+          }
+          console.error(
+            "\n[AI INSTRUCTION] Fix these errors in the JSON files and run validation again.\n",
+          );
+          process.exitCode = 1;
+          break;
+        case "valid":
+          console.log(
+            `\n✓ Plan for '${specName}' is valid and ready for execution!\n`,
+          );
+          break;
       }
-
-      if (result.specNotFound) {
-        console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if (!result.valid) {
-        console.error(`\n✗ Validation failed for plan '${specName}':\n`);
-        for (const err of result.errors) {
-          console.error(`  - ${err}`);
-        }
-        console.error(
-          "\n[AI INSTRUCTION] Fix these errors in the JSON files and run validation again.\n",
-        );
-        process.exitCode = 1;
-        return;
-      }
-
-      console.log(
-        `\n✓ Plan for '${specName}' is valid and ready for execution!\n`,
-      );
     });
 }

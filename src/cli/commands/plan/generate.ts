@@ -32,21 +32,21 @@ export function registerPlanGenerateCommand(plan: Command): void {
 
       const result = preparePlanningPrompt(workspacePath, selectedSpec);
 
-      if (result.notInitialized) {
-        console.error(
-          "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-        );
-        process.exitCode = 1;
-        return;
+      switch (result.kind) {
+        case "not-initialized":
+          console.error(
+            "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+          );
+          process.exitCode = 1;
+          break;
+        case "spec-not-found":
+          console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+          process.exitCode = 1;
+          break;
+        case "ready":
+          // Output directly to stdout for the AI agent to consume
+          console.log(result.prompt);
+          break;
       }
-
-      if (result.specNotFound) {
-        console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      // Output directly to stdout for the AI agent to consume
-      console.log(result.prompt);
     });
 }

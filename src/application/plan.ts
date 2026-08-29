@@ -3,11 +3,10 @@ import path from "node:path";
 
 const CODEFORGE_DIR = ".codeforge";
 
-export interface PlanResult {
-  notInitialized: boolean;
-  specNotFound: boolean;
-  prompt: string;
-}
+export type PlanResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "ready"; prompt: string };
 
 export function getAvailableSpecs(workspacePath: string): string[] {
   const specsDir = path.join(workspacePath, CODEFORGE_DIR, "specs");
@@ -27,12 +26,12 @@ export function preparePlanningPrompt(workspacePath: string, specName: string): 
   const metadataPath = path.join(codeforgeRoot, "metadata.json");
 
   if (!fs.existsSync(metadataPath)) {
-    return { notInitialized: true, specNotFound: false, prompt: "" };
+    return { kind: "not-initialized" };
   }
 
   const specPath = path.join(codeforgeRoot, "specs", `${specName}.md`);
   if (!fs.existsSync(specPath)) {
-    return { notInitialized: false, specNotFound: true, prompt: "" };
+    return { kind: "spec-not-found" };
   }
 
   const rulesPath = path.join(codeforgeRoot, "rules", "planning.md");
@@ -65,8 +64,7 @@ ${specContent}
 4. Once validation passes, present the generated tasks to the user for review. Show each task's ID, title, and dependencies. Ask the user to verify and approve the plan. If the user approves, tell them to open a NEW, clean session in their AI agent and run the command: codeforge run ${specName}`;
 
   return {
-    notInitialized: false,
-    specNotFound: false,
+    kind: "ready",
     prompt
   };
 }

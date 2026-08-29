@@ -4,12 +4,11 @@ import { Task } from "../domain/task.js";
 
 const CODEFORGE_DIR = ".codeforge";
 
-export interface ValidationResult {
-  notInitialized: boolean;
-  specNotFound: boolean;
-  errors: string[];
-  valid: boolean;
-}
+export type ValidationResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "valid" }
+  | { kind: "invalid"; errors: string[] };
 
 function hasCycle(adjList: Map<string, string[]>): string[] | null {
   const visited = new Set<string>();
@@ -61,22 +60,12 @@ export function validatePlan(
   const metadataPath = path.join(codeforgeRoot, "metadata.json");
 
   if (!fs.existsSync(metadataPath)) {
-    return {
-      notInitialized: true,
-      specNotFound: false,
-      errors: [],
-      valid: false,
-    };
+    return { kind: "not-initialized" };
   }
 
   const tasksDir = path.join(codeforgeRoot, "tasks", specName);
   if (!fs.existsSync(tasksDir)) {
-    return {
-      notInitialized: false,
-      specNotFound: true,
-      errors: [],
-      valid: false,
-    };
+    return { kind: "spec-not-found" };
   }
 
   const errors: string[] = [];
@@ -86,14 +75,14 @@ export function validatePlan(
     const expectedFile = `${taskId}.json`;
     if (!files.includes(expectedFile)) {
       errors.push(`Task file ${expectedFile} not found.`);
-      return { notInitialized: false, specNotFound: false, errors, valid: false };
+      return { kind: "invalid", errors };
     }
     files = [expectedFile];
   }
 
   if (files.length === 0) {
     errors.push("No JSON files found in tasks directory.");
-    return { notInitialized: false, specNotFound: false, errors, valid: false };
+    return { kind: "invalid", errors };
   }
 
   const taskMap = new Map<string, Task>();
@@ -152,12 +141,7 @@ export function validatePlan(
 
   // If there are parsing errors, or if we are only validating a single task, return early
   if (errors.length > 0 || taskId) {
-    return {
-      notInitialized: false,
-      specNotFound: false,
-      errors,
-      valid: errors.length === 0,
-    };
+    return errors.length === 0 ? { kind: "valid" } : { kind: "invalid", errors };
   }
 
   // 2. Dependency validation
@@ -182,7 +166,7 @@ export function validatePlan(
   }
 
   if (errors.length > 0) {
-    return { notInitialized: false, specNotFound: false, errors, valid: false };
+    return { kind: "invalid", errors };
   }
 
   // 3. Cycle detection (DAG validation)
@@ -195,10 +179,5 @@ export function validatePlan(
     errors.push(`Circular dependency detected: ${cycle.join(" -> ")}`);
   }
 
-  return {
-    notInitialized: false,
-    specNotFound: false,
-    errors,
-    valid: errors.length === 0,
-  };
+  return errors.length === 0 ? { kind: "valid" } : { kind: "invalid", errors };
 }
