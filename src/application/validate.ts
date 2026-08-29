@@ -91,8 +91,9 @@ export function validatePlan(
     let json: Partial<Task>;
     try {
       json = JSON.parse(raw);
-    } catch (e: any) {
-      errors.push(`File ${file} is not valid JSON: ${e.message}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      errors.push(`File ${file} is not valid JSON: ${message}`);
       continue;
     }
 
