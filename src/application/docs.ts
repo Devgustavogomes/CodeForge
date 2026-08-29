@@ -55,7 +55,7 @@ function loadOrCreateManifest(gw: WorkspaceGateway, manifestPath: string): DocsM
   if (gw.exists(manifestPath)) {
     try {
       return JSON.parse(gw.readFile(manifestPath)) as DocsManifest;
-    } catch (e) {
+    } catch {
       // Corrupted file, recreate
     }
   }
@@ -87,7 +87,7 @@ export function prepareDocsPrompt(gw: WorkspaceGateway, docName: string, specNam
       if (manifest?.documents?.[docName]) {
         alreadyExists = true;
       }
-    } catch (e) {
+    } catch {
       // Ignored
     }
   }
