@@ -7,14 +7,20 @@ export function registerTaskCompleteCommand(task: Command): void {
     .description("Mark a task as completed")
     .action((spec: string, taskId: string) => {
       const workspacePath = process.cwd();
-      const success = markTaskCompleted(workspacePath, spec, taskId);
+      const result = markTaskCompleted(workspacePath, spec, taskId);
       
-      if (!success) {
+      if (!result.success) {
         console.error(`\n✗ Failed to mark task as completed. Check if spec '${spec}' is running and task '${taskId}' exists.\n`);
         process.exitCode = 1;
         return;
       }
 
-      console.log(`\n✓ Task '${taskId}' for spec '${spec}' marked as completed.\n`);
+      console.log(`\n✓ Task '${taskId}' for spec '${spec}' marked as completed.`);
+
+      if (result.allCompleted) {
+        console.log(`\n🎉 All tasks for spec '${spec}' are completed! Execution status updated to 'completed'.\n`);
+      } else {
+        console.log();
+      }
     });
 }

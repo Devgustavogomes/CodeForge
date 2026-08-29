@@ -167,18 +167,28 @@ export function markTaskCompleted(
   workspacePath: string,
   specName: string,
   taskId: string,
-): boolean {
+): { success: boolean; allCompleted?: boolean } {
   const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
   const executionsDir = path.join(codeforgeRoot, "executions");
   const state = loadState(executionsDir, specName);
 
   if (!state || !state.tasks[taskId]) {
-    return false;
+    return { success: false };
   }
 
   state.tasks[taskId].status = "completed";
+
+  // Check if all tasks are now completed
+  const allCompleted = Object.values(state.tasks).every(
+    (t) => t.status === "completed",
+  );
+
+  if (allCompleted) {
+    state.status = "completed";
+  }
+
   saveState(executionsDir, state);
-  return true;
+  return { success: true, allCompleted };
 }
 
 export function retryTask(
