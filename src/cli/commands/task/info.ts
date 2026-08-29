@@ -115,8 +115,9 @@ export function registerTaskInfoCommand(task: Command): void {
           );
           console.log();
         }
-      } catch (err) {
-        console.error(`\n✗ Error reading task JSON: ${err}\n`);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error(`\n✗ Error reading task JSON: ${errorMessage}\n`);
         process.exitCode = 1;
       }
     });
