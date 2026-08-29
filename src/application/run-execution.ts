@@ -1,10 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
 import { SpecExecutionState } from "../domain/execution.js";
 import { Task } from "../domain/task.js";
 import { buildContextPrompt } from "./context-builder.js";
-
-const CODEFORGE_DIR = ".codeforge";
+import { WorkspaceGateway } from "../infrastructure/workspace.js";
+import { PATHS } from "../infrastructure/paths.js";
 
 export type RunResult =
   | { kind: "not-initialized" }
@@ -24,26 +22,26 @@ export type RetryResult =
   | { kind: "retried" };
 
 function loadState(
-  executionsDir: string,
+  gw: WorkspaceGateway,
   specName: string,
 ): SpecExecutionState | null {
-  const statePath = path.join(executionsDir, `${specName}.json`);
-  if (fs.existsSync(statePath)) {
+  const statePath = PATHS.executionState(specName);
+  if (gw.exists(statePath)) {
     return JSON.parse(
-      fs.readFileSync(statePath, "utf-8"),
+      gw.readFile(statePath),
     ) as SpecExecutionState;
   }
   return null;
 }
 
-function saveState(executionsDir: string, state: SpecExecutionState) {
-  const statePath = path.join(executionsDir, `${state.specId}.json`);
+function saveState(gw: WorkspaceGateway, state: SpecExecutionState) {
+  const statePath = PATHS.executionState(state.specId);
   state.updatedAt = new Date().toISOString();
-  fs.writeFileSync(statePath, JSON.stringify(state, null, 2), "utf-8");
+  gw.writeFile(statePath, JSON.stringify(state, null, 2));
 }
 
 function initExecutionState(
-  tasksDir: string,
+  gw: WorkspaceGateway,
   specName: string,
 ): SpecExecutionState {
   const state: SpecExecutionState = {
@@ -53,7 +51,8 @@ function initExecutionState(
     updatedAt: new Date().toISOString(),
   };
 
-  const files = fs.readdirSync(tasksDir).filter((f) => f.endsWith(".json"));
+  const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  const files = gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
   for (const file of files) {
     const taskId = file.replace(".json", "");
     state.tasks[taskId] = { status: "pending" };
@@ -62,28 +61,26 @@ function initExecutionState(
 }
 
 export function runExecution(
-  workspacePath: string,
+  gw: WorkspaceGateway,
   specName: string,
 ): RunResult {
-  const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
-  if (!fs.existsSync(path.join(codeforgeRoot, "metadata.json"))) {
+  if (!gw.exists(PATHS.metadata)) {
     return { kind: "not-initialized" };
   }
 
-  const tasksDir = path.join(codeforgeRoot, "tasks", specName);
-  if (!fs.existsSync(tasksDir)) {
+  const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  if (!gw.exists(tasksDir)) {
     return { kind: "spec-not-found" };
   }
 
-  const executionsDir = path.join(codeforgeRoot, "executions");
-  if (!fs.existsSync(executionsDir)) {
-    fs.mkdirSync(executionsDir, { recursive: true });
+  if (!gw.exists(PATHS.executionsDir)) {
+    gw.mkdir(PATHS.executionsDir);
   }
 
-  let state = loadState(executionsDir, specName);
+  let state = loadState(gw, specName);
   if (!state) {
-    state = initExecutionState(tasksDir, specName);
-    saveState(executionsDir, state);
+    state = initExecutionState(gw, specName);
+    saveState(gw, state);
   }
 
   // Check if everything is done
@@ -96,7 +93,7 @@ export function runExecution(
 
   if (pendingTasks.length === 0) {
     state.status = "completed";
-    saveState(executionsDir, state);
+    saveState(gw, state);
     return { kind: "finished" };
   }
 
@@ -105,10 +102,10 @@ export function runExecution(
   let taskDef: Task | null = null;
 
   for (const id of pendingTasks) {
-    const taskPath = path.join(tasksDir, `${id}.json`);
-    if (!fs.existsSync(taskPath)) continue;
+    const taskPath = `${tasksDir}/${id}.json`;
+    if (!gw.exists(taskPath)) continue;
 
-    const parsed = JSON.parse(fs.readFileSync(taskPath, "utf-8")) as Task;
+    const parsed = JSON.parse(gw.readFile(taskPath)) as Task;
     const deps = parsed.dependencies || [];
     const allDepsCompleted = deps.every(
       (dep) => state!.tasks[dep] && state!.tasks[dep].status === "completed",
@@ -130,28 +127,26 @@ export function runExecution(
   }
 
   // Build context
-  const specExecDir = path.join(executionsDir, specName);
-  if (!fs.existsSync(specExecDir))
-    fs.mkdirSync(specExecDir, { recursive: true });
+  const specExecDir = `${PATHS.executionsDir}/${specName}`;
+  if (!gw.exists(specExecDir))
+    gw.mkdir(specExecDir);
 
-  const promptPath = path.join(specExecDir, `${taskToRun}.prompt.md`);
-  const promptContent = buildContextPrompt(workspacePath, specName, taskDef);
-  fs.writeFileSync(promptPath, promptContent, "utf-8");
+  const promptPath = `${specExecDir}/${taskToRun}.prompt.md`;
+  const promptContent = buildContextPrompt(gw, specName, taskDef);
+  gw.writeFile(promptPath, promptContent);
 
   state.tasks[taskToRun].status = "running";
-  saveState(executionsDir, state);
+  saveState(gw, state);
 
   return { kind: "task-ready", taskId: taskToRun, promptPath };
 }
 
 export function markTaskCompleted(
-  workspacePath: string,
+  gw: WorkspaceGateway,
   specName: string,
   taskId: string,
 ): MarkCompleteResult {
-  const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
-  const executionsDir = path.join(codeforgeRoot, "executions");
-  const state = loadState(executionsDir, specName);
+  const state = loadState(gw, specName);
 
   if (!state) {
     return { kind: "not-found" };
@@ -171,18 +166,16 @@ export function markTaskCompleted(
     state.status = "completed";
   }
 
-  saveState(executionsDir, state);
+  saveState(gw, state);
   return { kind: "completed", allCompleted };
 }
 
 export function retryTask(
-  workspacePath: string,
+  gw: WorkspaceGateway,
   specName: string,
   taskId: string,
 ): RetryResult {
-  const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
-  const executionsDir = path.join(codeforgeRoot, "executions");
-  const state = loadState(executionsDir, specName);
+  const state = loadState(gw, specName);
 
   if (!state) {
     return { kind: "not-found" };
@@ -202,6 +195,6 @@ export function retryTask(
   }
 
   state.tasks[taskId].status = "pending";
-  saveState(executionsDir, state);
+  saveState(gw, state);
   return { kind: "retried" };
 }

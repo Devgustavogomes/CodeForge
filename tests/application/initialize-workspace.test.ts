@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +21,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates the .codeforge directory structure", () => {
-    initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     const root = path.join(tempDir, ".codeforge");
     expect(fs.existsSync(root)).toBe(true);
@@ -28,7 +29,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates all expected subdirectories (no plans/)", () => {
-    initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     const subdirs = ["specs", "tasks", "executions", "rules"];
     for (const sub of subdirs) {
@@ -42,7 +43,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates config.yaml with default structure if not provided", () => {
-    initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
     const configPath = path.join(tempDir, ".codeforge", "config.yaml");
     expect(fs.existsSync(configPath)).toBe(true);
     const content = fs.readFileSync(configPath, "utf-8");
@@ -50,14 +51,14 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates rules/planning.md from embedded ts constant", () => {
-    initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     const planningPath = path.join(tempDir, ".codeforge", "rules", "planning.md");
     expect(fs.existsSync(planningPath)).toBe(true);
   });
 
   it("planning.md contains the expected sections", () => {
-    initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     const planningPath = path.join(tempDir, ".codeforge", "rules", "planning.md");
     const content = fs.readFileSync(planningPath, "utf-8");
@@ -71,7 +72,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates metadata.json with initialized: true", () => {
-    initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     const metadataPath = path.join(tempDir, ".codeforge", "metadata.json");
     expect(fs.existsSync(metadataPath)).toBe(true);
@@ -83,7 +84,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("returns the list of created entries", () => {
-    const result = initializeWorkspace(tempDir);
+    const result = initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     expect(result.kind).toBe("created");
     if (result.kind === "created") {
@@ -102,20 +103,20 @@ describe("initializeWorkspace", () => {
   });
 
   it("returns alreadyInitialized: true on second run", () => {
-    initializeWorkspace(tempDir);
-    const result = initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
+    const result = initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     expect(result.kind).toBe("already-initialized");
   });
 
   it("does not overwrite existing files on second run", () => {
-    initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     const configPath = path.join(tempDir, ".codeforge", "config.yaml");
     const originalContent = fs.readFileSync(configPath, "utf-8");
     fs.writeFileSync(configPath, "# modified by user\n", "utf-8");
 
-    initializeWorkspace(tempDir);
+    initializeWorkspace(new NodeWorkspaceGateway(tempDir));
 
     const contentAfter = fs.readFileSync(configPath, "utf-8");
     expect(contentAfter).toBe("# modified by user\n");
@@ -127,7 +128,7 @@ describe("initializeWorkspace", () => {
     fs.mkdirSync(root);
     fs.writeFileSync(path.join(root, "config.yaml"), "# partial\n", "utf-8");
 
-    const result = initializeWorkspace(tempDir);
+    const result = initializeWorkspace(new NodeWorkspaceGateway(tempDir));
     expect(result.kind).toBe("created");
 
     const metadataPath = path.join(root, "metadata.json");

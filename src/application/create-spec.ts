@@ -1,8 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
-
-const CODEFORGE_DIR = ".codeforge";
-const SPECS_DIR = "specs";
+import { WorkspaceGateway } from "../infrastructure/workspace.js";
+import { PATHS } from "../infrastructure/paths.js";
 
 export type CreateSpecResult =
   | { kind: "not-initialized" }
@@ -54,25 +51,21 @@ function buildTemplate(name: string): string {
 }
 
 export function createSpec(
-  workspacePath: string,
+  gw: WorkspaceGateway,
   name: string
 ): CreateSpecResult {
-  const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
-  const metadataPath = path.join(codeforgeRoot, "metadata.json");
-
-  if (!fs.existsSync(metadataPath)) {
+  if (!gw.exists(PATHS.metadata)) {
     return { kind: "not-initialized" };
   }
 
   const slug = name.toLowerCase().replace(/\s+/g, "-");
-  const fileName = `${slug}.md`;
-  const filePath = path.join(codeforgeRoot, SPECS_DIR, fileName);
+  const filePath = PATHS.specFile(slug);
 
-  if (fs.existsSync(filePath)) {
+  if (gw.exists(filePath)) {
     return { kind: "already-exists", filePath };
   }
 
-  fs.writeFileSync(filePath, buildTemplate(name), "utf-8");
+  gw.writeFile(filePath, buildTemplate(name));
 
   return { kind: "created", filePath };
 }

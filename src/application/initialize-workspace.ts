@@ -1,11 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
 import { planningRule } from "../rules/planning.js";
 import { runningRule } from "../rules/running.js";
 import { docsRule, docsUpdateRule } from "../rules/docs.js";
-
-const CODEFORGE_DIR = ".codeforge";
-const METADATA_FILE = "metadata.json";
+import { WorkspaceGateway } from "../infrastructure/workspace.js";
+import { PATHS } from "../infrastructure/paths.js";
 
 const SUBDIRECTORIES = ["specs", "tasks", "executions", "rules", "docs"];
 
@@ -20,13 +17,10 @@ export type InitResult =
   | { kind: "created"; created: string[] };
 
 export function initializeWorkspace(
-  workspacePath: string,
+  gw: WorkspaceGateway,
 ): InitResult {
-  const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
-  const metadataPath = path.join(codeforgeRoot, METADATA_FILE);
-
-  if (fs.existsSync(metadataPath)) {
-    const raw = fs.readFileSync(metadataPath, "utf-8");
+  if (gw.exists(PATHS.metadata)) {
+    const raw = gw.readFile(PATHS.metadata);
     const metadata = JSON.parse(raw) as WorkspaceMetadata;
     if (metadata.initialized) {
       return { kind: "already-initialized" };
@@ -35,52 +29,46 @@ export function initializeWorkspace(
 
   const created: string[] = [];
 
-  if (!fs.existsSync(codeforgeRoot)) {
-    fs.mkdirSync(codeforgeRoot, { recursive: true });
-    created.push(`${CODEFORGE_DIR}/`);
+  if (!gw.exists(".codeforge")) {
+    gw.mkdir(".codeforge");
+    created.push(`.codeforge/`);
   }
 
-  const configPath = path.join(codeforgeRoot, "config.yaml");
-  if (!fs.existsSync(configPath)) {
+  if (!gw.exists(PATHS.config)) {
     const configContent = `version: "1.0"\n`;
-    fs.writeFileSync(configPath, configContent, "utf-8");
-    created.push(`${CODEFORGE_DIR}/config.yaml`);
+    gw.writeFile(PATHS.config, configContent);
+    created.push(PATHS.config);
   }
 
   for (const sub of SUBDIRECTORIES) {
-    const dirPath = path.join(codeforgeRoot, sub);
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-      created.push(`${CODEFORGE_DIR}/${sub}/`);
+    const dirPath = `.codeforge/${sub}`;
+    if (!gw.exists(dirPath)) {
+      gw.mkdir(dirPath);
+      created.push(`${dirPath}/`);
     }
   }
 
   // Write planning rules
-  const planningRulesPath = path.join(codeforgeRoot, "rules", "planning.md");
-  fs.writeFileSync(planningRulesPath, planningRule, "utf-8");
-  created.push(`${CODEFORGE_DIR}/rules/planning.md`);
+  gw.writeFile(PATHS.planningRules, planningRule);
+  created.push(PATHS.planningRules);
 
   // Write running rules
-  const runningRulesPath = path.join(codeforgeRoot, "rules", "running.md");
-  fs.writeFileSync(runningRulesPath, runningRule, "utf-8");
-  created.push(`${CODEFORGE_DIR}/rules/running.md`);
+  gw.writeFile(PATHS.runningRules, runningRule);
+  created.push(PATHS.runningRules);
 
   // Write docs rules
-  const docsRulesPath = path.join(codeforgeRoot, "rules", "docs.md");
-  fs.writeFileSync(docsRulesPath, docsRule, "utf-8");
-  created.push(`${CODEFORGE_DIR}/rules/docs.md`);
+  gw.writeFile(PATHS.docsRules, docsRule);
+  created.push(PATHS.docsRules);
 
   // Write docs-update rules
-  const docsUpdateRulesPath = path.join(codeforgeRoot, "rules", "docs-update.md");
-  fs.writeFileSync(docsUpdateRulesPath, docsUpdateRule, "utf-8");
-  created.push(`${CODEFORGE_DIR}/rules/docs-update.md`);
+  gw.writeFile(PATHS.docsUpdateRules, docsUpdateRule);
+  created.push(PATHS.docsUpdateRules);
 
   // Write docs/manifest.json
-  const docsManifestPath = path.join(codeforgeRoot, "docs", "manifest.json");
-  if (!fs.existsSync(docsManifestPath)) {
+  if (!gw.exists(PATHS.docsManifest)) {
     const docsManifestContent = JSON.stringify({ version: "1.0", documents: {} }, null, 2);
-    fs.writeFileSync(docsManifestPath, docsManifestContent, "utf-8");
-    created.push(`${CODEFORGE_DIR}/docs/manifest.json`);
+    gw.writeFile(PATHS.docsManifest, docsManifestContent);
+    created.push(PATHS.docsManifest);
   }
 
   // Written last — signals that initialization completed successfully.
@@ -89,8 +77,8 @@ export function initializeWorkspace(
     version: "1.0",
     initializedAt: new Date().toISOString(),
   };
-  fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), "utf-8");
-  created.push(`${CODEFORGE_DIR}/metadata.json`);
+  gw.writeFile(PATHS.metadata, JSON.stringify(metadata, null, 2));
+  created.push(PATHS.metadata);
 
   return { kind: "created", created };
 }

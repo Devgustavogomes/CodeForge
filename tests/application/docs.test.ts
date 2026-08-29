@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -65,20 +66,20 @@ describe("prepareDocsPrompt", () => {
   });
 
   it("returns notInitialized when metadata.json is missing", () => {
-    const result = prepareDocsPrompt(tempDir, "my-doc", "auth");
+    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
   it("returns specNotFound when the spec file does not exist", () => {
     makeWorkspace(tempDir);
-    const result = prepareDocsPrompt(tempDir, "my-doc", "missing-spec");
+    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "missing-spec");
     expect(result).toEqual({ kind: "spec-not-found" });
   });
 
   it("returns rulesNotFound when .codeforge/rules/docs.md is missing", () => {
     makeWorkspace(tempDir);
     writeSpec(tempDir, "auth");
-    const result = prepareDocsPrompt(tempDir, "my-doc", "auth");
+    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
     expect(result).toEqual({ kind: "rules-not-found" });
   });
 
@@ -93,7 +94,7 @@ describe("prepareDocsPrompt", () => {
       "utf-8"
     );
 
-    const result = prepareDocsPrompt(tempDir, "my-doc", "auth");
+    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
     expect(result).toEqual({ kind: "already-exists" });
   });
 
@@ -120,7 +121,7 @@ describe("prepareDocsPrompt", () => {
       "utf-8"
     );
 
-    const result = prepareDocsPrompt(tempDir, "my-doc", "auth");
+    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
     expect(result).toEqual({ kind: "already-exists" });
   });
 
@@ -129,7 +130,7 @@ describe("prepareDocsPrompt", () => {
     writeSpec(tempDir, "auth", "MY SPEC CONTENT");
     writeDocsRules(tempDir, "MY DOCS RULES");
 
-    const result = prepareDocsPrompt(tempDir, "my-doc", "auth");
+    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
 
     expect(result).toHaveProperty("prompt");
     if (!("prompt" in result)) throw new Error("expected prompt");
@@ -142,7 +143,7 @@ describe("prepareDocsPrompt", () => {
     writeSpec(tempDir, "auth");
     writeDocsRules(tempDir);
 
-    const result = prepareDocsPrompt(tempDir, "my-doc", "auth");
+    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
 
     expect(result).toHaveProperty("prompt");
     if (!("prompt" in result)) throw new Error("expected prompt");
@@ -154,7 +155,7 @@ describe("prepareDocsPrompt", () => {
     writeSpec(tempDir, "auth");
     writeDocsRules(tempDir);
 
-    prepareDocsPrompt(tempDir, "my-doc", "auth");
+    prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
 
     const manifestPath = path.join(tempDir, ".codeforge", "docs", "manifest.json");
     expect(fs.existsSync(manifestPath)).toBe(true);
@@ -171,8 +172,8 @@ describe("prepareDocsPrompt", () => {
     writeSpec(tempDir, "billing");
     writeDocsRules(tempDir);
 
-    prepareDocsPrompt(tempDir, "doc-one", "auth");
-    prepareDocsPrompt(tempDir, "doc-two", "billing");
+    prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "doc-one", "auth");
+    prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "doc-two", "billing");
 
     const manifestPath = path.join(tempDir, ".codeforge", "docs", "manifest.json");
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -197,20 +198,20 @@ describe("prepareDocsUpdatePrompt", () => {
   });
 
   it("returns notInitialized when metadata.json is missing", () => {
-    const result = prepareDocsUpdatePrompt(tempDir, "auth");
+    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth");
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
   it("returns specNotFound when the spec file does not exist", () => {
     makeWorkspace(tempDir);
-    const result = prepareDocsUpdatePrompt(tempDir, "missing-spec");
+    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "missing-spec");
     expect(result).toEqual({ kind: "spec-not-found" });
   });
 
   it("returns rulesNotFound when docs-update.md rules are missing", () => {
     makeWorkspace(tempDir);
     writeSpec(tempDir, "auth");
-    const result = prepareDocsUpdatePrompt(tempDir, "auth");
+    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth");
     expect(result).toEqual({ kind: "rules-not-found" });
   });
 
@@ -219,7 +220,7 @@ describe("prepareDocsUpdatePrompt", () => {
     writeSpec(tempDir, "auth");
     writeDocsUpdateRules(tempDir);
 
-    const result = prepareDocsUpdatePrompt(tempDir, "auth");
+    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth");
     expect(result).toEqual({ kind: "no-git" });
   });
 
@@ -249,7 +250,7 @@ describe("prepareDocsUpdatePrompt", () => {
 
     // git diff will throw (no real git repo), which is caught and returns noChangedFiles.
     // Docs with empty scope also produce noAffectedDocs. Both are valid early-exits.
-    const result = prepareDocsUpdatePrompt(tempDir, "auth");
+    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth");
     const validKinds = ["no-changed-files", "no-affected-docs"];
     expect(validKinds.includes(result.kind)).toBe(true);
   });
@@ -281,7 +282,7 @@ describe("buildDocUpdatePrompt", () => {
       matchedFiles: [],
     };
 
-    const prompt = buildDocUpdatePrompt(tempDir, "auth", affectedDoc);
+    const prompt = buildDocUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth", affectedDoc);
     expect(prompt).toContain("MY UPDATE RULES");
   });
 
@@ -297,7 +298,7 @@ describe("buildDocUpdatePrompt", () => {
       matchedFiles: [],
     };
 
-    const prompt = buildDocUpdatePrompt(tempDir, "auth", affectedDoc);
+    const prompt = buildDocUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth", affectedDoc);
     expect(prompt).toContain("api-reference");
   });
 
@@ -313,7 +314,7 @@ describe("buildDocUpdatePrompt", () => {
       matchedFiles: [],
     };
 
-    const prompt = buildDocUpdatePrompt(tempDir, "auth", affectedDoc);
+    const prompt = buildDocUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth", affectedDoc);
     expect(prompt).toContain(".codeforge/docs/api-reference.md");
   });
 
@@ -329,7 +330,7 @@ describe("buildDocUpdatePrompt", () => {
       matchedFiles: [],
     };
 
-    const prompt = buildDocUpdatePrompt(tempDir, "auth", affectedDoc);
+    const prompt = buildDocUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth", affectedDoc);
     expect(prompt).toContain(".codeforge/specs/auth.md");
   });
 });
@@ -349,20 +350,20 @@ describe("prepareManualDocUpdate", () => {
   });
 
   it("returns notInitialized when metadata.json is missing", () => {
-    const result = prepareManualDocUpdate(tempDir, "auth", "api-reference");
+    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
   it("returns specNotFound when the spec file does not exist", () => {
     makeWorkspace(tempDir);
-    const result = prepareManualDocUpdate(tempDir, "missing-spec", "api-reference");
+    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "missing-spec", "api-reference");
     expect(result).toEqual({ kind: "spec-not-found" });
   });
 
   it("returns rulesNotFound when docs-update.md rules are missing", () => {
     makeWorkspace(tempDir);
     writeSpec(tempDir, "auth");
-    const result = prepareManualDocUpdate(tempDir, "auth", "api-reference");
+    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
     expect(result).toEqual({ kind: "rules-not-found" });
   });
 
@@ -371,7 +372,7 @@ describe("prepareManualDocUpdate", () => {
     writeSpec(tempDir, "auth");
     writeDocsUpdateRules(tempDir);
 
-    const result = prepareManualDocUpdate(tempDir, "auth", "non-existent-doc");
+    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "non-existent-doc");
     expect(result).toEqual({ kind: "doc-not-found" });
   });
 
@@ -398,7 +399,7 @@ describe("prepareManualDocUpdate", () => {
       "utf-8"
     );
 
-    const result = prepareManualDocUpdate(tempDir, "auth", "api-reference");
+    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
 
     expect(result).toHaveProperty("doc");
     if (!("doc" in result)) throw new Error("expected doc");
@@ -419,7 +420,7 @@ describe("prepareManualDocUpdate", () => {
       "utf-8"
     );
 
-    const result = prepareManualDocUpdate(tempDir, "auth", "api-reference");
+    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
 
     expect(result).toHaveProperty("doc");
     if (!("doc" in result)) throw new Error("expected doc");
@@ -438,7 +439,7 @@ describe("prepareManualDocUpdate", () => {
       "utf-8"
     );
 
-    const result = prepareManualDocUpdate(tempDir, "auth", "api-reference");
+    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
     if (!("doc" in result)) throw new Error("expected doc");
     expect(result.doc.specPaths).toEqual([]);
   });

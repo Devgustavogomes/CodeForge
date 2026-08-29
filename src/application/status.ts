@@ -1,9 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
 import { SpecExecutionState, TaskStatus } from "../domain/execution.js";
 import { Task } from "../domain/task.js";
-
-const CODEFORGE_DIR = ".codeforge";
+import { WorkspaceGateway } from "../infrastructure/workspace.js";
+import { PATHS } from "../infrastructure/paths.js";
 
 export interface TaskStatusInfo {
   id: string;
@@ -19,36 +17,34 @@ export type StatusResult =
   | { kind: "status"; specName: string; specStatus: string; tasks: TaskStatusInfo[]; updatedAt: string };
 
 export function getSpecStatus(
-  workspacePath: string,
+  gw: WorkspaceGateway,
   specName: string,
 ): StatusResult {
-  const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
-
-  if (!fs.existsSync(path.join(codeforgeRoot, "metadata.json"))) {
+  if (!gw.exists(PATHS.metadata)) {
     return { kind: "not-initialized" };
   }
 
-  const tasksDir = path.join(codeforgeRoot, "tasks", specName);
-  if (!fs.existsSync(tasksDir)) {
+  const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  if (!gw.exists(tasksDir)) {
     return { kind: "spec-not-found" };
   }
 
-  const statePath = path.join(codeforgeRoot, "executions", `${specName}.json`);
-  if (!fs.existsSync(statePath)) {
+  const statePath = PATHS.executionState(specName);
+  if (!gw.exists(statePath)) {
     return { kind: "no-execution", specName };
   }
 
   const state = JSON.parse(
-    fs.readFileSync(statePath, "utf-8"),
+    gw.readFile(statePath),
   ) as SpecExecutionState;
 
   const tasks: TaskStatusInfo[] = [];
 
-  const taskFiles = fs.readdirSync(tasksDir).filter((f) => f.endsWith(".json"));
+  const taskFiles = gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
   for (const file of taskFiles) {
     const taskId = file.replace(".json", "");
-    const taskPath = path.join(tasksDir, file);
-    const taskDef = JSON.parse(fs.readFileSync(taskPath, "utf-8")) as Task;
+    const taskPath = `${tasksDir}/${file}`;
+    const taskDef = JSON.parse(gw.readFile(taskPath)) as Task;
 
     tasks.push({
       id: taskId,

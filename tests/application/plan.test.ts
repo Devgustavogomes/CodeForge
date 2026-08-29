@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +33,7 @@ describe("getAvailableSpecs", () => {
   });
 
   it("returns empty array if not initialized", () => {
-    expect(getAvailableSpecs(tempDir)).toEqual([]);
+    expect(getAvailableSpecs(new NodeWorkspaceGateway(tempDir))).toEqual([]);
   });
 
   it("returns only .md files without extension", () => {
@@ -42,7 +43,7 @@ describe("getAvailableSpecs", () => {
     fs.writeFileSync(path.join(tempDir, ".codeforge", "specs", "db.md"), "");
     fs.writeFileSync(path.join(tempDir, ".codeforge", "specs", "readme.txt"), "");
 
-    const specs = getAvailableSpecs(tempDir);
+    const specs = getAvailableSpecs(new NodeWorkspaceGateway(tempDir));
     expect(specs).toHaveLength(2);
     expect(specs).toContain("auth");
     expect(specs).toContain("db");
@@ -61,13 +62,13 @@ describe("preparePlanningPrompt", () => {
   });
 
   it("returns notInitialized if metadata.json is missing", () => {
-    const result = preparePlanningPrompt(tempDir, "auth");
+    const result = preparePlanningPrompt(new NodeWorkspaceGateway(tempDir), "auth");
     expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound if spec does not exist", () => {
     makeWorkspace(tempDir);
-    const result = preparePlanningPrompt(tempDir, "missing-spec");
+    const result = preparePlanningPrompt(new NodeWorkspaceGateway(tempDir), "missing-spec");
     
     expect(result.kind).toBe("spec-not-found");
   });
@@ -87,14 +88,14 @@ describe("preparePlanningPrompt", () => {
       "utf-8"
     );
 
-    const result = preparePlanningPrompt(tempDir, "auth");
+    const result = preparePlanningPrompt(new NodeWorkspaceGateway(tempDir), "auth");
 
     expect(result.kind).toBe("ready");
     if (result.kind === "ready") {
       expect(result.prompt).toContain("SYSTEM PROMPT FOR AI AGENT");
       expect(result.prompt).toContain("--- SPEC: auth ---");
       expect(result.prompt).toContain("--- RULES ---");
-      expect(result.prompt).toContain(".codeforge/tasks/auth/");
+      expect(result.prompt).toContain(".codeforge/tasks/auth");
     }
 
     // Verifies tasks directory was created

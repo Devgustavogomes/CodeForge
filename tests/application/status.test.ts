@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -55,20 +56,20 @@ describe("getSpecStatus", () => {
   });
 
   it("returns notInitialized when metadata is missing", () => {
-    const result = getSpecStatus(tempDir, "test-spec");
+    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound when tasks directory is missing", () => {
     makeWorkspace(tempDir);
-    const result = getSpecStatus(tempDir, "nonexistent");
+    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "nonexistent");
     expect(result.kind).toBe("spec-not-found");
   });
 
   it("returns noExecution when no execution state exists", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", "Setup", []);
-    const result = getSpecStatus(tempDir, "test-spec");
+    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("no-execution");
   });
 
@@ -89,7 +90,7 @@ describe("getSpecStatus", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(tempDir, "test-spec");
+    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
 
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
@@ -116,7 +117,7 @@ describe("getSpecStatus", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(tempDir, "test-spec");
+    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
 
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
@@ -142,7 +143,7 @@ describe("getSpecStatus", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(tempDir, "test-spec");
+    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
       expect(result.tasks.map((t) => t.id)).toEqual(["TASK-001", "TASK-002", "TASK-003"]);

@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -39,7 +40,7 @@ describe("buildContextPrompt", () => {
       acceptanceCriteria: ["Must work"]
     };
 
-    const prompt = buildContextPrompt(tempDir, "auth", task);
+    const prompt = buildContextPrompt(new NodeWorkspaceGateway(tempDir), "auth", task);
 
     expect(prompt).toContain("SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)");
     expect(prompt).toContain("TASK-001 - Login");
@@ -70,7 +71,7 @@ describe("buildContextPrompt", () => {
       acceptanceCriteria: []
     };
 
-    const prompt = buildContextPrompt(tempDir, "auth", task);
+    const prompt = buildContextPrompt(new NodeWorkspaceGateway(tempDir), "auth", task);
 
     // It should include the contents of the existing file
     expect(prompt).toContain("### File: src/index.ts");

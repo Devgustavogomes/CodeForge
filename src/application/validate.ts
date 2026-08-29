@@ -1,8 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
 import { Task } from "../domain/task.js";
-
-const CODEFORGE_DIR = ".codeforge";
+import { WorkspaceGateway } from "../infrastructure/workspace.js";
+import { PATHS } from "../infrastructure/paths.js";
 
 export type ValidationResult =
   | { kind: "not-initialized" }
@@ -52,24 +50,21 @@ function hasCycle(adjList: Map<string, string[]>): string[] | null {
 }
 
 export function validatePlan(
-  workspacePath: string,
+  gw: WorkspaceGateway,
   specName: string,
   taskId?: string,
 ): ValidationResult {
-  const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
-  const metadataPath = path.join(codeforgeRoot, "metadata.json");
-
-  if (!fs.existsSync(metadataPath)) {
+  if (!gw.exists(PATHS.metadata)) {
     return { kind: "not-initialized" };
   }
 
-  const tasksDir = path.join(codeforgeRoot, "tasks", specName);
-  if (!fs.existsSync(tasksDir)) {
+  const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  if (!gw.exists(tasksDir)) {
     return { kind: "spec-not-found" };
   }
 
   const errors: string[] = [];
-  let files = fs.readdirSync(tasksDir).filter((f) => f.endsWith(".json"));
+  let files = gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
 
   if (taskId) {
     const expectedFile = `${taskId}.json`;
@@ -90,8 +85,8 @@ export function validatePlan(
 
   // 1. File parsing and schema validation
   for (const file of files) {
-    const filePath = path.join(tasksDir, file);
-    const raw = fs.readFileSync(filePath, "utf-8");
+    const filePath = `${tasksDir}/${file}`;
+    const raw = gw.readFile(filePath);
 
     let json: Partial<Task>;
     try {

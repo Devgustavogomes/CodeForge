@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -52,7 +53,7 @@ describe("validatePlan", () => {
   });
 
   it("returns notInitialized if metadata missing", () => {
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("not-initialized");
   });
 
@@ -61,13 +62,13 @@ describe("validatePlan", () => {
     fs.mkdirSync(root);
     fs.writeFileSync(path.join(root, "metadata.json"), "{}");
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("spec-not-found");
   });
 
   it("fails if no JSON files found", () => {
     makeWorkspace(tempDir);
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
@@ -80,7 +81,7 @@ describe("validatePlan", () => {
     const p = path.join(tempDir, ".codeforge", "tasks", "test-spec", "TASK-001.json");
     fs.writeFileSync(p, "{ invalid_json: true }");
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors[0]).toContain("is not valid JSON");
@@ -92,7 +93,7 @@ describe("validatePlan", () => {
     // Missing title and objective
     writeTask(tempDir, "test-spec", { id: "TASK-001", dependencies: [] });
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors.some(e => e.includes("missing required field: \"title\""))).toBe(true);
@@ -103,7 +104,7 @@ describe("validatePlan", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "test-spec", validTask("TASK-002"), "TASK-001.json");
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors.some(e => e.includes("does not match filename"))).toBe(true);
@@ -114,7 +115,7 @@ describe("validatePlan", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-999"]));
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors.some(e => e.includes("depends on nonexistent task"))).toBe(true);
@@ -126,7 +127,7 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-002"]));
     writeTask(tempDir, "test-spec", validTask("TASK-002", ["TASK-001"]));
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors.some(e => e.includes("Circular dependency detected"))).toBe(true);
@@ -137,7 +138,7 @@ describe("validatePlan", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-001"]));
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors.some(e => e.includes("Circular dependency detected"))).toBe(true);
@@ -150,7 +151,7 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-002", ["TASK-003"]));
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-002"]));
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("valid");
   });
 
@@ -168,7 +169,7 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-002", ["TASK-003", "TASK-004"]));
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-002"]));
 
-    const result = validatePlan(tempDir, "test-spec");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("valid");
   });
 
@@ -177,7 +178,7 @@ describe("validatePlan", () => {
     writeTask(tempDir, "test-spec", validTask("TASK-001", ["TASK-999"])); // TASK-999 is missing, full DAG would fail
 
     // Validating only TASK-001 skips DAG, so it should be valid
-    const result = validatePlan(tempDir, "test-spec", "TASK-001");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-001");
     expect(result.kind).toBe("valid");
   });
 
@@ -185,7 +186,7 @@ describe("validatePlan", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "test-spec", validTask("TASK-001"));
 
-    const result = validatePlan(tempDir, "test-spec", "TASK-002");
+    const result = validatePlan(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-002");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors[0]).toContain("Task file TASK-002.json not found");

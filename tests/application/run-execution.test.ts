@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
@@ -50,7 +51,7 @@ describe("runExecution", () => {
   });
 
   it("returns notInitialized if metadata missing", () => {
-    const result = runExecution(tempDir, "test-spec");
+    const result = runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(result.kind).toBe("not-initialized");
   });
 
@@ -58,7 +59,7 @@ describe("runExecution", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", []);
     
-    const result = runExecution(tempDir, "test-spec");
+    const result = runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
     
     expect(result.kind).toBe("task-ready");
     if (result.kind === "task-ready") {
@@ -71,7 +72,7 @@ describe("runExecution", () => {
     expect(state.tasks["TASK-001"].status).toBe("running");
 
     // Verify prompt was created
-      expect(fs.existsSync(result.promptPath!)).toBe(true);
+      expect(fs.existsSync(path.join(tempDir, result.promptPath!))).toBe(true);
     }
   });
 
@@ -81,18 +82,18 @@ describe("runExecution", () => {
     writeTask(tempDir, "TASK-002", ["TASK-001"]); // depends on 1
 
     // First run should pick TASK-001
-    const res1 = runExecution(tempDir, "test-spec");
+    const res1 = runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(res1.kind).toBe("task-ready");
     if (res1.kind === "task-ready") {
       expect(res1.taskId).toBe("TASK-001");
     }
 
     // Mark TASK-001 as completed
-    const success = markTaskCompleted(tempDir, "test-spec", "TASK-001");
+    const success = markTaskCompleted(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-001");
     expect(success.kind).toBe("completed");
 
     // Second run should pick TASK-002
-    const res2 = runExecution(tempDir, "test-spec");
+    const res2 = runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(res2.kind).toBe("task-ready");
     if (res2.kind === "task-ready") {
       expect(res2.taskId).toBe("TASK-002");
@@ -103,10 +104,10 @@ describe("runExecution", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", []);
 
-    runExecution(tempDir, "test-spec");
-    markTaskCompleted(tempDir, "test-spec", "TASK-001");
+    runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
+    markTaskCompleted(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-001");
 
-    const res = runExecution(tempDir, "test-spec");
+    const res = runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(res.kind).toBe("finished");
 
     const state = JSON.parse(fs.readFileSync(path.join(tempDir, ".codeforge", "executions", "test-spec.json"), "utf-8"));
@@ -130,9 +131,9 @@ describe("retryTask", () => {
     writeTask(tempDir, "TASK-001", []);
 
     // run puts it in "running" status
-    runExecution(tempDir, "test-spec");
+    runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
 
-    const result = retryTask(tempDir, "test-spec", "TASK-001");
+    const result = retryTask(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-001");
     expect(result.kind).toBe("retried");
 
     const state = JSON.parse(fs.readFileSync(path.join(tempDir, ".codeforge", "executions", "test-spec.json"), "utf-8"));
@@ -145,9 +146,9 @@ describe("retryTask", () => {
     writeTask(tempDir, "TASK-002", ["TASK-001"]);
 
     // run initializes state — TASK-002 stays pending
-    runExecution(tempDir, "test-spec");
+    runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
 
-    const result = retryTask(tempDir, "test-spec", "TASK-002");
+    const result = retryTask(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-002");
     expect(result.kind).toBe("already-pending");
   });
 
@@ -155,19 +156,19 @@ describe("retryTask", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", []);
 
-    runExecution(tempDir, "test-spec");
-    markTaskCompleted(tempDir, "test-spec", "TASK-001");
+    runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
+    markTaskCompleted(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-001");
 
-    const result = retryTask(tempDir, "test-spec", "TASK-001");
+    const result = retryTask(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-001");
     expect(result.kind).toBe("already-completed");
   });
 
   it("fails when task does not exist", () => {
     makeWorkspace(tempDir);
     writeTask(tempDir, "TASK-001", []);
-    runExecution(tempDir, "test-spec");
+    runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
 
-    const result = retryTask(tempDir, "test-spec", "TASK-999");
+    const result = retryTask(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-999");
     expect(result.kind).toBe("not-found");
   });
 
@@ -176,17 +177,17 @@ describe("retryTask", () => {
     writeTask(tempDir, "TASK-001", []);
 
     // First run — task goes to running
-    const res1 = runExecution(tempDir, "test-spec");
+    const res1 = runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(res1.kind).toBe("task-ready");
     if (res1.kind === "task-ready") {
       expect(res1.taskId).toBe("TASK-001");
     }
 
     // Retry — task goes back to pending
-    retryTask(tempDir, "test-spec", "TASK-001");
+    retryTask(new NodeWorkspaceGateway(tempDir), "test-spec", "TASK-001");
 
     // Run again — should pick TASK-001 again
-    const res2 = runExecution(tempDir, "test-spec");
+    const res2 = runExecution(new NodeWorkspaceGateway(tempDir), "test-spec");
     expect(res2.kind).toBe("task-ready");
     if (res2.kind === "task-ready") {
       expect(res2.taskId).toBe("TASK-001");
