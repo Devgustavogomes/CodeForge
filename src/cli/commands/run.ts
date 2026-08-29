@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../application/plan.js";
@@ -8,11 +9,11 @@ export function registerRunCommand(program: Command): void {
     .command("run [spec]")
     .description("Execute tasks for a given spec autonomously or manually")
     .action(async (spec?: string) => {
-      const workspacePath = process.cwd();
+      const gw = new NodeWorkspaceGateway(process.cwd());
       let specName = spec;
 
       if (!specName) {
-        const specs = getAvailableSpecs(workspacePath);
+        const specs = getAvailableSpecs(gw);
         
         if (specs.length === 0) {
           console.error("\n✗ No specs found.\n");
@@ -26,7 +27,7 @@ export function registerRunCommand(program: Command): void {
         });
       }
 
-      const result = runExecution(workspacePath, specName);
+      const result = runExecution(gw, specName);
       
       switch (result.kind) {
         case "not-initialized":

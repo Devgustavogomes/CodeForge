@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { markTaskCompleted } from "../../../application/run-execution.js";
 
@@ -6,8 +7,8 @@ export function registerTaskCompleteCommand(task: Command): void {
     .command("complete <spec> <taskId>")
     .description("Mark a task as completed")
     .action((spec: string, taskId: string) => {
-      const workspacePath = process.cwd();
-      const result = markTaskCompleted(workspacePath, spec, taskId);
+      const gw = new NodeWorkspaceGateway(process.cwd());
+      const result = markTaskCompleted(gw, spec, taskId);
       
       switch (result.kind) {
         case "not-found":

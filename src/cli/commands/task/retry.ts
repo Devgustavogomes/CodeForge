@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { retryTask } from "../../../application/run-execution.js";
 
@@ -6,8 +7,8 @@ export function registerTaskRetryCommand(task: Command): void {
     .command("retry <spec> <taskId>")
     .description("Reset a failed or running task back to pending")
     .action((spec: string, taskId: string) => {
-      const workspacePath = process.cwd();
-      const result = retryTask(workspacePath, spec, taskId);
+      const gw = new NodeWorkspaceGateway(process.cwd());
+      const result = retryTask(gw, spec, taskId);
 
       switch (result.kind) {
         case "not-found":

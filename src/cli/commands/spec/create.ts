@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { input } from "@inquirer/prompts";
 import { createSpec } from "../../../application/create-spec.js";
@@ -19,7 +20,8 @@ export function registerSpecCreateCommand(spec: Command): void {
       // Format name: lowercase and replace spaces with hyphens
       specName = specName.trim().toLowerCase().replace(/\s+/g, '-');
 
-      const result = createSpec(process.cwd(), specName);
+      const gw = new NodeWorkspaceGateway(process.cwd());
+      const result = createSpec(gw, specName);
 
       switch (result.kind) {
         case "not-initialized":

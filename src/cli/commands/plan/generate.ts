@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import {
@@ -10,11 +11,11 @@ export function registerPlanGenerateCommand(plan: Command): void {
     .command("generate [spec]")
     .description("Generate a planning prompt for an AI agent")
     .action(async (spec?: string) => {
-      const workspacePath = process.cwd();
+      const gw = new NodeWorkspaceGateway(process.cwd());
       let selectedSpec = spec;
 
       if (!selectedSpec) {
-        const specs = getAvailableSpecs(workspacePath);
+        const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
           console.error(
@@ -30,7 +31,7 @@ export function registerPlanGenerateCommand(plan: Command): void {
         });
       }
 
-      const result = preparePlanningPrompt(workspacePath, selectedSpec);
+      const result = preparePlanningPrompt(gw, selectedSpec);
 
       switch (result.kind) {
         case "not-initialized":

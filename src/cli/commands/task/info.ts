@@ -1,21 +1,21 @@
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
+import { PATHS } from "../../../infrastructure/paths.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../../application/plan.js";
-import fs from "node:fs";
-import path from "node:path";
 
 export function registerTaskInfoCommand(task: Command): void {
   task
     .command("info [spec] [taskId]")
     .description("View details of a specific task")
     .action(async (spec?: string, taskId?: string) => {
-      const workspacePath = process.cwd();
+      const gw = new NodeWorkspaceGateway(process.cwd());
       let specName = spec;
       let selectedTask = taskId;
 
       // Select Spec
       if (!specName) {
-        const specs = getAvailableSpecs(workspacePath);
+        const specs = getAvailableSpecs(gw);
         if (specs.length === 0) {
           console.error("\n✗ No specs found.\n");
           process.exitCode = 1;
@@ -29,13 +29,8 @@ export function registerTaskInfoCommand(task: Command): void {
       }
 
       // Read tasks for the selected spec
-      const tasksDir = path.join(
-        workspacePath,
-        ".codeforge",
-        "tasks",
-        specName,
-      );
-      if (!fs.existsSync(tasksDir)) {
+      const tasksDir = `${PATHS.tasksDir}/${specName}`;
+      if (!gw.exists(tasksDir)) {
         console.error(
           `\n✗ No tasks found for spec '${specName}'. Run 'plan generate' first.\n`,
         );
@@ -43,8 +38,8 @@ export function registerTaskInfoCommand(task: Command): void {
         return;
       }
 
-      const taskFiles = fs
-        .readdirSync(tasksDir)
+      const taskFiles = gw
+        .listDir(tasksDir)
         .filter((f) => f.endsWith(".json"));
       if (taskFiles.length === 0) {
         console.error(`\n✗ No tasks found for spec '${specName}'.\n`);
@@ -61,7 +56,7 @@ export function registerTaskInfoCommand(task: Command): void {
             // Peek at title
             try {
               const content = JSON.parse(
-                fs.readFileSync(path.join(tasksDir, f), "utf-8"),
+                gw.readFile(`${tasksDir}/${f}`),
               );
               return { name: `${id} - ${content.title}`, value: id };
             } catch {
@@ -71,8 +66,8 @@ export function registerTaskInfoCommand(task: Command): void {
         });
       }
 
-      const taskPath = path.join(tasksDir, `${selectedTask}.json`);
-      if (!fs.existsSync(taskPath)) {
+      const taskPath = `${tasksDir}/${selectedTask}.json`;
+      if (!gw.exists(taskPath)) {
         console.error(
           `\n✗ Task '${selectedTask}' not found in spec '${specName}'.\n`,
         );
@@ -81,7 +76,7 @@ export function registerTaskInfoCommand(task: Command): void {
       }
 
       try {
-        const taskData = JSON.parse(fs.readFileSync(taskPath, "utf-8"));
+        const taskData = JSON.parse(gw.readFile(taskPath));
         console.log(`\n==================================================`);
         console.log(` TASK: ${taskData.id}`);
         console.log(` TITLE: ${taskData.title}`);

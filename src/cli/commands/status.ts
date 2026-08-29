@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../application/plan.js";
@@ -9,11 +10,11 @@ export function registerStatusCommand(program: Command): void {
     .description("Show execution progress for a spec (watches by default)")
     .option("--once", "Print status once and exit")
     .action(async (spec: string | undefined, options: { once?: boolean }) => {
-      const workspacePath = process.cwd();
+      const gw = new NodeWorkspaceGateway(process.cwd());
       let specName = spec;
 
       if (!specName) {
-        const specs = getAvailableSpecs(workspacePath);
+        const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
           console.error("\n✗ No specs found.\n");
@@ -28,7 +29,7 @@ export function registerStatusCommand(program: Command): void {
       }
 
       // Validate once before entering loop
-      const initial = getSpecStatus(workspacePath, specName);
+      const initial = getSpecStatus(gw, specName);
 
       switch (initial.kind) {
         case "not-initialized":
@@ -60,7 +61,7 @@ export function registerStatusCommand(program: Command): void {
       };
 
       const render = () => {
-        const result = getSpecStatus(workspacePath, specName);
+        const result = getSpecStatus(gw, specName);
         process.stdout.write("\x1b[H");
         if (result.kind === "status") {
           process.stdout.write(formatStatusOutput(result));

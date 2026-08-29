@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select, input } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../../application/plan.js";
@@ -9,7 +10,7 @@ export function registerDocsCreateCommand(docs: Command): void {
     .description("Generate documentation prompt for a completed spec")
     .option("--spec <spec>", "Name of the spec to associate with the documentation")
     .action(async (docName?: string, options?: { spec?: string }) => {
-      const workspacePath = process.cwd();
+      const gw = new NodeWorkspaceGateway(process.cwd());
 
       if (!docName) {
         docName = await input({
@@ -28,7 +29,7 @@ export function registerDocsCreateCommand(docs: Command): void {
       let selectedSpec = options?.spec;
 
       if (!selectedSpec) {
-        const specs = getAvailableSpecs(workspacePath);
+        const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
           console.error(
@@ -44,7 +45,7 @@ export function registerDocsCreateCommand(docs: Command): void {
         });
       }
 
-      const result = prepareDocsPrompt(workspacePath, docName, selectedSpec);
+      const result = prepareDocsPrompt(gw, docName, selectedSpec);
 
       switch (result.kind) {
         case "not-initialized":

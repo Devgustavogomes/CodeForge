@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { initializeWorkspace } from "../../application/initialize-workspace.js";
 
@@ -6,9 +7,9 @@ export function registerInitCommand(program: Command): void {
     .command("init")
     .description("Initialize CodeForge in the current project")
     .action(async () => {
-      const workspacePath = process.cwd();
+      const gw = new NodeWorkspaceGateway(process.cwd());
 
-      const result = initializeWorkspace(workspacePath);
+      const result = initializeWorkspace(gw);
 
       switch (result.kind) {
         case "already-initialized":

@@ -1,3 +1,4 @@
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select, confirm } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../../application/plan.js";
@@ -14,11 +15,11 @@ export function registerDocsUpdateCommand(docs: Command): void {
     .description("Update documentation affected by changes from a spec execution")
     .option("--doc <doc>", "Manually specify which doc to update (skips scope matching)")
     .action(async (spec?: string, options?: { doc?: string }) => {
-      const workspacePath = process.cwd();
+      const gw = new NodeWorkspaceGateway(process.cwd());
       let selectedSpec = spec;
 
       if (!selectedSpec) {
-        const specs = getAvailableSpecs(workspacePath);
+        const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
           console.error(
@@ -36,7 +37,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       // ── Manual mode: user explicitly specified --doc <docname> ──────────────
       if (options?.doc) {
-        const result = prepareManualDocUpdate(workspacePath, selectedSpec, options.doc);
+        const result = prepareManualDocUpdate(gw, selectedSpec, options.doc);
 
         switch (result.kind) {
           case "not-initialized":
@@ -62,7 +63,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
             process.exitCode = 1;
             return;
           case "doc": {
-            const prompt = buildDocManualUpdatePrompt(workspacePath, selectedSpec, result.doc);
+            const prompt = buildDocManualUpdatePrompt(gw, selectedSpec, result.doc);
             console.log(prompt);
             return;
           }
@@ -71,7 +72,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       // ── Automatic mode: scope-based manifest matching (default) ─────────────
 
-      const result = prepareDocsUpdatePrompt(workspacePath, selectedSpec);
+      const result = prepareDocsUpdatePrompt(gw, selectedSpec);
 
       switch (result.kind) {
         case "not-initialized":
@@ -143,7 +144,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
         if (!selectedDoc) break;
 
         const prompt = buildDocUpdatePrompt(
-          workspacePath,
+          gw,
           selectedSpec,
           selectedDoc,
         );
