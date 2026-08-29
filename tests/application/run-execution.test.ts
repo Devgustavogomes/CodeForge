@@ -51,7 +51,7 @@ describe("runExecution", () => {
 
   it("returns notInitialized if metadata missing", () => {
     const result = runExecution(tempDir, "test-spec");
-    expect(result.notInitialized).toBe(true);
+    expect(result.kind).toBe("not-initialized");
   });
 
   it("initializes execution state on first run and requests manual execution", () => {
@@ -60,8 +60,9 @@ describe("runExecution", () => {
     
     const result = runExecution(tempDir, "test-spec");
     
-    expect(result.manualTaskRequired).toBe("TASK-001");
-    expect(result.finished).toBe(false);
+    expect(result.kind).toBe("task-ready");
+    if (result.kind === "task-ready") {
+      expect(result.taskId).toBe("TASK-001");
 
     // Verify state was created
     const statePath = path.join(tempDir, ".codeforge", "executions", "test-spec.json");
@@ -70,7 +71,8 @@ describe("runExecution", () => {
     expect(state.tasks["TASK-001"].status).toBe("running");
 
     // Verify prompt was created
-    expect(fs.existsSync(result.manualPromptPath!)).toBe(true);
+      expect(fs.existsSync(result.promptPath!)).toBe(true);
+    }
   });
 
   it("finds next task automatically when previous is completed", () => {
@@ -80,15 +82,21 @@ describe("runExecution", () => {
 
     // First run should pick TASK-001
     const res1 = runExecution(tempDir, "test-spec");
-    expect(res1.manualTaskRequired).toBe("TASK-001");
+    expect(res1.kind).toBe("task-ready");
+    if (res1.kind === "task-ready") {
+      expect(res1.taskId).toBe("TASK-001");
+    }
 
     // Mark TASK-001 as completed
     const success = markTaskCompleted(tempDir, "test-spec", "TASK-001");
-    expect(success).toBe(true);
+    expect(success.kind).toBe("completed");
 
     // Second run should pick TASK-002
     const res2 = runExecution(tempDir, "test-spec");
-    expect(res2.manualTaskRequired).toBe("TASK-002");
+    expect(res2.kind).toBe("task-ready");
+    if (res2.kind === "task-ready") {
+      expect(res2.taskId).toBe("TASK-002");
+    }
   });
 
   it("detects when all tasks are finished", () => {
@@ -99,8 +107,7 @@ describe("runExecution", () => {
     markTaskCompleted(tempDir, "test-spec", "TASK-001");
 
     const res = runExecution(tempDir, "test-spec");
-    expect(res.finished).toBe(true);
-    expect(res.tasksCompleted).toBe(0); // in this run
+    expect(res.kind).toBe("finished");
 
     const state = JSON.parse(fs.readFileSync(path.join(tempDir, ".codeforge", "executions", "test-spec.json"), "utf-8"));
     expect(state.status).toBe("completed");
@@ -126,7 +133,7 @@ describe("retryTask", () => {
     runExecution(tempDir, "test-spec");
 
     const result = retryTask(tempDir, "test-spec", "TASK-001");
-    expect(result.success).toBe(true);
+    expect(result.kind).toBe("retried");
 
     const state = JSON.parse(fs.readFileSync(path.join(tempDir, ".codeforge", "executions", "test-spec.json"), "utf-8"));
     expect(state.tasks["TASK-001"].status).toBe("pending");
@@ -141,8 +148,7 @@ describe("retryTask", () => {
     runExecution(tempDir, "test-spec");
 
     const result = retryTask(tempDir, "test-spec", "TASK-002");
-    expect(result.success).toBe(false);
-    expect(result.reason).toContain("already pending");
+    expect(result.kind).toBe("already-pending");
   });
 
   it("fails when task is already completed", () => {
@@ -153,8 +159,7 @@ describe("retryTask", () => {
     markTaskCompleted(tempDir, "test-spec", "TASK-001");
 
     const result = retryTask(tempDir, "test-spec", "TASK-001");
-    expect(result.success).toBe(false);
-    expect(result.reason).toContain("already completed");
+    expect(result.kind).toBe("already-completed");
   });
 
   it("fails when task does not exist", () => {
@@ -163,7 +168,7 @@ describe("retryTask", () => {
     runExecution(tempDir, "test-spec");
 
     const result = retryTask(tempDir, "test-spec", "TASK-999");
-    expect(result.success).toBe(false);
+    expect(result.kind).toBe("not-found");
   });
 
   it("allows re-execution after retry", () => {
@@ -172,13 +177,19 @@ describe("retryTask", () => {
 
     // First run — task goes to running
     const res1 = runExecution(tempDir, "test-spec");
-    expect(res1.manualTaskRequired).toBe("TASK-001");
+    expect(res1.kind).toBe("task-ready");
+    if (res1.kind === "task-ready") {
+      expect(res1.taskId).toBe("TASK-001");
+    }
 
     // Retry — task goes back to pending
     retryTask(tempDir, "test-spec", "TASK-001");
 
     // Run again — should pick TASK-001 again
     const res2 = runExecution(tempDir, "test-spec");
-    expect(res2.manualTaskRequired).toBe("TASK-001");
+    expect(res2.kind).toBe("task-ready");
+    if (res2.kind === "task-ready") {
+      expect(res2.taskId).toBe("TASK-001");
+    }
   });
 });

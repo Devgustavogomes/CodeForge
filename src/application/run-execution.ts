@@ -6,15 +6,22 @@ import { buildContextPrompt } from "./context-builder.js";
 
 const CODEFORGE_DIR = ".codeforge";
 
-export interface RunResult {
-  notInitialized: boolean;
-  specNotFound: boolean;
-  tasksCompleted: number;
-  manualTaskRequired?: string;
-  manualPromptPath?: string;
-  error?: string;
-  finished: boolean;
-}
+export type RunResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "finished" }
+  | { kind: "error"; message: string }
+  | { kind: "task-ready"; taskId: string; promptPath: string };
+
+export type MarkCompleteResult =
+  | { kind: "not-found" }
+  | { kind: "completed"; allCompleted: boolean };
+
+export type RetryResult =
+  | { kind: "not-found" }
+  | { kind: "already-pending" }
+  | { kind: "already-completed" }
+  | { kind: "retried" };
 
 function loadState(
   executionsDir: string,
@@ -60,22 +67,12 @@ export function runExecution(
 ): RunResult {
   const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
   if (!fs.existsSync(path.join(codeforgeRoot, "metadata.json"))) {
-    return {
-      notInitialized: true,
-      specNotFound: false,
-      tasksCompleted: 0,
-      finished: false,
-    };
+    return { kind: "not-initialized" };
   }
 
   const tasksDir = path.join(codeforgeRoot, "tasks", specName);
   if (!fs.existsSync(tasksDir)) {
-    return {
-      notInitialized: false,
-      specNotFound: true,
-      tasksCompleted: 0,
-      finished: false,
-    };
+    return { kind: "spec-not-found" };
   }
 
   const executionsDir = path.join(codeforgeRoot, "executions");
@@ -100,12 +97,7 @@ export function runExecution(
   if (pendingTasks.length === 0) {
     state.status = "completed";
     saveState(executionsDir, state);
-    return {
-      notInitialized: false,
-      specNotFound: false,
-      tasksCompleted: 0,
-      finished: true,
-    };
+    return { kind: "finished" };
   }
 
   // Find a task whose dependencies are ALL completed
@@ -132,12 +124,8 @@ export function runExecution(
   if (!taskToRun || !taskDef) {
     // Deadlock or missing files
     return {
-      notInitialized: false,
-      specNotFound: false,
-      tasksCompleted: 0,
-      error:
-        "Cannot find any executable task. Check for circular dependencies or missing task files.",
-      finished: false,
+      kind: "error",
+      message: "Cannot find any executable task. Check for circular dependencies or missing task files."
     };
   }
 
@@ -153,27 +141,23 @@ export function runExecution(
   state.tasks[taskToRun].status = "running";
   saveState(executionsDir, state);
 
-  return {
-    notInitialized: false,
-    specNotFound: false,
-    tasksCompleted: 0,
-    manualTaskRequired: taskToRun,
-    manualPromptPath: promptPath,
-    finished: false,
-  };
+  return { kind: "task-ready", taskId: taskToRun, promptPath };
 }
 
 export function markTaskCompleted(
   workspacePath: string,
   specName: string,
   taskId: string,
-): { success: boolean; allCompleted?: boolean } {
+): MarkCompleteResult {
   const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
   const executionsDir = path.join(codeforgeRoot, "executions");
   const state = loadState(executionsDir, specName);
 
-  if (!state || !state.tasks[taskId]) {
-    return { success: false };
+  if (!state) {
+    return { kind: "not-found" };
+  }
+  if (!state.tasks[taskId]) {
+    return { kind: "not-found" };
   }
 
   state.tasks[taskId].status = "completed";
@@ -188,33 +172,36 @@ export function markTaskCompleted(
   }
 
   saveState(executionsDir, state);
-  return { success: true, allCompleted };
+  return { kind: "completed", allCompleted };
 }
 
 export function retryTask(
   workspacePath: string,
   specName: string,
   taskId: string,
-): { success: boolean; reason?: string } {
+): RetryResult {
   const codeforgeRoot = path.join(workspacePath, CODEFORGE_DIR);
   const executionsDir = path.join(codeforgeRoot, "executions");
   const state = loadState(executionsDir, specName);
 
-  if (!state || !state.tasks[taskId]) {
-    return { success: false, reason: "Task or spec execution not found." };
+  if (!state) {
+    return { kind: "not-found" };
+  }
+  if (!state.tasks[taskId]) {
+    return { kind: "not-found" };
   }
 
   const currentStatus = state.tasks[taskId].status;
 
   if (currentStatus === "pending") {
-    return { success: false, reason: "Task is already pending." };
+    return { kind: "already-pending" };
   }
 
   if (currentStatus === "completed") {
-    return { success: false, reason: "Task is already completed. Use 'task reset' if you want to redo it." };
+    return { kind: "already-completed" };
   }
 
   state.tasks[taskId].status = "pending";
   saveState(executionsDir, state);
-  return { success: true };
+  return { kind: "retried" };
 }

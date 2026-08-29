@@ -28,38 +28,31 @@ export function registerRunCommand(program: Command): void {
 
       const result = runExecution(workspacePath, specName);
       
-      if (result.notInitialized) {
-        console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
-        process.exitCode = 1;
-        return;
-      }
-
-      if (result.specNotFound) {
-        console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if (result.finished) {
-        console.log(`\n🎉 All tasks for spec '${specName}' have been completed successfully!\n`);
-        return;
-      }
-
-      if (result.error) {
-        console.error(`\n✗ Execution error: ${result.error}\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if (result.manualTaskRequired) {
-        console.log(`\n▶ Task ready for execution: ${result.manualTaskRequired}`);
-        console.log(`\nContext prompt generated at: ${result.manualPromptPath}`);
-        console.log(`\n[MANUAL ACTION REQUIRED]`);
-        console.log(`1. Open a NEW, clean session in your AI agent.`);
-        console.log(`2. Instruct the agent to read the prompt file.`);
-        console.log(`3. When the agent finishes, run: \`codeforge task complete ${specName} ${result.manualTaskRequired}\``);
-        console.log(`4. Run \`codeforge run ${specName}\` to get the next task.\n`);
-        return;
+      switch (result.kind) {
+        case "not-initialized":
+          console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
+          process.exitCode = 1;
+          break;
+        case "spec-not-found":
+          console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
+          process.exitCode = 1;
+          break;
+        case "finished":
+          console.log(`\n🎉 All tasks for spec '${specName}' have been completed successfully!\n`);
+          break;
+        case "error":
+          console.error(`\n✗ Execution error: ${result.message}\n`);
+          process.exitCode = 1;
+          break;
+        case "task-ready":
+          console.log(`\n▶ Task ready for execution: ${result.taskId}`);
+          console.log(`\nContext prompt generated at: ${result.promptPath}`);
+          console.log(`\n[MANUAL ACTION REQUIRED]`);
+          console.log(`1. Open a NEW, clean session in your AI agent.`);
+          console.log(`2. Instruct the agent to read the prompt file.`);
+          console.log(`3. When the agent finishes, run: \`codeforge task complete ${specName} ${result.taskId}\``);
+          console.log(`4. Run \`codeforge run ${specName}\` to get the next task.\n`);
+          break;
       }
     });
 }
