@@ -1,0 +1,17 @@
+export const PATHS = {
+  metadata:        ".codeforge/metadata.json",
+  config:          ".codeforge/config.yaml",
+  specsDir:        ".codeforge/specs",
+  tasksDir:        ".codeforge/tasks",
+  executionsDir:   ".codeforge/executions",
+  rulesDir:        ".codeforge/rules",
+  docsDir:         ".codeforge/docs",
+  docsManifest:    ".codeforge/docs/manifest.json",
+  planningRules:   ".codeforge/rules/planning.md",
+  runningRules:    ".codeforge/rules/running.md",
+  docsRules:       ".codeforge/rules/docs.md",
+  docsUpdateRules: ".codeforge/rules/docs-update.md",
+  specFile:        (name: string) => `.codeforge/specs/${name}.md`,
+  taskFile:        (spec: string, id: string) => `.codeforge/tasks/${spec}/${id}.json`,
+  executionState:  (spec: string) => `.codeforge/executions/${spec}.json`,
+} as const;
