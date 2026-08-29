@@ -4,11 +4,10 @@ import path from "node:path";
 const CODEFORGE_DIR = ".codeforge";
 const SPECS_DIR = "specs";
 
-export interface CreateSpecResult {
-  notInitialized: boolean;
-  alreadyExists: boolean;
-  filePath: string;
-}
+export type CreateSpecResult =
+  | { kind: "not-initialized" }
+  | { kind: "already-exists"; filePath: string }
+  | { kind: "created"; filePath: string };
 
 function buildTemplate(name: string): string {
   const id = name.toLowerCase().replace(/\s+/g, "-");
@@ -62,7 +61,7 @@ export function createSpec(
   const metadataPath = path.join(codeforgeRoot, "metadata.json");
 
   if (!fs.existsSync(metadataPath)) {
-    return { notInitialized: true, alreadyExists: false, filePath: "" };
+    return { kind: "not-initialized" };
   }
 
   const slug = name.toLowerCase().replace(/\s+/g, "-");
@@ -70,10 +69,10 @@ export function createSpec(
   const filePath = path.join(codeforgeRoot, SPECS_DIR, fileName);
 
   if (fs.existsSync(filePath)) {
-    return { notInitialized: false, alreadyExists: true, filePath };
+    return { kind: "already-exists", filePath };
   }
 
   fs.writeFileSync(filePath, buildTemplate(name), "utf-8");
 
-  return { notInitialized: false, alreadyExists: false, filePath };
+  return { kind: "created", filePath };
 }

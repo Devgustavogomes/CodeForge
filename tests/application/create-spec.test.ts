@@ -33,9 +33,7 @@ describe("createSpec", () => {
   it("returns notInitialized: true when .codeforge/metadata.json is missing", () => {
     const result = createSpec(tempDir, "User Authentication");
 
-    expect(result.notInitialized).toBe(true);
-    expect(result.alreadyExists).toBe(false);
-    expect(result.filePath).toBe("");
+    expect(result.kind).toBe("not-initialized");
   });
 
   it("creates the spec file successfully", () => {
@@ -43,9 +41,10 @@ describe("createSpec", () => {
 
     const result = createSpec(tempDir, "User Authentication");
 
-    expect(result.notInitialized).toBe(false);
-    expect(result.alreadyExists).toBe(false);
-    expect(fs.existsSync(result.filePath)).toBe(true);
+    expect(result.kind).toBe("created");
+    if (result.kind === "created") {
+      expect(fs.existsSync(result.filePath)).toBe(true);
+    }
   });
 
   it("creates the file inside .codeforge/specs/", () => {
@@ -54,7 +53,10 @@ describe("createSpec", () => {
     const result = createSpec(tempDir, "User Authentication");
 
     const expectedDir = path.join(tempDir, ".codeforge", "specs");
-    expect(result.filePath.startsWith(expectedDir)).toBe(true);
+    expect(result.kind).toBe("created");
+    if (result.kind === "created") {
+      expect(result.filePath.startsWith(expectedDir)).toBe(true);
+    }
   });
 
   it("converts name to kebab-case slug as filename", () => {
@@ -62,7 +64,10 @@ describe("createSpec", () => {
 
     const result = createSpec(tempDir, "User Authentication");
 
-    expect(result.filePath).toMatch(/user-authentication\.md$/);
+    expect(result.kind).toBe("created");
+    if (result.kind === "created") {
+      expect(result.filePath).toMatch(/user-authentication\.md$/);
+    }
   });
 
   it("lowercases the filename slug", () => {
@@ -70,32 +75,41 @@ describe("createSpec", () => {
 
     const result = createSpec(tempDir, "REFRESH TOKEN");
 
-    expect(result.filePath).toMatch(/refresh-token\.md$/);
+    expect(result.kind).toBe("created");
+    if (result.kind === "created") {
+      expect(result.filePath).toMatch(/refresh-token\.md$/);
+    }
   });
 
   it("writes a template with the spec name as heading", () => {
     makeInitializedWorkspace(tempDir);
 
     const result = createSpec(tempDir, "Refresh Token");
-    const content = fs.readFileSync(result.filePath, "utf-8");
 
-    expect(content).toContain("# Refresh Token");
+    expect(result.kind).toBe("created");
+    if (result.kind === "created") {
+      const content = fs.readFileSync(result.filePath, "utf-8");
+      expect(content).toContain("# Refresh Token");
+    }
   });
 
   it("template contains all expected sections", () => {
     makeInitializedWorkspace(tempDir);
 
     const result = createSpec(tempDir, "Refresh Token");
-    const content = fs.readFileSync(result.filePath, "utf-8");
 
-    expect(content).toContain("## Objective");
-    expect(content).toContain("## Functional Requirements");
-    expect(content).toContain("## Non-Functional Requirements");
-    expect(content).toContain("## Flow");
-    expect(content).toContain("## Acceptance Criteria");
-    expect(content).toContain("## Endpoints");
-    expect(content).toContain("## Architecture");
-    expect(content).toContain("## Technologies");
+    expect(result.kind).toBe("created");
+    if (result.kind === "created") {
+      const content = fs.readFileSync(result.filePath, "utf-8");
+      expect(content).toContain("## Objective");
+      expect(content).toContain("## Functional Requirements");
+      expect(content).toContain("## Non-Functional Requirements");
+      expect(content).toContain("## Flow");
+      expect(content).toContain("## Acceptance Criteria");
+      expect(content).toContain("## Endpoints");
+      expect(content).toContain("## Architecture");
+      expect(content).toContain("## Technologies");
+    }
   });
 
   it("returns alreadyExists: true when spec already exists", () => {
@@ -104,8 +118,7 @@ describe("createSpec", () => {
 
     const result = createSpec(tempDir, "User Authentication");
 
-    expect(result.alreadyExists).toBe(true);
-    expect(result.notInitialized).toBe(false);
+    expect(result.kind).toBe("already-exists");
   });
 
   it("does not overwrite existing spec file", () => {
@@ -127,6 +140,9 @@ describe("createSpec", () => {
     const result = createSpec(tempDir, "Create Producer");
     const expected = path.join(tempDir, ".codeforge", "specs", "create-producer.md");
 
-    expect(result.filePath).toBe(expected);
+    expect(result.kind).toBe("created");
+    if (result.kind === "created") {
+      expect(result.filePath).toBe(expected);
+    }
   });
 });

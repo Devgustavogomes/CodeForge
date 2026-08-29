@@ -21,19 +21,19 @@ export function registerSpecCreateCommand(spec: Command): void {
 
       const result = createSpec(process.cwd(), specName);
 
-      if (result.notInitialized) {
-        console.error(
-          "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n"
-        );
-        process.exitCode = 1;
-        return;
+      switch (result.kind) {
+        case "not-initialized":
+          console.error(
+            "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n"
+          );
+          process.exitCode = 1;
+          break;
+        case "already-exists":
+          console.log(`\nSpec already exists: ${result.filePath}\n`);
+          break;
+        case "created":
+          console.log(`\n✓ Spec created: ${result.filePath}\n`);
+          break;
       }
-
-      if (result.alreadyExists) {
-        console.log(`\nSpec already exists: ${result.filePath}\n`);
-        return;
-      }
-
-      console.log(`\n✓ Spec created: ${result.filePath}\n`);
     });
 }
