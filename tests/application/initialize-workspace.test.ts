@@ -85,26 +85,27 @@ describe("initializeWorkspace", () => {
   it("returns the list of created entries", () => {
     const result = initializeWorkspace(tempDir);
 
-    expect(result.alreadyInitialized).toBe(false);
-    expect(result.created).toContain(".codeforge/");
-    expect(result.created).toContain(".codeforge/config.yaml");
-    expect(result.created).toContain(".codeforge/rules/planning.md");
-    expect(result.created).toContain(".codeforge/metadata.json");
+    expect(result.kind).toBe("created");
+    if (result.kind === "created") {
+      expect(result.created).toContain(".codeforge/");
+      expect(result.created).toContain(".codeforge/config.yaml");
+      expect(result.created).toContain(".codeforge/rules/planning.md");
+      expect(result.created).toContain(".codeforge/metadata.json");
 
-    const subdirs = ["specs", "tasks", "executions", "rules"];
-    for (const sub of subdirs) {
-      expect(result.created).toContain(`.codeforge/${sub}/`);
+      const subdirs = ["specs", "tasks", "executions", "rules"];
+      for (const sub of subdirs) {
+        expect(result.created).toContain(`.codeforge/${sub}/`);
+      }
+
+      expect(result.created).not.toContain(".codeforge/plans/");
     }
-
-    expect(result.created).not.toContain(".codeforge/plans/");
   });
 
   it("returns alreadyInitialized: true on second run", () => {
     initializeWorkspace(tempDir);
     const result = initializeWorkspace(tempDir);
 
-    expect(result.alreadyInitialized).toBe(true);
-    expect(result.created).toHaveLength(0);
+    expect(result.kind).toBe("already-initialized");
   });
 
   it("does not overwrite existing files on second run", () => {
@@ -127,7 +128,7 @@ describe("initializeWorkspace", () => {
     fs.writeFileSync(path.join(root, "config.yaml"), "# partial\n", "utf-8");
 
     const result = initializeWorkspace(tempDir);
-    expect(result.alreadyInitialized).toBe(false);
+    expect(result.kind).toBe("created");
 
     const metadataPath = path.join(root, "metadata.json");
     expect(fs.existsSync(metadataPath)).toBe(true);

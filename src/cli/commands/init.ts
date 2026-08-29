@@ -10,16 +10,18 @@ export function registerInitCommand(program: Command): void {
 
       const result = initializeWorkspace(workspacePath);
 
-      if (result.alreadyInitialized) {
-        console.log("\n⚠ CodeForge is already initialized in this directory.\n");
-        return;
+      switch (result.kind) {
+        case "already-initialized":
+          console.log("\n⚠ CodeForge is already initialized in this directory.\n");
+          break;
+        case "created":
+          console.log("\n✓ CodeForge initialized successfully.\n");
+          console.log("Created:");
+          for (const item of result.created) {
+            console.log(`  ${item}`);
+          }
+          console.log("");
+          break;
       }
-
-      console.log("\n✓ CodeForge initialized successfully.\n");
-      console.log("Created:");
-      for (const item of result.created) {
-        console.log(`  ${item}`);
-      }
-      console.log("");
     });
 }

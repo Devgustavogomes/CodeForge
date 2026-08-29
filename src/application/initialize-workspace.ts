@@ -15,10 +15,9 @@ interface WorkspaceMetadata {
   initializedAt: string;
 }
 
-export interface InitResult {
-  alreadyInitialized: boolean;
-  created: string[];
-}
+export type InitResult =
+  | { kind: "already-initialized" }
+  | { kind: "created"; created: string[] };
 
 export function initializeWorkspace(
   workspacePath: string,
@@ -30,7 +29,7 @@ export function initializeWorkspace(
     const raw = fs.readFileSync(metadataPath, "utf-8");
     const metadata = JSON.parse(raw) as WorkspaceMetadata;
     if (metadata.initialized) {
-      return { alreadyInitialized: true, created: [] };
+      return { kind: "already-initialized" };
     }
   }
 
@@ -93,6 +92,6 @@ export function initializeWorkspace(
   fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), "utf-8");
   created.push(`${CODEFORGE_DIR}/metadata.json`);
 
-  return { alreadyInitialized: false, created };
+  return { kind: "created", created };
 }
 
