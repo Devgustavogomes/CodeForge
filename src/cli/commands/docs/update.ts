@@ -4,13 +4,16 @@ import { getAvailableSpecs } from "../../../application/plan.js";
 import {
   prepareDocsUpdatePrompt,
   buildDocUpdatePrompt,
+  prepareManualDocUpdate,
+  buildDocManualUpdatePrompt,
 } from "../../../application/docs.js";
 
 export function registerDocsUpdateCommand(docs: Command): void {
   docs
     .command("update [spec]")
     .description("Update documentation affected by changes from a spec execution")
-    .action(async (spec?: string) => {
+    .option("--doc <doc>", "Manually specify which doc to update (skips scope matching)")
+    .action(async (spec?: string, options?: { doc?: string }) => {
       const workspacePath = process.cwd();
       let selectedSpec = spec;
 
@@ -31,52 +34,82 @@ export function registerDocsUpdateCommand(docs: Command): void {
         });
       }
 
+      // ── Manual mode: user explicitly specified --doc <docname> ──────────────
+      if (options?.doc) {
+        const result = prepareManualDocUpdate(workspacePath, selectedSpec, options.doc);
+
+        switch (result.kind) {
+          case "not-initialized":
+            console.error(
+              "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+            );
+            process.exitCode = 1;
+            return;
+          case "spec-not-found":
+            console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+            process.exitCode = 1;
+            return;
+          case "rules-not-found":
+            console.error(
+              `\n✗ Documentation update rules not found in .codeforge/rules/docs-update.md\n  Run 'codeforge init' to regenerate rules.\n`,
+            );
+            process.exitCode = 1;
+            return;
+          case "doc-not-found":
+            console.error(
+              `\n✗ Doc '${options.doc}' not found. Check the name or use 'codeforge docs update' to let the manifest decide.\n`,
+            );
+            process.exitCode = 1;
+            return;
+          case "doc": {
+            const prompt = buildDocManualUpdatePrompt(workspacePath, selectedSpec, result.doc);
+            console.log(prompt);
+            return;
+          }
+        }
+      }
+
+      // ── Automatic mode: scope-based manifest matching (default) ─────────────
+
       const result = prepareDocsUpdatePrompt(workspacePath, selectedSpec);
 
-      if ("notInitialized" in result) {
-        console.error(
-          "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-        );
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("specNotFound" in result) {
-        console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("rulesNotFound" in result) {
-        console.error(
-          `\n✗ Documentation update rules not found in .codeforge/rules/docs-update.md\n  Run 'codeforge init' to regenerate rules.\n`,
-        );
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("noGit" in result) {
-        console.error(
-          "\n✗ Git repository not found. docs update requires git to detect changes.\n",
-        );
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("noChangedFiles" in result) {
-        console.error(
-          "\n✗ No changed files detected. Make sure you have uncommitted changes.\n",
-        );
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("noAffectedDocs" in result) {
-        console.error(
-          `\n✗ No documentation affected by changes in '${selectedSpec}'.\n`,
-        );
-        process.exitCode = 1;
-        return;
+      switch (result.kind) {
+        case "not-initialized":
+          console.error(
+            "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+          );
+          process.exitCode = 1;
+          return;
+        case "spec-not-found":
+          console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+          process.exitCode = 1;
+          return;
+        case "rules-not-found":
+          console.error(
+            `\n✗ Documentation update rules not found in .codeforge/rules/docs-update.md\n  Run 'codeforge init' to regenerate rules.\n`,
+          );
+          process.exitCode = 1;
+          return;
+        case "no-git":
+          console.error(
+            "\n✗ Git repository not found. docs update requires git to detect changes.\n",
+          );
+          process.exitCode = 1;
+          return;
+        case "no-changed-files":
+          console.error(
+            "\n✗ No changed files detected. Make sure you have uncommitted changes.\n",
+          );
+          process.exitCode = 1;
+          return;
+        case "no-affected-docs":
+          console.error(
+            `\n✗ No documentation affected by changes in '${selectedSpec}'.\n`,
+          );
+          process.exitCode = 1;
+          return;
+        case "affected-docs":
+          break; // proceed below
       }
 
       const { affectedDocs } = result;

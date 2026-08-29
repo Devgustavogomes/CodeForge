@@ -46,34 +46,28 @@ export function registerDocsCreateCommand(docs: Command): void {
 
       const result = prepareDocsPrompt(workspacePath, docName, selectedSpec);
 
-      if ("notInitialized" in result && result.notInitialized) {
-        console.error(
-          "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-        );
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("specNotFound" in result && result.specNotFound) {
-        console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("rulesNotFound" in result && result.rulesNotFound) {
-        console.error(`\n✗ Documentation rules not found in .codeforge/rules/docs.md\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("alreadyExists" in result && result.alreadyExists) {
-        console.error(`\n✗ Documentation '${docName}' already exists.\n  Use 'codeforge docs update' in the future.\n`);
-        process.exitCode = 1;
-        return;
-      }
-
-      if ("prompt" in result && result.prompt) {
-        console.log(result.prompt);
+      switch (result.kind) {
+        case "not-initialized":
+          console.error(
+            "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+          );
+          process.exitCode = 1;
+          break;
+        case "spec-not-found":
+          console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+          process.exitCode = 1;
+          break;
+        case "rules-not-found":
+          console.error(`\n✗ Documentation rules not found in .codeforge/rules/docs.md\n`);
+          process.exitCode = 1;
+          break;
+        case "already-exists":
+          console.error(`\n✗ Documentation '${docName}' already exists.\n  Use 'codeforge docs update' in the future.\n`);
+          process.exitCode = 1;
+          break;
+        case "prompt":
+          console.log(result.prompt);
+          break;
       }
     });
 }

@@ -23,16 +23,30 @@ export interface AffectedDoc {
   matchedFiles: string[];
 }
 
-export type DocsUpdateResult =
-  | { notInitialized: true }
-  | { specNotFound: true }
-  | { rulesNotFound: true }
-  | { noGit: true }
-  | { noChangedFiles: true }
-  | { noAffectedDocs: true }
-  | { affectedDocs: AffectedDoc[] };
+export type DocsPromptResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "rules-not-found" }
+  | { kind: "already-exists" }
+  | { kind: "prompt"; prompt: string };
 
-export function prepareDocsPrompt(workspacePath: string, docName: string, specName: string) {
+export type DocsUpdateResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "rules-not-found" }
+  | { kind: "no-git" }
+  | { kind: "no-changed-files" }
+  | { kind: "no-affected-docs" }
+  | { kind: "affected-docs"; affectedDocs: AffectedDoc[] };
+
+export type ManualDocUpdateResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "rules-not-found" }
+  | { kind: "doc-not-found" }
+  | { kind: "doc"; doc: AffectedDoc };
+
+export function prepareDocsPrompt(workspacePath: string, docName: string, specName: string): DocsPromptResult {
   const codeforgeRoot = path.join(workspacePath, ".codeforge");
   const metadataPath = path.join(codeforgeRoot, "metadata.json");
   const specPath = path.join(codeforgeRoot, "specs", `${specName}.md`);
@@ -41,15 +55,15 @@ export function prepareDocsPrompt(workspacePath: string, docName: string, specNa
   const manifestPath = path.join(codeforgeRoot, "docs", "manifest.json");
 
   if (!fs.existsSync(metadataPath)) {
-    return { notInitialized: true };
+    return { kind: "not-initialized" };
   }
 
   if (!fs.existsSync(specPath)) {
-    return { specNotFound: true };
+    return { kind: "spec-not-found" };
   }
 
   if (!fs.existsSync(rulesPath)) {
-    return { rulesNotFound: true };
+    return { kind: "rules-not-found" };
   }
 
   let alreadyExists = false;
@@ -68,7 +82,7 @@ export function prepareDocsPrompt(workspacePath: string, docName: string, specNa
   }
 
   if (alreadyExists) {
-    return { alreadyExists: true };
+    return { kind: "already-exists" };
   }
 
   // --- Deterministic manifest entry creation ---
@@ -111,7 +125,7 @@ ${specContent}
 
 Please proceed with your analysis and file generation.`;
 
-  return { prompt };
+  return { kind: "prompt", prompt };
 }
 
 // --- Docs Update ---
@@ -128,21 +142,21 @@ export function prepareDocsUpdatePrompt(
 
   // --- Validations ---
   if (!fs.existsSync(metadataPath)) {
-    return { notInitialized: true };
+    return { kind: "not-initialized" };
   }
 
   if (!fs.existsSync(specPath)) {
-    return { specNotFound: true };
+    return { kind: "spec-not-found" };
   }
 
   if (!fs.existsSync(updateRulesPath)) {
-    return { rulesNotFound: true };
+    return { kind: "rules-not-found" };
   }
 
   // --- Check git ---
   const gitDir = path.join(workspacePath, ".git");
   if (!fs.existsSync(gitDir)) {
-    return { noGit: true };
+    return { kind: "no-git" };
   }
 
   // --- Get changed files via git diff ---
@@ -154,7 +168,7 @@ export function prepareDocsUpdatePrompt(
     }).trim();
 
     if (!diffOutput) {
-      return { noChangedFiles: true };
+      return { kind: "no-changed-files" };
     }
 
     changedFiles = diffOutput
@@ -162,11 +176,11 @@ export function prepareDocsUpdatePrompt(
       .map((f) => f.trim())
       .filter((f) => f.length > 0);
   } catch {
-    return { noChangedFiles: true };
+    return { kind: "no-changed-files" };
   }
 
   if (changedFiles.length === 0) {
-    return { noChangedFiles: true };
+    return { kind: "no-changed-files" };
   }
 
   // --- Load manifest and match scopes ---
@@ -200,10 +214,10 @@ export function prepareDocsUpdatePrompt(
   }
 
   if (affectedDocs.length === 0) {
-    return { noAffectedDocs: true };
+    return { kind: "no-affected-docs" };
   }
 
-  return { affectedDocs };
+  return { kind: "affected-docs", affectedDocs };
 }
 
 export function buildDocUpdatePrompt(
@@ -257,6 +271,85 @@ ${changedFilesDiff}
 3. Update the documentation at \`${affectedDoc.docPath}\` to reflect the current implementation. Make targeted, incremental changes — do NOT rewrite from scratch.
 4. Update the \`updatedAt\` field for the \`${affectedDoc.docName}\` entry in \`.codeforge/docs/manifest.json\`.
 5. If the update is relevant, add \`${newSpecRelPath}\` to the \`specs\` array of the \`${affectedDoc.docName}\` entry in the manifest (if not already present).
+6. If the scope patterns need adjustment, update the \`scope\` array. Do NOT modify any other fields or entries.
+
+Please proceed with your evaluation.`;
+}
+
+// --- Docs Manual Update (--doc <docname>) ---
+
+export function prepareManualDocUpdate(
+  workspacePath: string,
+  specName: string,
+  docName: string,
+): ManualDocUpdateResult {
+  const codeforgeRoot = path.join(workspacePath, ".codeforge");
+  const metadataPath = path.join(codeforgeRoot, "metadata.json");
+  const specPath = path.join(codeforgeRoot, "specs", `${specName}.md`);
+  const updateRulesPath = path.join(codeforgeRoot, "rules", "docs-update.md");
+  const manifestPath = path.join(codeforgeRoot, "docs", "manifest.json");
+  const docFilePath = path.join(codeforgeRoot, "docs", `${docName}.md`);
+
+  if (!fs.existsSync(metadataPath)) {
+    return { kind: "not-initialized" };
+  }
+
+  if (!fs.existsSync(specPath)) {
+    return { kind: "spec-not-found" };
+  }
+
+  if (!fs.existsSync(updateRulesPath)) {
+    return { kind: "rules-not-found" };
+  }
+
+  // Try to resolve doc from manifest first, then fall back to file existence
+  const manifest = loadOrCreateManifest(manifestPath);
+  const manifestEntry = manifest.documents[docName];
+
+  if (!manifestEntry && !fs.existsSync(docFilePath)) {
+    return { kind: "doc-not-found" };
+  }
+
+  const doc: AffectedDoc = {
+    docName,
+    docPath: manifestEntry?.path ?? `.codeforge/docs/${docName}.md`,
+    specPaths: manifestEntry?.specs ?? [],
+    matchedFiles: [], // not scope-based — AI reads the file directly
+  };
+
+  return { kind: "doc", doc };
+}
+
+export function buildDocManualUpdatePrompt(
+  workspacePath: string,
+  specName: string,
+  doc: AffectedDoc,
+): string {
+  const codeforgeRoot = path.join(workspacePath, ".codeforge");
+  const updateRulesPath = path.join(codeforgeRoot, "rules", "docs-update.md");
+
+  const rulesContent = fs.readFileSync(updateRulesPath, "utf-8");
+  const newSpecRelPath = `.codeforge/specs/${specName}.md`;
+
+  return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation Update — Manual)
+
+You are an expert technical writer. The user has explicitly requested an update to the documentation '${doc.docName}' following the execution of the spec '${specName}'.
+
+### Update Rules
+${rulesContent}
+
+### Existing Documentation (${doc.docName})
+Read the current documentation at \`${doc.docPath}\`.
+
+### Instructions
+
+1. Read the existing documentation at \`${doc.docPath}\` and the relevant source code in the workspace.
+2. **RELEVANCE CHECK**: Determine if anything in the codebase (as it currently stands after running spec '${specName}') requires updating this documentation.
+   - If the documentation is already up-to-date, respond with ONLY: \`NO_UPDATE_NEEDED\`
+   - If updates are needed, proceed to step 3.
+3. Update the documentation at \`${doc.docPath}\` to reflect the current implementation. Make targeted, incremental changes — do NOT rewrite from scratch.
+4. Update the \`updatedAt\` field for the \`${doc.docName}\` entry in \`.codeforge/docs/manifest.json\`.
+5. Add \`${newSpecRelPath}\` to the \`specs\` array of the \`${doc.docName}\` entry in the manifest (if not already present).
 6. If the scope patterns need adjustment, update the \`scope\` array. Do NOT modify any other fields or entries.
 
 Please proceed with your evaluation.`;
