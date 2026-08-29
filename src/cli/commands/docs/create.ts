@@ -1,15 +1,31 @@
 import { Command } from "commander";
-import { select } from "@inquirer/prompts";
+import { select, input } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../../application/plan.js";
 import { prepareDocsPrompt } from "../../../application/docs.js";
 
 export function registerDocsCreateCommand(docs: Command): void {
   docs
-    .command("create [spec]")
+    .command("create [doc-name]")
     .description("Generate documentation prompt for a completed spec")
-    .action(async (spec?: string) => {
+    .option("--spec <spec>", "Name of the spec to associate with the documentation")
+    .action(async (docName?: string, options?: { spec?: string }) => {
       const workspacePath = process.cwd();
-      let selectedSpec = spec;
+
+      if (!docName) {
+        docName = await input({
+          message: "Enter the documentation name:",
+        });
+
+        if (!docName || docName.trim().length === 0) {
+          console.error("\n✗ Documentation name cannot be empty.\n");
+          process.exitCode = 1;
+          return;
+        }
+
+        docName = docName.trim();
+      }
+
+      let selectedSpec = options?.spec;
 
       if (!selectedSpec) {
         const specs = getAvailableSpecs(workspacePath);
@@ -23,12 +39,12 @@ export function registerDocsCreateCommand(docs: Command): void {
         }
 
         selectedSpec = await select({
-          message: "Select a spec to generate documentation for:",
+          message: "Select a spec to associate with this documentation:",
           choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
 
-      const result = prepareDocsPrompt(workspacePath, selectedSpec);
+      const result = prepareDocsPrompt(workspacePath, docName, selectedSpec);
 
       if ("notInitialized" in result && result.notInitialized) {
         console.error(
@@ -51,7 +67,7 @@ export function registerDocsCreateCommand(docs: Command): void {
       }
 
       if ("alreadyExists" in result && result.alreadyExists) {
-        console.error(`\n✗ Documentation for '${selectedSpec}' already exists.\n  Use 'codeforge docs update ${selectedSpec}' in the future.\n`);
+        console.error(`\n✗ Documentation '${docName}' already exists.\n  Use 'codeforge docs update' in the future.\n`);
         process.exitCode = 1;
         return;
       }
@@ -61,3 +77,4 @@ export function registerDocsCreateCommand(docs: Command): void {
       }
     });
 }
+

@@ -11,6 +11,7 @@ import { registerTaskCompleteCommand } from "./cli/commands/task/complete.js";
 import { registerTaskRetryCommand } from "./cli/commands/task/retry.js";
 import { registerTaskInfoCommand } from "./cli/commands/task/info.js";
 import { registerDocsCreateCommand } from "./cli/commands/docs/create.js";
+import { registerDocsUpdateCommand } from "./cli/commands/docs/update.js";
 
 import { runInteractiveMenu } from "./cli/interactive.js";
 
@@ -51,6 +52,7 @@ const docs = program
   .description("Manage documentation generation");
 
 registerDocsCreateCommand(docs);
+registerDocsUpdateCommand(docs);
 
 if (process.argv.length === 2) {
   // Run interactive menu if no arguments are provided

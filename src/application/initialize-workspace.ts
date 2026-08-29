@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { planningRule } from "../rules/planning.js";
 import { runningRule } from "../rules/running.js";
-import { docsRule } from "../rules/docs.js";
+import { docsRule, docsUpdateRule } from "../rules/docs.js";
 
 const CODEFORGE_DIR = ".codeforge";
 const METADATA_FILE = "metadata.json";
@@ -70,6 +70,11 @@ export function initializeWorkspace(
   const docsRulesPath = path.join(codeforgeRoot, "rules", "docs.md");
   fs.writeFileSync(docsRulesPath, docsRule, "utf-8");
   created.push(`${CODEFORGE_DIR}/rules/docs.md`);
+
+  // Write docs-update rules
+  const docsUpdateRulesPath = path.join(codeforgeRoot, "rules", "docs-update.md");
+  fs.writeFileSync(docsUpdateRulesPath, docsUpdateRule, "utf-8");
+  created.push(`${CODEFORGE_DIR}/rules/docs-update.md`);
 
   // Write docs/manifest.json
   const docsManifestPath = path.join(codeforgeRoot, "docs", "manifest.json");
