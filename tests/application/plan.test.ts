@@ -1,49 +1,33 @@
-import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
+import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
+import { describe, it, expect, beforeEach } from "vitest";
 import { getAvailableSpecs, preparePlanningPrompt } from "../../src/application/plan.js";
 
-function makeTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codeforge-test-plan-"));
-}
-
-function makeWorkspace(tempDir: string): void {
-  const root = path.join(tempDir, ".codeforge");
-  fs.mkdirSync(root);
-  fs.mkdirSync(path.join(root, "specs"));
-  fs.mkdirSync(path.join(root, "rules"));
-  fs.writeFileSync(
-    path.join(root, "metadata.json"),
-    JSON.stringify({ initialized: true }),
-    "utf-8"
-  );
+function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
+  gateway.mkdir(".codeforge");
+  gateway.mkdir(".codeforge/specs");
+  gateway.mkdir(".codeforge/rules");
+  gateway.writeFile(".codeforge/metadata.json", JSON.stringify({ initialized: true }));
 }
 
 describe("getAvailableSpecs", () => {
-  let tempDir: string;
+  let gateway: InMemoryWorkspaceGateway;
 
   beforeEach(() => {
-    tempDir = makeTempDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    gateway = new InMemoryWorkspaceGateway();
   });
 
   it("returns empty array if not initialized", () => {
-    expect(getAvailableSpecs(new NodeWorkspaceGateway(tempDir))).toEqual([]);
+    expect(getAvailableSpecs(gateway)).toEqual([]);
   });
 
   it("returns only .md files without extension", () => {
-    makeWorkspace(tempDir);
+    makeWorkspace(gateway);
     
-    fs.writeFileSync(path.join(tempDir, ".codeforge", "specs", "auth.md"), "");
-    fs.writeFileSync(path.join(tempDir, ".codeforge", "specs", "db.md"), "");
-    fs.writeFileSync(path.join(tempDir, ".codeforge", "specs", "readme.txt"), "");
+    gateway.writeFile(".codeforge/specs/auth.md", "");
+    gateway.writeFile(".codeforge/specs/db.md", "");
+    gateway.writeFile(".codeforge/specs/readme.txt", "");
 
-    const specs = getAvailableSpecs(new NodeWorkspaceGateway(tempDir));
+    const specs = getAvailableSpecs(gateway);
     expect(specs).toHaveLength(2);
     expect(specs).toContain("auth");
     expect(specs).toContain("db");
@@ -51,44 +35,31 @@ describe("getAvailableSpecs", () => {
 });
 
 describe("preparePlanningPrompt", () => {
-  let tempDir: string;
+  let gateway: InMemoryWorkspaceGateway;
 
   beforeEach(() => {
-    tempDir = makeTempDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    gateway = new InMemoryWorkspaceGateway();
   });
 
   it("returns notInitialized if metadata.json is missing", () => {
-    const result = preparePlanningPrompt(new NodeWorkspaceGateway(tempDir), "auth");
+    const result = preparePlanningPrompt(gateway, "auth");
     expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound if spec does not exist", () => {
-    makeWorkspace(tempDir);
-    const result = preparePlanningPrompt(new NodeWorkspaceGateway(tempDir), "missing-spec");
+    makeWorkspace(gateway);
+    const result = preparePlanningPrompt(gateway, "missing-spec");
     
     expect(result.kind).toBe("spec-not-found");
   });
 
   it("generates the prompt correctly and creates tasks folder", () => {
-    makeWorkspace(tempDir);
+    makeWorkspace(gateway);
     
-    fs.writeFileSync(
-      path.join(tempDir, ".codeforge", "rules", "planning.md"), 
-      "PLANNING RULES", 
-      "utf-8"
-    );
-    
-    fs.writeFileSync(
-      path.join(tempDir, ".codeforge", "specs", "auth.md"), 
-      "AUTH SPEC", 
-      "utf-8"
-    );
+    gateway.writeFile(".codeforge/rules/planning.md", "PLANNING RULES");
+    gateway.writeFile(".codeforge/specs/auth.md", "AUTH SPEC");
 
-    const result = preparePlanningPrompt(new NodeWorkspaceGateway(tempDir), "auth");
+    const result = preparePlanningPrompt(gateway, "auth");
 
     expect(result.kind).toBe("ready");
     if (result.kind === "ready") {
@@ -99,6 +70,6 @@ describe("preparePlanningPrompt", () => {
     }
 
     // Verifies tasks directory was created
-    expect(fs.existsSync(path.join(tempDir, ".codeforge", "tasks", "auth"))).toBe(true);
+    expect(gateway.exists(".codeforge/tasks/auth")).toBe(true);
   });
 });
