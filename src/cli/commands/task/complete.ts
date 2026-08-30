@@ -20,7 +20,8 @@ export function registerTaskCompleteCommand(task: Command): void {
           if (result.allCompleted) {
             console.log(`\n🎉 All tasks for spec '${spec}' are completed! Execution status updated to 'completed'.\n`);
           } else {
-            console.log();
+            console.log(`\n💡 Tip: Open a NEW, clean session in your AI agent before starting the next task.`);
+            console.log(`Then, run \`codeforge run ${spec}\` to get the next task.\n`);
           }
           break;
       }

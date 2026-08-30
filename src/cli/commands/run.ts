@@ -47,12 +47,11 @@ export function registerRunCommand(program: Command): void {
           break;
         case "task-ready":
           console.log(`\n▶ Task ready for execution: ${result.taskId}`);
-          console.log(`\nContext prompt generated at: ${result.promptPath}`);
-          console.log(`\n[MANUAL ACTION REQUIRED]`);
-          console.log(`1. Open a NEW, clean session in your AI agent.`);
-          console.log(`2. Instruct the agent to read the prompt file.`);
-          console.log(`3. When the agent finishes, run: \`codeforge task complete ${specName} ${result.taskId}\``);
-          console.log(`4. Run \`codeforge run ${specName}\` to get the next task.\n`);
+          console.log(`\n🤖 AI Agent Instructions:`);
+          console.log(`Please read the prompt file generated at: ${result.promptPath}`);
+          console.log(`Follow the instructions inside it to execute the task.`);
+          console.log(`When you are finished, run the following command to mark the task as completed:`);
+          console.log(`\`codeforge task complete ${specName} ${result.taskId}\`\n`);
           break;
       }
     });
