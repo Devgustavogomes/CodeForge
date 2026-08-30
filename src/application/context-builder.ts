@@ -11,8 +11,7 @@ export function buildContextPrompt(gw: WorkspaceGateway, specName: string, task:
   if (task.files && task.files.length > 0) {
     for (const file of task.files) {
       if (gw.exists(file)) {
-        const content = gw.readFile(file);
-        filesContext += `\n### File: ${file}\n\`\`\`\n${content}\n\`\`\`\n`;
+        filesContext += `\n### File: ${file}\n`;
       } else {
         filesContext += `\n### File: ${file}\n(File does not exist yet. You will need to create it.)\n`;
       }
