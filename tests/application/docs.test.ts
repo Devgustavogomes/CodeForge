@@ -1,8 +1,5 @@
-import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
+import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   prepareDocsPrompt,
   prepareDocsUpdatePrompt,
@@ -10,98 +7,69 @@ import {
   prepareManualDocUpdate,
 } from "../../src/application/docs.js";
 
-function makeTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codeforge-test-docs-"));
+function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
+  gateway.mkdir(".codeforge");
+  gateway.mkdir(".codeforge/specs");
+  gateway.mkdir(".codeforge/docs");
+  gateway.mkdir(".codeforge/rules");
+  gateway.writeFile(".codeforge/metadata.json", JSON.stringify({ initialized: true }));
 }
 
-function makeWorkspace(tempDir: string): void {
-  const root = path.join(tempDir, ".codeforge");
-  fs.mkdirSync(root);
-  fs.mkdirSync(path.join(root, "specs"));
-  fs.mkdirSync(path.join(root, "docs"), { recursive: true });
-  fs.mkdirSync(path.join(root, "rules"));
-  fs.writeFileSync(
-    path.join(root, "metadata.json"),
-    JSON.stringify({ initialized: true }),
-    "utf-8"
-  );
+function writeSpec(gateway: InMemoryWorkspaceGateway, name: string, content = "SPEC CONTENT"): void {
+  gateway.writeFile(`.codeforge/specs/${name}.md`, content);
 }
 
-function writeSpec(tempDir: string, name: string, content = "SPEC CONTENT"): void {
-  fs.writeFileSync(
-    path.join(tempDir, ".codeforge", "specs", `${name}.md`),
-    content,
-    "utf-8"
-  );
+function writeDocsRules(gateway: InMemoryWorkspaceGateway, content = "DOCS RULES"): void {
+  gateway.writeFile(".codeforge/rules/docs.md", content);
 }
 
-function writeDocsRules(tempDir: string, content = "DOCS RULES"): void {
-  fs.writeFileSync(
-    path.join(tempDir, ".codeforge", "rules", "docs.md"),
-    content,
-    "utf-8"
-  );
-}
-
-function writeDocsUpdateRules(tempDir: string, content = "DOCS UPDATE RULES"): void {
-  fs.writeFileSync(
-    path.join(tempDir, ".codeforge", "rules", "docs-update.md"),
-    content,
-    "utf-8"
-  );
+function writeDocsUpdateRules(gateway: InMemoryWorkspaceGateway, content = "DOCS UPDATE RULES"): void {
+  gateway.writeFile(".codeforge/rules/docs-update.md", content);
 }
 
 // ─────────────────────────────────────────────────────────
 // prepareDocsPrompt
 // ─────────────────────────────────────────────────────────
 describe("prepareDocsPrompt", () => {
-  let tempDir: string;
+  let gateway: InMemoryWorkspaceGateway;
 
   beforeEach(() => {
-    tempDir = makeTempDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    gateway = new InMemoryWorkspaceGateway();
   });
 
   it("returns notInitialized when metadata.json is missing", () => {
-    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
   it("returns specNotFound when the spec file does not exist", () => {
-    makeWorkspace(tempDir);
-    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "missing-spec");
+    makeWorkspace(gateway);
+    const result = prepareDocsPrompt(gateway, "my-doc", "missing-spec");
     expect(result).toEqual({ kind: "spec-not-found" });
   });
 
   it("returns rulesNotFound when .codeforge/rules/docs.md is missing", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
     expect(result).toEqual({ kind: "rules-not-found" });
   });
 
   it("returns alreadyExists when the doc file already exists on disk", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsRules(gateway);
 
-    fs.writeFileSync(
-      path.join(tempDir, ".codeforge", "docs", "my-doc.md"),
-      "# Existing doc",
-      "utf-8"
-    );
+    gateway.writeFile(".codeforge/docs/my-doc.md", "# Existing doc");
 
-    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
     expect(result).toEqual({ kind: "already-exists" });
   });
 
   it("returns alreadyExists when the doc is already registered in manifest.json", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsRules(gateway);
 
     const manifest = {
       version: "1.0",
@@ -115,22 +83,18 @@ describe("prepareDocsPrompt", () => {
         },
       },
     };
-    fs.writeFileSync(
-      path.join(tempDir, ".codeforge", "docs", "manifest.json"),
-      JSON.stringify(manifest),
-      "utf-8"
-    );
+    gateway.writeFile(".codeforge/docs/manifest.json", JSON.stringify(manifest));
 
-    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
     expect(result).toEqual({ kind: "already-exists" });
   });
 
   it("returns a prompt containing spec and rules content", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth", "MY SPEC CONTENT");
-    writeDocsRules(tempDir, "MY DOCS RULES");
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth", "MY SPEC CONTENT");
+    writeDocsRules(gateway, "MY DOCS RULES");
 
-    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
 
     expect(result).toHaveProperty("prompt");
     if (!("prompt" in result)) throw new Error("expected prompt");
@@ -139,11 +103,11 @@ describe("prepareDocsPrompt", () => {
   });
 
   it("includes the doc name in the generated prompt", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsRules(gateway);
 
-    const result = prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
 
     expect(result).toHaveProperty("prompt");
     if (!("prompt" in result)) throw new Error("expected prompt");
@@ -151,32 +115,30 @@ describe("prepareDocsPrompt", () => {
   });
 
   it("creates and writes a manifest entry for the new doc", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsRules(gateway);
 
-    prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "my-doc", "auth");
+    prepareDocsPrompt(gateway, "my-doc", "auth");
 
-    const manifestPath = path.join(tempDir, ".codeforge", "docs", "manifest.json");
-    expect(fs.existsSync(manifestPath)).toBe(true);
+    expect(gateway.exists(".codeforge/docs/manifest.json")).toBe(true);
 
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+    const manifest = JSON.parse(gateway.readFile(".codeforge/docs/manifest.json"));
     expect(manifest.documents["my-doc"]).toBeDefined();
     expect(manifest.documents["my-doc"].specs).toContain(".codeforge/specs/auth.md");
     expect(manifest.documents["my-doc"].path).toBe(".codeforge/docs/my-doc.md");
   });
 
   it("preserves existing manifest entries when adding a new doc", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeSpec(tempDir, "billing");
-    writeDocsRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeSpec(gateway, "billing");
+    writeDocsRules(gateway);
 
-    prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "doc-one", "auth");
-    prepareDocsPrompt(new NodeWorkspaceGateway(tempDir), "doc-two", "billing");
+    prepareDocsPrompt(gateway, "doc-one", "auth");
+    prepareDocsPrompt(gateway, "doc-two", "billing");
 
-    const manifestPath = path.join(tempDir, ".codeforge", "docs", "manifest.json");
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+    const manifest = JSON.parse(gateway.readFile(".codeforge/docs/manifest.json"));
 
     expect(manifest.documents["doc-one"]).toBeDefined();
     expect(manifest.documents["doc-two"]).toBeDefined();
@@ -187,70 +149,61 @@ describe("prepareDocsPrompt", () => {
 // prepareDocsUpdatePrompt
 // ─────────────────────────────────────────────────────────
 describe("prepareDocsUpdatePrompt", () => {
-  let tempDir: string;
+  let gateway: InMemoryWorkspaceGateway;
 
   beforeEach(() => {
-    tempDir = makeTempDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    gateway = new InMemoryWorkspaceGateway();
   });
 
   it("returns notInitialized when metadata.json is missing", () => {
-    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth");
+    const result = prepareDocsUpdatePrompt(gateway, "auth");
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
   it("returns specNotFound when the spec file does not exist", () => {
-    makeWorkspace(tempDir);
-    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "missing-spec");
+    makeWorkspace(gateway);
+    const result = prepareDocsUpdatePrompt(gateway, "missing-spec");
     expect(result).toEqual({ kind: "spec-not-found" });
   });
 
   it("returns rulesNotFound when docs-update.md rules are missing", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth");
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    const result = prepareDocsUpdatePrompt(gateway, "auth");
     expect(result).toEqual({ kind: "rules-not-found" });
   });
 
   it("returns noGit when there is no .git directory", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsUpdateRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsUpdateRules(gateway);
 
-    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth");
+    const result = prepareDocsUpdatePrompt(gateway, "auth");
     expect(result).toEqual({ kind: "no-git" });
   });
 
   it("returns noAffectedDocs when manifest has no entries with scope", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsUpdateRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsUpdateRules(gateway);
 
-    // Fake .git dir so the git check passes
-    fs.mkdirSync(path.join(tempDir, ".git"));
+    gateway.mkdir(".git");
 
-    // Manifest with a doc that has NO scope defined
-    const manifestPath = path.join(tempDir, ".codeforge", "docs", "manifest.json");
     const manifest = {
       version: "1.0",
       documents: {
         "api-reference": {
           path: ".codeforge/docs/api-reference.md",
           specs: [".codeforge/specs/auth.md"],
-          scope: [], // empty scope → never matches any changed file
+          scope: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
       },
     };
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest), "utf-8");
+    gateway.writeFile(".codeforge/docs/manifest.json", JSON.stringify(manifest));
 
-    // git diff will throw (no real git repo), which is caught and returns noChangedFiles.
-    // Docs with empty scope also produce noAffectedDocs. Both are valid early-exits.
-    const result = prepareDocsUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth");
+    const result = prepareDocsUpdatePrompt(gateway, "auth");
     const validKinds = ["no-changed-files", "no-affected-docs"];
     expect(validKinds.includes(result.kind)).toBe(true);
   });
@@ -260,20 +213,16 @@ describe("prepareDocsUpdatePrompt", () => {
 // buildDocUpdatePrompt
 // ─────────────────────────────────────────────────────────
 describe("buildDocUpdatePrompt", () => {
-  let tempDir: string;
+  let gateway: InMemoryWorkspaceGateway;
 
   beforeEach(() => {
-    tempDir = makeTempDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    gateway = new InMemoryWorkspaceGateway();
   });
 
   it("includes rules content in the prompt", () => {
-    makeWorkspace(tempDir);
-    writeDocsUpdateRules(tempDir, "MY UPDATE RULES");
-    fs.mkdirSync(path.join(tempDir, ".git"));
+    makeWorkspace(gateway);
+    writeDocsUpdateRules(gateway, "MY UPDATE RULES");
+    gateway.mkdir(".git");
 
     const affectedDoc = {
       docName: "api-reference",
@@ -282,14 +231,14 @@ describe("buildDocUpdatePrompt", () => {
       matchedFiles: [],
     };
 
-    const prompt = buildDocUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth", affectedDoc);
+    const prompt = buildDocUpdatePrompt(gateway, "auth", affectedDoc);
     expect(prompt).toContain("MY UPDATE RULES");
   });
 
   it("includes the affected doc name in the prompt", () => {
-    makeWorkspace(tempDir);
-    writeDocsUpdateRules(tempDir);
-    fs.mkdirSync(path.join(tempDir, ".git"));
+    makeWorkspace(gateway);
+    writeDocsUpdateRules(gateway);
+    gateway.mkdir(".git");
 
     const affectedDoc = {
       docName: "api-reference",
@@ -298,14 +247,14 @@ describe("buildDocUpdatePrompt", () => {
       matchedFiles: [],
     };
 
-    const prompt = buildDocUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth", affectedDoc);
+    const prompt = buildDocUpdatePrompt(gateway, "auth", affectedDoc);
     expect(prompt).toContain("api-reference");
   });
 
   it("includes the doc path in the prompt", () => {
-    makeWorkspace(tempDir);
-    writeDocsUpdateRules(tempDir);
-    fs.mkdirSync(path.join(tempDir, ".git"));
+    makeWorkspace(gateway);
+    writeDocsUpdateRules(gateway);
+    gateway.mkdir(".git");
 
     const affectedDoc = {
       docName: "api-reference",
@@ -314,14 +263,14 @@ describe("buildDocUpdatePrompt", () => {
       matchedFiles: [],
     };
 
-    const prompt = buildDocUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth", affectedDoc);
+    const prompt = buildDocUpdatePrompt(gateway, "auth", affectedDoc);
     expect(prompt).toContain(".codeforge/docs/api-reference.md");
   });
 
   it("includes the spec name in the prompt", () => {
-    makeWorkspace(tempDir);
-    writeDocsUpdateRules(tempDir);
-    fs.mkdirSync(path.join(tempDir, ".git"));
+    makeWorkspace(gateway);
+    writeDocsUpdateRules(gateway);
+    gateway.mkdir(".git");
 
     const affectedDoc = {
       docName: "api-reference",
@@ -330,7 +279,7 @@ describe("buildDocUpdatePrompt", () => {
       matchedFiles: [],
     };
 
-    const prompt = buildDocUpdatePrompt(new NodeWorkspaceGateway(tempDir), "auth", affectedDoc);
+    const prompt = buildDocUpdatePrompt(gateway, "auth", affectedDoc);
     expect(prompt).toContain(".codeforge/specs/auth.md");
   });
 });
@@ -339,47 +288,43 @@ describe("buildDocUpdatePrompt", () => {
 // prepareManualDocUpdate
 // ─────────────────────────────────────────────────────────
 describe("prepareManualDocUpdate", () => {
-  let tempDir: string;
+  let gateway: InMemoryWorkspaceGateway;
 
   beforeEach(() => {
-    tempDir = makeTempDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    gateway = new InMemoryWorkspaceGateway();
   });
 
   it("returns notInitialized when metadata.json is missing", () => {
-    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
+    const result = prepareManualDocUpdate(gateway, "auth", "api-reference");
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
   it("returns specNotFound when the spec file does not exist", () => {
-    makeWorkspace(tempDir);
-    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "missing-spec", "api-reference");
+    makeWorkspace(gateway);
+    const result = prepareManualDocUpdate(gateway, "missing-spec", "api-reference");
     expect(result).toEqual({ kind: "spec-not-found" });
   });
 
   it("returns rulesNotFound when docs-update.md rules are missing", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    const result = prepareManualDocUpdate(gateway, "auth", "api-reference");
     expect(result).toEqual({ kind: "rules-not-found" });
   });
 
   it("returns docNotFound when doc is absent from manifest and disk", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsUpdateRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsUpdateRules(gateway);
 
-    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "non-existent-doc");
+    const result = prepareManualDocUpdate(gateway, "auth", "non-existent-doc");
     expect(result).toEqual({ kind: "doc-not-found" });
   });
 
   it("succeeds when the doc is registered in manifest.json", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsUpdateRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsUpdateRules(gateway);
 
     const manifest = {
       version: "1.0",
@@ -393,34 +338,25 @@ describe("prepareManualDocUpdate", () => {
         },
       },
     };
-    fs.writeFileSync(
-      path.join(tempDir, ".codeforge", "docs", "manifest.json"),
-      JSON.stringify(manifest),
-      "utf-8"
-    );
+    gateway.writeFile(".codeforge/docs/manifest.json", JSON.stringify(manifest));
 
-    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
+    const result = prepareManualDocUpdate(gateway, "auth", "api-reference");
 
     expect(result).toHaveProperty("doc");
     if (!("doc" in result)) throw new Error("expected doc");
     expect(result.doc.docName).toBe("api-reference");
     expect(result.doc.docPath).toBe(".codeforge/docs/api-reference.md");
-    expect(result.doc.matchedFiles).toEqual([]); // manual mode has no scope matching
+    expect(result.doc.matchedFiles).toEqual([]);
   });
 
   it("succeeds when the doc file exists on disk even without a manifest entry", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsUpdateRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsUpdateRules(gateway);
 
-    // Create the doc file without a manifest entry
-    fs.writeFileSync(
-      path.join(tempDir, ".codeforge", "docs", "api-reference.md"),
-      "# API Reference",
-      "utf-8"
-    );
+    gateway.writeFile(".codeforge/docs/api-reference.md", "# API Reference");
 
-    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
+    const result = prepareManualDocUpdate(gateway, "auth", "api-reference");
 
     expect(result).toHaveProperty("doc");
     if (!("doc" in result)) throw new Error("expected doc");
@@ -429,17 +365,13 @@ describe("prepareManualDocUpdate", () => {
   });
 
   it("doc returned has empty specPaths when doc is not in manifest", () => {
-    makeWorkspace(tempDir);
-    writeSpec(tempDir, "auth");
-    writeDocsUpdateRules(tempDir);
+    makeWorkspace(gateway);
+    writeSpec(gateway, "auth");
+    writeDocsUpdateRules(gateway);
 
-    fs.writeFileSync(
-      path.join(tempDir, ".codeforge", "docs", "api-reference.md"),
-      "# API Reference",
-      "utf-8"
-    );
+    gateway.writeFile(".codeforge/docs/api-reference.md", "# API Reference");
 
-    const result = prepareManualDocUpdate(new NodeWorkspaceGateway(tempDir), "auth", "api-reference");
+    const result = prepareManualDocUpdate(gateway, "auth", "api-reference");
     if (!("doc" in result)) throw new Error("expected doc");
     expect(result.doc.specPaths).toEqual([]);
   });
