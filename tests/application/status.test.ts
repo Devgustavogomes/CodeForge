@@ -1,29 +1,17 @@
-import { NodeWorkspaceGateway } from "../../src/infrastructure/workspace.js";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
+import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
+import { describe, it, expect, beforeEach } from "vitest";
 import { getSpecStatus, formatStatusOutput } from "../../src/application/status.js";
 import { SpecExecutionState } from "../../src/domain/execution.js";
 
-function makeTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codeforge-test-status-"));
+function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
+  gateway.mkdir(".codeforge");
+  gateway.mkdir(".codeforge/specs");
+  gateway.mkdir(".codeforge/tasks/test-spec");
+  gateway.mkdir(".codeforge/executions");
+  gateway.writeFile(".codeforge/metadata.json", JSON.stringify({ initialized: true }));
 }
 
-function makeWorkspace(tempDir: string): void {
-  const root = path.join(tempDir, ".codeforge");
-  fs.mkdirSync(root);
-  fs.mkdirSync(path.join(root, "specs"));
-  fs.mkdirSync(path.join(root, "tasks", "test-spec"), { recursive: true });
-  fs.mkdirSync(path.join(root, "executions"), { recursive: true });
-  fs.writeFileSync(
-    path.join(root, "metadata.json"),
-    JSON.stringify({ initialized: true }),
-    "utf-8"
-  );
-}
-
-function writeTask(tempDir: string, id: string, title: string, deps: string[] = []) {
+function writeTask(gateway: InMemoryWorkspaceGateway, id: string, title: string, deps: string[] = []) {
   const task = {
     id,
     title,
@@ -35,51 +23,45 @@ function writeTask(tempDir: string, id: string, title: string, deps: string[] = 
     constraints: [],
     acceptanceCriteria: [],
   };
-  const p = path.join(tempDir, ".codeforge", "tasks", "test-spec", `${id}.json`);
-  fs.writeFileSync(p, JSON.stringify(task), "utf-8");
+  gateway.writeFile(`.codeforge/tasks/test-spec/${id}.json`, JSON.stringify(task));
 }
 
-function writeState(tempDir: string, state: SpecExecutionState) {
-  const p = path.join(tempDir, ".codeforge", "executions", `${state.specId}.json`);
-  fs.writeFileSync(p, JSON.stringify(state, null, 2), "utf-8");
+function writeState(gateway: InMemoryWorkspaceGateway, state: SpecExecutionState) {
+  gateway.writeFile(`.codeforge/executions/${state.specId}.json`, JSON.stringify(state, null, 2));
 }
 
 describe("getSpecStatus", () => {
-  let tempDir: string;
+  let gateway: InMemoryWorkspaceGateway;
 
   beforeEach(() => {
-    tempDir = makeTempDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    gateway = new InMemoryWorkspaceGateway();
   });
 
   it("returns notInitialized when metadata is missing", () => {
-    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
+    const result = getSpecStatus(gateway, "test-spec");
     expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound when tasks directory is missing", () => {
-    makeWorkspace(tempDir);
-    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "nonexistent");
+    makeWorkspace(gateway);
+    const result = getSpecStatus(gateway, "nonexistent");
     expect(result.kind).toBe("spec-not-found");
   });
 
   it("returns noExecution when no execution state exists", () => {
-    makeWorkspace(tempDir);
-    writeTask(tempDir, "TASK-001", "Setup", []);
-    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
+    makeWorkspace(gateway);
+    writeTask(gateway, "TASK-001", "Setup", []);
+    const result = getSpecStatus(gateway, "test-spec");
     expect(result.kind).toBe("no-execution");
   });
 
   it("returns task statuses from execution state", () => {
-    makeWorkspace(tempDir);
-    writeTask(tempDir, "TASK-001", "Setup project", []);
-    writeTask(tempDir, "TASK-002", "Add routes", ["TASK-001"]);
-    writeTask(tempDir, "TASK-003", "Add tests", ["TASK-002"]);
+    makeWorkspace(gateway);
+    writeTask(gateway, "TASK-001", "Setup project", []);
+    writeTask(gateway, "TASK-002", "Add routes", ["TASK-001"]);
+    writeTask(gateway, "TASK-003", "Add tests", ["TASK-002"]);
 
-    writeState(tempDir, {
+    writeState(gateway, {
       specId: "test-spec",
       status: "running",
       tasks: {
@@ -90,7 +72,7 @@ describe("getSpecStatus", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
+    const result = getSpecStatus(gateway, "test-spec");
 
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
@@ -103,11 +85,11 @@ describe("getSpecStatus", () => {
   });
 
   it("includes dependencies in task info", () => {
-    makeWorkspace(tempDir);
-    writeTask(tempDir, "TASK-001", "First", []);
-    writeTask(tempDir, "TASK-002", "Second", ["TASK-001"]);
+    makeWorkspace(gateway);
+    writeTask(gateway, "TASK-001", "First", []);
+    writeTask(gateway, "TASK-002", "Second", ["TASK-001"]);
 
-    writeState(tempDir, {
+    writeState(gateway, {
       specId: "test-spec",
       status: "running",
       tasks: {
@@ -117,7 +99,7 @@ describe("getSpecStatus", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
+    const result = getSpecStatus(gateway, "test-spec");
 
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
@@ -127,12 +109,12 @@ describe("getSpecStatus", () => {
   });
 
   it("returns tasks sorted by ID", () => {
-    makeWorkspace(tempDir);
-    writeTask(tempDir, "TASK-003", "Third", []);
-    writeTask(tempDir, "TASK-001", "First", []);
-    writeTask(tempDir, "TASK-002", "Second", []);
+    makeWorkspace(gateway);
+    writeTask(gateway, "TASK-003", "Third", []);
+    writeTask(gateway, "TASK-001", "First", []);
+    writeTask(gateway, "TASK-002", "Second", []);
 
-    writeState(tempDir, {
+    writeState(gateway, {
       specId: "test-spec",
       status: "running",
       tasks: {
@@ -143,7 +125,7 @@ describe("getSpecStatus", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(new NodeWorkspaceGateway(tempDir), "test-spec");
+    const result = getSpecStatus(gateway, "test-spec");
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
       expect(result.tasks.map((t) => t.id)).toEqual(["TASK-001", "TASK-002", "TASK-003"]);
