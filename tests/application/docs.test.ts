@@ -50,20 +50,20 @@ describe("prepareDocsPrompt", () => {
   });
 
   it("returns notInitialized when metadata.json is missing", () => {
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "pt-BR");
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
   it("returns specNotFound when the spec file does not exist", () => {
     makeWorkspace(gateway);
-    const result = prepareDocsPrompt(gateway, "my-doc", "missing-spec");
+    const result = prepareDocsPrompt(gateway, "my-doc", "missing-spec", "pt-BR");
     expect(result).toEqual({ kind: "spec-not-found" });
   });
 
   it("returns rulesNotFound when .codeforge/rules/docs.md is missing", () => {
     makeWorkspace(gateway);
     writeSpec(gateway, "auth");
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "pt-BR");
     expect(result).toEqual({ kind: "rules-not-found" });
   });
 
@@ -74,7 +74,7 @@ describe("prepareDocsPrompt", () => {
 
     gateway.writeFile(".codeforge/docs/my-doc.md", "# Existing doc");
 
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "pt-BR");
     expect(result).toEqual({ kind: "already-exists" });
   });
 
@@ -100,7 +100,7 @@ describe("prepareDocsPrompt", () => {
       JSON.stringify(manifest),
     );
 
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "en");
     expect(result).toEqual({ kind: "already-exists" });
   });
 
@@ -109,7 +109,7 @@ describe("prepareDocsPrompt", () => {
     writeSpec(gateway, "auth", "MY SPEC CONTENT");
     writeDocsRules(gateway, "MY DOCS RULES");
 
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "en");
 
     expect(result).toHaveProperty("prompt");
     if (!("prompt" in result)) throw new Error("expected prompt");
@@ -122,7 +122,7 @@ describe("prepareDocsPrompt", () => {
     writeSpec(gateway, "auth");
     writeDocsRules(gateway);
 
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth");
+    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "en");
 
     expect(result).toHaveProperty("prompt");
     if (!("prompt" in result)) throw new Error("expected prompt");
@@ -134,7 +134,7 @@ describe("prepareDocsPrompt", () => {
     writeSpec(gateway, "auth");
     writeDocsRules(gateway);
 
-    prepareDocsPrompt(gateway, "my-doc", "auth");
+    prepareDocsPrompt(gateway, "my-doc", "auth", "en");
 
     expect(gateway.exists(".codeforge/docs/manifest.json")).toBe(true);
 
@@ -154,8 +154,8 @@ describe("prepareDocsPrompt", () => {
     writeSpec(gateway, "billing");
     writeDocsRules(gateway);
 
-    prepareDocsPrompt(gateway, "doc-one", "auth");
-    prepareDocsPrompt(gateway, "doc-two", "billing");
+    prepareDocsPrompt(gateway, "doc-one", "auth", "en");
+    prepareDocsPrompt(gateway, "doc-two", "billing", "en");
 
     const manifest = JSON.parse(
       gateway.readFile(".codeforge/docs/manifest.json"),
@@ -190,6 +190,8 @@ describe("UpdateDocUseCase", () => {
       environment: "test",
       plannerAgent: "mock-planner",
       executorAgent: "mock-executor",
+      language: "en",
+      humanInTheLoop: true,
     };
     useCase = new UpdateDocUseCase(gateway, mockGit, mockRunner, mockConfig);
   });

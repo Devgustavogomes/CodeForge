@@ -22,6 +22,8 @@ describe('ConfigService', () => {
       environment: 'antigravity',
       plannerAgent: 'planner-1',
       executorAgent: 'executor-1',
+      language: 'en',
+      humanInTheLoop: true,
     };
 
     configService.saveConfig(testConfig);

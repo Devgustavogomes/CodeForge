@@ -1,4 +1,4 @@
-import { WorkspaceGateway } from "../../src/infrastructure/workspace";
+import { WorkspaceGateway } from "../../src/infrastructure/workspace.js";
 
 export class InMemoryWorkspaceGateway implements WorkspaceGateway {
   public files = new Map<string, string>();

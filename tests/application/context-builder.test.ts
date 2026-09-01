@@ -27,7 +27,7 @@ describe("buildContextPrompt", () => {
       acceptanceCriteria: ["Must work"]
     };
 
-    const prompt = buildContextPrompt(gateway, "auth", task);
+    const prompt = buildContextPrompt(gateway, "auth", task, "pt-BR");
 
     expect(prompt).toContain("SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)");
     expect(prompt).toContain("TASK-001 - Login");
@@ -57,7 +57,7 @@ describe("buildContextPrompt", () => {
       acceptanceCriteria: []
     };
 
-    const prompt = buildContextPrompt(gateway, "auth", task);
+    const prompt = buildContextPrompt(gateway, "auth", task, "pt-BR");
 
     // It should include the existing file path
     expect(prompt).toContain("### File: src/index.ts");

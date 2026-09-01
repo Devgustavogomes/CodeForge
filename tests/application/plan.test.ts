@@ -42,13 +42,13 @@ describe("preparePlanningPrompt", () => {
   });
 
   it("returns notInitialized if metadata.json is missing", () => {
-    const result = preparePlanningPrompt(gateway, "auth");
+    const result = preparePlanningPrompt(gateway, "auth", "pt-BR");
     expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound if spec does not exist", () => {
     makeWorkspace(gateway);
-    const result = preparePlanningPrompt(gateway, "missing-spec");
+    const result = preparePlanningPrompt(gateway, "missing-spec", "pt-BR");
     
     expect(result.kind).toBe("spec-not-found");
   });
@@ -59,7 +59,7 @@ describe("preparePlanningPrompt", () => {
     gateway.writeFile(".codeforge/rules/planning.md", "PLANNING RULES");
     gateway.writeFile(".codeforge/specs/auth.md", "AUTH SPEC");
 
-    const result = preparePlanningPrompt(gateway, "auth");
+    const result = preparePlanningPrompt(gateway, "auth", "pt-BR");
 
     expect(result.kind).toBe("ready");
     if (result.kind === "ready") {

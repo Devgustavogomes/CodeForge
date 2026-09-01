@@ -65,9 +65,9 @@ describe("getSpecStatus", () => {
       specId: "test-spec",
       status: "running",
       tasks: {
-        "TASK-001": { status: "completed" },
-        "TASK-002": { status: "running" },
-        "TASK-003": { status: "pending" },
+        "TASK-001": { status: "completed", dependencies: [] },
+        "TASK-002": { status: "running", dependencies: ["TASK-001"] },
+        "TASK-003": { status: "pending", dependencies: ["TASK-002"] },
       },
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
@@ -93,8 +93,8 @@ describe("getSpecStatus", () => {
       specId: "test-spec",
       status: "running",
       tasks: {
-        "TASK-001": { status: "completed" },
-        "TASK-002": { status: "pending" },
+        "TASK-001": { status: "completed", dependencies: [] },
+        "TASK-002": { status: "pending", dependencies: ["TASK-001"] },
       },
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
@@ -118,9 +118,9 @@ describe("getSpecStatus", () => {
       specId: "test-spec",
       status: "running",
       tasks: {
-        "TASK-001": { status: "pending" },
-        "TASK-002": { status: "pending" },
-        "TASK-003": { status: "pending" },
+        "TASK-001": { status: "pending", dependencies: [] },
+        "TASK-002": { status: "pending", dependencies: [] },
+        "TASK-003": { status: "pending", dependencies: [] },
       },
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
