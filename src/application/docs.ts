@@ -62,7 +62,7 @@ export function loadOrCreateManifest(gw: WorkspaceGateway, manifestPath: string)
   return { version: "1.0", documents: {} };
 }
 
-export function prepareDocsPrompt(gw: WorkspaceGateway, docName: string, specName: string): DocsPromptResult {
+export function prepareDocsPrompt(gw: WorkspaceGateway, docName: string, specName: string, language: string): DocsPromptResult {
   if (!gw.exists(PATHS.metadata)) {
     return { kind: "not-initialized" };
   }
@@ -114,7 +114,7 @@ export function prepareDocsPrompt(gw: WorkspaceGateway, docName: string, specNam
   const rulesContent = gw.readFile(PATHS.docsRules);
   const specContent = gw.readFile(specPath);
 
-  const prompt = buildDocsCreatePrompt(docName, rulesContent, specContent);
+  const prompt = buildDocsCreatePrompt(docName, rulesContent, specContent, language);
   return { kind: "prompt", prompt };
 }
 

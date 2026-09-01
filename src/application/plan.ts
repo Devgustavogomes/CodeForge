@@ -18,7 +18,7 @@ export function getAvailableSpecs(gw: WorkspaceGateway): string[] {
     .map(file => file.replace(/\.md$/, ""));
 }
 
-export function preparePlanningPrompt(gw: WorkspaceGateway, specName: string): PlanResult {
+export function preparePlanningPrompt(gw: WorkspaceGateway, specName: string, language: string): PlanResult {
   if (!gw.exists(PATHS.metadata)) {
     return { kind: "not-initialized" };
   }
@@ -41,7 +41,7 @@ export function preparePlanningPrompt(gw: WorkspaceGateway, specName: string): P
     gw.mkdir(specTasksDir);
   }
 
-  const prompt = buildPlanningPrompt(specName, specContent, rulesContent, specTasksDir);
+  const prompt = buildPlanningPrompt(specName, specContent, rulesContent, specTasksDir, language);
 
   return {
     kind: "ready",

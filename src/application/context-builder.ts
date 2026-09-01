@@ -3,7 +3,7 @@ import { WorkspaceGateway } from "../infrastructure/workspace.js";
 import { PATHS } from "../infrastructure/paths.js";
 import { buildRunningPrompt } from "../prompts/running.js";
 
-export function buildContextPrompt(gw: WorkspaceGateway, specName: string, task: Task): string {
+export function buildContextPrompt(gw: WorkspaceGateway, specName: string, task: Task, language: string): string {
   const specPath = PATHS.specFile(specName);
   const specContent = gw.exists(specPath) ? gw.readFile(specPath) : "Spec not found.";
 
@@ -23,5 +23,5 @@ export function buildContextPrompt(gw: WorkspaceGateway, specName: string, task:
   const runningRulesPath = PATHS.runningRules;
   const runningRulesContent = gw.exists(runningRulesPath) ? gw.readFile(runningRulesPath) : "Execution rules not found.";
 
-  return buildRunningPrompt(task, specContent, runningRulesContent, filesContext);
+  return buildRunningPrompt(task, specContent, runningRulesContent, filesContext, language);
 }

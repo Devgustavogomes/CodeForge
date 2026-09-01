@@ -85,7 +85,7 @@ export class UpdateDocUseCase {
     let promptStr = "";
 
     if (isManual) {
-      promptStr = buildDocsManualUpdatePrompt(doc, rulesContent, specName);
+      promptStr = buildDocsManualUpdatePrompt(doc, rulesContent, specName, this.config.language);
     } else {
       let changedFilesDiff = "";
       for (const file of doc.matchedFiles) {
@@ -97,7 +97,7 @@ export class UpdateDocUseCase {
         }
       }
       const newSpecRelPath = PATHS.specFile(specName);
-      promptStr = buildDocsUpdatePrompt(doc, rulesContent, changedFilesDiff, newSpecRelPath);
+      promptStr = buildDocsUpdatePrompt(doc, rulesContent, changedFilesDiff, newSpecRelPath, this.config.language);
     }
 
     const docsDir = ".codeforge/docs";

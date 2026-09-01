@@ -12,10 +12,13 @@ import {
   initExecutionState,
 } from "../application/execution-state.js";
 
+import { CodeForgeConfig } from "../config/types.js";
+
 export class TaskScheduler {
   constructor(
     private gw: WorkspaceGateway,
     private runner: AgentRunner,
+    private config: CodeForgeConfig,
     private reporter?: SchedulerReporter,
   ) {}
 
@@ -112,7 +115,7 @@ export class TaskScheduler {
           }
 
           const promptPath = `${specExecDir}/${task.id}.temp.prompt.md`;
-          const promptContent = buildContextPrompt(this.gw, specName, task);
+          const promptContent = buildContextPrompt(this.gw, specName, task, this.config.language);
           this.gw.writeFile(promptPath, promptContent);
 
           const context: TaskContext = {

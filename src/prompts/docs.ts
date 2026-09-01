@@ -8,7 +8,8 @@ export interface AffectedDoc {
 export function buildDocsCreatePrompt(
   docName: string,
   rulesContent: string,
-  specContent: string
+  specContent: string,
+  language: string
 ): string {
   return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation)
 
@@ -30,14 +31,18 @@ ${specContent}
    Ensure the scope considers the semantic relationship between the code and documentation.
 5. The manifest entry for \`${docName}\` has already been created at \`.codeforge/docs/manifest.json\`. You must read the file, populate the \`scope\` array for the \`${docName}\` entry with your determined scope globs, and write the file back. Do NOT modify any other fields or entries in the manifest.
 
-Please proceed with your analysis and file generation.`;
+Please proceed with your analysis and file generation.
+
+--- INSTRUCTION ---
+All your output, documentation, and task descriptions MUST be written in ${language}.`;
 }
 
 export function buildDocsUpdatePrompt(
   affectedDoc: AffectedDoc,
   rulesContent: string,
   changedFilesDiff: string,
-  newSpecRelPath: string
+  newSpecRelPath: string,
+  language: string
 ): string {
   return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation Update)
 
@@ -64,7 +69,10 @@ ${changedFilesDiff}
 5. If the update is relevant, add \`${newSpecRelPath}\` to the \`specs\` array of the \`${affectedDoc.docName}\` entry in the manifest (if not already present).
 6. If the scope patterns need adjustment, update the \`scope\` array. Do NOT modify any other fields or entries.
 
-Please proceed with your evaluation.`;
+Please proceed with your evaluation.
+
+--- INSTRUCTION ---
+All your output, documentation, and task descriptions MUST be written in ${language}.`;
 }
 
 import { PATHS } from "../infrastructure/paths.js";
@@ -72,7 +80,8 @@ import { PATHS } from "../infrastructure/paths.js";
 export function buildDocsManualUpdatePrompt(
   doc: AffectedDoc,
   rulesContent: string,
-  specName: string
+  specName: string,
+  language: string
 ): string {
   const newSpecRelPath = PATHS.specFile(specName);
 
@@ -97,5 +106,8 @@ Read the current documentation at \`${doc.docPath}\`.
 5. Add \`${newSpecRelPath}\` to the \`specs\` array of the \`${doc.docName}\` entry in the manifest (if not already present).
 6. If the scope patterns need adjustment, update the \`scope\` array. Do NOT modify any other fields or entries.
 
-Please proceed with your evaluation.`;
+Please proceed with your evaluation.
+
+--- INSTRUCTION ---
+All your output, documentation, and task descriptions MUST be written in ${language}.`;
 }

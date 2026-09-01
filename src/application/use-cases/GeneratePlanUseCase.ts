@@ -4,6 +4,8 @@ import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { preparePlanningPrompt } from "../plan.js";
 import { validatePlan } from "../validate.js";
 import { buildPlanningFixPrompt } from "../../prompts/planning.js";
+import { ConfigService } from "../../config/ConfigService.js";
+import { CodeForgeConfig } from "../../config/types.js";
 
 export type GeneratePlanResult =
   | { kind: "not-initialized" }
@@ -16,10 +18,11 @@ export class GeneratePlanUseCase {
   constructor(
     private readonly workspace: WorkspaceGateway,
     private readonly runner: AgentRunner,
+    private readonly config: CodeForgeConfig,
   ) {}
 
   async execute(specName: string, model: string): Promise<GeneratePlanResult> {
-    const result = preparePlanningPrompt(this.workspace, specName);
+    const result = preparePlanningPrompt(this.workspace, specName, this.config.language);
 
     if (result.kind === "not-initialized") {
       return { kind: "not-initialized" };
@@ -47,7 +50,7 @@ export class GeneratePlanUseCase {
       let valResult = validatePlan(this.workspace, specName);
 
       if (valResult.kind === "invalid") {
-        const fixPrompt = buildPlanningFixPrompt(specName, valResult.errors);
+        const fixPrompt = buildPlanningFixPrompt(specName, valResult.errors, this.config.language);
         this.workspace.writeFile(promptPath, fixPrompt);
         
         await this.runner.execute(context);
