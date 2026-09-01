@@ -14,8 +14,15 @@ export class ConfigService {
         return null;
       }
       const fileContent = this.workspace.readFile(this.configPath);
-      const config = yaml.parse(fileContent);
-      return config as CodeForgeConfig || null;
+      const parsedConfig = yaml.parse(fileContent) || {};
+      
+      const config: CodeForgeConfig = {
+        ...parsedConfig,
+        language: parsedConfig.language ?? 'en',
+        humanInTheLoop: parsedConfig.humanInTheLoop ?? true,
+      };
+      
+      return config;
     } catch (error) {
       console.error('Failed to load config:', error);
       return null;
