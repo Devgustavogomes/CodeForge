@@ -1,16 +1,11 @@
-import fs from "node:fs";
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import {
-  getAvailableSpecs,
-  preparePlanningPrompt,
-} from "../../../application/plan.js";
+import { getAvailableSpecs } from "../../../application/plan.js";
 import { ConfigService } from "../../../config/ConfigService.js";
 import { RunnerFactory } from "../../../runners/RunnerFactory.js";
-import { validatePlan } from "../../../application/validate.js";
-import { TaskContext } from "../../../runners/AgentRunner.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
+import { GeneratePlanUseCase } from "../../../application/use-cases/GeneratePlanUseCase.js";
 
 export function registerPlanGenerateCommand(plan: Command): void {
   plan
@@ -48,65 +43,43 @@ export function registerPlanGenerateCommand(plan: Command): void {
         });
       }
 
-      const result = preparePlanningPrompt(gw, selectedSpec);
-
-      let promptStr = "";
-      switch (result.kind) {
-        case "not-initialized":
-          console.error(
-            "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-          );
-          process.exitCode = 1;
-          return;
-        case "spec-not-found":
-          console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
-          process.exitCode = 1;
-          return;
-        case "ready":
-          promptStr = result.prompt;
-          break;
-      }
-
       console.log(`\n▶ Generating plan for spec: ${selectedSpec}`);
 
-      const plansDir = ".codeforge/plans";
-      if (!gw.exists(plansDir)) {
-        gw.mkdir(plansDir);
-      }
-      const promptPath = `${plansDir}/${selectedSpec}.temp.prompt.md`;
-      gw.writeFile(promptPath, promptStr);
-
       const runner = RunnerFactory.createRunner(config.environment);
-      const context: TaskContext = {
-        promptFilePath: promptPath,
-        specName: selectedSpec,
-        model: config.plannerAgent,
-        silent: true,
-      };
+      const useCase = new GeneratePlanUseCase(gw, runner);
 
       const ui = new AgentProgressUI("Generating plan...", config.plannerAgent);
       ui.init();
       ui.start();
 
       try {
-        await runner.execute(context);
-        ui.stop(true, "Plan generated");
-
-        console.log(`\n▶ Validating generated plan...`);
-        const valResult = validatePlan(gw, selectedSpec);
+        const valResult = await useCase.execute(
+          selectedSpec,
+          config.plannerAgent,
+        );
 
         switch (valResult.kind) {
           case "not-initialized":
-            console.error("\n✗ CodeForge is not initialized.\n");
+            ui.stop(false, "Failed");
+            console.error(
+              "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+            );
             process.exitCode = 1;
             break;
           case "spec-not-found":
+            ui.stop(false, "Failed");
+            console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+            process.exitCode = 1;
+            break;
+          case "tasks-dir-not-found":
+            ui.stop(false, "Failed");
             console.error(
               `\n✗ No tasks directory found for spec: ${selectedSpec}. The planner agent failed to create it.\n`,
             );
             process.exitCode = 1;
             break;
           case "invalid":
+            ui.stop(false, "Failed");
             console.error(
               `\n✗ Validation failed for plan '${selectedSpec}':\n`,
             );
@@ -119,6 +92,7 @@ export function registerPlanGenerateCommand(plan: Command): void {
             process.exitCode = 1;
             break;
           case "valid":
+            ui.stop(true, "Plan generated");
             console.log(
               `\n✓ Plan for '${selectedSpec}' is valid and ready for execution!`,
             );
@@ -133,10 +107,6 @@ export function registerPlanGenerateCommand(plan: Command): void {
           console.error(error);
         }
         process.exitCode = 1;
-      } finally {
-        if (fs.existsSync(promptPath)) {
-          fs.unlinkSync(promptPath);
-        }
       }
     });
 }

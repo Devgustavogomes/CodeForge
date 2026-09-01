@@ -1,18 +1,13 @@
 import fs from "node:fs";
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
+import { NodeGitGateway } from "../../../infrastructure/git/NodeGitGateway.js";
 import { Command } from "commander";
 import { select, confirm } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../../application/plan.js";
-import {
-  prepareDocsUpdatePrompt,
-  buildDocUpdatePrompt,
-  prepareManualDocUpdate,
-  buildDocManualUpdatePrompt,
-} from "../../../application/docs.js";
 import { ConfigService } from "../../../config/ConfigService.js";
 import { RunnerFactory } from "../../../runners/RunnerFactory.js";
-import { TaskContext } from "../../../runners/AgentRunner.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
+import { UpdateDocUseCase } from "../../../application/use-cases/UpdateDocUseCase.js";
 
 export function registerDocsUpdateCommand(docs: Command): void {
   docs
@@ -21,6 +16,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
     .option("--doc <doc>", "Manually specify which doc to update (skips scope matching)")
     .action(async (spec?: string, options?: { doc?: string }) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
+      const git = new NodeGitGateway(gw);
 
       const configService = new ConfigService(gw);
       const config = configService.loadConfig();
@@ -52,30 +48,17 @@ export function registerDocsUpdateCommand(docs: Command): void {
       }
 
       const runner = RunnerFactory.createRunner(config.environment);
-      const docsDir = ".codeforge/docs";
-      if (!gw.exists(docsDir)) {
-        gw.mkdir(docsDir);
-      }
+      const useCase = new UpdateDocUseCase(gw, git, runner, config);
 
-      // Helper function to execute prompt
-      const executeDocUpdate = async (docName: string, promptStr: string) => {
-        const promptPath = `${docsDir}/${docName}-update.temp.prompt.md`;
-        gw.writeFile(promptPath, promptStr);
-
-        const context: TaskContext = {
-          promptFilePath: promptPath,
-          specName: selectedSpec!,
-          model: config.plannerAgent,
-          silent: true,
-        };
-
+      // Helper function to execute prompt using the usecase and UI
+      const executeDocUpdate = async (docName: string, affectedDoc: any, isManual: boolean) => {
         const ui = new AgentProgressUI(`Updating ${docName}...`, config.plannerAgent);
         console.log(`\n▶ Updating documentation '${docName}'...`);
         ui.init();
         ui.start();
 
         try {
-          await runner.execute(context);
+          await useCase.execute(selectedSpec!, affectedDoc, isManual);
           ui.stop(true, "Docs updated");
         } catch (error) {
           ui.stop(false, "Failed");
@@ -85,16 +68,12 @@ export function registerDocsUpdateCommand(docs: Command): void {
             console.error(error);
           }
           process.exitCode = 1;
-        } finally {
-          if (fs.existsSync(promptPath)) {
-            fs.unlinkSync(promptPath);
-          }
         }
       };
 
       // ── Manual mode: user explicitly specified --doc <docname> ──────────────
       if (options?.doc) {
-        const result = prepareManualDocUpdate(gw, selectedSpec, options.doc);
+        const result = useCase.getManualDoc(selectedSpec, options.doc);
 
         switch (result.kind) {
           case "not-initialized":
@@ -120,8 +99,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
             process.exitCode = 1;
             return;
           case "doc": {
-            const prompt = buildDocManualUpdatePrompt(gw, selectedSpec, result.doc);
-            await executeDocUpdate(options.doc, prompt);
+            await executeDocUpdate(options.doc, result.doc, true);
             return;
           }
         }
@@ -129,7 +107,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       // ── Automatic mode: scope-based manifest matching (default) ─────────────
 
-      const result = prepareDocsUpdatePrompt(gw, selectedSpec);
+      const result = useCase.getAffectedDocs(selectedSpec);
 
       switch (result.kind) {
         case "not-initialized":
@@ -200,13 +178,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
         );
         if (!selectedDoc) break;
 
-        const prompt = buildDocUpdatePrompt(
-          gw,
-          selectedSpec,
-          selectedDoc,
-        );
-
-        await executeDocUpdate(selectedDocName, prompt);
+        await executeDocUpdate(selectedDocName, selectedDoc, false);
 
         remaining = remaining.filter((d) => d.docName !== selectedDocName);
 

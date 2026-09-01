@@ -1,0 +1,58 @@
+import fs from "node:fs";
+import { WorkspaceGateway } from "../../infrastructure/workspace.js";
+import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
+import { preparePlanningPrompt } from "../plan.js";
+import { validatePlan } from "../validate.js";
+
+export type GeneratePlanResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "tasks-dir-not-found" }
+  | { kind: "invalid"; errors: string[] }
+  | { kind: "valid" };
+
+export class GeneratePlanUseCase {
+  constructor(
+    private readonly workspace: WorkspaceGateway,
+    private readonly runner: AgentRunner,
+  ) {}
+
+  async execute(specName: string, model: string): Promise<GeneratePlanResult> {
+    const result = preparePlanningPrompt(this.workspace, specName);
+
+    if (result.kind === "not-initialized") {
+      return { kind: "not-initialized" };
+    }
+    if (result.kind === "spec-not-found") {
+      return { kind: "spec-not-found" };
+    }
+
+    const plansDir = ".codeforge/plans";
+    if (!this.workspace.exists(plansDir)) {
+      this.workspace.mkdir(plansDir);
+    }
+    const promptPath = `${plansDir}/${specName}.temp.prompt.md`;
+    this.workspace.writeFile(promptPath, result.prompt);
+
+    const context: TaskContext = {
+      promptFilePath: promptPath,
+      specName: specName,
+      model: model,
+      silent: true,
+    };
+
+    try {
+      await this.runner.execute(context);
+
+      const valResult = validatePlan(this.workspace, specName);
+      if (valResult.kind === "spec-not-found") {
+        return { kind: "tasks-dir-not-found" };
+      }
+      return valResult as GeneratePlanResult;
+    } finally {
+      if (fs.existsSync(promptPath)) {
+        fs.unlinkSync(promptPath);
+      }
+    }
+  }
+}
