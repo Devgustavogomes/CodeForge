@@ -197,61 +197,40 @@ AI implementation
 
 The developer remains in control of what will actually be implemented.
 
-### 5. Execute
+### 5. Execute (Autonomous Orchestration)
 
-After the Plan is approved, CodeForge selects the next Task whose dependencies have been completed.
+After the Plan is approved, you simply run `codeforge run <spec>`.
 
-Instead of giving the AI the entire conversation history, CodeForge builds the context required for that specific Task.
+CodeForge acts as an autonomous orchestrator:
+1. It interprets the DAG (Directed Acyclic Graph) of your Tasks.
+2. It identifies all tasks that have no pending dependencies.
+3. It spawns your configured AI agent (e.g., via CLI tools like `agy` or `claude`) in background child processes to execute these tasks **in parallel**.
+4. When a child process completes successfully (exit code 0), CodeForge automatically marks the task as completed.
+5. It then triggers the next batch of dependent tasks until the entire feature is built.
 
-The execution follows:
-
-```text
-Task
- ↓
-Relevant specification
- ↓
-Required project context
- ↓
-Rules
- ↓
-Fresh AI context
-```
-
-The AI agent then implements only that Task.
+Instead of manually copying and pasting prompts, you just watch the software factory build your feature.
 
 ### 6. Fresh Contexts
 
-Each Task is intended to be executed in a new AI context window.
+CodeForge ensures that every spawned AI agent operates in a completely fresh, isolated context window.
 
 For example:
 
 ```text
-TASK-001
-   ↓
-Context Window #1
-   ↓
-implementation
-   ↓
-completed
-
-TASK-002
-   ↓
-Context Window #2
-   ↓
-implementation
-   ↓
-completed
-
-TASK-003
-   ↓
-Context Window #3
+       codeforge run
+       ┌─────┴─────┐
+       │           │
+    TASK-001    TASK-002   (Run in parallel in isolated child processes)
+       │           │
+   completed   completed
+       └─────┬─────┘
+             │
+          TASK-003         (Triggered automatically when dependencies are met)
 ```
 
-The context from Task 001 is not implicitly carried into Task 002.
+The context from Task 001 is not implicitly carried into Task 002. CodeForge provides only the precise specification and project context required for that specific unit of work.
 
-Instead, CodeForge provides the information required to continue the work.
-
-This reduces context accumulation and makes each unit of work explicit and reproducible.
+This eliminates context accumulation (AI hallucinations) and makes each unit of work explicit and reproducible.
 
 ### 7. Documentation
 
@@ -335,14 +314,12 @@ The agent you already use performs the AI work.
 
 ### Execution
 
-- \`codeforge run <spec>\`
-  Finds the next executable Task based on its dependencies and prepares the context/instructions required by the AI agent.
-  The Task is intended to be executed in a fresh AI context.
+- `codeforge run <spec>`
+  Starts the autonomous execution of a spec. It resolves the task DAG, spawns AI agents in parallel child processes, and automatically manages state until all tasks are completed.
 
-- \`codeforge task complete <spec> <task-id>\`
-  Marks a Task as completed.
+- `codeforge task complete <spec> <task-id>`
+  Manually marks a Task as completed. (Usually done automatically when the agent's subprocess exits successfully).
 
-- \`codeforge task retry <spec> <task-id>\`
 - `codeforge task retry <spec> <task-id>`
   Returns a failed or stuck Task to the pending state so it can be executed again.
 
@@ -656,16 +633,36 @@ A validação é determinística e não requer um modelo de IA. O objetivo é ev
 O Plano não é executado imediatamente.
 O desenvolvedor revisa as Tarefas geradas e aprova o Plano.
 
-### 5. Execução
+### 5. Execução (Orquestração Autônoma)
 
-Após a aprovação do Plano, o CodeForge seleciona a próxima Tarefa cujas dependências foram concluídas.
-Em vez de passar para a IA todo o histórico da conversa, o CodeForge constrói o contexto necessário especificamente para aquela Tarefa.
+Após a aprovação do Plano, você só precisa rodar `codeforge run <spec>`.
+
+O CodeForge atua como um orquestrador autônomo:
+1. Ele interpreta o DAG (Grafo Direcionado Acíclico) de suas Tarefas.
+2. Identifica todas as tarefas sem dependências pendentes.
+3. Invoca o seu agente de IA escolhido (ex: `agy` ou `claude`) em subprocessos no background, executando tarefas independentes **em paralelo**.
+4. Se o subprocesso do agente terminar com sucesso (exit 0), o CodeForge automaticamente marca a tarefa como concluída.
+5. Ele engatilha as próximas tarefas da fila até toda a especificação estar pronta.
+
+Em vez de copiar e colar prompts, você apenas assiste a sua fábrica de software trabalhar.
 
 ### 6. Contextos Limpos
 
-Cada Tarefa deve ser executada em uma **nova janela de contexto** da IA.
-O contexto da Tarefa 001 não é implicitamente carregado para a Tarefa 002.
-Isso reduz o acúmulo de contexto e torna cada unidade de trabalho explícita e reproduzível.
+O CodeForge garante que cada agente de IA invocado opere em uma janela de contexto **completamente nova e isolada**.
+
+```text
+       codeforge run
+       ┌─────┴─────┐
+       │           │
+    TASK-001    TASK-002   (Rodam em paralelo em subprocessos isolados)
+       │           │
+   completed   completed
+       └─────┬─────┘
+             │
+          TASK-003         (Disparada automaticamente assim que as dependências terminam)
+```
+
+O contexto da Tarefa 001 não é arrastado para a Tarefa 002. O CodeForge entrega apenas a parte exata do projeto que a unidade de trabalho atual precisa, prevenindo acúmulo de contexto (alucinações da IA).
 
 ### 7. Documentação
 
@@ -687,9 +684,9 @@ O CodeForge não chama a API de um LLM e não exige chaves de API. O agente que 
 - `codeforge spec create <nome>` - Cria uma nova spec
 - `codeforge plan generate <spec>` - Gera prompt para planejar as tasks
 - `codeforge plan validate <spec>` - Valida as tasks geradas
-- `codeforge run <spec>` - Pega a próxima task pronta para execução
+- `codeforge run <spec>` - Inicia a orquestração autônoma. Lê o DAG e dispara IAs em subprocessos paralelos até a spec terminar.
 - `codeforge status <spec>` - Mostra painel de andamento
-- `codeforge task complete <spec> <task-id>` - Completa uma task
+- `codeforge task complete <spec> <task-id>` - Completa uma task manualmente (agora é feito automaticamente se o agente não falhar)
 - `codeforge task retry <spec> <task-id>` - Retorna task com erro para pendente
 - `codeforge task info [spec] [task-id]` - Mostra os detalhes completos de uma task (abre seleção interativa se os argumentos forem omitidos)
 - `codeforge docs create [doc-name]` - Gera prompt para criar um novo documento a partir de uma spec
