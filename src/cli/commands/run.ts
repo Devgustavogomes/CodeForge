@@ -6,6 +6,7 @@ import { ConfigService } from "../../config/ConfigService.js";
 import { RunnerFactory } from "../../runners/RunnerFactory.js";
 import { TaskScheduler } from "../../scheduler/TaskScheduler.js";
 import { PATHS } from "../../infrastructure/paths.js";
+import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
 
 export function registerRunCommand(program: Command): void {
   program
@@ -50,7 +51,8 @@ export function registerRunCommand(program: Command): void {
       }
 
       const runner = RunnerFactory.createRunner(config.environment);
-      const scheduler = new TaskScheduler(gw, runner);
+      const reporter = new TerminalSchedulerReporter(gw);
+      const scheduler = new TaskScheduler(gw, runner, reporter);
 
       await scheduler.run(specName, config.executorAgent);
     });
