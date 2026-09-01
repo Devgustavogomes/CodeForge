@@ -3,6 +3,7 @@ import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { preparePlanningPrompt } from "../plan.js";
 import { validatePlan } from "../validate.js";
+import { buildPlanningFixPrompt } from "../../prompts/planning.js";
 
 export type GeneratePlanResult =
   | { kind: "not-initialized" }
@@ -43,8 +44,16 @@ export class GeneratePlanUseCase {
 
     try {
       await this.runner.execute(context);
+      let valResult = validatePlan(this.workspace, specName);
 
-      const valResult = validatePlan(this.workspace, specName);
+      if (valResult.kind === "invalid") {
+        const fixPrompt = buildPlanningFixPrompt(specName, valResult.errors);
+        this.workspace.writeFile(promptPath, fixPrompt);
+        
+        await this.runner.execute(context);
+        valResult = validatePlan(this.workspace, specName);
+      }
+
       if (valResult.kind === "spec-not-found") {
         return { kind: "tasks-dir-not-found" };
       }
