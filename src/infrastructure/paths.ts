@@ -2,6 +2,7 @@ export const PATHS = {
   metadata:        ".codeforge/metadata.json",
   config:          ".codeforge/config.yaml",
   specsDir:        ".codeforge/specs",
+  plansDir:        ".codeforge/plans",
   tasksDir:        ".codeforge/tasks",
   executionsDir:   ".codeforge/executions",
   rulesDir:        ".codeforge/rules",

@@ -4,6 +4,7 @@ import path from "node:path";
 export interface WorkspaceGateway {
   readFile(relativePath: string): string;
   writeFile(relativePath: string, content: string): void;
+  deleteFile(relativePath: string): void;
   exists(relativePath: string): boolean;
   listDir(relativePath: string): string[];
   mkdir(relativePath: string): void;
@@ -18,6 +19,13 @@ export class NodeWorkspaceGateway implements WorkspaceGateway {
 
   writeFile(relativePath: string, content: string): void {
     fs.writeFileSync(path.join(this.workspacePath, relativePath), content, "utf-8");
+  }
+
+  deleteFile(relativePath: string): void {
+    const fullPath = path.join(this.workspacePath, relativePath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
   }
 
   exists(relativePath: string): boolean {
