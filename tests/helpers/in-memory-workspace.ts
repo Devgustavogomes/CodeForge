@@ -59,4 +59,9 @@ export class InMemoryWorkspaceGateway implements WorkspaceGateway {
       this.directories.add(current);
     }
   }
+
+  deleteFile(relativePath: string): void {
+    const p = this.normalize(relativePath);
+    this.files.delete(p);
+  }
 }
