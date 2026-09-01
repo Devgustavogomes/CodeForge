@@ -4,8 +4,13 @@ import { AgentRunner, TaskContext } from "./AgentRunner.js";
 export class ClaudeRunner implements AgentRunner {
   async execute(context: TaskContext): Promise<void> {
     return new Promise((resolve, reject) => {
-      const child = spawn("claude", ["-p", context.promptFilePath], {
-        stdio: "inherit",
+      const args = ["-p", context.promptFilePath];
+      if (context.model) {
+        args.unshift("-m", context.model);
+      }
+
+      const child = spawn("claude", args, {
+        stdio: context.silent ? "ignore" : "inherit",
         shell: true,
       });
 
@@ -21,5 +26,9 @@ export class ClaudeRunner implements AgentRunner {
         reject(error);
       });
     });
+  }
+
+  async getAvailableAgents(): Promise<string[]> {
+    return ["fable", "opus", "sonnet", "haiku"];
   }
 }

@@ -25,4 +25,8 @@ export class CodexRunner implements AgentRunner {
       });
     });
   }
+
+  async getAvailableAgents(): Promise<string[]> {
+    return ["codex-default"];
+  }
 }
