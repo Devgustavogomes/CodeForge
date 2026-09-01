@@ -6,6 +6,7 @@ import { ConfigService } from "../../../config/ConfigService.js";
 import { RunnerFactory } from "../../../runners/RunnerFactory.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 import { GeneratePlanUseCase } from "../../../application/use-cases/GeneratePlanUseCase.js";
+import { translate } from "../../ui/i18n.js";
 
 export function registerPlanGenerateCommand(plan: Command): void {
   plan
@@ -16,10 +17,10 @@ export function registerPlanGenerateCommand(plan: Command): void {
 
       const configService = new ConfigService(gw);
       const config = configService.loadConfig();
+      const lang = config?.language || "en";
+
       if (!config) {
-        console.error(
-          "\n✗ CodeForge is not configured. Run `codeforge init` first.\n",
-        );
+        console.error(translate("err_not_configured", lang));
         process.exitCode = 1;
         return;
       }
@@ -30,25 +31,23 @@ export function registerPlanGenerateCommand(plan: Command): void {
         const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
-          console.error(
-            "\n✗ No specs found. Create one first using `codeforge spec create <name>`.\n",
-          );
+          console.error(translate("err_no_specs", lang));
           process.exitCode = 1;
           return;
         }
 
         selectedSpec = await select({
-          message: "Select a spec to generate a plan for:",
+          message: translate("plan_select_spec", lang),
           choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
 
-      console.log(`\n▶ Generating plan for spec: ${selectedSpec}`);
+      console.log(translate("plan_generating", lang, { spec: selectedSpec }));
 
       const runner = RunnerFactory.createRunner(config.environment);
-      const useCase = new GeneratePlanUseCase(gw, runner);
+      const useCase = new GeneratePlanUseCase(gw, runner, config);
 
-      const ui = new AgentProgressUI("Generating plan...", config.plannerAgent);
+      const ui = new AgentProgressUI(translate("plan_ui_generating", lang), config.plannerAgent);
       ui.init();
       ui.start();
 
@@ -60,43 +59,33 @@ export function registerPlanGenerateCommand(plan: Command): void {
 
         switch (valResult.kind) {
           case "not-initialized":
-            ui.stop(false, "Failed");
-            console.error(
-              "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-            );
+            ui.stop(false, translate("plan_ui_failed", lang));
+            console.error(translate("err_not_initialized", lang));
             process.exitCode = 1;
             break;
           case "spec-not-found":
-            ui.stop(false, "Failed");
-            console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+            ui.stop(false, translate("plan_ui_failed", lang));
+            console.error(translate("err_spec_not_found", lang, { spec: selectedSpec }));
             process.exitCode = 1;
             break;
           case "tasks-dir-not-found":
-            ui.stop(false, "Failed");
-            console.error(
-              `\n✗ No tasks directory found for spec: ${selectedSpec}. The planner agent failed to create it.\n`,
-            );
+            ui.stop(false, translate("plan_ui_failed", lang));
+            console.error(translate("plan_err_tasks_dir_not_found", lang, { spec: selectedSpec }));
             process.exitCode = 1;
             break;
           case "invalid":
-            ui.stop(false, "Failed");
-            console.error(
-              `\n✗ Validation failed for plan '${selectedSpec}':\n`,
-            );
+            ui.stop(false, translate("plan_ui_failed", lang));
+            console.error(translate("plan_err_validation_failed", lang, { spec: selectedSpec }));
             for (const err of valResult.errors) {
               console.error(`  - ${err}`);
             }
-            console.error(
-              "\n[AI INSTRUCTION] Fix these errors in the JSON files and run validation again.\n",
-            );
+            console.error(translate("plan_err_fix_instructions", lang));
             process.exitCode = 1;
             break;
           case "valid":
-            ui.stop(true, "Plan generated");
-            console.log(
-              `\n✓ Plan for '${selectedSpec}' is valid and ready for execution!`,
-            );
-            console.log(`Next step: run \`codeforge run ${selectedSpec}\`\n`);
+            ui.stop(true, translate("plan_ui_success", lang));
+            console.log(translate("plan_success", lang, { spec: selectedSpec }));
+            console.log(translate("plan_next_step", lang, { spec: selectedSpec }));
             break;
         }
       } catch (error) {

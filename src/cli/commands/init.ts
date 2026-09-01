@@ -7,6 +7,8 @@ import {
   getAgentsForEnvironment,
   saveConfiguration,
 } from "../../application/configure-environment.js";
+import { translate } from "../ui/i18n.js";
+import { ConfigService } from "../../config/ConfigService.js";
 
 export function registerInitCommand(program: Command): void {
   program
@@ -14,19 +16,21 @@ export function registerInitCommand(program: Command): void {
     .description("Initialize CodeForge in the current project")
     .action(async () => {
       const gw = new NodeWorkspaceGateway(process.cwd());
+      
+      const configService = new ConfigService(gw);
+      const config = configService.loadConfig();
+      const lang = config?.language || "en";
 
       const result = initializeWorkspace(gw);
 
       switch (result.kind) {
         case "already-initialized":
-          console.log(
-            "\n⚠ CodeForge is already initialized in this directory.",
-          );
-          console.log("Continuing with interactive configuration...\n");
+          console.log(translate("init_already_initialized", lang));
+          console.log(translate("init_continue_config", lang));
           break;
         case "created":
-          console.log("\n✓ CodeForge initialized successfully.\n");
-          console.log("Created:");
+          console.log(translate("init_success", lang));
+          console.log(translate("init_created", lang));
           for (const item of result.created) {
             console.log(`  ${item}`);
           }
@@ -36,11 +40,11 @@ export function registerInitCommand(program: Command): void {
 
       const environments = RunnerFactory.getAvailableEnvironments();
       const environment = await select({
-        message: "Select your environment:",
+        message: translate("init_select_env", lang),
         choices: environments.map((env) => ({ name: env, value: env })),
       });
 
-      console.log(`Introspecting ${environment} for available agents...`);
+      console.log(translate("init_introspecting", lang, { environment }));
       const availableAgents = await getAgentsForEnvironment(environment);
 
       let plannerAgent = "";
@@ -48,14 +52,14 @@ export function registerInitCommand(program: Command): void {
 
       if (availableAgents.length > 0) {
         plannerAgent = await select({
-          message: "Select your planner agent:",
+          message: translate("init_select_planner", lang),
           choices: availableAgents.map((agent) => ({
             name: agent,
             value: agent,
           })),
         });
         executorAgent = await select({
-          message: "Select your executor agent:",
+          message: translate("init_select_executor", lang),
           choices: availableAgents.map((agent) => ({
             name: agent,
             value: agent,
@@ -63,17 +67,18 @@ export function registerInitCommand(program: Command): void {
         });
       } else {
         plannerAgent = await input({
-          message: "Enter your planner agent (e.g., default):",
+          message: translate("init_enter_planner", lang),
           default: "default",
         });
         executorAgent = await input({
-          message: "Enter your executor agent (e.g., default):",
+          message: translate("init_enter_executor", lang),
           default: "default",
         });
       }
 
-      saveConfiguration(gw, { environment, plannerAgent, executorAgent });
+      saveConfiguration(gw, { environment, plannerAgent, executorAgent, language: lang, humanInTheLoop: config?.humanInTheLoop ?? true });
 
-      console.log("\n✓ Configuration saved successfully.\n");
+      console.log(translate("init_config_saved", lang));
+
     });
 }

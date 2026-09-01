@@ -7,6 +7,7 @@ import { RunnerFactory } from "../../runners/RunnerFactory.js";
 import { TaskScheduler } from "../../scheduler/TaskScheduler.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
+import { translate } from "../ui/i18n.js";
 
 export function registerRunCommand(program: Command): void {
   program
@@ -15,20 +16,18 @@ export function registerRunCommand(program: Command): void {
     .action(async (spec?: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
 
+      const configService = new ConfigService(gw);
+      const config = configService.loadConfig();
+      const lang = config?.language || "en";
+
       if (!gw.exists(PATHS.metadata)) {
-        console.error(
-          "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-        );
+        console.error(translate("err_not_initialized", lang));
         process.exitCode = 1;
         return;
       }
 
-      const configService = new ConfigService(gw);
-      const config = configService.loadConfig();
       if (!config) {
-        console.error(
-          "\n✗ CodeForge is not configured. Run `codeforge init` first.\n",
-        );
+        console.error(translate("err_not_configured", lang));
         process.exitCode = 1;
         return;
       }
@@ -39,20 +38,20 @@ export function registerRunCommand(program: Command): void {
         const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
-          console.error("\n✗ No specs found.\n");
+          console.error(translate("err_no_specs_run", lang));
           process.exitCode = 1;
           return;
         }
 
         specName = await select({
-          message: "Select a spec to execute:",
+          message: translate("run_select_spec", lang),
           choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
 
       const runner = RunnerFactory.createRunner(config.environment);
       const reporter = new TerminalSchedulerReporter(gw);
-      const scheduler = new TaskScheduler(gw, runner, reporter);
+      const scheduler = new TaskScheduler(gw, runner, config, reporter);
 
       await scheduler.run(specName, config.executorAgent);
     });

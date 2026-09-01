@@ -3,6 +3,8 @@ import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../application/plan.js";
 import { getSpecStatus, formatStatusOutput } from "../../application/status.js";
+import { translate } from "../ui/i18n.js";
+import { ConfigService } from "../../config/ConfigService.js";
 
 export function registerStatusCommand(program: Command): void {
   program
@@ -11,19 +13,23 @@ export function registerStatusCommand(program: Command): void {
     .option("--once", "Print status once and exit")
     .action(async (spec: string | undefined, options: { once?: boolean }) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
+      const configService = new ConfigService(gw);
+      const config = configService.loadConfig();
+      const lang = config?.language || "en";
+
       let specName = spec;
 
       if (!specName) {
         const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
-          console.error("\n✗ No specs found.\n");
+          console.error(translate("err_no_specs_run", lang));
           process.exitCode = 1;
           return;
         }
 
         specName = await select({
-          message: "Select a spec to view status:",
+          message: translate("status_select_spec", lang),
           choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
@@ -33,15 +39,15 @@ export function registerStatusCommand(program: Command): void {
 
       switch (initial.kind) {
         case "not-initialized":
-          console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
+          console.error(translate("err_not_initialized", lang));
           process.exitCode = 1;
           return;
         case "spec-not-found":
-          console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
+          console.error(translate("err_spec_not_found", lang, { spec: specName }));
           process.exitCode = 1;
           return;
         case "no-execution":
-          console.log(`\n○ No execution started for spec '${specName}'. Run \`codeforge run ${specName}\` to begin.\n`);
+          console.log(translate("status_no_execution", lang, { spec: specName }));
           return;
         case "status":
           if (options.once) {
@@ -61,13 +67,13 @@ export function registerStatusCommand(program: Command): void {
       };
 
       const render = () => {
-        const result = getSpecStatus(gw, specName);
+        const result = getSpecStatus(gw, specName as string);
         process.stdout.write("\x1b[H");
         if (result.kind === "status") {
           process.stdout.write(formatStatusOutput(result));
-          process.stdout.write("  \x1b[2mWatching for changes... (Ctrl+C to exit)\x1b[0m\n\n");
+          process.stdout.write(translate("status_watching", lang));
         } else {
-          process.stdout.write("  \x1b[2mWaiting for execution to start... (Ctrl+C to exit)\x1b[0m\n\n");
+          process.stdout.write(translate("status_waiting", lang));
         }
         return result;
       };
@@ -81,7 +87,7 @@ export function registerStatusCommand(program: Command): void {
           const allDone = lastResult.tasks.every((t) => t.status === "completed");
           if (allDone) {
             cleanup();
-            console.log(`\n🎉 All tasks for spec '${specName}' completed!\n`);
+            console.log(translate("status_all_done", lang, { spec: specName as string }));
           }
         }
       }, 2000);

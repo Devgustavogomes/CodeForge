@@ -8,6 +8,7 @@ import { ConfigService } from "../../../config/ConfigService.js";
 import { RunnerFactory } from "../../../runners/RunnerFactory.js";
 import { TaskContext } from "../../../runners/AgentRunner.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
+import { translate } from "../../ui/i18n.js";
 
 export function registerDocsCreateCommand(docs: Command): void {
   docs
@@ -19,21 +20,21 @@ export function registerDocsCreateCommand(docs: Command): void {
 
       const configService = new ConfigService(gw);
       const config = configService.loadConfig();
+      const lang = config?.language || "en";
+      
       if (!config) {
-        console.error(
-          "\n✗ CodeForge is not configured. Run `codeforge init` first.\n",
-        );
+        console.error(translate("err_not_configured", lang));
         process.exitCode = 1;
         return;
       }
 
       if (!docName) {
         docName = await input({
-          message: "Enter the documentation name:",
+          message: translate("docs_create_enter_name", lang),
         });
 
         if (!docName || docName.trim().length === 0) {
-          console.error("\n✗ Documentation name cannot be empty.\n");
+          console.error(translate("docs_create_err_empty_name", lang));
           process.exitCode = 1;
           return;
         }
@@ -47,39 +48,35 @@ export function registerDocsCreateCommand(docs: Command): void {
         const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
-          console.error(
-            "\n✗ No specs found. Create one first using `codeforge spec create <name>`.\n",
-          );
+          console.error(translate("err_no_specs", lang));
           process.exitCode = 1;
           return;
         }
 
         selectedSpec = await select({
-          message: "Select a spec to associate with this documentation:",
+          message: translate("docs_create_select_spec", lang),
           choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
 
-      const result = prepareDocsPrompt(gw, docName, selectedSpec);
+      const result = prepareDocsPrompt(gw, docName, selectedSpec, config.language);
 
       let promptStr = "";
       switch (result.kind) {
         case "not-initialized":
-          console.error(
-            "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-          );
+          console.error(translate("err_not_initialized", lang));
           process.exitCode = 1;
           return;
         case "spec-not-found":
-          console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+          console.error(translate("err_spec_not_found", lang, { spec: selectedSpec }));
           process.exitCode = 1;
           return;
         case "rules-not-found":
-          console.error(`\n✗ Documentation rules not found in .codeforge/rules/docs.md\n`);
+          console.error(translate("docs_create_err_rules_not_found", lang));
           process.exitCode = 1;
           return;
         case "already-exists":
-          console.error(`\n✗ Documentation '${docName}' already exists.\n  Use 'codeforge docs update' in the future.\n`);
+          console.error(translate("docs_create_err_already_exists", lang, { docName }));
           process.exitCode = 1;
           return;
         case "prompt":
@@ -87,7 +84,7 @@ export function registerDocsCreateCommand(docs: Command): void {
           break;
       }
 
-      console.log(`\n▶ Generating documentation '${docName}' for spec: ${selectedSpec}`);
+      console.log(translate("docs_create_generating", lang, { docName, spec: selectedSpec }));
 
       const docsDir = ".codeforge/docs";
       if (!gw.exists(docsDir)) {
@@ -104,13 +101,13 @@ export function registerDocsCreateCommand(docs: Command): void {
         silent: true,
       };
 
-      const ui = new AgentProgressUI("Generating docs...", config.plannerAgent);
+      const ui = new AgentProgressUI(translate("docs_create_ui_generating", lang), config.plannerAgent);
       ui.init();
       ui.start();
 
       try {
         await runner.execute(context);
-        ui.stop(true, "Docs generated");
+        ui.stop(true, translate("docs_create_ui_success", lang));
       } catch (error) {
         ui.stop(false, "Failed");
         if (error instanceof Error) {

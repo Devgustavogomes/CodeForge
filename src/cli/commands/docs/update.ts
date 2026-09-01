@@ -8,6 +8,7 @@ import { ConfigService } from "../../../config/ConfigService.js";
 import { RunnerFactory } from "../../../runners/RunnerFactory.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 import { UpdateDocUseCase } from "../../../application/use-cases/UpdateDocUseCase.js";
+import { translate } from "../../ui/i18n.js";
 
 export function registerDocsUpdateCommand(docs: Command): void {
   docs
@@ -20,10 +21,10 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       const configService = new ConfigService(gw);
       const config = configService.loadConfig();
+      const lang = config?.language || "en";
+
       if (!config) {
-        console.error(
-          "\n✗ CodeForge is not configured. Run `codeforge init` first.\n",
-        );
+        console.error(translate("err_not_configured", lang));
         process.exitCode = 1;
         return;
       }
@@ -34,15 +35,13 @@ export function registerDocsUpdateCommand(docs: Command): void {
         const specs = getAvailableSpecs(gw);
 
         if (specs.length === 0) {
-          console.error(
-            "\n✗ No specs found. Create one first using `codeforge spec create <name>`.\n",
-          );
+          console.error(translate("err_no_specs", lang));
           process.exitCode = 1;
           return;
         }
 
         selectedSpec = await select({
-          message: "Select the spec that was executed (caused changes):",
+          message: translate("docs_update_select_spec", lang),
           choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
@@ -52,14 +51,14 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       // Helper function to execute prompt using the usecase and UI
       const executeDocUpdate = async (docName: string, affectedDoc: any, isManual: boolean) => {
-        const ui = new AgentProgressUI(`Updating ${docName}...`, config.plannerAgent);
-        console.log(`\n▶ Updating documentation '${docName}'...`);
+        const ui = new AgentProgressUI(translate("docs_update_ui_updating", lang, { docName }), config.plannerAgent);
+        console.log(translate("docs_update_updating_log", lang, { docName }));
         ui.init();
         ui.start();
 
         try {
           await useCase.execute(selectedSpec!, affectedDoc, isManual);
-          ui.stop(true, "Docs updated");
+          ui.stop(true, translate("docs_update_ui_success", lang));
         } catch (error) {
           ui.stop(false, "Failed");
           if (error instanceof Error) {
@@ -77,25 +76,19 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
         switch (result.kind) {
           case "not-initialized":
-            console.error(
-              "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-            );
+            console.error(translate("err_not_initialized", lang));
             process.exitCode = 1;
             return;
           case "spec-not-found":
-            console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+            console.error(translate("err_spec_not_found", lang, { spec: selectedSpec as string }));
             process.exitCode = 1;
             return;
           case "rules-not-found":
-            console.error(
-              `\n✗ Documentation update rules not found in .codeforge/rules/docs-update.md\n  Run 'codeforge init' to regenerate rules.\n`,
-            );
+            console.error(translate("docs_update_err_rules_not_found", lang));
             process.exitCode = 1;
             return;
           case "doc-not-found":
-            console.error(
-              `\n✗ Doc '${options.doc}' not found. Check the name or use 'codeforge docs update' to let the manifest decide.\n`,
-            );
+            console.error(translate("docs_update_err_doc_not_found", lang, { doc: options.doc }));
             process.exitCode = 1;
             return;
           case "doc": {
@@ -111,37 +104,27 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       switch (result.kind) {
         case "not-initialized":
-          console.error(
-            "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
-          );
+          console.error(translate("err_not_initialized", lang));
           process.exitCode = 1;
           return;
         case "spec-not-found":
-          console.error(`\n✗ Spec not found: ${selectedSpec}.md\n`);
+          console.error(translate("err_spec_not_found", lang, { spec: selectedSpec as string }));
           process.exitCode = 1;
           return;
         case "rules-not-found":
-          console.error(
-            `\n✗ Documentation update rules not found in .codeforge/rules/docs-update.md\n  Run 'codeforge init' to regenerate rules.\n`,
-          );
+          console.error(translate("docs_update_err_rules_not_found", lang));
           process.exitCode = 1;
           return;
         case "no-git":
-          console.error(
-            "\n✗ Git repository not found. docs update requires git to detect changes.\n",
-          );
+          console.error(translate("docs_update_err_no_git", lang));
           process.exitCode = 1;
           return;
         case "no-changed-files":
-          console.error(
-            "\n✗ No changed files detected. Make sure you have uncommitted changes.\n",
-          );
+          console.error(translate("docs_update_err_no_changed_files", lang));
           process.exitCode = 1;
           return;
         case "no-affected-docs":
-          console.error(
-            `\n✗ No documentation affected by changes in '${selectedSpec}'.\n`,
-          );
+          console.error(translate("docs_update_err_no_affected_docs", lang, { spec: selectedSpec as string }));
           process.exitCode = 1;
           return;
         case "affected-docs":
@@ -150,13 +133,9 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       const { affectedDocs } = result;
 
-      console.log(
-        `\n📋 ${affectedDocs.length} doc(s) potentially affected:\n`,
-      );
+      console.log(translate("docs_update_affected_count", lang, { count: affectedDocs.length }));
       for (const doc of affectedDocs) {
-        console.log(
-          `   • ${doc.docName} (matched: ${doc.matchedFiles.join(", ")})`,
-        );
+        console.log(translate("docs_update_affected_item", lang, { docName: doc.docName, files: doc.matchedFiles.join(", ") }));
       }
       console.log();
 
@@ -164,12 +143,12 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       while (remaining.length > 0) {
         const choices = remaining.map((doc) => ({
-          name: `${doc.docName} (${doc.matchedFiles.length} file(s) changed)`,
+          name: translate("docs_update_doc_choice", lang, { docName: doc.docName, count: doc.matchedFiles.length }),
           value: doc.docName,
         }));
 
         const selectedDocName = await select({
-          message: "Select a doc to update:",
+          message: translate("docs_update_select_doc", lang),
           choices,
         });
 
@@ -184,7 +163,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
         if (remaining.length > 0) {
           const continueProcessing = await confirm({
-            message: `Process another doc? (${remaining.length} remaining)`,
+            message: translate("docs_update_process_another", lang, { remaining: remaining.length }),
             default: true,
           });
 

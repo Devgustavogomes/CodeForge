@@ -1,0 +1,306 @@
+import { SupportedLanguage } from "../../config/types.js";
+
+const en = {
+  // init
+  init_already_initialized: "\n⚠ CodeForge is already initialized in this directory.",
+  init_continue_config: "Continuing with interactive configuration...\n",
+  init_success: "\n✓ CodeForge initialized successfully.\n",
+  init_created: "Created:",
+  init_select_env: "Select your environment:",
+  init_introspecting: "Introspecting {environment} for available agents...",
+  init_select_planner: "Select your planner agent:",
+  init_select_executor: "Select your executor agent:",
+  init_enter_planner: "Enter your planner agent (e.g., default):",
+  init_enter_executor: "Enter your executor agent (e.g., default):",
+  init_config_saved: "\n✓ Configuration saved successfully.\n",
+  
+  // common errors
+  err_not_initialized: "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+  err_not_configured: "\n✗ CodeForge is not configured. Run `codeforge init` first.\n",
+  err_no_specs: "\n✗ No specs found. Create one first using `codeforge spec create <name>`.\n",
+  err_no_specs_run: "\n✗ No specs found.\n",
+  err_spec_not_found: "\n✗ Spec not found: {spec}.md\n",
+  err_tasks_dir_not_found: "\n✗ No tasks directory found for spec: {spec}\n",
+  
+  // run
+  run_select_spec: "Select a spec to execute:",
+  
+  // status
+  status_select_spec: "Select a spec to view status:",
+  status_no_tasks_dir: "\n✗ No tasks directory found for spec: {spec}\n",
+  status_no_execution: "\n○ No execution started for spec '{spec}'. Run `codeforge run {spec}` to begin.\n",
+  status_watching: "  \x1b[2mWatching for changes... (Ctrl+C to exit)\x1b[0m\n\n",
+  status_waiting: "  \x1b[2mWaiting for execution to start... (Ctrl+C to exit)\x1b[0m\n\n",
+  status_all_done: "\n🎉 All tasks for spec '{spec}' completed!\n",
+  
+  // plan generate
+  plan_select_spec: "Select a spec to generate a plan for:",
+  plan_generating: "\n▶ Generating plan for spec: {spec}",
+  plan_ui_generating: "Generating plan...",
+  plan_ui_failed: "Failed",
+  plan_ui_success: "Plan generated",
+  plan_err_tasks_dir_not_found: "\n✗ No tasks directory found for spec: {spec}. The planner agent failed to create it.\n",
+  plan_err_validation_failed: "\n✗ Validation failed for plan '{spec}':\n",
+  plan_err_fix_instructions: "\n[AI INSTRUCTION] Fix these errors in the JSON files and run validation again.\n",
+  plan_success: "\n✓ Plan for '{spec}' is valid and ready for execution!",
+  plan_next_step: "Next step: run `codeforge run {spec}`\n",
+  
+  // plan validate
+  validate_select_spec: "Select a spec to validate its plan:",
+  validate_success: "\n✓ Plan for '{spec}' is valid and ready for execution!\n",
+  
+  // docs create
+  docs_create_enter_name: "Enter the documentation name:",
+  docs_create_err_empty_name: "\n✗ Documentation name cannot be empty.\n",
+  docs_create_select_spec: "Select a spec to associate with this documentation:",
+  docs_create_err_rules_not_found: "\n✗ Documentation rules not found in .codeforge/rules/docs.md\n",
+  docs_create_err_already_exists: "\n✗ Documentation '{docName}' already exists.\n  Use 'codeforge docs update' in the future.\n",
+  docs_create_generating: "\n▶ Generating documentation '{docName}' for spec: {spec}",
+  docs_create_ui_generating: "Generating docs...",
+  docs_create_ui_success: "Docs generated",
+  
+  // docs update
+  docs_update_select_spec: "Select the spec that was executed (caused changes):",
+  docs_update_err_rules_not_found: "\n✗ Documentation update rules not found in .codeforge/rules/docs-update.md\n  Run 'codeforge init' to regenerate rules.\n",
+  docs_update_err_doc_not_found: "\n✗ Doc '{doc}' not found. Check the name or use 'codeforge docs update' to let the manifest decide.\n",
+  docs_update_err_no_git: "\n✗ Git repository not found. docs update requires git to detect changes.\n",
+  docs_update_err_no_changed_files: "\n✗ No changed files detected. Make sure you have uncommitted changes.\n",
+  docs_update_err_no_affected_docs: "\n✗ No documentation affected by changes in '{spec}'.\n",
+  docs_update_affected_count: "\n📋 {count} doc(s) potentially affected:\n",
+  docs_update_affected_item: "   • {docName} (matched: {files})",
+  docs_update_select_doc: "Select a doc to update:",
+  docs_update_process_another: "Process another doc? ({remaining} remaining)",
+  docs_update_ui_updating: "Updating {docName}...",
+  docs_update_ui_success: "Docs updated",
+  docs_update_updating_log: "\n▶ Updating documentation '{docName}'...",
+  docs_update_doc_choice: "{docName} ({count} file(s) changed)",
+  
+  // menu
+  menu_welcome: "Welcome to CodeForge!",
+  menu_select_group: "Select a command group:",
+  menu_what_to_do: "What do you want to do?",
+  menu_goodbye: "Goodbye!",
+  menu_what_to_do_group: "what do you want to do?",
+  menu_init_label: "🚀  Initialize project                     (init)",
+  menu_spec_label: "📄  Spec        — create specifications",
+  menu_spec_create: "Create new specification          (spec create)",
+  menu_back: "← Back to main menu",
+  menu_plan_label: "🗺️   Plan        — plan and validate tasks",
+  menu_plan_generate: "Generate planning prompt          (plan generate)",
+  menu_plan_validate: "Validate task plan                (plan validate)",
+  menu_run_label: "▶️   Run         — execute tasks            (run)",
+  menu_status_label: "📊  Status      — progress dashboard       (status)",
+  menu_task_label: "✅  Task        — manage individual tasks",
+  menu_task_info: "View task information             (task info)",
+  menu_task_complete: "Mark task as completed            (task complete)",
+  menu_task_retry: "Retry failed task                 (task retry)",
+  menu_docs_label: "📚  Docs        — create and update documentation",
+  menu_docs_create: "Create docs for a spec            (docs create)",
+  menu_docs_update_auto: "Update affected docs (auto scope) (docs update)",
+  menu_docs_update_manual: "Update specific doc manually      (docs update --doc)",
+  menu_docs_update_manual_input: "Name of the doc to update (e.g. api-reference):",
+  menu_exit: "➜   Exit"
+};
+
+type Dictionary = typeof en;
+export type TranslationKey = keyof Dictionary;
+
+const pt: Dictionary = {
+  init_already_initialized: "\n⚠ CodeForge já está inicializado neste diretório.",
+  init_continue_config: "Continuando com a configuração interativa...\n",
+  init_success: "\n✓ CodeForge inicializado com sucesso.\n",
+  init_created: "Criado:",
+  init_select_env: "Selecione seu ambiente:",
+  init_introspecting: "Inspecionando {environment} para agentes disponíveis...",
+  init_select_planner: "Selecione seu agente de planejamento (planner):",
+  init_select_executor: "Selecione seu agente de execução (executor):",
+  init_enter_planner: "Digite seu agente de planejamento (ex: default):",
+  init_enter_executor: "Digite seu agente de execução (ex: default):",
+  init_config_saved: "\n✓ Configuração salva com sucesso.\n",
+  
+  err_not_initialized: "\n✗ CodeForge não está inicializado. Execute `codeforge init` primeiro.\n",
+  err_not_configured: "\n✗ CodeForge não está configurado. Execute `codeforge init` primeiro.\n",
+  err_no_specs: "\n✗ Nenhuma spec encontrada. Crie uma primeiro usando `codeforge spec create <name>`.\n",
+  err_no_specs_run: "\n✗ Nenhuma spec encontrada.\n",
+  err_spec_not_found: "\n✗ Spec não encontrada: {spec}.md\n",
+  err_tasks_dir_not_found: "\n✗ Nenhum diretório de tarefas encontrado para a spec: {spec}\n",
+  
+  run_select_spec: "Selecione uma spec para executar:",
+  
+  status_select_spec: "Selecione uma spec para ver o status:",
+  status_no_tasks_dir: "\n✗ Nenhum diretório de tarefas encontrado para a spec: {spec}\n",
+  status_no_execution: "\n○ Nenhuma execução iniciada para a spec '{spec}'. Execute `codeforge run {spec}` para começar.\n",
+  status_watching: "  \x1b[2mObservando alterações... (Ctrl+C para sair)\x1b[0m\n\n",
+  status_waiting: "  \x1b[2mAguardando o início da execução... (Ctrl+C para sair)\x1b[0m\n\n",
+  status_all_done: "\n🎉 Todas as tarefas para a spec '{spec}' foram concluídas!\n",
+  
+  plan_select_spec: "Selecione uma spec para gerar um plano:",
+  plan_generating: "\n▶ Gerando plano para a spec: {spec}",
+  plan_ui_generating: "Gerando plano...",
+  plan_ui_failed: "Falhou",
+  plan_ui_success: "Plano gerado",
+  plan_err_tasks_dir_not_found: "\n✗ Nenhum diretório de tarefas encontrado para a spec: {spec}. O agente falhou em criá-lo.\n",
+  plan_err_validation_failed: "\n✗ Falha na validação do plano '{spec}':\n",
+  plan_err_fix_instructions: "\n[INSTRUCCIÓN PARA IA] Corrija esses erros nos arquivos JSON e execute a validação novamente.\n",
+  plan_success: "\n✓ O plano para '{spec}' é válido e está pronto para execução!",
+  plan_next_step: "Próximo passo: execute `codeforge run {spec}`\n",
+  
+  validate_select_spec: "Selecione uma spec para validar seu plano:",
+  validate_success: "\n✓ O plano para '{spec}' é válido e está pronto para execução!\n",
+  
+  docs_create_enter_name: "Digite o nome da documentação:",
+  docs_create_err_empty_name: "\n✗ O nome da documentação não pode estar vazio.\n",
+  docs_create_select_spec: "Selecione uma spec para associar a esta documentação:",
+  docs_create_err_rules_not_found: "\n✗ Regras de documentação não encontradas em .codeforge/rules/docs.md\n",
+  docs_create_err_already_exists: "\n✗ A documentação '{docName}' já existe.\n  Use 'codeforge docs update' no futuro.\n",
+  docs_create_generating: "\n▶ Gerando documentação '{docName}' para a spec: {spec}",
+  docs_create_ui_generating: "Gerando documentação...",
+  docs_create_ui_success: "Documentação gerada",
+  
+  docs_update_select_spec: "Selecione a spec que foi executada (causou alterações):",
+  docs_update_err_rules_not_found: "\n✗ Regras de atualização de documentação não encontradas em .codeforge/rules/docs-update.md\n  Execute 'codeforge init' para recriar as regras.\n",
+  docs_update_err_doc_not_found: "\n✗ Documento '{doc}' não encontrado. Verifique o nome ou use 'codeforge docs update' para deixar o manifesto decidir.\n",
+  docs_update_err_no_git: "\n✗ Repositório Git não encontrado. docs update requer git para detectar alterações.\n",
+  docs_update_err_no_changed_files: "\n✗ Nenhuma alteração detectada. Certifique-se de que há alterações não consolidadas (uncommitted).\n",
+  docs_update_err_no_affected_docs: "\n✗ Nenhuma documentação afetada pelas alterações em '{spec}'.\n",
+  docs_update_affected_count: "\n📋 {count} documento(s) potencialmente afetado(s):\n",
+  docs_update_affected_item: "   • {docName} (corresponde a: {files})",
+  docs_update_select_doc: "Selecione um documento para atualizar:",
+  docs_update_process_another: "Processar outro documento? ({remaining} restantes)",
+  docs_update_ui_updating: "Atualizando {docName}...",
+  docs_update_ui_success: "Documentação atualizada",
+  docs_update_updating_log: "\n▶ Atualizando documentação '{docName}'...",
+  docs_update_doc_choice: "{docName} ({count} arquivo(s) alterado(s))",
+
+  // menu
+  menu_welcome: "Bem-vindo ao CodeForge!",
+  menu_select_group: "Selecione um grupo de comandos:",
+  menu_what_to_do: "O que deseja fazer?",
+  menu_goodbye: "Até logo!",
+  menu_what_to_do_group: "o que deseja fazer?",
+  menu_init_label: "🚀  Inicializar projeto                    (init)",
+  menu_spec_label: "📄  Spec        — criar especificações",
+  menu_spec_create: "Criar nova especificação          (spec create)",
+  menu_back: "← Voltar ao menu principal",
+  menu_plan_label: "🗺️   Plan        — planejar e validar tarefas",
+  menu_plan_generate: "Gerar prompt de planejamento      (plan generate)",
+  menu_plan_validate: "Validar plano de tarefas          (plan validate)",
+  menu_run_label: "▶️   Run         — executar tarefas         (run)",
+  menu_status_label: "📊  Status      — dashboard de progresso   (status)",
+  menu_task_label: "✅  Task        — gerenciar tasks individuais",
+  menu_task_info: "Ver informações de uma task       (task info)",
+  menu_task_complete: "Marcar task como concluída        (task complete)",
+  menu_task_retry: "Retentar task com erro            (task retry)",
+  menu_docs_label: "📚  Docs        — criar e atualizar documentação",
+  menu_docs_create: "Criar documentação para uma spec  (docs create)",
+  menu_docs_update_auto: "Atualizar docs afetados (automático) (docs update)",
+  menu_docs_update_manual: "Atualizar doc específico (manual) (docs update --doc)",
+  menu_docs_update_manual_input: "Nome do doc a atualizar (ex: api-reference):",
+  menu_exit: "➜   Sair"
+};
+
+const es: Dictionary = {
+  init_already_initialized: "\n⚠ CodeForge ya está inicializado en este directorio.",
+  init_continue_config: "Continuando con la configuración interactiva...\n",
+  init_success: "\n✓ CodeForge inicializado correctamente.\n",
+  init_created: "Creado:",
+  init_select_env: "Seleccione su entorno:",
+  init_introspecting: "Inspeccionando {environment} para agentes disponibles...",
+  init_select_planner: "Seleccione su agente de planificación (planner):",
+  init_select_executor: "Seleccione su agente de ejecución (executor):",
+  init_enter_planner: "Ingrese su agente de planificación (ej. default):",
+  init_enter_executor: "Ingrese su agente de ejecución (ej. default):",
+  init_config_saved: "\n✓ Configuración guardada correctamente.\n",
+  
+  err_not_initialized: "\n✗ CodeForge no está inicializado. Ejecute `codeforge init` primero.\n",
+  err_not_configured: "\n✗ CodeForge no está configurado. Ejecute `codeforge init` primero.\n",
+  err_no_specs: "\n✗ No se encontraron specs. Cree uno primero usando `codeforge spec create <name>`.\n",
+  err_no_specs_run: "\n✗ No se encontraron specs.\n",
+  err_spec_not_found: "\n✗ Spec no encontrado: {spec}.md\n",
+  err_tasks_dir_not_found: "\n✗ No se encontró directorio de tareas para el spec: {spec}\n",
+  
+  run_select_spec: "Seleccione un spec para ejecutar:",
+  
+  status_select_spec: "Seleccione un spec para ver el estado:",
+  status_no_tasks_dir: "\n✗ No se encontró directorio de tareas para el spec: {spec}\n",
+  status_no_execution: "\n○ No hay ejecución iniciada para el spec '{spec}'. Ejecute `codeforge run {spec}` para comenzar.\n",
+  status_watching: "  \x1b[2mObservando cambios... (Ctrl+C para salir)\x1b[0m\n\n",
+  status_waiting: "  \x1b[2mEsperando a que comience la ejecución... (Ctrl+C para salir)\x1b[0m\n\n",
+  status_all_done: "\n🎉 ¡Todas las tareas para el spec '{spec}' han sido completadas!\n",
+  
+  plan_select_spec: "Seleccione un spec para generar un plan:",
+  plan_generating: "\n▶ Generando plan para el spec: {spec}",
+  plan_ui_generating: "Generando plan...",
+  plan_ui_failed: "Falló",
+  plan_ui_success: "Plan generado",
+  plan_err_tasks_dir_not_found: "\n✗ No se encontró directorio de tareas para el spec: {spec}. El agente no pudo crearlo.\n",
+  plan_err_validation_failed: "\n✗ Falló la validación para el plan '{spec}':\n",
+  plan_err_fix_instructions: "\n[INSTRUCCIÓN PARA IA] Corrija estos errores en los archivos JSON y ejecute la validación nuevamente.\n",
+  plan_success: "\n✓ ¡El plan para '{spec}' es válido y está listo para ejecutarse!",
+  plan_next_step: "Siguiente paso: ejecute `codeforge run {spec}`\n",
+  
+  validate_select_spec: "Seleccione un spec para validar su plan:",
+  validate_success: "\n✓ ¡El plan para '{spec}' es válido y está listo para ejecutarse!\n",
+  
+  docs_create_enter_name: "Ingrese el nombre de la documentación:",
+  docs_create_err_empty_name: "\n✗ El nombre de la documentación no puede estar vacío.\n",
+  docs_create_select_spec: "Seleccione un spec para asociar con esta documentación:",
+  docs_create_err_rules_not_found: "\n✗ Reglas de documentación no encontradas en .codeforge/rules/docs.md\n",
+  docs_create_err_already_exists: "\n✗ La documentación '{docName}' ya existe.\n  Use 'codeforge docs update' en el futuro.\n",
+  docs_create_generating: "\n▶ Generando documentación '{docName}' para el spec: {spec}",
+  docs_create_ui_generating: "Generando documentación...",
+  docs_create_ui_success: "Documentación generada",
+  
+  docs_update_select_spec: "Seleccione el spec que fue ejecutado (causó cambios):",
+  docs_update_err_rules_not_found: "\n✗ Reglas de actualización de documentación no encontradas en .codeforge/rules/docs-update.md\n  Ejecute 'codeforge init' para regenerar las reglas.\n",
+  docs_update_err_doc_not_found: "\n✗ Documento '{doc}' no encontrado. Verifique el nombre o use 'codeforge docs update' para que el manifiesto decida.\n",
+  docs_update_err_no_git: "\n✗ Repositorio Git no encontrado. docs update requiere git para detectar cambios.\n",
+  docs_update_err_no_changed_files: "\n✗ No se detectaron cambios. Asegúrese de tener cambios no confirmados (uncommitted).\n",
+  docs_update_err_no_affected_docs: "\n✗ Ninguna documentación afectada por cambios en '{spec}'.\n",
+  docs_update_affected_count: "\n📋 {count} documento(s) potencialmente afectado(s):\n",
+  docs_update_affected_item: "   • {docName} (coincidencias: {files})",
+  docs_update_select_doc: "Seleccione un documento para actualizar:",
+  docs_update_process_another: "¿Procesar otro documento? ({remaining} restantes)",
+  docs_update_ui_updating: "Actualizando {docName}...",
+  docs_update_ui_success: "Documentación actualizada",
+  docs_update_updating_log: "\n▶ Actualizando documentación '{docName}'...",
+  docs_update_doc_choice: "{docName} ({count} archivo(s) modificado(s))",
+
+  // menu
+  menu_welcome: "¡Bienvenido a CodeForge!",
+  menu_select_group: "Seleccione un grupo de comandos:",
+  menu_what_to_do: "¿Qué desea hacer?",
+  menu_goodbye: "¡Hasta luego!",
+  menu_what_to_do_group: "¿qué desea hacer?",
+  menu_init_label: "🚀  Inicializar proyecto                   (init)",
+  menu_spec_label: "📄  Spec        — crear especificaciones",
+  menu_spec_create: "Crear nueva especificación        (spec create)",
+  menu_back: "← Volver al menú principal",
+  menu_plan_label: "🗺️   Plan        — planificar y validar tareas",
+  menu_plan_generate: "Generar prompt de planificación   (plan generate)",
+  menu_plan_validate: "Validar plan de tareas            (plan validate)",
+  menu_run_label: "▶️   Run         — ejecutar tareas          (run)",
+  menu_status_label: "📊  Status      — panel de progreso        (status)",
+  menu_task_label: "✅  Task        — gestionar tareas individuales",
+  menu_task_info: "Ver información de una tarea      (task info)",
+  menu_task_complete: "Marcar tarea como completada      (task complete)",
+  menu_task_retry: "Reintentar tarea con error        (task retry)",
+  menu_docs_label: "📚  Docs        — crear y actualizar documentación",
+  menu_docs_create: "Crear documentación para un spec  (docs create)",
+  menu_docs_update_auto: "Actualizar docs afectados (auto)  (docs update)",
+  menu_docs_update_manual: "Actualizar doc específico (manual)(docs update --doc)",
+  menu_docs_update_manual_input: "Nombre del doc a actualizar (ej: api-reference):",
+  menu_exit: "➜   Salir"
+};
+
+const dictionaries = { en, pt, es };
+
+export function translate(key: TranslationKey, language: SupportedLanguage, params?: Record<string, string | number>): string {
+  let text = dictionaries[language]?.[key] || dictionaries.en[key] || key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    }
+  }
+  return text;
+}
