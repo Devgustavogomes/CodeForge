@@ -58,11 +58,6 @@ Bullet points explaining **non-obvious** choices made during implementation:
 - Why in-memory vs. persistent storage
 - Trade-offs made and their justification
 
-### 6. Testing
-A short guide showing how to manually test the feature:
-- Prerequisites (server running, env vars, etc.)
-- Ordered \`curl\` commands or test steps that exercise the main happy path and at least one error path
-
 ---
 
 ## Output Format
