@@ -8,13 +8,15 @@ export interface TaskStatusInfo {
   title: string;
   status: TaskStatus;
   dependencies: string[];
+  startedAt?: string;
+  completedAt?: string;
 }
 
 export type StatusResult =
   | { kind: "not-initialized" }
   | { kind: "spec-not-found" }
   | { kind: "no-execution"; specName: string }
-  | { kind: "status"; specName: string; specStatus: string; tasks: TaskStatusInfo[]; updatedAt: string };
+  | { kind: "status"; specName: string; specStatus: string; tasks: TaskStatusInfo[]; updatedAt: string; startedAt?: string; completedAt?: string };
 
 export function getSpecStatus(
   gw: WorkspaceGateway,
@@ -46,11 +48,14 @@ export function getSpecStatus(
     const taskPath = `${tasksDir}/${file}`;
     const taskDef = JSON.parse(gw.readFile(taskPath)) as Task;
 
+    const taskState = state.tasks[taskId];
     tasks.push({
       id: taskId,
       title: taskDef.title,
-      status: state.tasks[taskId]?.status ?? "pending",
+      status: taskState?.status ?? "pending",
       dependencies: taskDef.dependencies || [],
+      startedAt: taskState?.startedAt,
+      completedAt: taskState?.completedAt,
     });
   }
 
@@ -63,6 +68,8 @@ export function getSpecStatus(
     specStatus: state.status,
     tasks,
     updatedAt: state.updatedAt,
+    startedAt: state.startedAt,
+    completedAt: state.completedAt,
   };
 }
 
@@ -84,6 +91,16 @@ const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
 const DIM = "\x1b[2m";
 
+export function formatTimeDiff(start?: string, end?: string): string {
+  if (!start) return "";
+  const startTime = new Date(start).getTime();
+  const endTime = end ? new Date(end).getTime() : Date.now();
+  const elapsed = Math.max(0, Math.floor((endTime - startTime) / 1000));
+  const mins = Math.floor(elapsed / 60).toString().padStart(2, "0");
+  const secs = (elapsed % 60).toString().padStart(2, "0");
+  return `${mins}:${secs}`;
+}
+
 export function formatStatusOutput(result: Extract<StatusResult, { kind: "status" }>): string {
   const lines: string[] = [];
 
@@ -97,7 +114,10 @@ export function formatStatusOutput(result: Extract<StatusResult, { kind: "status
   // Header
   lines.push("");
   lines.push(`${BOLD}  Spec: ${result.specName}${RESET}`);
-  lines.push(`${DIM}  Last updated: ${result.updatedAt}${RESET}`);
+  if (result.startedAt) {
+    const totalTime = formatTimeDiff(result.startedAt, result.completedAt);
+    lines.push(`${DIM}  Time elapsed: ${totalTime}${RESET}`);
+  }
   lines.push("");
 
   // Progress bar
@@ -110,7 +130,7 @@ export function formatStatusOutput(result: Extract<StatusResult, { kind: "status
   // Summary counts
   const parts: string[] = [];
   if (completed > 0) parts.push(`${STATUS_COLORS.completed}${STATUS_ICONS.completed} ${completed} completed${RESET}`);
-  if (running > 0) parts.push(`${STATUS_COLORS.running}${STATUS_ICONS.running} ${running} running${RESET}`);
+  if (running > 0) parts.push(`${STATUS_COLORS.running}${STATUS_ICONS.running} ${running} running in parallel${RESET}`);
   if (failed > 0) parts.push(`${STATUS_COLORS.failed}${STATUS_ICONS.failed} ${failed} failed${RESET}`);
   if (pending > 0) parts.push(`${STATUS_COLORS.pending}${STATUS_ICONS.pending} ${pending} pending${RESET}`);
   lines.push(`  ${parts.join("  ")}`);
@@ -128,7 +148,12 @@ export function formatStatusOutput(result: Extract<StatusResult, { kind: "status
       depInfo = ` ${DIM}← ${task.dependencies.join(", ")}${RESET}`;
     }
 
-    lines.push(`  ${color}${icon}${RESET} ${BOLD}${task.id}${RESET} ${task.title}${depInfo}`);
+    let timeStr = "";
+    if (task.startedAt) {
+      timeStr = ` ${DIM}[${formatTimeDiff(task.startedAt, task.completedAt)}]${RESET}`;
+    }
+
+    lines.push(`  ${color}${icon}${RESET} ${BOLD}${task.id}${RESET} ${task.title}${depInfo}${timeStr}`);
   }
 
   lines.push(`${DIM}  ─────────────────────────────────────────${RESET}`);
