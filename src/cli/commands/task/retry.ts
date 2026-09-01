@@ -1,7 +1,6 @@
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
-import { retryTask } from "../../../application/run-execution.js";
-
+import { retryTask } from "../../../application/task-operations.js";
 export function registerTaskRetryCommand(task: Command): void {
   task
     .command("retry <spec> <taskId>")
@@ -20,11 +19,15 @@ export function registerTaskRetryCommand(task: Command): void {
           process.exitCode = 1;
           break;
         case "already-completed":
-          console.error(`\n✗ Task is already completed. Use 'task reset' if you want to redo it.\n`);
+          console.error(
+            `\n✗ Task is already completed. Use 'task reset' if you want to redo it.\n`,
+          );
           process.exitCode = 1;
           break;
         case "retried":
-          console.log(`\n✓ Task '${taskId}' for spec '${spec}' reset to pending. Run \`codeforge run ${spec}\` to re-execute.\n`);
+          console.log(
+            `\n✓ Task '${taskId}' for spec '${spec}' reset to pending. Run \`codeforge run ${spec}\` to re-execute.\n`,
+          );
           break;
       }
     });

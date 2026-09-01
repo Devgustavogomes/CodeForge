@@ -2,19 +2,41 @@ import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../application/plan.js";
-import { runExecution } from "../../application/run-execution.js";
+import { ConfigService } from "../../config/ConfigService.js";
+import { RunnerFactory } from "../../runners/RunnerFactory.js";
+import { TaskScheduler } from "../../scheduler/TaskScheduler.js";
+import { PATHS } from "../../infrastructure/paths.js";
 
 export function registerRunCommand(program: Command): void {
   program
     .command("run [spec]")
-    .description("Execute tasks for a given spec autonomously or manually")
+    .description("Execute tasks for a given spec autonomously")
     .action(async (spec?: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
+
+      if (!gw.exists(PATHS.metadata)) {
+        console.error(
+          "\n✗ CodeForge is not initialized. Run `codeforge init` first.\n",
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      const configService = new ConfigService(gw);
+      const config = configService.loadConfig();
+      if (!config) {
+        console.error(
+          "\n✗ CodeForge is not configured. Run `codeforge init` first.\n",
+        );
+        process.exitCode = 1;
+        return;
+      }
+
       let specName = spec;
 
       if (!specName) {
         const specs = getAvailableSpecs(gw);
-        
+
         if (specs.length === 0) {
           console.error("\n✗ No specs found.\n");
           process.exitCode = 1;
@@ -23,36 +45,13 @@ export function registerRunCommand(program: Command): void {
 
         specName = await select({
           message: "Select a spec to execute:",
-          choices: specs.map(s => ({ name: s, value: s }))
+          choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
 
-      const result = runExecution(gw, specName);
-      
-      switch (result.kind) {
-        case "not-initialized":
-          console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
-          process.exitCode = 1;
-          break;
-        case "spec-not-found":
-          console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
-          process.exitCode = 1;
-          break;
-        case "finished":
-          console.log(`\n🎉 All tasks for spec '${specName}' have been completed successfully!\n`);
-          break;
-        case "error":
-          console.error(`\n✗ Execution error: ${result.message}\n`);
-          process.exitCode = 1;
-          break;
-        case "task-ready":
-          console.log(`\n▶ Task ready for execution: ${result.taskId}`);
-          console.log(`\n🤖 AI Agent Instructions:`);
-          console.log(`Please read the prompt file generated at: ${result.promptPath}`);
-          console.log(`Follow the instructions inside it to execute the task.`);
-          console.log(`When you are finished, run the following command to mark the task as completed:`);
-          console.log(`\`codeforge task complete ${specName} ${result.taskId}\`\n`);
-          break;
-      }
+      const runner = RunnerFactory.createRunner(config.environment);
+      const scheduler = new TaskScheduler(gw, runner);
+
+      await scheduler.run(specName, config.executorAgent);
     });
 }

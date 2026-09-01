@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select, confirm } from "@inquirer/prompts";
@@ -8,14 +9,29 @@ import {
   prepareManualDocUpdate,
   buildDocManualUpdatePrompt,
 } from "../../../application/docs.js";
+import { ConfigService } from "../../../config/ConfigService.js";
+import { RunnerFactory } from "../../../runners/RunnerFactory.js";
+import { TaskContext } from "../../../runners/AgentRunner.js";
+import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 
 export function registerDocsUpdateCommand(docs: Command): void {
   docs
     .command("update [spec]")
-    .description("Update documentation affected by changes from a spec execution")
+    .description("Update documentation autonomously affected by changes from a spec execution")
     .option("--doc <doc>", "Manually specify which doc to update (skips scope matching)")
     .action(async (spec?: string, options?: { doc?: string }) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
+
+      const configService = new ConfigService(gw);
+      const config = configService.loadConfig();
+      if (!config) {
+        console.error(
+          "\n✗ CodeForge is not configured. Run `codeforge init` first.\n",
+        );
+        process.exitCode = 1;
+        return;
+      }
+
       let selectedSpec = spec;
 
       if (!selectedSpec) {
@@ -34,6 +50,47 @@ export function registerDocsUpdateCommand(docs: Command): void {
           choices: specs.map((s) => ({ name: s, value: s })),
         });
       }
+
+      const runner = RunnerFactory.createRunner(config.environment);
+      const docsDir = ".codeforge/docs";
+      if (!gw.exists(docsDir)) {
+        gw.mkdir(docsDir);
+      }
+
+      // Helper function to execute prompt
+      const executeDocUpdate = async (docName: string, promptStr: string) => {
+        const promptPath = `${docsDir}/${docName}-update.temp.prompt.md`;
+        gw.writeFile(promptPath, promptStr);
+
+        const context: TaskContext = {
+          promptFilePath: promptPath,
+          specName: selectedSpec!,
+          model: config.plannerAgent,
+          silent: true,
+        };
+
+        const ui = new AgentProgressUI(`Updating ${docName}...`, config.plannerAgent);
+        console.log(`\n▶ Updating documentation '${docName}'...`);
+        ui.init();
+        ui.start();
+
+        try {
+          await runner.execute(context);
+          ui.stop(true, "Docs updated");
+        } catch (error) {
+          ui.stop(false, "Failed");
+          if (error instanceof Error) {
+            console.error(`  ${error.message}`);
+          } else {
+            console.error(error);
+          }
+          process.exitCode = 1;
+        } finally {
+          if (fs.existsSync(promptPath)) {
+            fs.unlinkSync(promptPath);
+          }
+        }
+      };
 
       // ── Manual mode: user explicitly specified --doc <docname> ──────────────
       if (options?.doc) {
@@ -64,7 +121,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
             return;
           case "doc": {
             const prompt = buildDocManualUpdatePrompt(gw, selectedSpec, result.doc);
-            console.log(prompt);
+            await executeDocUpdate(options.doc, prompt);
             return;
           }
         }
@@ -149,7 +206,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
           selectedDoc,
         );
 
-        console.log(prompt);
+        await executeDocUpdate(selectedDocName, prompt);
 
         remaining = remaining.filter((d) => d.docName !== selectedDocName);
 

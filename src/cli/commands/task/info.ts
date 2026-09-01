@@ -2,7 +2,7 @@ import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../../application/plan.js";
-import { getAvailableTasks, getTaskInfo } from "../../../application/run-execution.js";
+import { getAvailableTasks, getTaskInfo } from "../../../application/task-operations.js";
 
 export function registerTaskInfoCommand(task: Command): void {
   task

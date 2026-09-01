@@ -1,6 +1,6 @@
-import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
-import { markTaskCompleted } from "../../../application/run-execution.js";
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
+import { markTaskCompleted } from "../../../application/task-operations.js";
 
 export function registerTaskCompleteCommand(task: Command): void {
   task
@@ -9,19 +9,29 @@ export function registerTaskCompleteCommand(task: Command): void {
     .action((spec: string, taskId: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
       const result = markTaskCompleted(gw, spec, taskId);
-      
+
       switch (result.kind) {
         case "not-found":
-          console.error(`\n✗ Failed to mark task as completed. Check if spec '${spec}' is running and task '${taskId}' exists.\n`);
+          console.error(
+            `\n✗ Failed to mark task as completed. Check if spec '${spec}' is running and task '${taskId}' exists.\n`,
+          );
           process.exitCode = 1;
           break;
         case "completed":
-          console.log(`\n✓ Task '${taskId}' for spec '${spec}' marked as completed.`);
+          console.log(
+            `\n✓ Task '${taskId}' for spec '${spec}' marked as completed.`,
+          );
           if (result.allCompleted) {
-            console.log(`\n🎉 All tasks for spec '${spec}' are completed! Execution status updated to 'completed'.\n`);
+            console.log(
+              `\n🎉 All tasks for spec '${spec}' are completed! Execution status updated to 'completed'.\n`,
+            );
           } else {
-            console.log(`\n💡 Tip: Open a NEW, clean session in your AI agent before starting the next task.`);
-            console.log(`Then, run \`codeforge run ${spec}\` to get the next task.\n`);
+            console.log(
+              `\n💡 Tip: Open a NEW, clean session in your AI agent before starting the next task.`,
+            );
+            console.log(
+              `Then, run \`codeforge run ${spec}\` to get the next task.\n`,
+            );
           }
           break;
       }
