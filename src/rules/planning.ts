@@ -125,26 +125,6 @@ Example for a spec named \`user-auth\`:
 
 ---
 
-## Validation and Self-Correction (CRITICAL)
-
-After generating the JSON files, you **MUST** run the validation command on the entire spec:
-
-\`\`\`bash
-codeforge plan validate <spec-name>
-\`\`\`
-
-If the validation command returns errors (e.g., missing fields, circular dependencies, invalid IDs), you must:
-1. Read the error message carefully.
-2. Edit the generated JSON files to fix the issue.
-3. If you fix a single file and want to verify its syntax/schema quickly without running the full DAG check, you can run:
-   \`\`\`bash
-   codeforge plan validate <spec-name> TASK-XYZ
-   \`\`\`
-4. Once you think all issues are fixed, you **MUST** run the full validation \`codeforge plan validate <spec-name>\` again.
-5. Repeat this loop until the full validation passes with success.
-
----
-
 ## What you must NOT do
 
 - Do not implement any code.
@@ -152,5 +132,4 @@ If the validation command returns errors (e.g., missing fields, circular depende
 - Do not add Tasks for things not in the Spec.
 - Do not use duplicate Task IDs.
 - Do not create circular dependencies.
-- **Do not finish your work until \`codeforge plan validate\` returns success.**
 `;
