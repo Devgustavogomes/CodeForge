@@ -1,8 +1,10 @@
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { getAvailableSpecs } from "../../../application/plan.js";
-import { getAvailableTasks, getTaskInfo } from "../../../application/run-execution.js";
+import { TaskOperationsUseCase } from "../../../application/use-cases/TaskOperationsUseCase.js";
+import { ListSpecsUseCase } from "../../../application/use-cases/ListSpecsUseCase.js";
+import { translate } from "../../ui/i18n.js";
+import { ConfigService } from "../../../config/ConfigService.js";
 
 export function registerTaskInfoCommand(task: Command): void {
   task
@@ -10,12 +12,16 @@ export function registerTaskInfoCommand(task: Command): void {
     .description("View details of a specific task")
     .action(async (spec?: string, taskId?: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
+      const configService = new ConfigService(gw);
+      const config = configService.loadConfig();
+      const lang = config?.language || "en";
+      
       let specName = spec;
       let selectedTask = taskId;
 
       // Select Spec
       if (!specName) {
-        const specs = getAvailableSpecs(gw);
+        const specs = new ListSpecsUseCase(gw).execute();
         if (specs.length === 0) {
           console.error("\n✗ No specs found.\n");
           process.exitCode = 1;
@@ -24,13 +30,25 @@ export function registerTaskInfoCommand(task: Command): void {
 
         specName = await select({
           message: "Select a spec:",
-          choices: specs.map((s) => ({ name: s, value: s })),
+          choices: [
+            { name: translate("menu_back", lang), value: "back" },
+            ...specs.map((s) => ({ name: s, value: s }))
+          ],
         });
+
+        if (specName === "back") {
+          if (process.env.CODEFORGE_INTERACTIVE) {
+            process.exit(200);
+          } else {
+            process.exit(0);
+          }
+        }
       }
 
       // Select Task
+      const useCase = new TaskOperationsUseCase(gw);
       if (!selectedTask) {
-        const tasksResult = getAvailableTasks(gw, specName);
+        const tasksResult = useCase.getAvailableTasks(specName);
         if (tasksResult.kind === "spec-not-found") {
           console.error(
             `\n✗ No tasks found for spec '${specName}'. Run 'plan generate' first.\n`,
@@ -50,7 +68,7 @@ export function registerTaskInfoCommand(task: Command): void {
         });
       }
 
-      const result = getTaskInfo(gw, specName, selectedTask);
+      const result = useCase.getTaskInfo(specName, selectedTask as string);
 
       switch (result.kind) {
         case "spec-not-found":

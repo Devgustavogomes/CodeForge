@@ -1,27 +1,39 @@
-import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
-import { markTaskCompleted } from "../../../application/run-execution.js";
+import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
+import { TaskOperationsUseCase } from "../../../application/use-cases/TaskOperationsUseCase.js";
 
 export function registerTaskCompleteCommand(task: Command): void {
   task
-    .command("complete <spec> <taskId>")
-    .description("Mark a task as completed")
-    .action((spec: string, taskId: string) => {
+    .command("complete <spec-name> <task-id>")
+    .description("Mark a specific task as completed manually")
+    .action((specName: string, taskId: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
-      const result = markTaskCompleted(gw, spec, taskId);
       
+      const useCase = new TaskOperationsUseCase(gw);
+      const result = useCase.markTaskCompleted(specName, taskId);
+
       switch (result.kind) {
         case "not-found":
-          console.error(`\n✗ Failed to mark task as completed. Check if spec '${spec}' is running and task '${taskId}' exists.\n`);
+          console.error(
+            `\n✗ Failed to mark task as completed. Check if spec '${specName}' is running and task '${taskId}' exists.\n`,
+          );
           process.exitCode = 1;
           break;
         case "completed":
-          console.log(`\n✓ Task '${taskId}' for spec '${spec}' marked as completed.`);
+          console.log(
+            `\n✓ Task '${taskId}' for spec '${specName}' marked as completed.`,
+          );
           if (result.allCompleted) {
-            console.log(`\n🎉 All tasks for spec '${spec}' are completed! Execution status updated to 'completed'.\n`);
+            console.log(
+              `\n🎉 All tasks for spec '${specName}' are completed! Execution status updated to 'completed'.\n`,
+            );
           } else {
-            console.log(`\n💡 Tip: Open a NEW, clean session in your AI agent before starting the next task.`);
-            console.log(`Then, run \`codeforge run ${spec}\` to get the next task.\n`);
+            console.log(
+              `\n💡 Tip: Open a NEW, clean session in your AI agent before starting the next task.`,
+            );
+            console.log(
+              `Then, run \`codeforge run ${specName}\` to get the next task.\n`,
+            );
           }
           break;
       }

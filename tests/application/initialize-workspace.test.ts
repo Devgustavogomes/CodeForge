@@ -1,24 +1,26 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
-import { initializeWorkspace } from "../../src/application/initialize-workspace.js";
+import { InitializeWorkspaceUseCase } from "../../src/application/use-cases/InitializeWorkspaceUseCase.js";
 
-describe("initializeWorkspace", () => {
+describe("InitializeWorkspaceUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let useCase: InitializeWorkspaceUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
+    useCase = new InitializeWorkspaceUseCase(gateway);
   });
 
   it("creates the .codeforge directory structure", () => {
-    initializeWorkspace(gateway);
+    useCase.execute();
 
     expect(gateway.exists(".codeforge")).toBe(true);
   });
 
   it("creates all expected subdirectories (no plans/)", () => {
-    initializeWorkspace(gateway);
+    useCase.execute();
 
-    const subdirs = ["specs", "tasks", "executions", "rules"];
+    const subdirs = ["specs", "tasks", "executions", "rules", "docs"];
     for (const sub of subdirs) {
       expect(gateway.exists(`.codeforge/${sub}`)).toBe(true);
     }
@@ -27,19 +29,19 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates config.yaml with default structure if not provided", () => {
-    initializeWorkspace(gateway);
+    useCase.execute();
     expect(gateway.exists(".codeforge/config.yaml")).toBe(true);
     const content = gateway.readFile(".codeforge/config.yaml");
     expect(content).toContain('version: "1.0"');
   });
 
   it("creates rules/planning.md from embedded ts constant", () => {
-    initializeWorkspace(gateway);
+    useCase.execute();
     expect(gateway.exists(".codeforge/rules/planning.md")).toBe(true);
   });
 
   it("planning.md contains the expected sections", () => {
-    initializeWorkspace(gateway);
+    useCase.execute();
     const content = gateway.readFile(".codeforge/rules/planning.md");
 
     expect(content).toContain("# CodeForge — Planning Rules");
@@ -51,7 +53,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("creates metadata.json with initialized: true", () => {
-    initializeWorkspace(gateway);
+    useCase.execute();
     expect(gateway.exists(".codeforge/metadata.json")).toBe(true);
 
     const metadata = JSON.parse(gateway.readFile(".codeforge/metadata.json"));
@@ -61,7 +63,7 @@ describe("initializeWorkspace", () => {
   });
 
   it("returns the list of created entries", () => {
-    const result = initializeWorkspace(gateway);
+    const result = useCase.execute();
 
     expect(result.kind).toBe("created");
     if (result.kind === "created") {
@@ -70,7 +72,7 @@ describe("initializeWorkspace", () => {
       expect(result.created).toContain(".codeforge/rules/planning.md");
       expect(result.created).toContain(".codeforge/metadata.json");
 
-      const subdirs = ["specs", "tasks", "executions", "rules"];
+      const subdirs = ["specs", "tasks", "executions", "rules", "docs"];
       for (const sub of subdirs) {
         expect(result.created).toContain(`.codeforge/${sub}/`);
       }
@@ -80,19 +82,19 @@ describe("initializeWorkspace", () => {
   });
 
   it("returns alreadyInitialized: true on second run", () => {
-    initializeWorkspace(gateway);
-    const result = initializeWorkspace(gateway);
+    useCase.execute();
+    const result = useCase.execute();
 
     expect(result.kind).toBe("already-initialized");
   });
 
   it("does not overwrite existing files on second run", () => {
-    initializeWorkspace(gateway);
+    useCase.execute();
 
     const originalContent = gateway.readFile(".codeforge/config.yaml");
     gateway.writeFile(".codeforge/config.yaml", "# modified by user\n");
 
-    initializeWorkspace(gateway);
+    useCase.execute();
 
     const contentAfter = gateway.readFile(".codeforge/config.yaml");
     expect(contentAfter).toBe("# modified by user\n");
@@ -103,7 +105,7 @@ describe("initializeWorkspace", () => {
     gateway.mkdir(".codeforge");
     gateway.writeFile(".codeforge/config.yaml", "# partial\n");
 
-    const result = initializeWorkspace(gateway);
+    const result = useCase.execute();
     expect(result.kind).toBe("created");
 
     expect(gateway.exists(".codeforge/metadata.json")).toBe(true);

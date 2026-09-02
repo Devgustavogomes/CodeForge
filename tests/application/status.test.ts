@@ -1,6 +1,6 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
-import { getSpecStatus, formatStatusOutput } from "../../src/application/status.js";
+import { GetSpecStatusUseCase, formatStatusOutput, TaskStatusInfo } from "../../src/application/use-cases/GetSpecStatusUseCase.js";
 import { SpecExecutionState } from "../../src/domain/execution.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
@@ -30,85 +30,90 @@ function writeState(gateway: InMemoryWorkspaceGateway, state: SpecExecutionState
   gateway.writeFile(`.codeforge/executions/${state.specId}.json`, JSON.stringify(state, null, 2));
 }
 
-describe("getSpecStatus", () => {
+describe("GetSpecStatusUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let useCase: GetSpecStatusUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
+    useCase = new GetSpecStatusUseCase(gateway);
   });
 
   it("returns notInitialized when metadata is missing", () => {
-    const result = getSpecStatus(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("not-initialized");
   });
 
   it("returns specNotFound when tasks directory is missing", () => {
     makeWorkspace(gateway);
-    const result = getSpecStatus(gateway, "nonexistent");
+    const result = useCase.execute("nonexistent");
     expect(result.kind).toBe("spec-not-found");
   });
 
   it("returns noExecution when no execution state exists", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "TASK-001", "Setup", []);
-    const result = getSpecStatus(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("no-execution");
   });
 
   it("returns task statuses from execution state", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "TASK-001", "Setup project", []);
-    writeTask(gateway, "TASK-002", "Add routes", ["TASK-001"]);
-    writeTask(gateway, "TASK-003", "Add tests", ["TASK-002"]);
+    writeTask(gateway, "TASK-002", "Configure DB", ["TASK-001"]);
 
     writeState(gateway, {
       specId: "test-spec",
       status: "running",
       tasks: {
-        "TASK-001": { status: "completed" },
-        "TASK-002": { status: "running" },
-        "TASK-003": { status: "pending" },
+        "TASK-001": { status: "completed", dependencies: [] },
+        "TASK-002": { status: "running", dependencies: ["TASK-001"] },
       },
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(gateway, "test-spec");
-
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
       expect(result.specStatus).toBe("running");
-      expect(result.tasks).toHaveLength(3);
-      expect(result.tasks[0]).toMatchObject({ id: "TASK-001", status: "completed", title: "Setup project" });
-      expect(result.tasks[1]).toMatchObject({ id: "TASK-002", status: "running", title: "Add routes" });
-      expect(result.tasks[2]).toMatchObject({ id: "TASK-003", status: "pending", title: "Add tests" });
+      expect(result.tasks).toHaveLength(2);
+      expect(result.tasks[0]).toEqual({
+        id: "TASK-001",
+        title: "Setup project",
+        status: "completed",
+        dependencies: [],
+        startedAt: undefined,
+        completedAt: undefined,
+        errors: undefined,
+      });
+      expect(result.tasks[1].status).toBe("running");
     }
   });
 
-  it("includes dependencies in task info", () => {
+  it("defaults missing task state to pending", () => {
     makeWorkspace(gateway);
-    writeTask(gateway, "TASK-001", "First", []);
-    writeTask(gateway, "TASK-002", "Second", ["TASK-001"]);
+    writeTask(gateway, "TASK-001", "Setup", []);
+    writeTask(gateway, "TASK-002", "Configure DB", []);
 
+    // Execution state only contains TASK-001
     writeState(gateway, {
       specId: "test-spec",
       status: "running",
       tasks: {
-        "TASK-001": { status: "completed" },
-        "TASK-002": { status: "pending" },
+        "TASK-001": { status: "completed", dependencies: [] },
       },
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(gateway, "test-spec");
-
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
-      expect(result.tasks[0].dependencies).toEqual([]);
-      expect(result.tasks[1].dependencies).toEqual(["TASK-001"]);
+      const task2 = result.tasks.find((t) => t.id === "TASK-002");
+      expect(task2?.status).toBe("pending");
     }
   });
 
-  it("returns tasks sorted by ID", () => {
+  it("sorts tasks consistently by id", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "TASK-003", "Third", []);
     writeTask(gateway, "TASK-001", "First", []);
@@ -117,18 +122,14 @@ describe("getSpecStatus", () => {
     writeState(gateway, {
       specId: "test-spec",
       status: "running",
-      tasks: {
-        "TASK-001": { status: "pending" },
-        "TASK-002": { status: "pending" },
-        "TASK-003": { status: "pending" },
-      },
+      tasks: {},
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = getSpecStatus(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
-      expect(result.tasks.map((t) => t.id)).toEqual(["TASK-001", "TASK-002", "TASK-003"]);
+      expect(result.tasks.map((t: TaskStatusInfo) => t.id)).toEqual(["TASK-001", "TASK-002", "TASK-003"]);
     }
   });
 });

@@ -1,6 +1,6 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
-import { createSpec } from "../../src/application/create-spec.js";
+import { CreateSpecUseCase } from "../../src/application/use-cases/CreateSpecUseCase.js";
 
 function makeInitializedWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge");
@@ -11,22 +11,24 @@ function makeInitializedWorkspace(gateway: InMemoryWorkspaceGateway): void {
   );
 }
 
-describe("createSpec", () => {
+describe("CreateSpecUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let useCase: CreateSpecUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
+    useCase = new CreateSpecUseCase(gateway);
   });
 
   it("returns notInitialized: true when .codeforge/metadata.json is missing", () => {
-    const result = createSpec(gateway, "User Authentication");
+    const result = useCase.execute("User Authentication");
     expect(result.kind).toBe("not-initialized");
   });
 
   it("creates the spec file successfully with expected template", () => {
     makeInitializedWorkspace(gateway);
 
-    const result = createSpec(gateway, "User Authentication");
+    const result = useCase.execute("User Authentication");
 
     expect(result.kind).toBe("created");
     if (result.kind === "created") {
@@ -41,22 +43,22 @@ describe("createSpec", () => {
 
   it("returns alreadyExists: true when spec already exists", () => {
     makeInitializedWorkspace(gateway);
-    createSpec(gateway, "User Authentication");
+    useCase.execute("User Authentication");
 
-    const result = createSpec(gateway, "User Authentication");
+    const result = useCase.execute("User Authentication");
 
     expect(result.kind).toBe("already-exists");
   });
 
   it("does not overwrite existing spec file", () => {
     makeInitializedWorkspace(gateway);
-    const resultFirst = createSpec(gateway, "User Authentication");
+    const resultFirst = useCase.execute("User Authentication");
     
     if (resultFirst.kind === "created") {
       gateway.writeFile(resultFirst.filePath, "# my custom content\n");
     }
 
-    createSpec(gateway, "User Authentication");
+    useCase.execute("User Authentication");
 
     if (resultFirst.kind === "created") {
       const contentAfter = gateway.readFile(resultFirst.filePath);

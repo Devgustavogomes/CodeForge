@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { input } from "@inquirer/prompts";
 import { MenuAction } from "./types.js";
 
-export async function executeAction(action: MenuAction): Promise<void> {
+export async function executeAction(action: MenuAction): Promise<number> {
   const scriptPath = process.argv[1];
   
   if (action.type === "command") {
@@ -10,8 +10,12 @@ export async function executeAction(action: MenuAction): Promise<void> {
     return new Promise((resolve) => {
       const child = spawn(process.execPath, [scriptPath, ...action.args], {
         stdio: "inherit",
+        env: { ...process.env, CODEFORGE_INTERACTIVE: "1" }
       });
-      child.on("exit", (code) => process.exit(code || 0));
+      child.on("exit", (code) => {
+        if (code === 200) resolve(200);
+        else process.exit(code || 0);
+      });
     });
   }
 
@@ -29,8 +33,14 @@ export async function executeAction(action: MenuAction): Promise<void> {
     return new Promise((resolve) => {
       const child = spawn(process.execPath, [scriptPath, ...action.args, action.inputFlag, userInput.trim()], {
         stdio: "inherit",
+        env: { ...process.env, CODEFORGE_INTERACTIVE: "1" }
       });
-      child.on("exit", (code) => process.exit(code || 0));
+      child.on("exit", (code) => {
+        if (code === 200) resolve(200);
+        else process.exit(code || 0);
+      });
     });
   }
+  
+  return 0;
 }

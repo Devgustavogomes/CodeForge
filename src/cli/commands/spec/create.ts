@@ -1,7 +1,7 @@
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { input } from "@inquirer/prompts";
-import { createSpec } from "../../../application/create-spec.js";
+import { CreateSpecUseCase } from "../../../application/use-cases/CreateSpecUseCase.js";
 
 export function registerSpecCreateCommand(spec: Command): void {
   spec
@@ -21,7 +21,8 @@ export function registerSpecCreateCommand(spec: Command): void {
       specName = specName.trim().toLowerCase().replace(/\s+/g, '-');
 
       const gw = new NodeWorkspaceGateway(process.cwd());
-      const result = createSpec(gw, specName);
+      const useCase = new CreateSpecUseCase(gw);
+      const result = useCase.execute(specName);
 
       switch (result.kind) {
         case "not-initialized":

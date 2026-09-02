@@ -1,58 +1,74 @@
 import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { getAvailableSpecs } from "../../application/plan.js";
-import { runExecution } from "../../application/run-execution.js";
+import { ListSpecsUseCase } from "../../application/use-cases/ListSpecsUseCase.js";
+import { ConfigService } from "../../config/ConfigService.js";
+import { RunnerFactory } from "../../runners/RunnerFactory.js";
+import { TaskScheduler } from "../../scheduler/TaskScheduler.js";
+import { PATHS } from "../../infrastructure/paths.js";
+import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
+import { translate } from "../ui/i18n.js";
+import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
+import { PromptService } from "../../application/services/PromptService.js";
 
 export function registerRunCommand(program: Command): void {
   program
     .command("run [spec]")
-    .description("Execute tasks for a given spec autonomously or manually")
+    .description("Execute tasks for a given spec autonomously")
     .action(async (spec?: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
+
+      const configService = new ConfigService(gw);
+      const config = configService.loadConfig();
+      const lang = config?.language || "en";
+
+      if (!gw.exists(PATHS.metadata)) {
+        console.error(translate("err_not_initialized", lang));
+        process.exitCode = 1;
+        return;
+      }
+
+      if (!config) {
+        console.error(translate("err_not_configured", lang));
+        process.exitCode = 1;
+        return;
+      }
+
       let specName = spec;
 
       if (!specName) {
-        const specs = getAvailableSpecs(gw);
-        
+        const listSpecsUseCase = new ListSpecsUseCase(gw);
+        const specs = listSpecsUseCase.execute();
+
         if (specs.length === 0) {
-          console.error("\n✗ No specs found.\n");
+          console.error(translate("err_no_specs_run", lang));
           process.exitCode = 1;
           return;
         }
 
         specName = await select({
-          message: "Select a spec to execute:",
-          choices: specs.map(s => ({ name: s, value: s }))
+          message: translate("run_select_spec", lang),
+          choices: [
+            { name: translate("menu_back", lang), value: "back" },
+            ...specs.map((s) => ({ name: s, value: s }))
+          ],
         });
+
+        if (specName === "back") {
+          if (process.env.CODEFORGE_INTERACTIVE) {
+            process.exit(200);
+          } else {
+            process.exit(0);
+          }
+        }
       }
 
-      const result = runExecution(gw, specName);
-      
-      switch (result.kind) {
-        case "not-initialized":
-          console.error("\n✗ CodeForge is not initialized. Run `codeforge init` first.\n");
-          process.exitCode = 1;
-          break;
-        case "spec-not-found":
-          console.error(`\n✗ No tasks directory found for spec: ${specName}\n`);
-          process.exitCode = 1;
-          break;
-        case "finished":
-          console.log(`\n🎉 All tasks for spec '${specName}' have been completed successfully!\n`);
-          break;
-        case "error":
-          console.error(`\n✗ Execution error: ${result.message}\n`);
-          process.exitCode = 1;
-          break;
-        case "task-ready":
-          console.log(`\n▶ Task ready for execution: ${result.taskId}`);
-          console.log(`\n🤖 AI Agent Instructions:`);
-          console.log(`Please read the prompt file generated at: ${result.promptPath}`);
-          console.log(`Follow the instructions inside it to execute the task.`);
-          console.log(`When you are finished, run the following command to mark the task as completed:`);
-          console.log(`\`codeforge task complete ${specName} ${result.taskId}\`\n`);
-          break;
-      }
+      const runner = RunnerFactory.createRunner(config.environment);
+      const reporter = new TerminalSchedulerReporter(gw);
+      const stateRepo = new ExecutionStateRepository(gw);
+      const promptService = new PromptService(gw);
+      const scheduler = new TaskScheduler(gw, runner, config, stateRepo, promptService, reporter);
+
+      await scheduler.run(specName, config.executorAgent);
     });
 }

@@ -1,144 +1,222 @@
 # CodeForge
 
-[🇧🇷 Português](#-português)
+> **Turn AI coding agents into an automated software development workflow.**
 
-CodeForge is an agent-agnostic CLI for structuring and orchestrating AI-assisted software development.
+CodeForge is a CLI that orchestrates AI coding agents such as **Claude Code, Codex, Antigravity, Cursor, Windsurf, and others** into a structured and repeatable development workflow.
 
-Instead of asking an AI coding agent to implement an entire feature in a single context, CodeForge provides a controlled development workflow:
+Instead of asking an AI agent to implement an entire feature in one long context, CodeForge breaks the work into **small, dependency-aware tasks**, executes them automatically, uses fresh contexts, supports parallel execution, and keeps the development process organized from specification to documentation.
 
-**Spec → Plan → Approval → Task → Fresh Context → Implementation → Validation → Documentation**
+```text
+SPEC
+  │
+  ▼
+PLAN
+  │
+  ▼
+TASK DAG
+  │
+  ├──────────────┐
+  ▼              ▼
+TASK A          TASK B
+  │              │
+  ▼              ▼
+AI AGENT       AI AGENT
+  │              │
+  └──────┬───────┘
+         ▼
+    NEXT TASKS
+         │
+         ▼
+       DOCS
+         │
+         ▼
+     COMPLETE
+```
 
-CodeForge does not provide an AI model and does not depend on a specific AI provider. You can use it with the coding agent you already use, such as Claude Code, Codex, Antigravity, Cursor, Windsurf, or others.
-
-The AI provides the reasoning and implementation capabilities.
-
-CodeForge provides the **process, state, context, and deterministic validation** around that agent.
+> **CodeForge controls the workflow. AI agents handle the implementation.**
 
 ---
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [How It Works](#how-it-works)
+- [The problem](#the-problem)
+- [The idea](#the-idea)
+- [Why use CodeForge?](#why-use-codeforge)
+- [How it works](#how-it-works)
   - [1. Spec](#1-spec)
   - [2. Plan](#2-plan)
-  - [3. Validate](#3-validate)
-  - [4. Human Approval](#4-human-approval)
-  - [5. Execute](#5-execute)
-  - [6. Fresh Contexts](#6-fresh-contexts)
-  - [7. Documentation](#7-documentation)
-- [Architecture](#architecture)
+  - [3. Automatic execution](#3-automatic-execution)
+  - [4. Fresh context per task](#4-fresh-context-per-task)
+  - [5. Parallel execution](#5-parallel-execution)
+  - [6. Validation & auto-healing](#6-validation--auto-healing)
+  - [7. Smart retries & recovery](#7-smart-retries--recovery)
+  - [8. Documentation](#8-documentation)
+- [Agent agnostic](#agent-agnostic)
+- [Deterministic by design](#deterministic-by-design)
+- [Project structure](#project-structure)
 - [Commands](#commands)
-- [Recommended Workflow](#recommended-workflow)
-- [Project Structure](#project-structure)
-- [Why CodeForge?](#why-codeforge)
-- [Agent Agnostic](#agent-agnostic)
-- [Deterministic Validation](#deterministic-validation)
+  - [Quick Reference](#quick-reference)
+  - [Configuration & Initialization](#configuration--initialization)
+  - [Specification & Planning](#specification--planning)
+  - [Execution & Monitoring](#execution--monitoring)
+  - [Task Management](#task-management)
+  - [Documentation](#documentation)
+- [Installation](#installation)
+- [Example](#example)
+- [Philosophy](#philosophy)
 - [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## Installation
+## The problem
 
-```bash
-npm install -g codeforge-engine
-```
+AI coding agents are extremely capable, but asking an agent to implement an entire feature in one long context can create problems as the change becomes larger:
 
-For development:
+- Context grows continuously.
+- Large features become harder to reason about.
+- Work is not explicitly decomposed.
+- Dependencies between pieces of work are implicit.
+- The agent controls both the implementation **and the development process**.
+- Parallel work becomes difficult to coordinate.
+- Repeating the same workflow across features is cumbersome.
+- Documentation can become disconnected from the code.
 
-```bash
-npm install
-npm run build
-npm link
-```
+CodeForge introduces a layer **around** the AI agent to control the software development workflow.
 
 ---
 
-## How It Works
+## The idea
 
-The core philosophy of CodeForge is:
+The AI should focus on what it does best:
 
-> **Plan first. Execute one task at a time. Keep execution contexts isolated.**
+> **Reason about the code and implement the task.**
 
-A feature goes through the following workflow:
+CodeForge handles the process around it:
+
+> **Decomposition, dependencies, execution state, context isolation, orchestration, validation, and documentation.**
 
 ```text
-                    SPEC
-                     │
-                     ▼
-                  PLANNER
-                     │
-                     ▼
-                   PLAN
-               ┌─────┴─────┐
-               │           │
-            TASK-001    TASK-002
-               │           │
-               └─────┬─────┘
-                     │
-                     ▼
-              HUMAN APPROVAL
-                     │
-                     ▼
-              TASK EXECUTION
-                     │
-                     ▼
-             FRESH CONTEXT
-                     │
-                     ▼
-                  AI AGENT
-                     │
-                     ▼
-              IMPLEMENTATION
-                     │
-                     ▼
-               VALIDATION
-                     │
-                     ▼
-                NEXT TASK
-                     │
-                     ▼
-              DOCUMENTATION
+                    CODEFORGE
+                        │
+                        │
+              Controls the workflow
+                        │
+        ┌───────────────┼───────────────┐
+        │               │               │
+     PLANNING        EXECUTION     DOCUMENTATION
+        │               │               │
+      Spec → DAG    AI Coding Agents   Docs
+                        │
+                ┌───────┼───────┐
+                │       │       │
+              Claude   Codex    AGY
+                │       │       │
+                └───────┼───────┘
+                        │
+                   Source Code
 ```
 
-### 1. Spec
+CodeForge does **not** provide an AI model and does not require an LLM API key.
 
-You write a high-level specification describing what you want to build.
+It uses the coding agent you already have.
 
-The specification is intentionally unstructured.
+---
 
-CodeForge does not require a specific template or schema. You can write your specification however you want, as long as it communicates the desired change.
+# Why use CodeForge?
+
+If you already use Claude Code, Codex, Antigravity, Cursor, or another coding agent, CodeForge adds the **engineering workflow around the agent**.
+
+### Without CodeForge
+
+```text
+"Implement this entire feature."
+
+              │
+              ▼
+          AI Agent
+              │
+              ▼
+        Large context
+        Mixed responsibilities
+        Implicit dependencies
+        Manual coordination
+        Harder recovery
+```
+
+### With CodeForge
+
+```text
+Specification
+      │
+      ▼
+Automatic Planning
+      │
+      ▼
+Dependency DAG
+      │
+      ├──────────────┐
+      ▼              ▼
+    Task A         Task B
+      │              │
+      ▼              ▼
+   AI Agent       AI Agent
+      │              │
+      └──────┬───────┘
+             ▼
+        Next Tasks
+             │
+             ▼
+        Documentation
+             │
+             ▼
+          Complete
+```
+
+The workflow becomes **explicit, observable, and repeatable**.
+
+---
+
+# How it works
+
+## 1. Spec
+
+You describe the feature you want to build in a Markdown specification.
+
+```bash
+codeforge spec create user-authentication
+```
+
+The specification becomes the source of intent for the feature.
+
+You can describe:
+
+- requirements;
+- business rules;
+- expected behavior;
+- API changes;
+- acceptance criteria;
+- architectural constraints;
+- anything else relevant to the implementation.
+
+CodeForge intentionally keeps the specification flexible instead of forcing a rigid schema.
+
+---
+
+## 2. Plan
+
+The configured AI agent reads the specification and analyzes the existing project:
+
+```bash
+codeforge plan generate user-authentication
+```
+
+It decomposes the feature into executable Tasks and their dependencies.
 
 For example:
 
 ```text
-# User Authentication
-
-We need to add authentication to the application.
-
-Users should be able to register and log in.
-
-Passwords must never be stored in plaintext.
-
-The API should expose endpoints for registration and login.
-...
-```
-
-The original specification is preserved as the source of intent.
-
-### 2. Plan
-
-The AI coding agent reads the specification and analyzes the existing project.
-
-It then breaks the work into a set of Tasks.
-
-The Plan is the complete decomposition of the specification into those Tasks.
-
-For example:
-
-```text
-PLAN: User Authentication
-
 TASK-001
 Create the User domain model
 
@@ -159,246 +237,284 @@ Implement login
 depends_on: TASK-002, TASK-003
 ```
 
-Tasks form a dependency graph, allowing CodeForge to determine which work can be executed next.
+This creates a **DAG (Directed Acyclic Graph)** of work.
 
-### 3. Validate
+CodeForge validates the generated graph and determines which tasks are ready to execute.
 
-The generated Plan is validated by CodeForge.
+---
 
-The validation is deterministic and does not require an AI model.
+## 3. Automatic execution
 
-CodeForge can verify things such as:
+Once the plan is ready, CodeForge orchestrates the workflow automatically.
 
-- required fields;
-- valid Task identifiers;
-- dependency references;
-- duplicate identifiers;
-- circular dependencies;
-- invalid task states;
-- structural consistency.
+Instead of manually copying prompts between terminals and opening new AI conversations, CodeForge executes tasks through a reactive scheduler, starting the configured AI coding agent as a **child process**.
 
-The goal is to prevent an invalid AI-generated Plan from entering the execution phase.
-
-### 4. Human Approval
-
-The Plan is not executed immediately.
-
-The developer reviews the generated Tasks and approves the Plan.
-
-This creates an explicit boundary between:
+Conceptually:
 
 ```text
-AI interpretation
-      ↓
-Human decision
-      ↓
-AI implementation
+CodeForge
+    │
+    ├── Reads execution state & task graph
+    │
+    ├── Resolves ready tasks via DAG
+    │
+    ├── Starts AI agent as child process
+    │
+    ├── Streams prompt & rules via stdin
+    │
+    ├── Monitors progress & captures errors in real time
+    │
+    └── Advances the workflow automatically
 ```
 
-The developer remains in control of what will actually be implemented.
+The agent remains responsible for the actual reasoning and code changes.
 
-### 5. Execute
+CodeForge remains responsible for coordinating the process.
 
-After the Plan is approved, CodeForge selects the next Task whose dependencies have been completed.
+---
 
-Instead of giving the AI the entire conversation history, CodeForge builds the context required for that specific Task.
+## 4. Fresh context per task
 
-The execution follows:
+Each Task is treated as an independent unit of work.
+
+Instead of allowing one conversation to grow indefinitely:
 
 ```text
-Task
- ↓
-Relevant specification
- ↓
-Required project context
- ↓
-Rules
- ↓
-Fresh AI context
+TASK-001 → Context A
+TASK-002 → Context B
+TASK-003 → Context C
 ```
 
-The AI agent then implements only that Task.
+CodeForge creates a fresh execution context for each task.
 
-### 6. Fresh Contexts
+This reduces context accumulation and prevents unrelated previous conversations from becoming part of the next task's working memory.
 
-Each Task is intended to be executed in a new AI context window.
+The task still receives the information it needs to work correctly, such as its specification, dependencies, rules, and relevant project context.
+
+---
+
+## 5. Parallel execution
+
+Tasks that do not depend on each other can be executed concurrently.
 
 For example:
 
 ```text
-TASK-001
-   ↓
-Context Window #1
-   ↓
-implementation
-   ↓
-completed
-
-TASK-002
-   ↓
-Context Window #2
-   ↓
-implementation
-   ↓
-completed
-
-TASK-003
-   ↓
-Context Window #3
+             TASK-001
+            /        \
+           ▼          ▼
+      TASK-002     TASK-003
+           │          │
+           └────┬─────┘
+                ▼
+            TASK-004
 ```
 
-The context from Task 001 is not implicitly carried into Task 002.
+`TASK-002` and `TASK-003` can run in parallel because neither depends on the other.
 
-Instead, CodeForge provides the information required to continue the work.
+CodeForge uses the dependency graph to determine what can execute next.
 
-This reduces context accumulation and makes each unit of work explicit and reproducible.
+This allows independent work to be processed concurrently instead of forcing every task into a sequential workflow.
 
-### 7. Documentation
+---
 
-After a feature is implemented, you need to keep your project documentation up-to-date.
+## 6. Validation & auto-healing
 
-CodeForge manages documentation as an integral part of the development cycle. It tracks the relationship between specifications, documents, and source files through a manifest (`manifest.json`).
+CodeForge validates generated plans before they enter execution.
 
-When you create a document using `codeforge docs create`, CodeForge links it to the original specification.
-When you modify files, `codeforge docs update` checks `git diff` against the scopes defined in the manifest. If a document's scope covers the modified files, CodeForge generates a specific AI prompt containing only the relevant diffs to automatically update the documentation.
+The validation is deterministic and does not require an AI model.
 
-## Architecture
+It can detect problems such as:
 
-CodeForge intentionally separates the development process from the AI agent.
+- missing required fields;
+- invalid task IDs;
+- duplicate task IDs;
+- invalid dependency references;
+- circular dependencies;
+- invalid task states;
+- structural inconsistencies.
+
+If validation detects errors, CodeForge automatically re-prompts the AI agent with the exact failure diagnostics to repair and self-heal the plan before execution proceeds.
+
+The goal is simple:
+
+> **Do not let an invalid AI-generated plan become an execution plan.**
+
+---
+
+## 7. Smart retries & recovery
+
+When an AI agent encounters a runtime error or fails a task, CodeForge captures the failure output and stack traces in the execution state.
+
+Instead of restarting the entire feature from scratch or manually pasting error logs:
+
+```bash
+codeforge task retry <spec>
+```
+
+CodeForge injects the previous failure diagnostics directly into the agent's fresh prompt. The agent understands what went wrong and can fix the issue without repeating the same mistake.
+
+You can also inspect task details, reset tasks to pending, or manually mark tasks as complete:
+
+```bash
+codeforge task info <spec> <taskId>
+codeforge task reset <spec> [taskId]
+codeforge task complete <spec> <taskId>
+```
+
+---
+
+## 8. Documentation
+
+Documentation is part of the workflow instead of something developers have to remember to do later.
+
+After a feature is completed, CodeForge can create its documentation:
+
+```bash
+codeforge docs create <spec>
+```
+
+The documentation process uses the feature specification and the implementation context to generate documentation describing what was actually built.
+
+CodeForge also tracks the scope of each document so that documentation can be evaluated when the project changes.
+
+Later:
+
+```bash
+codeforge docs update
+```
+
+CodeForge analyzes Git changes and determines which documented areas may have been affected.
+
+Instead of sending the entire repository to the AI, it generates a targeted update context containing the relevant changes.
+
+The goal is:
 
 ```text
-┌──────────────────────────────────────┐
-│              CODEFORGE               │
-│                                      │
-│  Workflow                            │
-│  Rules                               │
-│  State                               │
-│  Context                             │
-│  Task management                     │
-│  Deterministic validation            │
-└──────────────────┬───────────────────┘
-                   │
-                   │ instructions/context
-                   ▼
-┌──────────────────────────────────────┐
-│             AI AGENT                 │
-│                                      │
-│ Claude Code / Codex / Antigravity /  │
-│ Cursor / Windsurf / etc.             │
-└──────────────────┬───────────────────┘
-                   │
-                   ▼
-              Source Code
+Code change
+     │
+     ▼
+Affected documentation
+     │
+     ▼
+Relevant diff
+     │
+     ▼
+AI update
 ```
 
-CodeForge does not call an LLM API.
+You can also explicitly update a specific document:
 
-It does not require:
+```bash
+codeforge docs update --doc <name>
+```
+
+---
+
+# Agent agnostic
+
+CodeForge does not provide its own AI model.
+
+It orchestrates the coding agent you already use.
+
+Supported agents include:
+
+- **Claude Code** (`claude`)
+- **OpenAI Codex** (`codex`)
+- **Google Antigravity** (`antigravity` / `agy`)
+- **Cursor** (`cursor`)
+- other CLI-based coding agents
+
+Process adapters stream prompts through standard input (stdin), avoiding command-line buffer limits on large prompts and rules.
+
+You can also configure separate agents for planning and execution, as well as system language (`en`, `pt`, `es`):
+
+```bash
+codeforge config
+```
+
+The architecture separates the workflow from the AI provider:
+
+```text
+                    CODEFORGE
+                        │
+                  Orchestration
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+     Claude           Codex        Antigravity
+        │               │               │
+        └───────────────┼───────────────┘
+                        ▼
+                   Source Code
+```
+
+CodeForge does not require:
 
 - OpenAI API keys;
 - Anthropic API keys;
 - Gemini API keys;
-- a specific AI provider;
-- a specific AI coding agent.
+- a proprietary model;
+- a cloud backend.
 
-The agent you already use performs the AI work.
+Your existing AI coding agent performs the AI work.
 
-## Commands
+CodeForge manages the workflow around it.
 
-### Interactive Menu
+---
 
-- \`codeforge\`
-  Running the command without any arguments opens an interactive menu that guides you through all available actions (Init, Create Spec, Plan, Execute, Status).
+# Deterministic by design
 
-### Setup
+AI is probabilistic.
 
-- \`codeforge init\`
-  Initializes CodeForge in the current project.
-  Creates the \`.codeforge\` workspace containing the specifications, plans, tasks, execution state, and CodeForge rules.
+The more of the development process that can be handled deterministically, the less the AI needs to decide for itself.
 
-### Specifications
+CodeForge follows this principle:
 
-- \`codeforge spec create <name>\`
-  Creates a new Markdown specification in \`.codeforge/specs/<name>.md\`.
-  The specification is intentionally free-form.
+```text
+AI
+ │
+ ├── Reasoning
+ │
+ └── Implementation
+        │
+        ▼
+    CodeForge
+        │
+        ▼
+ Deterministic Systems
+        │
+        ├── Plan validation
+        ├── Dependency validation
+        ├── Execution state
+        └── Checks
+```
 
-### Planning
+The goal is not to make the AI deterministic.
 
-- \`codeforge plan generate <spec>\`
-  Prepares the planning instructions/context for the AI coding agent.
-  The agent reads the specification and generates the Plan as a set of Tasks.
+The goal is to **surround probabilistic AI with deterministic systems wherever possible**.
 
-- \`codeforge plan validate <spec> [task-id]\`
-  Deterministically validates the generated Tasks and their dependency graph.
-  If validation fails, the AI agent can use the reported errors to correct the Plan.
-  The Plan must pass validation before execution.
+```text
+AI
+ ↓
+Reason
+ ↓
+Implement
+ ↓
+CodeForge
+ ↓
+Verify
+ ↓
+PASS / FAIL
+```
 
-### Execution
+This is one of the core directions of CodeForge:
 
-- \`codeforge run <spec>\`
-  Finds the next executable Task based on its dependencies and prepares the context/instructions required by the AI agent.
-  The Task is intended to be executed in a fresh AI context.
+> **Use AI where probabilistic reasoning is useful and deterministic systems wherever objective verification is possible.**
 
-- \`codeforge task complete <spec> <task-id>\`
-  Marks a Task as completed.
+---
 
-- \`codeforge task retry <spec> <task-id>\`
-- `codeforge task retry <spec> <task-id>`
-  Returns a failed or stuck Task to the pending state so it can be executed again.
-
-- `codeforge task info [spec] [task-id]`
-  Displays detailed information about a specific Task. If arguments are omitted, it opens an interactive selector.
-
-### Documentation
-
-- `codeforge docs create [doc-name] [--spec <spec>]`
-  Creates a prompt for the AI to generate a new document based on a completed specification. It registers the document in the `manifest.json`.
-
-- `codeforge docs update [spec]`
-  Detects modified files (via `git diff`) and matches them against document scopes in the manifest. It generates targeted update prompts for the affected documents. Use `--doc <doc>` to skip scope matching and manually update a specific document.
-
-### Status
-
-- `codeforge status <spec>`
-  Displays the current execution state of the implementation. Use `codeforge status <spec> --once` to display the status once instead of continuously watching for changes.
-
-## Recommended Workflow
-
-1. **Initialize the project**
-   `codeforge init`
-2. **Create the specification**
-   `codeforge spec create user-authentication`
-   Write the specification in `.codeforge/specs/user-authentication.md`.
-3. **Generate the Plan**
-   `codeforge plan generate user-authentication`
-   Give the generated instructions to your AI coding agent.
-   The agent analyzes the specification and project and creates the Tasks.
-4. **Validate the Plan**
-   `codeforge plan validate user-authentication`
-   If validation fails, let the AI correct the generated Tasks.
-   Repeat until: ✓ Plan is valid.
-5. **Review and approve**
-   Review the Tasks and their dependencies.
-   Only after you approve the Plan should implementation begin.
-6. **Start execution**
-   `codeforge run user-authentication`
-   CodeForge prepares the next Task and its execution context.
-7. **Use a fresh AI context**
-   Open a new context window in your coding agent.
-   Give it the generated execution instructions.
-   The agent implements the Task.
-8. **Complete the Task**
-   After the implementation is finished:
-   `codeforge task complete user-authentication TASK-001`
-9. **Update Documentation**
-   After implementation, keep your docs in sync:
-   `codeforge docs update user-authentication`
-   Give the generated prompt to the AI agent to update the affected documentation.
-10. **Repeat**
-    `codeforge run` → new context → implement Task → complete Task → `codeforge run`...
-    Continue until all Tasks in the Plan are completed.
-
-## Project Structure
+# Project structure
 
 After initialization:
 
@@ -414,289 +530,507 @@ After initialization:
 └── config.yaml
 ```
 
-A feature can have its own Tasks:
+A feature has its specification, execution state, and generated task definitions:
 
 ```text
 .codeforge/
 ├── specs/
 │   └── authentication.md
 │
-├── plans/
+├── executions/
 │   └── authentication.json
 │
 └── tasks/
     └── authentication/
-        ├── TASK-001.md
-        ├── TASK-002.md
-        ├── TASK-003.md
-        └── TASK-004.md
+        ├── TASK-001.json
+        ├── TASK-002.json
+        ├── TASK-003.json
+        └── TASK-004.json
 ```
-
-Each Task represents one independently executable unit of work.
-
-## Why CodeForge?
-
-AI coding agents are extremely capable, but large software changes can become difficult to control when everything is performed in a single context.
-
-CodeForge introduces explicit boundaries:
-
-```text
-Large specification
-       ↓
-Small Tasks
-       ↓
-Explicit dependencies
-       ↓
-Human approval
-       ↓
-One Task
-       ↓
-Fresh context
-       ↓
-Deterministic validation
-```
-
-This makes AI-assisted development more:
-
-- predictable;
-- inspectable;
-- reproducible;
-- modular;
-- resistant to context accumulation;
-- easier to debug.
-
-## Agent Agnostic
-
-CodeForge is designed to work with the AI coding agent you already use.
-
-For example:
-
-```text
-             CodeForge
-                 │
-       ┌─────────┼─────────┐
-       ▼         ▼         ▼
-   Claude      Codex   Antigravity
-     Code
-       │         │         │
-       └─────────┼─────────┘
-                 ▼
-             Your Code
-```
-
-The CodeForge workflow should not depend on the underlying model.
-
-## Deterministic Validation
-
-AI is probabilistic.
-
-The parts of the development process that can be verified deterministically should therefore be handled by CodeForge rather than delegated to the AI.
-
-For example:
-
-```text
-AI
- ↓
-generates Tasks
- ↓
-CodeForge
- ↓
-deterministic validation
- ↓
-PASS / FAIL
-```
-
-The same principle will be used for future implementation checkers such as:
-
-- tests;
-- type checking;
-- linting;
-- dependency validation;
-- architecture rules;
-- custom project rules;
-- security checks.
-
-## Roadmap
-
-CodeForge is being developed incrementally. Planned capabilities include:
-
-- [x] Project initialization
-- [x] Specification creation
-- [x] Plan generation workflow
-- [x] Plan validation
-- [x] Task dependency graph
-- [x] Task execution workflow
-- [x] Execution state tracking
-- [x] Documentation workflow
-- [ ] Deterministic implementation checkers
-- [ ] Automatic task progression
-- [ ] Rich execution context generation
-- [ ] Agent integrations
-- [ ] Retry and failure recovery
-- [ ] Execution history
-- [ ] More advanced workflow rules
 
 ---
 
-# 🇧🇷 Português
+# Commands
 
-O CodeForge é uma CLI independente de agente para estruturar e orquestrar o desenvolvimento de software assistido por IA.
+CodeForge commands are organized into logical functional groups. Most commands support interactive prompts when arguments are omitted, providing guided workflows directly in the terminal.
 
-Em vez de pedir a um agente de codificação de IA para implementar uma funcionalidade inteira em um único contexto, o CodeForge fornece um fluxo de desenvolvimento controlado:
+### Quick Reference
 
-**Spec → Plano → Aprovação → Tarefa → Contexto Limpo → Implementação → Validação → Documentação**
-
-O CodeForge não fornece um modelo de IA e não depende de um provedor de IA específico. Você pode usá-lo com o agente de codificação que já utiliza, como Claude Code, Codex, Antigravity, Cursor, Windsurf ou outros.
-
-A IA fornece o raciocínio e a capacidade de implementação.
-
-O CodeForge fornece o **processo, estado, contexto e validação determinística** em torno desse agente.
-
----
-
-## Sumário
-
-- [Instalação](#instalação)
-- [Como Funciona](#como-funciona)
-  - [1. Spec (Especificação)](#1-spec-especificação)
-  - [2. Plan (Planejamento)](#2-plan-planejamento)
-  - [3. Validação](#3-validação)
-  - [4. Aprovação Humana](#4-aprovação-humana)
-  - [5. Execução](#5-execução)
-  - [6. Contextos Limpos](#6-contextos-limpos)
-  - [7. Documentação](#7-documentação)
-- [Arquitetura](#arquitetura)
-- [Comandos Principais](#comandos-principais)
-- [Por que o CodeForge?](#por-que-o-codeforge)
+| Group                        | Command                                                                     | Description                                                           |
+| :--------------------------- | :-------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| **Configuration & Setup**    | [`codeforge`](#interactive-menu)                                            | Launches the interactive terminal menu with step-by-step navigation   |
+|                              | [`codeforge init`](#initialize-workspace)                                   | Initializes CodeForge in the project and sets up AI agent preferences |
+|                              | [`codeforge config`](#configuration)                                        | Interactively updates configuration (language, environment, agents)   |
+| **Specification & Planning** | [`codeforge spec create [name]`](#create-specification)                     | Creates a new feature specification template                          |
+|                              | [`codeforge plan generate [spec]`](#generate-plan)                          | Generates an executable task DAG using the AI planner agent           |
+|                              | [`codeforge plan validate [spec] [taskId]`](#validate-plan)                 | Deterministically validates task graph and dependencies               |
+| **Execution & Monitoring**   | [`codeforge run [spec]`](#run-autonomous-execution)                         | Autonomously executes tasks in the dependency graph                   |
+|                              | [`codeforge status [spec] [--once]`](#status-dashboard)                     | Live execution dashboard (or static status snapshot with `--once`)    |
+| **Task Management**          | [`codeforge task info [spec] [taskId]`](#task-info)                         | Displays full details, constraints, and criteria for a task           |
+|                              | [`codeforge task retry [spec]`](#retry-failed-tasks)                        | Resets failed tasks with error diagnostics and resumes execution      |
+|                              | [`codeforge task reset [spec] [taskId]`](#reset-tasks)                      | Resets tasks to pending state without immediate execution             |
+|                              | [`codeforge task complete <spec> <taskId>`](#complete-task-manually)        | Manually marks a task as completed in the execution state             |
+| **Documentation**            | [`codeforge docs create [doc-name] [--spec <spec>]`](#create-documentation) | Autonomously creates technical documentation for a completed spec     |
+|                              | [`codeforge docs update [spec] [--doc <name>]`](#update-documentation)      | Updates documentation affected by git changes or targeted document    |
 
 ---
 
-## Instalação
+## Configuration & Initialization
+
+Commands for setting up the environment, initializing the workspace, and configuring AI agents and preferences.
+
+### Interactive Menu
+
+Launches an interactive terminal menu with step-by-step navigation, workflow selection, and back options for all CodeForge operations. Automatically runs when `codeforge` is executed without any arguments.
+
+```bash
+codeforge
+```
+
+- **Arguments / Options**: None.
+- **Example**:
+  ```bash
+  codeforge
+  ```
+
+### Initialize Workspace
+
+Initializes CodeForge in the current repository. Creates the `.codeforge` directory structure, detects installed AI coding CLIs, optionally installs missing agents, and prompts for environment, planner agent, and executor agent preferences.
+
+```bash
+codeforge init
+```
+
+- **Arguments / Options**: None.
+- **Example**:
+  ```bash
+  codeforge init
+  ```
+
+### Configuration
+
+Interactively updates CodeForge configuration settings stored in `.codeforge/config.yaml`. Allows changing the system language (`en`, `pt`, `es`), active environment (`antigravity`, `claude`, `codex`, `cursor`), and assigning dedicated AI agents for planning and execution.
+
+```bash
+codeforge config
+```
+
+- **Arguments / Options**: None.
+- **Example**:
+  ```bash
+  codeforge config
+  ```
+
+---
+
+## Specification & Planning
+
+Commands for creating feature specifications, decomposing them into task graphs (DAG), and validating plan integrity.
+
+### Create Specification
+
+Creates a new Markdown specification template under `.codeforge/specs/<name>.md`. Pre-populates standard sections for requirements, business rules, and acceptance criteria. If the name argument is omitted, prompts interactively.
+
+```bash
+codeforge spec create [name]
+```
+
+- **Arguments**:
+  - `[name]`: _(Optional)_ Name or slug of the feature (e.g. `user-authentication`). Normalized to lowercase kebab-case.
+- **Examples**:
+
+  ```bash
+  # Interactive mode (prompts for feature name)
+  codeforge spec create
+
+  # Direct specification creation
+  codeforge spec create user-authentication
+  ```
+
+### Generate Plan
+
+Autonomously decomposes a feature specification into a Directed Acyclic Graph (DAG) of executable JSON tasks under `.codeforge/tasks/<spec>/`. Invokes the configured planner agent, deterministically validates the generated tasks, and automatically re-prompts the AI for self-healing if validation errors are detected.
+
+```bash
+codeforge plan generate [spec]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification to plan. Prompts with a selection list if omitted.
+- **Examples**:
+
+  ```bash
+  # Interactive selection
+  codeforge plan generate
+
+  # Generate plan for a specific specification
+  codeforge plan generate user-authentication
+  ```
+
+### Validate Plan
+
+Deterministically validates generated task files against schema structure, task ID formats, dependency references, and circular dependency rules without calling an AI model. Can validate an entire spec graph or target a specific task file.
+
+```bash
+codeforge plan validate [spec] [taskId]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+  - `[taskId]`: _(Optional)_ Specific task ID to validate (e.g. `TASK-001`). If omitted, validates all tasks in the specification.
+- **Examples**:
+
+  ```bash
+  # Validate all tasks in a spec
+  codeforge plan validate user-authentication
+
+  # Validate a single task
+  codeforge plan validate user-authentication TASK-001
+  ```
+
+---
+
+## Execution & Monitoring
+
+Commands for running the autonomous task execution engine and monitoring workflow progress in real time.
+
+### Run Autonomous Execution
+
+Starts or resumes the autonomous execution workflow for a specification. The reactive scheduler resolves the task DAG, isolates fresh context windows per task, streams prompts and rules via stdin, dispatches independent tasks in parallel child processes using the configured executor agent, and marks completed tasks upon successful process termination.
+
+```bash
+codeforge run [spec]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification to execute. Prompts interactively if omitted.
+- **Examples**:
+
+  ```bash
+  # Interactive selection
+  codeforge run
+
+  # Run execution for a spec
+  codeforge run user-authentication
+  ```
+
+### Status Dashboard
+
+Displays the execution progress and state of all tasks for a specification. By default, opens a live, flicker-free dashboard in an alternate screen buffer that refreshes every 2 seconds until completion. Use `--once` to print a static snapshot and exit immediately.
+
+```bash
+codeforge status [spec] [options]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+- **Options**:
+  - `--once`: Prints a single snapshot of execution status and exits immediately without entering watch mode.
+- **Examples**:
+
+  ```bash
+  # Live dashboard watch mode (interactive spec selection)
+  codeforge status
+
+  # Live dashboard for a specific spec
+  codeforge status user-authentication
+
+  # Print status snapshot once and exit
+  codeforge status user-authentication --once
+  ```
+
+---
+
+## Task Management
+
+Commands for inspecting, retrying, resetting, and manually completing individual tasks within an execution workflow.
+
+### Task Info
+
+Displays complete metadata and content for a specific task, including title, dependencies, files to modify/create, objective, context, implementation steps, constraints, and acceptance criteria.
+
+```bash
+codeforge task info [spec] [taskId]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+  - `[taskId]`: _(Optional)_ ID of the task (e.g. `TASK-001`). Prompts interactively if omitted.
+- **Examples**:
+
+  ```bash
+  # Interactive selection
+  codeforge task info
+
+  # Inspect a specific task
+  codeforge task info user-authentication TASK-001
+  ```
+
+### Retry Failed Tasks
+
+Resets all failed tasks in a specification back to pending state and automatically resumes execution. Injects captured error output, failure logs, and diagnostic context from the previous run directly into the AI agent prompt for self-correction.
+
+```bash
+codeforge task retry [spec]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification to retry. Prompts interactively if omitted.
+- **Examples**:
+
+  ```bash
+  # Interactive selection
+  codeforge task retry
+
+  # Retry failed tasks and resume execution
+  codeforge task retry user-authentication
+  ```
+
+### Reset Tasks
+
+Resets a specific task or all tasks in a specification back to the `pending` state in the execution state without triggering immediate execution. Allows cleanly re-running tasks on demand.
+
+```bash
+codeforge task reset [spec] [taskId]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+  - `[taskId]`: _(Optional)_ Specific task ID to reset (e.g. `TASK-002`). If omitted in interactive mode, prompts to reset an individual task or all tasks.
+- **Examples**:
+
+  ```bash
+  # Interactive reset prompt
+  codeforge task reset
+
+  # Reset a specific task
+  codeforge task reset user-authentication TASK-002
+
+  # Interactive reset for a given spec
+  codeforge task reset user-authentication
+  ```
+
+### Complete Task Manually
+
+Manually marks a specific task as `completed` in the execution state. Useful for recording tasks resolved manually or bypassing an unblockable step. Automatically transitions the overall spec to `completed` if all tasks are finished.
+
+```bash
+codeforge task complete <spec> <taskId>
+```
+
+- **Arguments**:
+  - `<spec>`: _(Required)_ Name of the specification.
+  - `<taskId>`: _(Required)_ ID of the task to mark as completed (e.g. `TASK-001`).
+- **Examples**:
+  ```bash
+  codeforge task complete user-authentication TASK-001
+  ```
+
+---
+
+## Documentation
+
+Commands for generating and updating technical documentation linked to specifications and codebase diffs.
+
+### Create Documentation
+
+Autonomously generates technical documentation for a completed feature using the documentation agent. Reads the specification and the implemented code to produce documentation under `.codeforge/docs/<doc-name>.md` and tracks relevant file path patterns in `.codeforge/docs/manifest.json`.
+
+```bash
+codeforge docs create [doc-name] [options]
+```
+
+- **Arguments**:
+  - `[doc-name]`: _(Optional)_ Name of the document to create. Prompts interactively if omitted.
+- **Options**:
+  - `--spec <spec>`: _(Optional)_ Name of the completed specification associated with the documentation.
+- **Examples**:
+
+  ```bash
+  # Interactive mode
+  codeforge docs create
+
+  # Create documentation linked to a spec
+  codeforge docs create auth-architecture --spec user-authentication
+  ```
+
+### Update Documentation
+
+Incrementally updates existing documentation affected by recent codebase changes. In automatic mode, analyzes Git diffs and matches modified files against scope globs in `.codeforge/docs/manifest.json`, prompting the user to review affected docs. With `--doc`, updates a specific document directly.
+
+```bash
+codeforge docs update [spec] [options]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification to evaluate changes against. Prompts interactively if omitted.
+- **Options**:
+  - `--doc <name>`: _(Optional)_ Manually specify which document to update, skipping automated Git scope matching.
+- **Examples**:
+
+  ```bash
+  # Automatic scope matching via Git diff
+  codeforge docs update user-authentication
+
+  # Interactive selection
+  codeforge docs update
+
+  # Manually update a specific document
+  codeforge docs update user-authentication --doc auth-architecture
+  ```
+
+---
+
+# Installation
 
 ```bash
 npm install -g codeforge-engine
 ```
 
-Para desenvolvimento:
+Then initialize CodeForge in your project:
 
 ```bash
-npm install
-npm run build
-npm link
+cd my-project
+codeforge init
 ```
+
+You also need a supported AI coding agent installed and authenticated on your machine.
 
 ---
 
-## Como Funciona
+# Example
 
-A filosofia principal do CodeForge é:
+Suppose you want to add authentication.
 
-> **Planeje primeiro. Execute uma tarefa de cada vez. Mantenha os contextos de execução isolados.**
+Create the specification:
 
-Uma funcionalidade passa pelo seguinte fluxo:
-
-```text
-                    SPEC
-                     │
-                     ▼
-                 PLANEJADOR
-                     │
-                     ▼
-                   PLANO
-               ┌─────┴─────┐
-               │           │
-            TASK-001    TASK-002
-               │           │
-               └─────┬─────┘
-                     │
-                     ▼
-              APROVAÇÃO HUMANA
-                     │
-                     ▼
-             EXECUÇÃO DE TAREFA
-                     │
-                     ▼
-               CONTEXTO LIMPO
-                     │
-                     ▼
-                AGENTE DE IA
-                     │
-                     ▼
-               IMPLEMENTAÇÃO
-                     │
-                     ▼
-                 VALIDAÇÃO
-                     │
-                     ▼
-               PRÓXIMA TAREFA
-                     │
-                     ▼
-               DOCUMENTAÇÃO
+```bash
+codeforge spec create authentication
 ```
 
-### 1. Spec (Especificação)
+Write the requirements.
 
-Você escreve uma especificação de alto nível descrevendo o que deseja construir.
-A especificação é intencionalmente não estruturada. O CodeForge não exige um template ou esquema específico.
+Generate the plan:
 
-### 2. Plan (Planejamento)
+```bash
+codeforge plan generate authentication
+```
 
-O agente de codificação de IA lê a especificação e analisa o projeto existente.
-Em seguida, ele divide o trabalho em um conjunto de Tarefas (Tasks).
+The AI analyzes the specification and repository, creates the task graph, and CodeForge validates it.
 
-As tarefas formam um grafo de dependência, permitindo ao CodeForge determinar qual trabalho pode ser executado em seguida.
+Start autonomous execution:
 
-### 3. Validação
+```bash
+codeforge run authentication
+```
 
-O Plano gerado é validado pelo CodeForge.
-A validação é determinística e não requer um modelo de IA. O objetivo é evitar que um plano gerado por IA inválido entre na fase de execução.
+From there, CodeForge orchestrates the workflow automatically:
 
-### 4. Aprovação Humana
+```text
+                    Authentication
+                         Spec
+                          │
+                          ▼
+                         Plan
+                          │
+                          ▼
+                   Dependency DAG
+                          │
+              ┌───────────┴───────────┐
+              ▼                       ▼
+           TASK-001                TASK-002
+              │                       │
+              ▼                       ▼
+           AI Agent                AI Agent
+              │                       │
+              ▼                       ▼
+          Validation              Validation
+              │                       │
+              └───────────┬───────────┘
+                          ▼
+                       TASK-003
+                          │
+                          ▼
+                       AI Agent
+                          │
+                          ▼
+                      Validation
+                          │
+                          ▼
+                         Docs
+                          │
+                          ▼
+                      Completed
+```
 
-O Plano não é executado imediatamente.
-O desenvolvedor revisa as Tarefas geradas e aprova o Plano.
+The developer describes **what should be built**.
 
-### 5. Execução
+The AI agents handle **how to implement it**.
 
-Após a aprovação do Plano, o CodeForge seleciona a próxima Tarefa cujas dependências foram concluídas.
-Em vez de passar para a IA todo o histórico da conversa, o CodeForge constrói o contexto necessário especificamente para aquela Tarefa.
+CodeForge handles **how the work moves through the development process**.
 
-### 6. Contextos Limpos
+---
 
-Cada Tarefa deve ser executada em uma **nova janela de contexto** da IA.
-O contexto da Tarefa 001 não é implicitamente carregado para a Tarefa 002.
-Isso reduz o acúmulo de contexto e torna cada unidade de trabalho explícita e reproduzível.
+# Philosophy
 
-### 7. Documentação
+CodeForge is built around a simple idea:
 
-Após a implementação de uma funcionalidade, você precisa manter a documentação do projeto atualizada.
+> **Don't make the AI responsible for the entire software development process.**
 
-O CodeForge gerencia a documentação como parte integrante do ciclo de desenvolvimento, rastreando a relação entre especificações, documentos e arquivos modificados usando um manifesto (`manifest.json`).
+Give the AI the problems that require reasoning.
 
-Quando você cria um documento via `codeforge docs create`, o CodeForge vincula-o à especificação. E, ao modificar o código, o comando `codeforge docs update` avalia as alterações (via `git diff`) e os escopos (`scopes`) definidos. Se os arquivos modificados entrarem no escopo de um documento, a CLI gerará automaticamente um prompt contendo apenas os diffs necessários para o agente de IA atualizar a documentação.
+Give the tooling the parts that can be made explicit, deterministic, and repeatable.
 
-## Arquitetura
+```text
+AI
+ │
+ └── Reasoning + Implementation
 
-O CodeForge separa intencionalmente o processo de desenvolvimento do agente de IA.
-O CodeForge não chama a API de um LLM e não exige chaves de API. O agente que você já usa realiza o trabalho de IA.
+CodeForge
+ │
+ ├── Workflow
+ ├── State
+ ├── Dependencies
+ ├── Orchestration
+ ├── Context isolation
+ └── Documentation
 
-## Comandos Principais
+Deterministic Systems
+ │
+ └── Validation + Verification
+```
 
-- `codeforge` - Abre um menu interativo com todas as opções abaixo
-- `codeforge init` - Inicializa o projeto
-- `codeforge spec create <nome>` - Cria uma nova spec
-- `codeforge plan generate <spec>` - Gera prompt para planejar as tasks
-- `codeforge plan validate <spec>` - Valida as tasks geradas
-- `codeforge run <spec>` - Pega a próxima task pronta para execução
-- `codeforge status <spec>` - Mostra painel de andamento
-- `codeforge task complete <spec> <task-id>` - Completa uma task
-- `codeforge task retry <spec> <task-id>` - Retorna task com erro para pendente
-- `codeforge task info [spec] [task-id]` - Mostra os detalhes completos de uma task (abre seleção interativa se os argumentos forem omitidos)
-- `codeforge docs create [doc-name]` - Gera prompt para criar um novo documento a partir de uma spec
-- `codeforge docs update [spec]` - Verifica diffs e gera prompts para atualizar documentos afetados
+The goal is not to remove AI from software development.
 
-## Por que o CodeForge?
+The goal is to make **AI-assisted development more structured, repeatable, and scalable.**
 
-Agentes de IA são extremamente capazes, mas grandes mudanças em softwares tornam-se difíceis de controlar quando tudo é executado em um único contexto.
-O CodeForge introduz limites explícitos.
-Isso torna o desenvolvimento com IA mais previsível, reproduzível, modular e resistente ao acúmulo de contexto.
+---
+
+# Roadmap
+
+CodeForge is actively evolving.
+
+Current and planned areas include:
+
+- deterministic implementation checks;
+- custom project rules;
+- more advanced verification workflows.
+- TUI
+
+---
+
+# Contributing
+
+CodeForge is open source and still evolving.
+
+Issues, discussions, ideas, and pull requests are welcome.
+
+For guidelines on setting up your local development environment, coding standards, and submitting pull requests, please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+If you try it in a real project, feedback about where the workflow breaks down is especially valuable.
+
+---
+
+# License
+
+MIT

@@ -1,4 +1,4 @@
-import { WorkspaceGateway } from "../../src/infrastructure/workspace";
+import { WorkspaceGateway } from "../../src/infrastructure/workspace.js";
 
 export class InMemoryWorkspaceGateway implements WorkspaceGateway {
   public files = new Map<string, string>();
@@ -57,6 +57,26 @@ export class InMemoryWorkspaceGateway implements WorkspaceGateway {
       if (!part) continue;
       current = current ? `${current}/${part}` : part;
       this.directories.add(current);
+    }
+  }
+
+  deleteFile(relativePath: string): void {
+    const p = this.normalize(relativePath);
+    this.files.delete(p);
+  }
+
+  deleteDir(relativePath: string): void {
+    const p = this.normalize(relativePath);
+    const prefix = p === '' || p === '.' ? '' : p + '/';
+    for (const key of Array.from(this.files.keys())) {
+      if (key === p || key.startsWith(prefix)) {
+        this.files.delete(key);
+      }
+    }
+    for (const dir of Array.from(this.directories)) {
+      if (dir === p || dir.startsWith(prefix)) {
+        this.directories.delete(dir);
+      }
     }
   }
 }
