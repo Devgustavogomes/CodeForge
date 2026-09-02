@@ -5,12 +5,16 @@ import { ConfigureEnvironmentUseCase } from "../../application/use-cases/Configu
 import { select, input } from "@inquirer/prompts";
 import { translate } from "../ui/i18n.js";
 import { ConfigService } from "../../config/ConfigService.js";
+import { printCodeForgeBanner } from "../ui/banner.js";
+import { CliInstaller } from "../installer/CliInstaller.js";
 
 export function registerInitCommand(program: Command): void {
   program
     .command("init")
     .description("Initialize CodeForge in the current project")
     .action(async () => {
+      printCodeForgeBanner();
+
       const gw = new NodeWorkspaceGateway(process.cwd());
       
       const configService = new ConfigService(gw);
@@ -41,6 +45,54 @@ export function registerInitCommand(program: Command): void {
         message: translate("init_select_env", lang),
         choices: environments.map((env) => ({ name: env, value: env })),
       });
+
+      const shouldInstallCli = await select({
+        message: translate("init_install_cli_prompt", lang, { environment }),
+        choices: [
+          {
+            name: translate("init_install_cli_yes", lang),
+            value: "yes",
+          },
+          {
+            name: translate("init_install_cli_no", lang),
+            value: "no",
+          },
+        ],
+      });
+
+      const osName = CliInstaller.getOperatingSystemName();
+      const manualCommand = CliInstaller.getInstallCommand(environment) || "";
+
+      if (shouldInstallCli === "yes") {
+        console.log(
+          translate("init_installing_cli", lang, {
+            environment,
+            os: osName,
+          }),
+        );
+        const installResult = await CliInstaller.installCli(environment);
+        if (installResult.success) {
+          console.log(
+            translate("init_install_cli_success", lang, { environment }),
+          );
+        } else {
+          console.log(
+            translate("init_install_cli_failed", lang, {
+              environment,
+              os: osName,
+              command: manualCommand,
+            }),
+          );
+        }
+      } else {
+        console.log(
+          translate("init_install_cli_skipped", lang, {
+            environment,
+            os: osName,
+            command: manualCommand,
+          }),
+        );
+      }
 
       console.log(translate("init_introspecting", lang, { environment }));
       const availableAgents = await envUseCase.getAgentsForEnvironment(environment);
