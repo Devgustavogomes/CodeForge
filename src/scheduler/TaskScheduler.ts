@@ -2,6 +2,7 @@ import { WorkspaceGateway } from "../infrastructure/workspace.js";
 import { AgentRunner, TaskContext } from "../runners/AgentRunner.js";
 import { DAGResolver } from "./DAGResolver.js";
 import { Task } from "../domain/task.js";
+import { SpecExecutionState } from "../domain/execution.js";
 import { ExecutionStateRepository } from "../infrastructure/repositories/ExecutionStateRepository.js";
 import { PromptService } from "../application/services/PromptService.js";
 import { PATHS } from "../infrastructure/paths.js";
@@ -32,6 +33,144 @@ export class TaskScheduler {
     return tasks;
   }
 
+  private prepareState(specName: string, tasks: Task[]): boolean {
+    let state = this.stateRepo.load(specName);
+    if (!state) {
+      state = this.stateRepo.init(specName, tasks);
+      this.stateRepo.save(state);
+      return true;
+    }
+
+    if (state.status === "completed") {
+      this.reporter?.onComplete(specName);
+      return false;
+    }
+
+    const { pending, failed } = this.getTaskCounts(state);
+    if (pending === 0 && failed > 0) {
+      this.reportFail(specName, "Spec execution has failed tasks.");
+      return false;
+    }
+
+    state.status = "running";
+    this.stateRepo.save(state);
+    return true;
+  }
+
+  private getTaskCounts(state: SpecExecutionState): {
+    running: number;
+    pending: number;
+    failed: number;
+  } {
+    const tasks = Object.values(state.tasks);
+    return {
+      running: tasks.filter((t) => t.status === "running").length,
+      pending: tasks.filter((t) => t.status === "pending").length,
+      failed: tasks.filter((t) => t.status === "failed").length,
+    };
+  }
+
+  private reportFail(specName: string, message: string): void {
+    if (this.reporter?.onFail) {
+      this.reporter.onFail(specName);
+    } else {
+      this.reporter?.onError(new Error(message));
+    }
+    process.exitCode = 1;
+  }
+
+  private handleNoReadyTasks(
+    specName: string,
+    state: SpecExecutionState,
+    counts: { running: number; pending: number; failed: number },
+  ): boolean {
+    if (counts.running === 0 && counts.pending > 0) {
+      state.status = "failed";
+      state.completedAt = new Date().toISOString();
+      this.stateRepo.save(state);
+      this.reporter?.onDeadlock(specName);
+      process.exitCode = 1;
+      return true;
+    }
+
+    if (counts.running === 0 && counts.pending === 0) {
+      if (counts.failed > 0) {
+        state.status = "failed";
+        state.completedAt = new Date().toISOString();
+        this.stateRepo.save(state);
+        this.reportFail(specName, "One or more tasks failed.");
+      } else {
+        state.status = "completed";
+        state.completedAt = new Date().toISOString();
+        this.stateRepo.save(state);
+        this.reporter?.onComplete(specName);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  private async executeTask(
+    specName: string,
+    task: Task,
+    model?: string,
+  ): Promise<void> {
+    const currentState = this.stateRepo.load(specName);
+    if (currentState) {
+      currentState.tasks[task.id].status = "running";
+      currentState.tasks[task.id].startedAt = new Date().toISOString();
+      if (!currentState.startedAt)
+        currentState.startedAt = new Date().toISOString();
+      this.stateRepo.save(currentState);
+      this.reporter?.onUpdate(specName);
+    }
+
+    const promptPath = this.promptService.createPromptFile(
+      specName,
+      task,
+      this.config.language,
+    );
+
+    const context: TaskContext = {
+      promptFilePath: promptPath,
+      specName,
+      taskId: task.id,
+      model,
+      silent: true,
+    };
+
+    try {
+      await this.runner.execute(context);
+
+      const postState = this.stateRepo.load(specName);
+      if (postState) {
+        postState.tasks[task.id].status = "completed";
+        postState.tasks[task.id].completedAt = new Date().toISOString();
+        this.stateRepo.save(postState);
+        this.reporter?.onUpdate(specName);
+      }
+    } catch (error) {
+      const errState = this.stateRepo.load(specName);
+      if (errState) {
+        errState.tasks[task.id].status = "failed";
+        errState.tasks[task.id].completedAt = new Date().toISOString();
+
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        if (!errState.tasks[task.id].errors) {
+          errState.tasks[task.id].errors = [];
+        }
+        errState.tasks[task.id].errors!.push(errorMessage);
+
+        this.stateRepo.save(errState);
+        this.reporter?.onUpdate(specName);
+      }
+    } finally {
+      this.promptService.deletePromptFile(promptPath);
+    }
+  }
+
   async run(specName: string, model?: string): Promise<void> {
     const tasks = this.loadTasks(specName);
     if (tasks.length === 0) {
@@ -39,157 +178,58 @@ export class TaskScheduler {
       return;
     }
 
-    let state = this.stateRepo.load(specName);
-    if (!state) {
-      state = this.stateRepo.init(specName, tasks);
-      this.stateRepo.save(state);
-    } else {
-      if (state.status === "completed") {
-        this.reporter?.onComplete(specName);
-        return;
-      }
-      const pendingCount = Object.values(state.tasks).filter(
-        (t) => t.status === "pending",
-      ).length;
-      const hasFailed = Object.values(state.tasks).some(
-        (t) => t.status === "failed",
-      );
-      if (pendingCount === 0 && hasFailed) {
-        if (this.reporter?.onFail) {
-          this.reporter.onFail(specName);
-        } else {
-          this.reporter?.onError(new Error("Spec execution has failed tasks."));
-        }
-        process.exitCode = 1;
-        return;
-      }
-      state.status = "running";
-      this.stateRepo.save(state);
+    if (!this.prepareState(specName, tasks)) {
+      return;
     }
 
     const resolver = new DAGResolver();
-
     this.reporter?.onStart(specName);
+
+    const activeTasks = new Map<string, Promise<void>>();
 
     try {
       while (true) {
-        state = this.stateRepo.load(specName);
-        if (!state) break;
+        const currentState = this.stateRepo.load(specName);
+        if (!currentState) break;
 
-        if (state.status === "completed") {
+        if (currentState.status === "completed") {
           this.reporter?.onComplete(specName);
           break;
         }
 
-        if (state.status === "failed") {
-          if (this.reporter?.onFail) {
-            this.reporter.onFail(specName);
-          } else {
-            this.reporter?.onError(new Error("Spec execution failed."));
-          }
-          process.exitCode = 1;
+        if (currentState.status === "failed") {
+          this.reportFail(specName, "Spec execution failed.");
           break;
         }
 
-        const readyTaskIds = resolver.getReadyTasks(state);
+        const readyTaskIds = resolver.getReadyTasks(currentState);
 
-        const runningTasksCount = Object.values(state.tasks).filter(
-          (t) => t.status === "running",
-        ).length;
-        const pendingTasksCount = Object.values(state.tasks).filter(
-          (t) => t.status === "pending",
-        ).length;
-        const failedTasksCount = Object.values(state.tasks).filter(
-          (t) => t.status === "failed",
-        ).length;
-
-        if (readyTaskIds.length === 0) {
-          if (runningTasksCount === 0 && pendingTasksCount > 0) {
-            state.status = "failed";
-            state.completedAt = new Date().toISOString();
-            this.stateRepo.save(state);
-            this.reporter?.onDeadlock(specName);
-            process.exitCode = 1;
-            break;
-          }
-          if (runningTasksCount === 0 && pendingTasksCount === 0) {
-            if (failedTasksCount > 0) {
-              state.status = "failed";
-              state.completedAt = new Date().toISOString();
-              this.stateRepo.save(state);
-              if (this.reporter?.onFail) {
-                this.reporter.onFail(specName);
-              } else {
-                this.reporter?.onError(new Error("One or more tasks failed."));
-              }
-              process.exitCode = 1;
-            } else {
-              state.status = "completed";
-              state.completedAt = new Date().toISOString();
-              this.stateRepo.save(state);
-              this.reporter?.onComplete(specName);
+        for (const taskId of readyTaskIds) {
+          if (!activeTasks.has(taskId)) {
+            const task = tasks.find((t) => t.id === taskId);
+            if (task) {
+              const promise = this.executeTask(specName, task, model).finally(
+                () => {
+                  activeTasks.delete(taskId);
+                },
+              );
+              activeTasks.set(taskId, promise);
             }
-            break;
           }
-
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          continue;
         }
 
-        const executionPromises = readyTaskIds.map(async (taskId) => {
-          const task = tasks.find((t) => t.id === taskId);
-          if (!task) return;
+        const counts = this.getTaskCounts(currentState);
 
-          const currentState = this.stateRepo.load(specName);
-          if (currentState) {
-            currentState.tasks[task.id].status = "running";
-            currentState.tasks[task.id].startedAt = new Date().toISOString();
-            if (!currentState.startedAt) currentState.startedAt = new Date().toISOString();
-            this.stateRepo.save(currentState);
-            this.reporter?.onUpdate(specName);
-          }
-
-          const promptPath = this.promptService.createPromptFile(specName, task, this.config.language);
-
-          const context: TaskContext = {
-            promptFilePath: promptPath,
+        if (activeTasks.size === 0) {
+          const shouldStop = this.handleNoReadyTasks(
             specName,
-            taskId: task.id,
-            model,
-            silent: true,
-          };
+            currentState,
+            counts,
+          );
+          if (shouldStop) break;
+        }
 
-          try {
-            await this.runner.execute(context);
-
-            const postState = this.stateRepo.load(specName);
-            if (postState) {
-              postState.tasks[task.id].status = "completed";
-              postState.tasks[task.id].completedAt = new Date().toISOString();
-              this.stateRepo.save(postState);
-              this.reporter?.onUpdate(specName);
-            }
-          } catch (error) {
-            const errState = this.stateRepo.load(specName);
-            if (errState) {
-              errState.tasks[task.id].status = "failed";
-              errState.tasks[task.id].completedAt = new Date().toISOString();
-              
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              if (!errState.tasks[task.id].errors) {
-                errState.tasks[task.id].errors = [];
-              }
-              errState.tasks[task.id].errors!.push(errorMessage);
-              
-              this.stateRepo.save(errState);
-              this.reporter?.onUpdate(specName);
-            }
-          } finally {
-            this.promptService.deletePromptFile(promptPath);
-          }
-        });
-
-        await Promise.all(executionPromises);
+        await Promise.race(activeTasks.values());
       }
     } catch (error) {
       this.reporter?.onError(error instanceof Error ? error : String(error));

@@ -179,4 +179,52 @@ describe("TaskScheduler", () => {
     expect(promptService.deletePromptDir).toHaveBeenCalledWith("test-spec");
     expect(process.exitCode).toBe(1);
   });
+
+  it("should run dependent task as soon as dependency completes without waiting for slow parallel task", async () => {
+    const taskA: Task = { id: "TASK-A", dependencies: [] } as any;
+    const taskB: Task = { id: "TASK-B", dependencies: [] } as any;
+    const taskC: Task = { id: "TASK-C", dependencies: ["TASK-B"] } as any;
+
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-A.json`, JSON.stringify(taskA));
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-B.json`, JSON.stringify(taskB));
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-C.json`, JSON.stringify(taskC));
+
+    const state: SpecExecutionState = {
+      specId: "test-spec",
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+      tasks: {
+        "TASK-A": { status: "pending", dependencies: [] },
+        "TASK-B": { status: "pending", dependencies: [] },
+        "TASK-C": { status: "pending", dependencies: ["TASK-B"] },
+      },
+    };
+
+    (stateRepo.init as any).mockReturnValue(state);
+    (stateRepo.load as any).mockReturnValue(state);
+
+    let taskACompleted = false;
+    let taskCStartedBeforeTaskAFinished = false;
+
+    (runner.execute as any).mockImplementation(async (context: any) => {
+      if (context.taskId === "TASK-A") {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        taskACompleted = true;
+      } else if (context.taskId === "TASK-B") {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } else if (context.taskId === "TASK-C") {
+        if (!taskACompleted) {
+          taskCStartedBeforeTaskAFinished = true;
+        }
+      }
+    });
+
+    await scheduler.run("test-spec");
+
+    expect(taskCStartedBeforeTaskAFinished).toBe(true);
+    expect(state.tasks["TASK-A"].status).toBe("completed");
+    expect(state.tasks["TASK-B"].status).toBe("completed");
+    expect(state.tasks["TASK-C"].status).toBe("completed");
+    expect(reporter.onComplete).toHaveBeenCalledWith("test-spec");
+  });
 });
