@@ -76,7 +76,7 @@ export function registerInitCommand(program: Command): void {
         });
       }
 
-      saveConfiguration(gw, { environment, plannerAgent, executorAgent, language: lang, humanInTheLoop: config?.humanInTheLoop ?? true });
+      saveConfiguration(gw, { environment, plannerAgent, executorAgent, language: lang });
 
       console.log(translate("init_config_saved", lang));
 

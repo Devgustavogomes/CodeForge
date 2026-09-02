@@ -191,7 +191,6 @@ describe("UpdateDocUseCase", () => {
       plannerAgent: "mock-planner",
       executorAgent: "mock-executor",
       language: "en",
-      humanInTheLoop: true,
     };
     useCase = new UpdateDocUseCase(gateway, mockGit, mockRunner, mockConfig);
   });

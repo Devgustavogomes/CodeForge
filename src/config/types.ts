@@ -5,5 +5,4 @@ export interface CodeForgeConfig {
   plannerAgent: string;
   executorAgent: string;
   language: SupportedLanguage;
-  humanInTheLoop: boolean;
 }

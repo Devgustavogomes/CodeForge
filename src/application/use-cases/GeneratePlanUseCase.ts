@@ -4,7 +4,6 @@ import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { preparePlanningPrompt } from "../plan.js";
 import { validatePlan } from "../validate.js";
 import { buildPlanningFixPrompt } from "../../prompts/planning.js";
-import { ConfigService } from "../../config/ConfigService.js";
 import { CodeForgeConfig } from "../../config/types.js";
 
 export type GeneratePlanResult =
@@ -12,7 +11,7 @@ export type GeneratePlanResult =
   | { kind: "spec-not-found" }
   | { kind: "tasks-dir-not-found" }
   | { kind: "invalid"; errors: string[] }
-  | { kind: "valid" };
+  | { kind: "valid"; autoRun?: boolean };
 
 export class GeneratePlanUseCase {
   constructor(
@@ -60,6 +59,7 @@ export class GeneratePlanUseCase {
       if (valResult.kind === "spec-not-found") {
         return { kind: "tasks-dir-not-found" };
       }
+
       return valResult as GeneratePlanResult;
     } finally {
       if (fs.existsSync(promptPath)) {

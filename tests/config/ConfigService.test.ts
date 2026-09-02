@@ -23,7 +23,6 @@ describe('ConfigService', () => {
       plannerAgent: 'planner-1',
       executorAgent: 'executor-1',
       language: 'en',
-      humanInTheLoop: true,
     };
 
     configService.saveConfig(testConfig);

@@ -19,7 +19,6 @@ export class ConfigService {
       const config: CodeForgeConfig = {
         ...parsedConfig,
         language: parsedConfig.language ?? 'en',
-        humanInTheLoop: parsedConfig.humanInTheLoop ?? true,
       };
       
       return config;
