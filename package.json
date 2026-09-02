@@ -4,7 +4,7 @@
   "description": "Agent-agnostic CLI for structuring and orchestrating AI-assisted software development.",
   "type": "module",
   "bin": {
-    "codeforge": "./dist/cli.js"
+    "codeforge": "./dist/cli/index.js"
   },
   "keywords": [
     "ai",
@@ -17,11 +17,13 @@
   "author": "Gustavo",
   "license": "MIT",
   "scripts": {
-    "dev": "tsx src/cli.ts",
+    "dev": "tsx src/cli/index.ts",
     "build": "tsc",
-    "start": "node dist/cli.js",
+    "start": "node dist/cli/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.7.0",
@@ -30,9 +32,12 @@
     "yaml": "^2.9.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.10",
+    "eslint": "^10.9.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.69.0",
     "vitest": "^4.1.11"
   }
 }
