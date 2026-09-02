@@ -7,19 +7,25 @@ import { AgentRunner, TaskContext } from "./AgentRunner.js";
 export class CursorRunner implements AgentRunner {
   async execute(context: TaskContext): Promise<void> {
     return new Promise((resolve, reject) => {
-      const promptContent = fs.readFileSync(context.promptFilePath, "utf-8");
+      const args: string[] = [];
 
-      const args = ["-p", promptContent];
+      args.push("-p", "-");
 
       if (context.model) {
         args.push("--model", context.model);
       }
 
       const child = spawn("agent", args, {
-        stdio: context.silent ? "pipe" : "inherit",
-        shell: false,
+        stdio: [
+          "pipe",
+          context.silent ? "pipe" : "inherit",
+          context.silent ? "pipe" : "inherit",
+        ],
+        shell: process.platform === "win32",
         cwd: process.cwd(),
       });
+
+      fs.createReadStream(context.promptFilePath).pipe(child.stdin!);
 
       let outputBuffer = "";
       if (context.silent) {
