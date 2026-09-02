@@ -84,7 +84,7 @@ const en = {
   menu_init_label: "🚀  Initialize project                     (init)",
   menu_spec_label: "📄  Spec        — create specifications",
   menu_spec_create: "Create new specification          (spec create)",
-  menu_back: "← Back to main menu",
+  menu_back: "← Back",
   menu_plan_label: "🗺️   Plan        — plan and validate tasks",
   menu_plan_generate: "Generate planning prompt          (plan generate)",
   menu_plan_validate: "Validate task plan                (plan validate)",
@@ -99,7 +99,19 @@ const en = {
   menu_docs_update_auto: "Update affected docs (auto scope) (docs update)",
   menu_docs_update_manual: "Update specific doc manually      (docs update --doc)",
   menu_docs_update_manual_input: "Name of the doc to update (e.g. api-reference):",
-  menu_exit: "➜   Exit"
+  menu_config_label: "⚙️   Config      — manage settings          (config)",
+  menu_exit: "➜   Exit",
+  
+  // config
+  config_select_key: "Select a configuration key to update:",
+  config_select_lang: "Select language:",
+  config_select_env: "Select environment:",
+  config_select_planner: "Select plannerAgent:",
+  config_select_executor: "Select executorAgent:",
+  config_enter_planner: "Enter new value for plannerAgent:",
+  config_enter_executor: "Enter new value for executorAgent:",
+  config_no_agents: "No agents found for environment '{env}'. Falling back to manual input.",
+  config_updated: "\n✓ Config updated successfully: {key} = {value}\n"
 };
 
 type Dictionary = typeof en;
@@ -181,7 +193,7 @@ const pt: Dictionary = {
   menu_init_label: "🚀  Inicializar projeto                    (init)",
   menu_spec_label: "📄  Spec        — criar especificações",
   menu_spec_create: "Criar nova especificação          (spec create)",
-  menu_back: "← Voltar ao menu principal",
+  menu_back: "← Voltar",
   menu_plan_label: "🗺️   Plan        — planejar e validar tarefas",
   menu_plan_generate: "Gerar prompt de planejamento      (plan generate)",
   menu_plan_validate: "Validar plano de tarefas          (plan validate)",
@@ -196,7 +208,18 @@ const pt: Dictionary = {
   menu_docs_update_auto: "Atualizar docs afetados (automático) (docs update)",
   menu_docs_update_manual: "Atualizar doc específico (manual) (docs update --doc)",
   menu_docs_update_manual_input: "Nome do doc a atualizar (ex: api-reference):",
-  menu_exit: "➜   Sair"
+  menu_config_label: "⚙️   Config      — gerenciar configurações  (config)",
+  menu_exit: "➜   Sair",
+  
+  config_select_key: "Selecione uma configuração para atualizar:",
+  config_select_lang: "Selecione o idioma:",
+  config_select_env: "Selecione o ambiente:",
+  config_select_planner: "Selecione o agente de planejamento (plannerAgent):",
+  config_select_executor: "Selecione o agente de execução (executorAgent):",
+  config_enter_planner: "Digite o novo valor para plannerAgent:",
+  config_enter_executor: "Digite o novo valor para executorAgent:",
+  config_no_agents: "Nenhum agente encontrado para o ambiente '{env}'. Usando entrada manual.",
+  config_updated: "\n✓ Configuração atualizada com sucesso: {key} = {value}\n"
 };
 
 const es: Dictionary = {
@@ -275,7 +298,7 @@ const es: Dictionary = {
   menu_init_label: "🚀  Inicializar proyecto                   (init)",
   menu_spec_label: "📄  Spec        — crear especificaciones",
   menu_spec_create: "Crear nueva especificación        (spec create)",
-  menu_back: "← Volver al menú principal",
+  menu_back: "← Volver",
   menu_plan_label: "🗺️   Plan        — planificar y validar tareas",
   menu_plan_generate: "Generar prompt de planificación   (plan generate)",
   menu_plan_validate: "Validar plan de tareas            (plan validate)",
@@ -290,7 +313,18 @@ const es: Dictionary = {
   menu_docs_update_auto: "Actualizar docs afectados (auto)  (docs update)",
   menu_docs_update_manual: "Actualizar doc específico (manual)(docs update --doc)",
   menu_docs_update_manual_input: "Nombre del doc a actualizar (ej: api-reference):",
-  menu_exit: "➜   Salir"
+  menu_config_label: "⚙️   Config      — gestionar configuraciones (config)",
+  menu_exit: "➜   Salir",
+  
+  config_select_key: "Seleccione una configuración para actualizar:",
+  config_select_lang: "Seleccione el idioma:",
+  config_select_env: "Seleccione el entorno:",
+  config_select_planner: "Seleccione el agente de planificación (plannerAgent):",
+  config_select_executor: "Seleccione el agente de ejecución (executorAgent):",
+  config_enter_planner: "Ingrese el nuevo valor para plannerAgent:",
+  config_enter_executor: "Ingrese el nuevo valor para executorAgent:",
+  config_no_agents: "No se encontraron agentes para el entorno '{env}'. Usando entrada manual.",
+  config_updated: "\n✓ Configuración actualizada correctamente: {key} = {value}\n"
 };
 
 const dictionaries = { en, pt, es };
