@@ -1,9 +1,4 @@
-export interface AffectedDoc {
-  docName: string;
-  docPath: string;
-  specPaths: string[];
-  matchedFiles: string[];
-}
+import { AffectedDoc } from "../../../domain/doc.js";
 
 export function buildDocsCreatePrompt(
   docName: string,
@@ -75,7 +70,7 @@ Please proceed with your evaluation.
 All your output, documentation, and task descriptions MUST be written in ${language}.`;
 }
 
-import { PATHS } from "../infrastructure/paths.js";
+import { PATHS } from "../../paths.js";
 
 export function buildDocsManualUpdatePrompt(
   doc: AffectedDoc,

@@ -1,4 +1,4 @@
-import { Task } from "../domain/task.js";
+import { Task } from "../../../domain/task.js";
 
 export function buildRunningPrompt(
   task: Task,
