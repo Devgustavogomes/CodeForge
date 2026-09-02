@@ -2,11 +2,17 @@ import { Task } from "../../domain/task.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { buildRunningPrompt } from "../../infrastructure/assets/prompts/running.js";
+import { buildRetryPrompt } from "../../infrastructure/assets/prompts/retry.js";
 
 export class PromptService {
   constructor(private gw: WorkspaceGateway) {}
 
-  private buildContextPrompt(specName: string, task: Task, language: string): string {
+  private buildContextPrompt(
+    specName: string,
+    task: Task,
+    language: string,
+    previousErrors?: string[]
+  ): string {
     const specPath = PATHS.specFile(specName);
     const specContent = this.gw.exists(specPath) ? this.gw.readFile(specPath) : "Spec not found.";
 
@@ -26,16 +32,25 @@ export class PromptService {
     const runningRulesPath = PATHS.runningRules;
     const runningRulesContent = this.gw.exists(runningRulesPath) ? this.gw.readFile(runningRulesPath) : "Execution rules not found.";
 
+    if (previousErrors && previousErrors.length > 0) {
+      return buildRetryPrompt(task, specContent, runningRulesContent, filesContext, previousErrors, language);
+    }
+
     return buildRunningPrompt(task, specContent, runningRulesContent, filesContext, language);
   }
 
-  createPromptFile(specName: string, task: Task, language: string): string {
+  createPromptFile(
+    specName: string,
+    task: Task,
+    language: string,
+    previousErrors?: string[]
+  ): string {
     const specExecDir = `${PATHS.executionsDir}/${specName}`;
     if (!this.gw.exists(specExecDir)) {
       this.gw.mkdir(specExecDir);
     }
     const promptPath = `${specExecDir}/${task.id}.temp.prompt.md`;
-    const promptContent = this.buildContextPrompt(specName, task, language);
+    const promptContent = this.buildContextPrompt(specName, task, language, previousErrors);
     this.gw.writeFile(promptPath, promptContent);
     return promptPath;
   }

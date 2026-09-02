@@ -137,4 +137,75 @@ describe("PromptService", () => {
     expect(prompt).toContain("### File: src/missing.ts");
     expect(prompt).toContain("(File does not exist yet. You will need to create it.)");
   });
+
+  it("selects buildRetryPrompt and includes error section when previousErrors is provided with items", () => {
+    gw.writeFile(".codeforge/specs/auth.md", "Spec content");
+
+    const task: Task = {
+      id: "TASK-003",
+      title: "Retry Task",
+      objective: "Fix bugs",
+      context: "Previous run failed",
+      implementation: "Fix code",
+      files: [],
+      dependencies: [],
+      constraints: [],
+      acceptanceCriteria: ["All tests must pass"],
+    };
+
+    const errors = [
+      "Error: Command failed with exit code 1",
+      "TS2304: Cannot find name 'x'",
+    ];
+
+    const path = service.createPromptFile("auth", task, "pt-BR", errors);
+    const prompt = gw.readFile(path);
+
+    expect(prompt).toContain(
+      "SYSTEM PROMPT FOR AI AGENT (CodeForge Task Retry & Fix)"
+    );
+    expect(prompt).toContain("--- PREVIOUS ATTEMPT FAILURE & ERRORS ---");
+    expect(prompt).toContain(
+      "The previous execution of this task failed with the following error(s):"
+    );
+    expect(prompt).toContain("- Error: Command failed with exit code 1");
+    expect(prompt).toContain("- TS2304: Cannot find name 'x'");
+    expect(prompt).toContain(
+      "--- ACTION REQUIRED (ERROR RESOLUTION & COMPLETION) ---"
+    );
+    expect(prompt).not.toContain("SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)");
+  });
+
+  it("selects buildRunningPrompt when previousErrors is omitted or empty", () => {
+    gw.writeFile(".codeforge/specs/auth.md", "Spec content");
+
+    const task: Task = {
+      id: "TASK-004",
+      title: "Normal Task",
+      objective: "New feature",
+      context: "First try",
+      implementation: "Implement feature",
+      files: [],
+      dependencies: [],
+      constraints: [],
+      acceptanceCriteria: [],
+    };
+
+    // Omitted previousErrors
+    const pathOmitted = service.createPromptFile("auth", task, "pt-BR");
+    const promptOmitted = gw.readFile(pathOmitted);
+    expect(promptOmitted).toContain(
+      "SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)"
+    );
+    expect(promptOmitted).not.toContain("--- PREVIOUS ATTEMPT FAILURE & ERRORS ---");
+
+    // Empty previousErrors array
+    const pathEmpty = service.createPromptFile("auth", task, "pt-BR", []);
+    const promptEmpty = gw.readFile(pathEmpty);
+    expect(promptEmpty).toContain(
+      "SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)"
+    );
+    expect(promptEmpty).not.toContain("--- PREVIOUS ATTEMPT FAILURE & ERRORS ---");
+  });
 });
+
