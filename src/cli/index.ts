@@ -9,6 +9,7 @@ import { registerRunCommand } from "./commands/run.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerTaskCompleteCommand } from "./commands/task/complete.js";
 import { registerTaskRetryCommand } from "./commands/task/retry.js";
+import { registerTaskResetCommand } from "./commands/task/reset.js";
 import { registerTaskInfoCommand } from "./commands/task/info.js";
 import { registerDocsCreateCommand } from "./commands/docs/create.js";
 import { registerDocsUpdateCommand } from "./commands/docs/update.js";
@@ -47,6 +48,7 @@ const task = program
 
 registerTaskCompleteCommand(task);
 registerTaskRetryCommand(task);
+registerTaskResetCommand(task);
 registerTaskInfoCommand(task);
 
 const docs = program

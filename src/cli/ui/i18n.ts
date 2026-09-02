@@ -76,6 +76,15 @@ const en = {
   docs_update_updating_log: "\n▶ Updating documentation '{docName}'...",
   docs_update_doc_choice: "{docName} ({count} file(s) changed)",
   
+  // task retry & reset
+  retry_no_failed_tasks: "\n○ No failed tasks to retry for spec '{spec}'. Use 'codeforge run {spec}' to execute pending tasks.\n",
+  retry_all_completed: "\n✓ All tasks for spec '{spec}' are already completed.\n",
+  retry_success_starting: "\n▶ Retrying {count} failed task(s) for spec '{spec}'...\n",
+  reset_success_single: "\n✓ Task '{taskId}' for spec '{spec}' reset to pending.\n",
+  reset_success_all: "\n✓ All {count} task(s) for spec '{spec}' reset to pending.\n",
+  reset_select_task: "Select task to reset:",
+  reset_all_option: "[All Tasks] Reset all tasks in this spec",
+  
   // menu
   menu_welcome: "Welcome to CodeForge!",
   menu_select_group: "Select a command group:",
@@ -95,6 +104,7 @@ const en = {
   menu_task_info: "View task information             (task info)",
   menu_task_complete: "Mark task as completed            (task complete)",
   menu_task_retry: "Retry failed task                 (task retry)",
+  menu_task_reset: "Reset task(s)                 (task reset)",
   menu_docs_label: "📚  Docs        — create and update documentation",
   menu_docs_create: "Create docs for a spec            (docs create)",
   menu_docs_update_auto: "Update affected docs (auto scope) (docs update)",
@@ -186,6 +196,15 @@ const pt: Dictionary = {
   docs_update_updating_log: "\n▶ Atualizando documentação '{docName}'...",
   docs_update_doc_choice: "{docName} ({count} arquivo(s) alterado(s))",
 
+  // task retry & reset
+  retry_no_failed_tasks: "\n○ Nenhuma tarefa falhada para retentar na spec '{spec}'. Use 'codeforge run {spec}' para executar tarefas pendentes.\n",
+  retry_all_completed: "\n✓ Todas as tarefas para a spec '{spec}' já estão concluídas.\n",
+  retry_success_starting: "\n▶ Retentando {count} tarefa(s) falhada(s) para a spec '{spec}'...\n",
+  reset_success_single: "\n✓ Tarefa '{taskId}' da spec '{spec}' resetada para pendente.\n",
+  reset_success_all: "\n✓ Todas as {count} tarefa(s) da spec '{spec}' foram resetadas para pendente.\n",
+  reset_select_task: "Selecione a tarefa para resetar:",
+  reset_all_option: "[Todas as Tarefas] Resetar todas as tarefas desta spec",
+
   // menu
   menu_welcome: "Bem-vindo ao CodeForge!",
   menu_select_group: "Selecione um grupo de comandos:",
@@ -205,6 +224,7 @@ const pt: Dictionary = {
   menu_task_info: "Ver informações de uma task       (task info)",
   menu_task_complete: "Marcar task como concluída        (task complete)",
   menu_task_retry: "Retentar task com erro            (task retry)",
+  menu_task_reset: "Resetar tarefa(s)              (task reset)",
   menu_docs_label: "📚  Docs        — criar e atualizar documentação",
   menu_docs_create: "Criar documentação para uma spec  (docs create)",
   menu_docs_update_auto: "Atualizar docs afetados (automático) (docs update)",
@@ -292,6 +312,15 @@ const es: Dictionary = {
   docs_update_updating_log: "\n▶ Actualizando documentación '{docName}'...",
   docs_update_doc_choice: "{docName} ({count} archivo(s) modificado(s))",
 
+  // task retry & reset
+  retry_no_failed_tasks: "\n○ No hay tareas fallidas para reintentar en el spec '{spec}'. Use 'codeforge run {spec}' para ejecutar tareas pendientes.\n",
+  retry_all_completed: "\n✓ Todas las tareas para el spec '{spec}' ya están completadas.\n",
+  retry_success_starting: "\n▶ Reintentando {count} tarea(s) fallida(s) para el spec '{spec}'...\n",
+  reset_success_single: "\n✓ Tarea '{taskId}' del spec '{spec}' restablecida a pendiente.\n",
+  reset_success_all: "\n✓ Todas las {count} tarea(s) del spec '{spec}' fueron restablecidas a pendiente.\n",
+  reset_select_task: "Seleccione la tarea para restablecer:",
+  reset_all_option: "[Todas las Tareas] Restablecer todas las tareas de este spec",
+
   // menu
   menu_welcome: "¡Bienvenido a CodeForge!",
   menu_select_group: "Seleccione un grupo de comandos:",
@@ -311,6 +340,7 @@ const es: Dictionary = {
   menu_task_info: "Ver información de una tarea      (task info)",
   menu_task_complete: "Marcar tarea como completada      (task complete)",
   menu_task_retry: "Reintentar tarea con error        (task retry)",
+  menu_task_reset: "Restablecer tarea(s)           (task reset)",
   menu_docs_label: "📚  Docs        — crear y actualizar documentación",
   menu_docs_create: "Crear documentación para un spec  (docs create)",
   menu_docs_update_auto: "Actualizar docs afectados (auto)  (docs update)",

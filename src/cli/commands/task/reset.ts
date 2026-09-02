@@ -4,19 +4,14 @@ import { select } from "@inquirer/prompts";
 import { TaskOperationsUseCase } from "../../../application/use-cases/TaskOperationsUseCase.js";
 import { ListSpecsUseCase } from "../../../application/use-cases/ListSpecsUseCase.js";
 import { ConfigService } from "../../../config/ConfigService.js";
-import { RunnerFactory } from "../../../runners/RunnerFactory.js";
-import { TaskScheduler } from "../../../scheduler/TaskScheduler.js";
 import { PATHS } from "../../../infrastructure/paths.js";
-import { TerminalSchedulerReporter } from "../../ui/TerminalSchedulerReporter.js";
 import { translate } from "../../ui/i18n.js";
-import { ExecutionStateRepository } from "../../../infrastructure/repositories/ExecutionStateRepository.js";
-import { PromptService } from "../../../application/services/PromptService.js";
 
-export function registerTaskRetryCommand(task: Command): void {
+export function registerTaskResetCommand(task: Command): void {
   task
-    .command("retry [spec]")
-    .description("Retry failed tasks for a spec and resume execution")
-    .action(async (spec?: string) => {
+    .command("reset [spec] [taskId]")
+    .description("Reset tasks to pending state without executing")
+    .action(async (spec?: string, taskId?: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
 
       const configService = new ConfigService(gw);
@@ -25,12 +20,6 @@ export function registerTaskRetryCommand(task: Command): void {
 
       if (!gw.exists(PATHS.metadata)) {
         console.error(translate("err_not_initialized", lang));
-        process.exitCode = 1;
-        return;
-      }
-
-      if (!config) {
-        console.error(translate("err_not_configured", lang));
         process.exitCode = 1;
         return;
       }
@@ -65,7 +54,43 @@ export function registerTaskRetryCommand(task: Command): void {
       }
 
       const useCase = new TaskOperationsUseCase(gw);
-      const result = useCase.retrySpec(specName);
+      let targetTaskId = taskId;
+
+      if (!targetTaskId) {
+        const tasksResult = useCase.getAvailableTasks(specName);
+
+        if (tasksResult.kind === "spec-not-found" || tasksResult.kind === "no-tasks") {
+          console.error(translate("err_tasks_dir_not_found", lang, { spec: specName }));
+          process.exitCode = 1;
+          return;
+        }
+
+        const selectedChoice = await select({
+          message: translate("reset_select_task", lang),
+          choices: [
+            { name: translate("menu_back", lang), value: "back" },
+            { name: translate("reset_all_option", lang), value: "all" },
+            ...tasksResult.tasks.map((t) => ({
+              name: `${t.id} - ${t.title}`,
+              value: t.id,
+            })),
+          ],
+        });
+
+        if (selectedChoice === "back") {
+          if (process.env.CODEFORGE_INTERACTIVE) {
+            process.exit(200);
+          } else {
+            process.exit(0);
+          }
+        }
+
+        if (selectedChoice !== "all") {
+          targetTaskId = selectedChoice;
+        }
+      }
+
+      const result = useCase.resetTasks(specName, targetTaskId);
 
       switch (result.kind) {
         case "spec-not-found":
@@ -75,34 +100,26 @@ export function registerTaskRetryCommand(task: Command): void {
         case "no-execution":
           console.log(translate("status_no_execution", lang, { spec: specName }));
           break;
-        case "all-completed":
-          console.log(translate("retry_all_completed", lang, { spec: specName }));
+        case "task-not-found":
+          console.error(`\n✗ Task '${result.taskId}' not found in spec '${specName}'.\n`);
+          process.exitCode = 1;
           break;
-        case "no-failed-tasks":
-          console.log(translate("retry_no_failed_tasks", lang, { spec: specName }));
-          break;
-        case "retried": {
+        case "reset-single":
           console.log(
-            translate("retry_success_starting", lang, {
-              count: result.retriedTasks.length,
+            translate("reset_success_single", lang, {
+              taskId: result.taskId,
               spec: specName,
             }),
           );
-          const runner = RunnerFactory.createRunner(config.environment);
-          const reporter = new TerminalSchedulerReporter(gw);
-          const stateRepo = new ExecutionStateRepository(gw);
-          const promptService = new PromptService(gw);
-          const scheduler = new TaskScheduler(
-            gw,
-            runner,
-            config,
-            stateRepo,
-            promptService,
-            reporter,
-          );
-          await scheduler.run(specName, config.executorAgent);
           break;
-        }
+        case "reset-all":
+          console.log(
+            translate("reset_success_all", lang, {
+              count: result.count,
+              spec: specName,
+            }),
+          );
+          break;
       }
     });
 }

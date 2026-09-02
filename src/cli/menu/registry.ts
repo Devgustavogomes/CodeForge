@@ -43,6 +43,7 @@ export function getMenuGroups(lang: SupportedLanguage): MenuGroup[] {
         { name: translate("menu_task_info", lang), value: "task info", action: { type: "command", args: ["task", "info"] } },
         { name: translate("menu_task_complete", lang), value: "task complete", action: { type: "command", args: ["task", "complete"] } },
         { name: translate("menu_task_retry", lang), value: "task retry", action: { type: "command", args: ["task", "retry"] } },
+        { name: translate("menu_task_reset", lang), value: "task reset", action: { type: "command", args: ["task", "reset"] } },
         { name: translate("menu_back", lang), value: "back" }
       ]
     },
