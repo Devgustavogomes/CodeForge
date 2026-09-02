@@ -3,6 +3,8 @@ import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { getAvailableSpecs } from "../../../application/plan.js";
 import { getAvailableTasks, getTaskInfo } from "../../../application/task-operations.js";
+import { translate } from "../../ui/i18n.js";
+import { ConfigService } from "../../../config/ConfigService.js";
 
 export function registerTaskInfoCommand(task: Command): void {
   task
@@ -10,6 +12,10 @@ export function registerTaskInfoCommand(task: Command): void {
     .description("View details of a specific task")
     .action(async (spec?: string, taskId?: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
+      const configService = new ConfigService(gw);
+      const config = configService.loadConfig();
+      const lang = config?.language || "en";
+      
       let specName = spec;
       let selectedTask = taskId;
 
@@ -24,8 +30,19 @@ export function registerTaskInfoCommand(task: Command): void {
 
         specName = await select({
           message: "Select a spec:",
-          choices: specs.map((s) => ({ name: s, value: s })),
+          choices: [
+            { name: translate("menu_back", lang), value: "back" },
+            ...specs.map((s) => ({ name: s, value: s }))
+          ],
         });
+
+        if (specName === "back") {
+          if (process.env.CODEFORGE_INTERACTIVE) {
+            process.exit(200);
+          } else {
+            process.exit(0);
+          }
+        }
       }
 
       // Select Task

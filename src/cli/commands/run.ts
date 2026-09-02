@@ -45,8 +45,19 @@ export function registerRunCommand(program: Command): void {
 
         specName = await select({
           message: translate("run_select_spec", lang),
-          choices: specs.map((s) => ({ name: s, value: s })),
+          choices: [
+            { name: translate("menu_back", lang), value: "back" },
+            ...specs.map((s) => ({ name: s, value: s }))
+          ],
         });
+
+        if (specName === "back") {
+          if (process.env.CODEFORGE_INTERACTIVE) {
+            process.exit(200);
+          } else {
+            process.exit(0);
+          }
+        }
       }
 
       const runner = RunnerFactory.createRunner(config.environment);

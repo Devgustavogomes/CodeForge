@@ -30,8 +30,19 @@ export function registerStatusCommand(program: Command): void {
 
         specName = await select({
           message: translate("status_select_spec", lang),
-          choices: specs.map((s) => ({ name: s, value: s })),
+          choices: [
+            { name: translate("menu_back", lang), value: "back" },
+            ...specs.map((s) => ({ name: s, value: s }))
+          ],
         });
+
+        if (specName === "back") {
+          if (process.env.CODEFORGE_INTERACTIVE) {
+            process.exit(200);
+          } else {
+            process.exit(0);
+          }
+        }
       }
 
       // Validate once before entering loop

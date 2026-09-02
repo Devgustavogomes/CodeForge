@@ -6,14 +6,16 @@ import { ConfigService } from "../../config/ConfigService.js";
 import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { translate } from "../ui/i18n.js";
 
-export async function renderMainMenu(): Promise<void> {
+export async function renderMainMenu(initialGroupId?: string): Promise<void> {
   const gw = new NodeWorkspaceGateway(process.cwd());
   const configService = new ConfigService(gw);
   const config = configService.loadConfig();
   const lang = config?.language || "en";
 
-  console.log(`\n${translate("menu_welcome", lang)} 🚀`);
-  console.log(`${translate("menu_select_group", lang)}\n`);
+  if (!initialGroupId) {
+    console.log(`\n${translate("menu_welcome", lang)} 🚀`);
+    console.log(`${translate("menu_select_group", lang)}\n`);
+  }
 
   const menuGroups = getMenuGroups(lang);
 
@@ -22,10 +24,13 @@ export async function renderMainMenu(): Promise<void> {
     value: g.id,
   }));
 
-  const selectedGroupId = await select({
-    message: translate("menu_what_to_do", lang),
-    choices: groupChoices,
-  });
+  let selectedGroupId = initialGroupId;
+  if (!selectedGroupId) {
+    selectedGroupId = await select({
+      message: translate("menu_what_to_do", lang),
+      choices: groupChoices,
+    });
+  }
 
   if (selectedGroupId === "exit") {
     console.log(`\n${translate("menu_goodbye", lang)} 👋\n`);
@@ -35,7 +40,8 @@ export async function renderMainMenu(): Promise<void> {
   const group = menuGroups.find((g: MenuGroup) => g.id === selectedGroupId);
 
   if (group?.action) {
-    await executeAction(group.action);
+    const code = await executeAction(group.action);
+    if (code === 200) return renderMainMenu();
     return;
   }
 
@@ -51,7 +57,10 @@ export async function renderMainMenu(): Promise<void> {
 
     const selectedItem = group.items.find((i: MenuItem) => i.value === actionValue);
     if (selectedItem?.action) {
-      await executeAction(selectedItem.action);
+      const code = await executeAction(selectedItem.action);
+      if (code === 200) {
+        return renderMainMenu(selectedGroupId);
+      }
     }
   }
   
