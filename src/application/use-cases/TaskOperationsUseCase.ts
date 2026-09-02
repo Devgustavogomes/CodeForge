@@ -24,6 +24,20 @@ export type TaskInfoResult =
   | { kind: "invalid-json"; message: string }
   | { kind: "info"; task: Task };
 
+export type RetrySpecResult =
+  | { kind: "spec-not-found" }
+  | { kind: "no-execution"; specName: string }
+  | { kind: "all-completed"; specName: string }
+  | { kind: "no-failed-tasks"; specName: string; pendingCount: number }
+  | { kind: "retried"; specName: string; retriedTasks: string[] };
+
+export type ResetTaskResult =
+  | { kind: "spec-not-found" }
+  | { kind: "no-execution"; specName: string }
+  | { kind: "task-not-found"; taskId: string }
+  | { kind: "reset-single"; specName: string; taskId: string }
+  | { kind: "reset-all"; specName: string; count: number };
+
 export class TaskOperationsUseCase {
   constructor(private readonly gw: WorkspaceGateway) {}
 
@@ -137,5 +151,97 @@ export class TaskOperationsUseCase {
       const errorMessage = err instanceof Error ? err.message : String(err);
       return { kind: "invalid-json", message: errorMessage };
     }
+  }
+
+  retrySpec(specName: string): RetrySpecResult {
+    const specPath = PATHS.specFile(specName);
+    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    if (!this.gw.exists(specPath) && !this.gw.exists(tasksDir)) {
+      return { kind: "spec-not-found" };
+    }
+
+    const repo = new ExecutionStateRepository(this.gw);
+    const state = repo.load(specName);
+    if (!state) {
+      return { kind: "no-execution", specName };
+    }
+
+    const taskEntries = Object.entries(state.tasks);
+    const failedTasks = taskEntries.filter(([_, t]) => t.status === "failed");
+
+    if (failedTasks.length === 0) {
+      const allCompleted =
+        taskEntries.length > 0 &&
+        taskEntries.every(([_, t]) => t.status === "completed");
+      if (allCompleted) {
+        return { kind: "all-completed", specName };
+      }
+
+      const pendingCount = taskEntries.filter(
+        ([_, t]) => t.status === "pending",
+      ).length;
+      return { kind: "no-failed-tasks", specName, pendingCount };
+    }
+
+    const retriedTasks: string[] = [];
+    for (const [id, task] of failedTasks) {
+      task.status = "pending";
+      delete task.startedAt;
+      delete task.completedAt;
+      retriedTasks.push(id);
+    }
+
+    state.status = "pending";
+    delete state.completedAt;
+    repo.save(state);
+
+    return { kind: "retried", specName, retriedTasks };
+  }
+
+  resetTasks(specName: string, taskId?: string): ResetTaskResult {
+    const specPath = PATHS.specFile(specName);
+    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    if (!this.gw.exists(specPath) && !this.gw.exists(tasksDir)) {
+      return { kind: "spec-not-found" };
+    }
+
+    const repo = new ExecutionStateRepository(this.gw);
+    const state = repo.load(specName);
+    if (!state) {
+      return { kind: "no-execution", specName };
+    }
+
+    if (taskId !== undefined) {
+      const task = state.tasks[taskId];
+      if (!task) {
+        return { kind: "task-not-found", taskId };
+      }
+
+      task.status = "pending";
+      delete task.startedAt;
+      delete task.completedAt;
+      delete task.errors;
+
+      state.status = "pending";
+      delete state.completedAt;
+      repo.save(state);
+
+      return { kind: "reset-single", specName, taskId };
+    }
+
+    const taskList = Object.values(state.tasks);
+    for (const task of taskList) {
+      task.status = "pending";
+      delete task.startedAt;
+      delete task.completedAt;
+      delete task.errors;
+    }
+
+    state.status = "pending";
+    delete state.startedAt;
+    delete state.completedAt;
+    repo.save(state);
+
+    return { kind: "reset-all", specName, count: taskList.length };
   }
 }
