@@ -92,7 +92,7 @@ describe("TaskScheduler", () => {
 
     expect(stateRepo.init).toHaveBeenCalledWith("test-spec", [task]);
     expect(stateRepo.save).toHaveBeenCalled();
-    expect(promptService.createPromptFile).toHaveBeenCalledWith("test-spec", task, "en");
+    expect(promptService.createPromptFile).toHaveBeenCalledWith("test-spec", task, "en", undefined);
     expect(runner.execute).toHaveBeenCalled();
     expect(promptService.deletePromptFile).toHaveBeenCalledWith("prompt.md");
   });
@@ -226,5 +226,119 @@ describe("TaskScheduler", () => {
     expect(state.tasks["TASK-B"].status).toBe("completed");
     expect(state.tasks["TASK-C"].status).toBe("completed");
     expect(reporter.onComplete).toHaveBeenCalledWith("test-spec");
+  });
+
+  it("should pass previousErrors to promptService.createPromptFile when task has previous errors in state", async () => {
+    const task: Task = {
+      id: "TASK-001",
+      title: "Test Task",
+      objective: "O",
+      context: "C",
+      implementation: "I",
+      files: [],
+      dependencies: [],
+      constraints: [],
+      acceptanceCriteria: [],
+    };
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
+
+    const mockState: SpecExecutionState = {
+      specId: "test-spec",
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+      tasks: {
+        "TASK-001": {
+          status: "pending",
+          dependencies: [],
+          errors: ["Prior failure: build error", "Prior failure: test failed"],
+        },
+      },
+    };
+
+    (stateRepo.load as any).mockReturnValue(mockState);
+
+    await scheduler.run("test-spec");
+
+    expect(promptService.createPromptFile).toHaveBeenCalledWith(
+      "test-spec",
+      task,
+      "en",
+      ["Prior failure: build error", "Prior failure: test failed"],
+    );
+  });
+
+  it("should remove errors property from task state upon successful execution", async () => {
+    const task: Task = {
+      id: "TASK-001",
+      title: "Test Task",
+      objective: "O",
+      context: "C",
+      implementation: "I",
+      files: [],
+      dependencies: [],
+      constraints: [],
+      acceptanceCriteria: [],
+    };
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
+
+    const mockState: SpecExecutionState = {
+      specId: "test-spec",
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+      tasks: {
+        "TASK-001": {
+          status: "pending",
+          dependencies: [],
+          errors: ["Previous error to be cleared"],
+        },
+      },
+    };
+
+    (stateRepo.load as any).mockReturnValue(mockState);
+
+    await scheduler.run("test-spec");
+
+    expect(mockState.tasks["TASK-001"].status).toBe("completed");
+    expect(mockState.tasks["TASK-001"].errors).toBeUndefined();
+    expect("errors" in mockState.tasks["TASK-001"]).toBe(false);
+    expect(stateRepo.save).toHaveBeenCalledWith(mockState);
+  });
+
+  it("should accumulate errors in task state and mark task as failed when execution fails", async () => {
+    const task: Task = {
+      id: "TASK-001",
+      title: "Test Task",
+      objective: "O",
+      context: "C",
+      implementation: "I",
+      files: [],
+      dependencies: [],
+      constraints: [],
+      acceptanceCriteria: [],
+    };
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
+
+    const mockState: SpecExecutionState = {
+      specId: "test-spec",
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+      tasks: {
+        "TASK-001": {
+          status: "pending",
+          dependencies: [],
+          errors: ["First error"],
+        },
+      },
+    };
+
+    (stateRepo.load as any).mockReturnValue(mockState);
+    (runner.execute as any).mockRejectedValue(new Error("Second error occurred"));
+
+    await scheduler.run("test-spec");
+
+    expect(mockState.tasks["TASK-001"].status).toBe("failed");
+    expect(mockState.tasks["TASK-001"].errors).toEqual(["First error", "Second error occurred"]);
+    expect(mockState.status).toBe("failed");
+    expect(reporter.onFail).toHaveBeenCalledWith("test-spec");
   });
 });

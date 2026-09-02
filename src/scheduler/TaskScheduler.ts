@@ -117,6 +117,7 @@ export class TaskScheduler {
     model?: string,
   ): Promise<void> {
     const currentState = this.stateRepo.load(specName);
+    const previousErrors = currentState?.tasks[task.id]?.errors;
     if (currentState) {
       currentState.tasks[task.id].status = "running";
       currentState.tasks[task.id].startedAt = new Date().toISOString();
@@ -130,6 +131,7 @@ export class TaskScheduler {
       specName,
       task,
       this.config.language,
+      previousErrors,
     );
 
     const context: TaskContext = {
@@ -147,6 +149,7 @@ export class TaskScheduler {
       if (postState) {
         postState.tasks[task.id].status = "completed";
         postState.tasks[task.id].completedAt = new Date().toISOString();
+        delete postState.tasks[task.id].errors;
         this.stateRepo.save(postState);
         this.reporter?.onUpdate(specName);
       }
