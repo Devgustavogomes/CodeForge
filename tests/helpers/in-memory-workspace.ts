@@ -64,4 +64,19 @@ export class InMemoryWorkspaceGateway implements WorkspaceGateway {
     const p = this.normalize(relativePath);
     this.files.delete(p);
   }
+
+  deleteDir(relativePath: string): void {
+    const p = this.normalize(relativePath);
+    const prefix = p === '' || p === '.' ? '' : p + '/';
+    for (const key of Array.from(this.files.keys())) {
+      if (key === p || key.startsWith(prefix)) {
+        this.files.delete(key);
+      }
+    }
+    for (const dir of Array.from(this.directories)) {
+      if (dir === p || dir.startsWith(prefix)) {
+        this.directories.delete(dir);
+      }
+    }
+  }
 }

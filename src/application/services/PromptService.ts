@@ -44,5 +44,20 @@ export class PromptService {
     if (this.gw.exists(promptPath)) {
       this.gw.deleteFile(promptPath);
     }
+    const normalized = promptPath.replace(/\\/g, "/");
+    const lastSlash = normalized.lastIndexOf("/");
+    if (lastSlash !== -1) {
+      const dir = normalized.substring(0, lastSlash);
+      if (this.gw.exists(dir) && this.gw.listDir(dir).length === 0) {
+        this.gw.deleteDir(dir);
+      }
+    }
+  }
+
+  deletePromptDir(specName: string): void {
+    const specExecDir = `${PATHS.executionsDir}/${specName}`;
+    if (this.gw.exists(specExecDir)) {
+      this.gw.deleteDir(specExecDir);
+    }
   }
 }

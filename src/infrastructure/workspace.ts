@@ -5,6 +5,7 @@ export interface WorkspaceGateway {
   readFile(relativePath: string): string;
   writeFile(relativePath: string, content: string): void;
   deleteFile(relativePath: string): void;
+  deleteDir(relativePath: string): void;
   exists(relativePath: string): boolean;
   listDir(relativePath: string): string[];
   mkdir(relativePath: string): void;
@@ -25,6 +26,13 @@ export class NodeWorkspaceGateway implements WorkspaceGateway {
     const fullPath = path.join(this.workspacePath, relativePath);
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
+    }
+  }
+
+  deleteDir(relativePath: string): void {
+    const fullPath = path.join(this.workspacePath, relativePath);
+    if (fs.existsSync(fullPath)) {
+      fs.rmSync(fullPath, { recursive: true, force: true });
     }
   }
 

@@ -38,13 +38,47 @@ describe("PromptService", () => {
     expect(content).toContain(task.title);
   });
 
-  it("should delete prompt file", () => {
-    const path = "some/temp/path.md";
+  it("should delete prompt file and empty parent directory", () => {
+    const specName = "test-spec";
+    const dir = `${PATHS.executionsDir}/${specName}`;
+    const path = `${dir}/TASK-1.temp.prompt.md`;
+    gw.mkdir(dir);
     gw.writeFile(path, "content");
     expect(gw.exists(path)).toBe(true);
+    expect(gw.exists(dir)).toBe(true);
 
     service.deletePromptFile(path);
     expect(gw.exists(path)).toBe(false);
+    expect(gw.exists(dir)).toBe(false);
+  });
+
+  it("should not delete parent directory if other prompt files remain", () => {
+    const specName = "test-spec";
+    const dir = `${PATHS.executionsDir}/${specName}`;
+    const path1 = `${dir}/TASK-1.temp.prompt.md`;
+    const path2 = `${dir}/TASK-2.temp.prompt.md`;
+    gw.mkdir(dir);
+    gw.writeFile(path1, "content 1");
+    gw.writeFile(path2, "content 2");
+
+    service.deletePromptFile(path1);
+    expect(gw.exists(path1)).toBe(false);
+    expect(gw.exists(dir)).toBe(true);
+
+    service.deletePromptFile(path2);
+    expect(gw.exists(path2)).toBe(false);
+    expect(gw.exists(dir)).toBe(false);
+  });
+
+  it("should delete entire prompt directory with deletePromptDir", () => {
+    const specName = "test-spec";
+    const dir = `${PATHS.executionsDir}/${specName}`;
+    gw.mkdir(dir);
+    gw.writeFile(`${dir}/TASK-1.temp.prompt.md`, "content");
+    expect(gw.exists(dir)).toBe(true);
+
+    service.deletePromptDir(specName);
+    expect(gw.exists(dir)).toBe(false);
   });
 
   it("builds prompt correctly including spec content and task fields", () => {
