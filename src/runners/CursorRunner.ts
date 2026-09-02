@@ -1,64 +1,23 @@
-import { spawn, exec } from "child_process";
+import { exec } from "child_process";
 import { promisify } from "util";
-import * as fs from "fs";
 import * as os from "os";
-import { AgentRunner, TaskContext } from "./AgentRunner.js";
+import { TaskContext } from "./AgentRunner.js";
+import { BaseProcessRunner } from "./BaseProcessRunner.js";
 
-export class CursorRunner implements AgentRunner {
+export class CursorRunner extends BaseProcessRunner {
   async execute(context: TaskContext): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const args: string[] = [];
+    const args: string[] = [];
 
-      args.push("-p", "-");
+    args.push("-p", "-");
 
-      if (context.model) {
-        args.push("--model", context.model);
-      }
+    if (context.model) {
+      args.push("--model", context.model);
+    }
 
-      const child = spawn("agent", args, {
-        stdio: [
-          "pipe",
-          context.silent ? "pipe" : "inherit",
-          context.silent ? "pipe" : "inherit",
-        ],
-        shell: process.platform === "win32",
-        cwd: process.cwd(),
-      });
-
-      fs.createReadStream(context.promptFilePath).pipe(child.stdin!);
-
-      let outputBuffer = "";
-      if (context.silent) {
-        child.stdout?.on("data", (data) => {
-          outputBuffer += data.toString();
-          if (outputBuffer.length > 5000) {
-            outputBuffer = outputBuffer.slice(-5000);
-          }
-        });
-        child.stderr?.on("data", (data) => {
-          outputBuffer += data.toString();
-          if (outputBuffer.length > 5000) {
-            outputBuffer = outputBuffer.slice(-5000);
-          }
-        });
-      }
-
-      child.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          const tail = outputBuffer.trim()
-            ? `\n\nOutput Tail:\n${outputBuffer.trim()}`
-            : "";
-          reject(
-            new Error(`Cursor execution failed with exit code ${code}${tail}`),
-          );
-        }
-      });
-
-      child.on("error", (error) => {
-        reject(error);
-      });
+    return this.spawnProcess("agent", args, context, {
+      shell: process.platform === "win32",
+      cwd: process.cwd(),
+      pipePromptToStdin: true,
     });
   }
 
@@ -77,7 +36,7 @@ export class CursorRunner implements AgentRunner {
         .map((line) => line.trim())
         .filter((line) => line.length > 0);
       return lines;
-    } catch (error) {
+    } catch {
       return [];
     }
   }
