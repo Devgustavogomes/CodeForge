@@ -37,6 +37,39 @@ AI AGENT       AI AGENT
 
 ---
 
+## Table of Contents
+
+- [The problem](#the-problem)
+- [The idea](#the-idea)
+- [Why use CodeForge?](#why-use-codeforge)
+- [How it works](#how-it-works)
+  - [1. Spec](#1-spec)
+  - [2. Plan](#2-plan)
+  - [3. Automatic execution](#3-automatic-execution)
+  - [4. Fresh context per task](#4-fresh-context-per-task)
+  - [5. Parallel execution](#5-parallel-execution)
+  - [6. Validation & auto-healing](#6-validation--auto-healing)
+  - [7. Smart retries & recovery](#7-smart-retries--recovery)
+  - [8. Documentation](#8-documentation)
+- [Agent agnostic](#agent-agnostic)
+- [Deterministic by design](#deterministic-by-design)
+- [Project structure](#project-structure)
+- [Commands](#commands)
+  - [Quick Reference](#quick-reference)
+  - [Configuration & Initialization](#configuration--initialization)
+  - [Specification & Planning](#specification--planning)
+  - [Execution & Monitoring](#execution--monitoring)
+  - [Task Management](#task-management)
+  - [Documentation](#documentation)
+- [Installation](#installation)
+- [Example](#example)
+- [Philosophy](#philosophy)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## The problem
 
 AI coding agents are extremely capable, but asking an agent to implement an entire feature in one long context can create problems as the change becomes larger:
@@ -519,119 +552,332 @@ A feature has its specification, execution state, and generated task definitions
 
 # Commands
 
-## Interactive menu
+CodeForge commands are organized into logical functional groups. Most commands support interactive prompts when arguments are omitted, providing guided workflows directly in the terminal.
+
+### Quick Reference
+
+| Group                        | Command                                                                     | Description                                                           |
+| :--------------------------- | :-------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| **Configuration & Setup**    | [`codeforge`](#interactive-menu)                                            | Launches the interactive terminal menu with step-by-step navigation   |
+|                              | [`codeforge init`](#initialize-workspace)                                   | Initializes CodeForge in the project and sets up AI agent preferences |
+|                              | [`codeforge config`](#configuration)                                        | Interactively updates configuration (language, environment, agents)   |
+| **Specification & Planning** | [`codeforge spec create [name]`](#create-specification)                     | Creates a new feature specification template                          |
+|                              | [`codeforge plan generate [spec]`](#generate-plan)                          | Generates an executable task DAG using the AI planner agent           |
+|                              | [`codeforge plan validate [spec] [taskId]`](#validate-plan)                 | Deterministically validates task graph and dependencies               |
+| **Execution & Monitoring**   | [`codeforge run [spec]`](#run-autonomous-execution)                         | Autonomously executes tasks in the dependency graph                   |
+|                              | [`codeforge status [spec] [--once]`](#status-dashboard)                     | Live execution dashboard (or static status snapshot with `--once`)    |
+| **Task Management**          | [`codeforge task info [spec] [taskId]`](#task-info)                         | Displays full details, constraints, and criteria for a task           |
+|                              | [`codeforge task retry [spec]`](#retry-failed-tasks)                        | Resets failed tasks with error diagnostics and resumes execution      |
+|                              | [`codeforge task reset [spec] [taskId]`](#reset-tasks)                      | Resets tasks to pending state without immediate execution             |
+|                              | [`codeforge task complete <spec> <taskId>`](#complete-task-manually)        | Manually marks a task as completed in the execution state             |
+| **Documentation**            | [`codeforge docs create [doc-name] [--spec <spec>]`](#create-documentation) | Autonomously creates technical documentation for a completed spec     |
+|                              | [`codeforge docs update [spec] [--doc <name>]`](#update-documentation)      | Updates documentation affected by git changes or targeted document    |
+
+---
+
+## Configuration & Initialization
+
+Commands for setting up the environment, initializing the workspace, and configuring AI agents and preferences.
+
+### Interactive Menu
+
+Launches an interactive terminal menu with step-by-step navigation, workflow selection, and back options for all CodeForge operations. Automatically runs when `codeforge` is executed without any arguments.
 
 ```bash
 codeforge
 ```
 
-Launches an interactive terminal menu with step-by-step navigation and back options for all workflows.
+- **Arguments / Options**: None.
+- **Example**:
+  ```bash
+  codeforge
+  ```
 
-## Configuration
+### Initialize Workspace
 
-```bash
-codeforge config
-```
-
-Interactively configures your environment, AI agents (separately for planning and execution), and system language (`en`, `pt`, `es`).
-
-## Initialize
+Initializes CodeForge in the current repository. Creates the `.codeforge` directory structure, detects installed AI coding CLIs, optionally installs missing agents, and prompts for environment, planner agent, and executor agent preferences.
 
 ```bash
 codeforge init
 ```
 
-Initializes CodeForge in the current repository and guides environment setup.
+- **Arguments / Options**: None.
+- **Example**:
+  ```bash
+  codeforge init
+  ```
 
-## Create a specification
+### Configuration
+
+Interactively updates CodeForge configuration settings stored in `.codeforge/config.yaml`. Allows changing the system language (`en`, `pt`, `es`), active environment (`antigravity`, `claude`, `codex`, `cursor`), and assigning dedicated AI agents for planning and execution.
+
+```bash
+codeforge config
+```
+
+- **Arguments / Options**: None.
+- **Example**:
+  ```bash
+  codeforge config
+  ```
+
+---
+
+## Specification & Planning
+
+Commands for creating feature specifications, decomposing them into task graphs (DAG), and validating plan integrity.
+
+### Create Specification
+
+Creates a new Markdown specification template under `.codeforge/specs/<name>.md`. Pre-populates standard sections for requirements, business rules, and acceptance criteria. If the name argument is omitted, prompts interactively.
 
 ```bash
 codeforge spec create [name]
 ```
 
-Creates a new Markdown specification. Prompts interactively if the name is omitted.
+- **Arguments**:
+  - `[name]`: _(Optional)_ Name or slug of the feature (e.g. `user-authentication`). Normalized to lowercase kebab-case.
+- **Examples**:
 
-## Planning
+  ```bash
+  # Interactive mode (prompts for feature name)
+  codeforge spec create
+
+  # Direct specification creation
+  codeforge spec create user-authentication
+  ```
+
+### Generate Plan
+
+Autonomously decomposes a feature specification into a Directed Acyclic Graph (DAG) of executable JSON tasks under `.codeforge/tasks/<spec>/`. Invokes the configured planner agent, deterministically validates the generated tasks, and automatically re-prompts the AI for self-healing if validation errors are detected.
 
 ```bash
 codeforge plan generate [spec]
 ```
 
-Autonomously generates the task DAG using the configured planner agent, with automatic validation and self-healing.
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification to plan. Prompts with a selection list if omitted.
+- **Examples**:
+
+  ```bash
+  # Interactive selection
+  codeforge plan generate
+
+  # Generate plan for a specific specification
+  codeforge plan generate user-authentication
+  ```
+
+### Validate Plan
+
+Deterministically validates generated task files against schema structure, task ID formats, dependency references, and circular dependency rules without calling an AI model. Can validate an entire spec graph or target a specific task file.
 
 ```bash
-codeforge plan validate [spec]
+codeforge plan validate [spec] [taskId]
 ```
 
-Validates the task graph deterministically against schema, dependency, and DAG rules.
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+  - `[taskId]`: _(Optional)_ Specific task ID to validate (e.g. `TASK-001`). If omitted, validates all tasks in the specification.
+- **Examples**:
 
-## Execution
+  ```bash
+  # Validate all tasks in a spec
+  codeforge plan validate user-authentication
+
+  # Validate a single task
+  codeforge plan validate user-authentication TASK-001
+  ```
+
+---
+
+## Execution & Monitoring
+
+Commands for running the autonomous task execution engine and monitoring workflow progress in real time.
+
+### Run Autonomous Execution
+
+Starts or resumes the autonomous execution workflow for a specification. The reactive scheduler resolves the task DAG, isolates fresh context windows per task, streams prompts and rules via stdin, dispatches independent tasks in parallel child processes using the configured executor agent, and marks completed tasks upon successful process termination.
 
 ```bash
 codeforge run [spec]
 ```
 
-Starts or continues the autonomous execution workflow. The reactive scheduler resolves dependencies and dispatches tasks with fresh contexts and live progress monitoring.
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification to execute. Prompts interactively if omitted.
+- **Examples**:
 
-## Task management
+  ```bash
+  # Interactive selection
+  codeforge run
+
+  # Run execution for a spec
+  codeforge run user-authentication
+  ```
+
+### Status Dashboard
+
+Displays the execution progress and state of all tasks for a specification. By default, opens a live, flicker-free dashboard in an alternate screen buffer that refreshes every 2 seconds until completion. Use `--once` to print a static snapshot and exit immediately.
 
 ```bash
-codeforge task retry [spec]
+codeforge status [spec] [options]
 ```
 
-Retries failed tasks for a spec and resumes execution, injecting prior failure errors and diagnostic context into the agent prompt for self-correction.
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+- **Options**:
+  - `--once`: Prints a single snapshot of execution status and exits immediately without entering watch mode.
+- **Examples**:
 
-```bash
-codeforge task reset [spec] [taskId]
-```
+  ```bash
+  # Live dashboard watch mode (interactive spec selection)
+  codeforge status
 
-Resets a specific task or all tasks in a spec back to pending state without immediately executing.
+  # Live dashboard for a specific spec
+  codeforge status user-authentication
+
+  # Print status snapshot once and exit
+  codeforge status user-authentication --once
+  ```
+
+---
+
+## Task Management
+
+Commands for inspecting, retrying, resetting, and manually completing individual tasks within an execution workflow.
+
+### Task Info
+
+Displays complete metadata and content for a specific task, including title, dependencies, files to modify/create, objective, context, implementation steps, constraints, and acceptance criteria.
 
 ```bash
 codeforge task info [spec] [taskId]
 ```
 
-Displays comprehensive task details, including objective, context, files to modify, constraints, and acceptance criteria.
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+  - `[taskId]`: _(Optional)_ ID of the task (e.g. `TASK-001`). Prompts interactively if omitted.
+- **Examples**:
+
+  ```bash
+  # Interactive selection
+  codeforge task info
+
+  # Inspect a specific task
+  codeforge task info user-authentication TASK-001
+  ```
+
+### Retry Failed Tasks
+
+Resets all failed tasks in a specification back to pending state and automatically resumes execution. Injects captured error output, failure logs, and diagnostic context from the previous run directly into the AI agent prompt for self-correction.
+
+```bash
+codeforge task retry [spec]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification to retry. Prompts interactively if omitted.
+- **Examples**:
+
+  ```bash
+  # Interactive selection
+  codeforge task retry
+
+  # Retry failed tasks and resume execution
+  codeforge task retry user-authentication
+  ```
+
+### Reset Tasks
+
+Resets a specific task or all tasks in a specification back to the `pending` state in the execution state without triggering immediate execution. Allows cleanly re-running tasks on demand.
+
+```bash
+codeforge task reset [spec] [taskId]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+  - `[taskId]`: _(Optional)_ Specific task ID to reset (e.g. `TASK-002`). If omitted in interactive mode, prompts to reset an individual task or all tasks.
+- **Examples**:
+
+  ```bash
+  # Interactive reset prompt
+  codeforge task reset
+
+  # Reset a specific task
+  codeforge task reset user-authentication TASK-002
+
+  # Interactive reset for a given spec
+  codeforge task reset user-authentication
+  ```
+
+### Complete Task Manually
+
+Manually marks a specific task as `completed` in the execution state. Useful for recording tasks resolved manually or bypassing an unblockable step. Automatically transitions the overall spec to `completed` if all tasks are finished.
 
 ```bash
 codeforge task complete <spec> <taskId>
 ```
 
-Manually marks a specific task as completed in the execution state.
+- **Arguments**:
+  - `<spec>`: _(Required)_ Name of the specification.
+  - `<taskId>`: _(Required)_ ID of the task to mark as completed (e.g. `TASK-001`).
+- **Examples**:
+  ```bash
+  codeforge task complete user-authentication TASK-001
+  ```
 
-## Status
-
-```bash
-codeforge status [spec]
-```
-
-Opens a live, flicker-free execution dashboard in an alternate screen buffer, watching progress in real time.
-
-```bash
-codeforge status [spec] --once
-```
-
-Prints the current execution status snapshot once and exits.
+---
 
 ## Documentation
 
-```bash
-codeforge docs create [doc-name] [--spec <spec>]
-```
+Commands for generating and updating technical documentation linked to specifications and codebase diffs.
 
-Creates documentation for a completed feature.
+### Create Documentation
 
-```bash
-codeforge docs update
-```
-
-Detects documentation potentially affected by Git changes.
+Autonomously generates technical documentation for a completed feature using the documentation agent. Reads the specification and the implemented code to produce documentation under `.codeforge/docs/<doc-name>.md` and tracks relevant file path patterns in `.codeforge/docs/manifest.json`.
 
 ```bash
-codeforge docs update --doc <name>
+codeforge docs create [doc-name] [options]
 ```
 
-Updates a specific document directly.
+- **Arguments**:
+  - `[doc-name]`: _(Optional)_ Name of the document to create. Prompts interactively if omitted.
+- **Options**:
+  - `--spec <spec>`: _(Optional)_ Name of the completed specification associated with the documentation.
+- **Examples**:
+
+  ```bash
+  # Interactive mode
+  codeforge docs create
+
+  # Create documentation linked to a spec
+  codeforge docs create auth-architecture --spec user-authentication
+  ```
+
+### Update Documentation
+
+Incrementally updates existing documentation affected by recent codebase changes. In automatic mode, analyzes Git diffs and matches modified files against scope globs in `.codeforge/docs/manifest.json`, prompting the user to review affected docs. With `--doc`, updates a specific document directly.
+
+```bash
+codeforge docs update [spec] [options]
+```
+
+- **Arguments**:
+  - `[spec]`: _(Optional)_ Name of the specification to evaluate changes against. Prompts interactively if omitted.
+- **Options**:
+  - `--doc <name>`: _(Optional)_ Manually specify which document to update, skipping automated Git scope matching.
+- **Examples**:
+
+  ```bash
+  # Automatic scope matching via Git diff
+  codeforge docs update user-authentication
+
+  # Interactive selection
+  codeforge docs update
+
+  # Manually update a specific document
+  codeforge docs update user-authentication --doc auth-architecture
+  ```
 
 ---
 
@@ -778,6 +1024,8 @@ Current and planned areas include:
 CodeForge is open source and still evolving.
 
 Issues, discussions, ideas, and pull requests are welcome.
+
+For guidelines on setting up your local development environment, coding standards, and submitting pull requests, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 If you try it in a real project, feedback about where the workflow breaks down is especially valuable.
 
