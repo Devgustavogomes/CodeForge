@@ -5,26 +5,31 @@ import { AgentRunner, TaskContext } from "./AgentRunner.js";
 export class CodexRunner implements AgentRunner {
   async execute(context: TaskContext): Promise<void> {
     return new Promise((resolve, reject) => {
-      const promptContent = fs.readFileSync(context.promptFilePath, "utf-8");
-
       const args = [
-        "exec",
         "--ask-for-approval",
         "never",
+        "exec",
         "--sandbox",
         "workspace-write",
-        promptContent,
       ];
 
       if (context.model) {
         args.push("--model", context.model);
       }
 
+      args.push("-");
+
       const child = spawn("codex", args, {
-        stdio: context.silent ? "pipe" : "inherit",
-        shell: false,
+        stdio: [
+          "pipe",
+          context.silent ? "pipe" : "inherit",
+          context.silent ? "pipe" : "inherit",
+        ],
+        shell: process.platform === "win32",
         cwd: process.cwd(),
       });
+
+      fs.createReadStream(context.promptFilePath).pipe(child.stdin!);
 
       let outputBuffer = "";
       if (context.silent) {
@@ -55,13 +60,24 @@ export class CodexRunner implements AgentRunner {
         }
       });
 
-      child.on("error", (error) => {
-        reject(error);
-      });
+      child.on("error", reject);
     });
   }
 
   async getAvailableAgents(): Promise<string[]> {
-    return ["codex-default"];
+    return [
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-5.6-luna",
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.3-codex",
+      "gpt-5.2",
+      "gpt-5.1",
+      "gpt-5",
+      "gpt-4.1",
+      "gpt-4.1-mini",
+    ];
   }
 }
