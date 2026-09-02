@@ -1,8 +1,8 @@
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { validatePlan } from "../../../application/validate.js";
-import { getAvailableSpecs } from "../../../application/plan.js";
+import { ListSpecsUseCase } from "../../../application/use-cases/ListSpecsUseCase.js";
+import { ValidatePlanUseCase } from "../../../application/use-cases/ValidatePlanUseCase.js";
 import { translate } from "../../ui/i18n.js";
 import { ConfigService } from "../../../config/ConfigService.js";
 
@@ -20,7 +20,7 @@ export function registerPlanValidateCommand(plan: Command): void {
       let specName = spec;
 
       if (!specName) {
-        const specs = getAvailableSpecs(gw);
+        const specs = new ListSpecsUseCase(gw).execute();
 
         if (specs.length === 0) {
           console.error(translate("err_no_specs_run", lang));
@@ -45,7 +45,8 @@ export function registerPlanValidateCommand(plan: Command): void {
         }
       }
 
-      const result = validatePlan(gw, specName, taskId);
+      const useCase = new ValidatePlanUseCase(gw);
+      const result = useCase.execute(specName as string, taskId);
 
       switch (result.kind) {
         case "not-initialized":

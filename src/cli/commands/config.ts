@@ -1,9 +1,8 @@
 import { Command } from "commander";
 import { select, input } from "@inquirer/prompts";
-import { ConfigService } from "../../config/ConfigService.js";
 import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { CodeForgeConfig, SupportedLanguage } from "../../config/types.js";
-import { getEnvironmentChoices, getAgentChoices } from "../../application/config-options.js";
+import { ConfigureEnvironmentUseCase } from "../../application/use-cases/ConfigureEnvironmentUseCase.js";
 import { translate } from "../ui/i18n.js";
 
 export function registerConfigCommand(program: Command): void {
@@ -12,8 +11,8 @@ export function registerConfigCommand(program: Command): void {
     .description("Interactively update CodeForge configuration")
     .action(async () => {
       const gw = new NodeWorkspaceGateway(process.cwd());
-      const configService = new ConfigService(gw);
-      const config = configService.loadConfig();
+      const envUseCase = new ConfigureEnvironmentUseCase(gw);
+      const config = envUseCase.loadConfig();
 
       const lang = config?.language || "en";
 
@@ -58,7 +57,7 @@ export function registerConfigCommand(program: Command): void {
             return true;
           },
           environment: async (c) => {
-            const envChoices = await getEnvironmentChoices();
+            const envChoices = envUseCase.getAvailableEnvironments().map((env) => ({ name: env, value: env }));
             const val = await select({
               message: translate("config_select_env", lang),
               choices: [...envChoices, { name: translate("menu_back", lang), value: "back" }],
@@ -70,7 +69,8 @@ export function registerConfigCommand(program: Command): void {
             return true;
           },
           plannerAgent: async (c) => {
-            const agentChoices = await getAgentChoices(c.environment);
+            const agents = await envUseCase.getAgentsForEnvironment(c.environment);
+            const agentChoices = agents.map((agent) => ({ name: agent, value: agent }));
             if (agentChoices.length > 0) {
               const val = await select({
                 message: translate("config_select_planner", lang),
@@ -90,7 +90,8 @@ export function registerConfigCommand(program: Command): void {
             return true;
           },
           executorAgent: async (c) => {
-            const agentChoices = await getAgentChoices(c.environment);
+            const agents = await envUseCase.getAgentsForEnvironment(c.environment);
+            const agentChoices = agents.map((agent) => ({ name: agent, value: agent }));
             if (agentChoices.length > 0) {
               const val = await select({
                 message: translate("config_select_executor", lang),
@@ -114,7 +115,7 @@ export function registerConfigCommand(program: Command): void {
         if (handlers[key]) {
           const updated = await handlers[key](config);
           if (updated) {
-            configService.saveConfig(config);
+            envUseCase.saveConfig(config);
             console.log(translate("config_updated", lang, { key, value: String(config[key as keyof CodeForgeConfig]) }));
           }
         }

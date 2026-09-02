@@ -1,8 +1,8 @@
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { getAvailableSpecs } from "../../../application/plan.js";
-import { getAvailableTasks, getTaskInfo } from "../../../application/task-operations.js";
+import { TaskOperationsUseCase } from "../../../application/use-cases/TaskOperationsUseCase.js";
+import { ListSpecsUseCase } from "../../../application/use-cases/ListSpecsUseCase.js";
 import { translate } from "../../ui/i18n.js";
 import { ConfigService } from "../../../config/ConfigService.js";
 
@@ -21,7 +21,7 @@ export function registerTaskInfoCommand(task: Command): void {
 
       // Select Spec
       if (!specName) {
-        const specs = getAvailableSpecs(gw);
+        const specs = new ListSpecsUseCase(gw).execute();
         if (specs.length === 0) {
           console.error("\n✗ No specs found.\n");
           process.exitCode = 1;
@@ -46,8 +46,9 @@ export function registerTaskInfoCommand(task: Command): void {
       }
 
       // Select Task
+      const useCase = new TaskOperationsUseCase(gw);
       if (!selectedTask) {
-        const tasksResult = getAvailableTasks(gw, specName);
+        const tasksResult = useCase.getAvailableTasks(specName);
         if (tasksResult.kind === "spec-not-found") {
           console.error(
             `\n✗ No tasks found for spec '${specName}'. Run 'plan generate' first.\n`,
@@ -67,7 +68,7 @@ export function registerTaskInfoCommand(task: Command): void {
         });
       }
 
-      const result = getTaskInfo(gw, specName, selectedTask);
+      const result = useCase.getTaskInfo(specName, selectedTask as string);
 
       switch (result.kind) {
         case "spec-not-found":

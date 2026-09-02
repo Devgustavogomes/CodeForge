@@ -1,8 +1,8 @@
 import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { getAvailableSpecs } from "../../application/plan.js";
-import { getSpecStatus, formatStatusOutput } from "../../application/status.js";
+import { ListSpecsUseCase } from "../../application/use-cases/ListSpecsUseCase.js";
+import { GetSpecStatusUseCase, formatStatusOutput } from "../../application/use-cases/GetSpecStatusUseCase.js";
 import { translate } from "../ui/i18n.js";
 import { ConfigService } from "../../config/ConfigService.js";
 
@@ -20,7 +20,7 @@ export function registerStatusCommand(program: Command): void {
       let specName = spec;
 
       if (!specName) {
-        const specs = getAvailableSpecs(gw);
+        const specs = new ListSpecsUseCase(gw).execute();
 
         if (specs.length === 0) {
           console.error(translate("err_no_specs_run", lang));
@@ -46,7 +46,8 @@ export function registerStatusCommand(program: Command): void {
       }
 
       // Validate once before entering loop
-      const initial = getSpecStatus(gw, specName);
+      const useCase = new GetSpecStatusUseCase(gw);
+      const initial = useCase.execute(specName);
 
       switch (initial.kind) {
         case "not-initialized":
@@ -78,7 +79,7 @@ export function registerStatusCommand(program: Command): void {
       };
 
       const render = () => {
-        const result = getSpecStatus(gw, specName as string);
+        const result = useCase.execute(specName as string);
         process.stdout.write("\x1b[H");
         if (result.kind === "status") {
           process.stdout.write(formatStatusOutput(result));

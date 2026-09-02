@@ -1,7 +1,7 @@
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { getAvailableSpecs } from "../../../application/plan.js";
+import { ListSpecsUseCase } from "../../../application/use-cases/ListSpecsUseCase.js";
 import { ConfigService } from "../../../config/ConfigService.js";
 import { RunnerFactory } from "../../../runners/RunnerFactory.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
@@ -28,7 +28,8 @@ export function registerPlanGenerateCommand(plan: Command): void {
       let selectedSpec = spec;
 
       if (!selectedSpec) {
-        const specs = getAvailableSpecs(gw);
+        const useCase = new ListSpecsUseCase(gw);
+        const specs = useCase.execute();
 
         if (specs.length === 0) {
           console.error(translate("err_no_specs", lang));

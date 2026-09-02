@@ -1,12 +1,8 @@
 import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
-import { initializeWorkspace } from "../../application/initialize-workspace.js";
+import { InitializeWorkspaceUseCase } from "../../application/use-cases/InitializeWorkspaceUseCase.js";
+import { ConfigureEnvironmentUseCase } from "../../application/use-cases/ConfigureEnvironmentUseCase.js";
 import { select, input } from "@inquirer/prompts";
-import { RunnerFactory } from "../../runners/RunnerFactory.js";
-import {
-  getAgentsForEnvironment,
-  saveConfiguration,
-} from "../../application/configure-environment.js";
 import { translate } from "../ui/i18n.js";
 import { ConfigService } from "../../config/ConfigService.js";
 
@@ -21,7 +17,8 @@ export function registerInitCommand(program: Command): void {
       const config = configService.loadConfig();
       const lang = config?.language || "en";
 
-      const result = initializeWorkspace(gw);
+      const useCase = new InitializeWorkspaceUseCase(gw);
+      const result = useCase.execute();
 
       switch (result.kind) {
         case "already-initialized":
@@ -38,17 +35,18 @@ export function registerInitCommand(program: Command): void {
           break;
       }
 
-      const environments = RunnerFactory.getAvailableEnvironments();
+      const envUseCase = new ConfigureEnvironmentUseCase(gw);
+      const environments = envUseCase.getAvailableEnvironments();
       const environment = await select({
         message: translate("init_select_env", lang),
         choices: environments.map((env) => ({ name: env, value: env })),
       });
 
       console.log(translate("init_introspecting", lang, { environment }));
-      const availableAgents = await getAgentsForEnvironment(environment);
+      const availableAgents = await envUseCase.getAgentsForEnvironment(environment);
 
-      let plannerAgent = "";
-      let executorAgent = "";
+      let plannerAgent: string;
+      let executorAgent: string;
 
       if (availableAgents.length > 0) {
         plannerAgent = await select({
@@ -76,7 +74,7 @@ export function registerInitCommand(program: Command): void {
         });
       }
 
-      saveConfiguration(gw, { environment, plannerAgent, executorAgent, language: lang });
+      envUseCase.saveConfig({ environment, plannerAgent, executorAgent, language: lang });
 
       console.log(translate("init_config_saved", lang));
 

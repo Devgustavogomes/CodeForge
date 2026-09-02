@@ -1,13 +1,16 @@
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { Command } from "commander";
-import { retryTask } from "../../../application/task-operations.js";
+import { TaskOperationsUseCase } from "../../../application/use-cases/TaskOperationsUseCase.js";
+
 export function registerTaskRetryCommand(task: Command): void {
   task
-    .command("retry <spec> <taskId>")
-    .description("Reset a failed or running task back to pending")
-    .action((spec: string, taskId: string) => {
+    .command("retry <spec-name> <task-id>")
+    .description("Mark a completed or failed task as pending to be run again")
+    .action((specName: string, taskId: string) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
-      const result = retryTask(gw, spec, taskId);
+      
+      const useCase = new TaskOperationsUseCase(gw);
+      const result = useCase.retryTask(specName, taskId);
 
       switch (result.kind) {
         case "not-found":
@@ -26,7 +29,7 @@ export function registerTaskRetryCommand(task: Command): void {
           break;
         case "retried":
           console.log(
-            `\n✓ Task '${taskId}' for spec '${spec}' reset to pending. Run \`codeforge run ${spec}\` to re-execute.\n`,
+            `\n✓ Task '${taskId}' for spec '${specName}' reset to pending. Run \`codeforge run ${specName}\` to re-execute.\n`,
           );
           break;
       }

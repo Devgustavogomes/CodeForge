@@ -1,20 +1,25 @@
-import fs from "node:fs";
 import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
 import { NodeGitGateway } from "../../../infrastructure/git/NodeGitGateway.js";
 import { Command } from "commander";
 import { select, confirm } from "@inquirer/prompts";
-import { getAvailableSpecs } from "../../../application/plan.js";
+import { ListSpecsUseCase } from "../../../application/use-cases/ListSpecsUseCase.js";
 import { ConfigService } from "../../../config/ConfigService.js";
 import { RunnerFactory } from "../../../runners/RunnerFactory.js";
-import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 import { UpdateDocUseCase } from "../../../application/use-cases/UpdateDocUseCase.js";
+import { AffectedDoc } from "../../../domain/doc.js";
 import { translate } from "../../ui/i18n.js";
+import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 
 export function registerDocsUpdateCommand(docs: Command): void {
   docs
     .command("update [spec]")
-    .description("Update documentation autonomously affected by changes from a spec execution")
-    .option("--doc <doc>", "Manually specify which doc to update (skips scope matching)")
+    .description(
+      "Update documentation autonomously affected by changes from a spec execution",
+    )
+    .option(
+      "--doc <doc>",
+      "Manually specify which doc to update (skips scope matching)",
+    )
     .action(async (spec?: string, options?: { doc?: string }) => {
       const gw = new NodeWorkspaceGateway(process.cwd());
       const git = new NodeGitGateway(gw);
@@ -32,7 +37,8 @@ export function registerDocsUpdateCommand(docs: Command): void {
       let selectedSpec = spec;
 
       if (!selectedSpec) {
-        const specs = getAvailableSpecs(gw);
+        const useCase = new ListSpecsUseCase(gw);
+        const specs = useCase.execute();
 
         if (specs.length === 0) {
           console.error(translate("err_no_specs", lang));
@@ -44,7 +50,7 @@ export function registerDocsUpdateCommand(docs: Command): void {
           message: translate("docs_update_select_spec", lang),
           choices: [
             { name: translate("menu_back", lang), value: "back" },
-            ...specs.map((s) => ({ name: s, value: s }))
+            ...specs.map((s) => ({ name: s, value: s })),
           ],
         });
 
@@ -61,8 +67,15 @@ export function registerDocsUpdateCommand(docs: Command): void {
       const useCase = new UpdateDocUseCase(gw, git, runner, config);
 
       // Helper function to execute prompt using the usecase and UI
-      const executeDocUpdate = async (docName: string, affectedDoc: any, isManual: boolean) => {
-        const ui = new AgentProgressUI(translate("docs_update_ui_updating", lang, { docName }), config.plannerAgent);
+      const executeDocUpdate = async (
+        docName: string,
+        affectedDoc: AffectedDoc,
+        isManual: boolean,
+      ) => {
+        const ui = new AgentProgressUI(
+          translate("docs_update_ui_updating", lang, { docName }),
+          config.plannerAgent,
+        );
         console.log(translate("docs_update_updating_log", lang, { docName }));
         ui.init();
         ui.start();
@@ -91,7 +104,11 @@ export function registerDocsUpdateCommand(docs: Command): void {
             process.exitCode = 1;
             return;
           case "spec-not-found":
-            console.error(translate("err_spec_not_found", lang, { spec: selectedSpec as string }));
+            console.error(
+              translate("err_spec_not_found", lang, {
+                spec: selectedSpec as string,
+              }),
+            );
             process.exitCode = 1;
             return;
           case "rules-not-found":
@@ -99,7 +116,11 @@ export function registerDocsUpdateCommand(docs: Command): void {
             process.exitCode = 1;
             return;
           case "doc-not-found":
-            console.error(translate("docs_update_err_doc_not_found", lang, { doc: options.doc }));
+            console.error(
+              translate("docs_update_err_doc_not_found", lang, {
+                doc: options.doc,
+              }),
+            );
             process.exitCode = 1;
             return;
           case "doc": {
@@ -119,7 +140,11 @@ export function registerDocsUpdateCommand(docs: Command): void {
           process.exitCode = 1;
           return;
         case "spec-not-found":
-          console.error(translate("err_spec_not_found", lang, { spec: selectedSpec as string }));
+          console.error(
+            translate("err_spec_not_found", lang, {
+              spec: selectedSpec as string,
+            }),
+          );
           process.exitCode = 1;
           return;
         case "rules-not-found":
@@ -135,7 +160,11 @@ export function registerDocsUpdateCommand(docs: Command): void {
           process.exitCode = 1;
           return;
         case "no-affected-docs":
-          console.error(translate("docs_update_err_no_affected_docs", lang, { spec: selectedSpec as string }));
+          console.error(
+            translate("docs_update_err_no_affected_docs", lang, {
+              spec: selectedSpec as string,
+            }),
+          );
           process.exitCode = 1;
           return;
         case "affected-docs":
@@ -144,9 +173,18 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       const { affectedDocs } = result;
 
-      console.log(translate("docs_update_affected_count", lang, { count: affectedDocs.length }));
+      console.log(
+        translate("docs_update_affected_count", lang, {
+          count: affectedDocs.length,
+        }),
+      );
       for (const doc of affectedDocs) {
-        console.log(translate("docs_update_affected_item", lang, { docName: doc.docName, files: doc.matchedFiles.join(", ") }));
+        console.log(
+          translate("docs_update_affected_item", lang, {
+            docName: doc.docName,
+            files: doc.matchedFiles.join(", "),
+          }),
+        );
       }
       console.log();
 
@@ -154,7 +192,10 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
       while (remaining.length > 0) {
         const choices = remaining.map((doc) => ({
-          name: translate("docs_update_doc_choice", lang, { docName: doc.docName, count: doc.matchedFiles.length }),
+          name: translate("docs_update_doc_choice", lang, {
+            docName: doc.docName,
+            count: doc.matchedFiles.length,
+          }),
           value: doc.docName,
         }));
 
@@ -174,7 +215,9 @@ export function registerDocsUpdateCommand(docs: Command): void {
 
         if (remaining.length > 0) {
           const continueProcessing = await confirm({
-            message: translate("docs_update_process_another", lang, { remaining: remaining.length }),
+            message: translate("docs_update_process_another", lang, {
+              remaining: remaining.length,
+            }),
             default: true,
           });
 

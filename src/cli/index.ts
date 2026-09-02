@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { registerInitCommand } from "./cli/commands/init.js";
-import { registerSpecCreateCommand } from "./cli/commands/spec/create.js";
-import { registerPlanGenerateCommand } from "./cli/commands/plan/generate.js";
-import { registerPlanValidateCommand } from "./cli/commands/plan/validate.js";
-import { registerRunCommand } from "./cli/commands/run.js";
-import { registerStatusCommand } from "./cli/commands/status.js";
-import { registerTaskCompleteCommand } from "./cli/commands/task/complete.js";
-import { registerTaskRetryCommand } from "./cli/commands/task/retry.js";
-import { registerTaskInfoCommand } from "./cli/commands/task/info.js";
-import { registerDocsCreateCommand } from "./cli/commands/docs/create.js";
-import { registerDocsUpdateCommand } from "./cli/commands/docs/update.js";
-import { registerConfigCommand } from "./cli/commands/config.js";
+import { registerInitCommand } from "./commands/init.js";
+import { registerSpecCreateCommand } from "./commands/spec/create.js";
+import { registerPlanGenerateCommand } from "./commands/plan/generate.js";
+import { registerPlanValidateCommand } from "./commands/plan/validate.js";
+import { registerRunCommand } from "./commands/run.js";
+import { registerStatusCommand } from "./commands/status.js";
+import { registerTaskCompleteCommand } from "./commands/task/complete.js";
+import { registerTaskRetryCommand } from "./commands/task/retry.js";
+import { registerTaskInfoCommand } from "./commands/task/info.js";
+import { registerDocsCreateCommand } from "./commands/docs/create.js";
+import { registerDocsUpdateCommand } from "./commands/docs/update.js";
+import { registerConfigCommand } from "./commands/config.js";
 
-import { runInteractiveMenu } from "./cli/interactive.js";
+import { runInteractiveMenu } from "./interactive.js";
 
 const program = new Command();
 

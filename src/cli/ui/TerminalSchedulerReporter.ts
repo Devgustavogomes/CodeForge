@@ -1,6 +1,6 @@
 import { SchedulerReporter } from "../../application/ports/SchedulerReporter.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
-import { getSpecStatus, formatStatusOutput } from "../../application/status.js";
+import { GetSpecStatusUseCase, formatStatusOutput } from "../../application/use-cases/GetSpecStatusUseCase.js";
 
 export class TerminalSchedulerReporter implements SchedulerReporter {
   private intervalId?: NodeJS.Timeout;
@@ -14,7 +14,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   constructor(private readonly gw: WorkspaceGateway) {}
 
   private getFormattedStatus(specName: string): string {
-    const result = getSpecStatus(this.gw, specName);
+    const useCase = new GetSpecStatusUseCase(this.gw);
+    const result = useCase.execute(specName);
     if (result.kind === "status") {
       return formatStatusOutput(result);
     }

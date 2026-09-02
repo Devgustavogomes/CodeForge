@@ -1,13 +1,15 @@
 import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { getAvailableSpecs } from "../../application/plan.js";
+import { ListSpecsUseCase } from "../../application/use-cases/ListSpecsUseCase.js";
 import { ConfigService } from "../../config/ConfigService.js";
 import { RunnerFactory } from "../../runners/RunnerFactory.js";
 import { TaskScheduler } from "../../scheduler/TaskScheduler.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
 import { translate } from "../ui/i18n.js";
+import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
+import { PromptService } from "../../application/services/PromptService.js";
 
 export function registerRunCommand(program: Command): void {
   program
@@ -35,7 +37,8 @@ export function registerRunCommand(program: Command): void {
       let specName = spec;
 
       if (!specName) {
-        const specs = getAvailableSpecs(gw);
+        const listSpecsUseCase = new ListSpecsUseCase(gw);
+        const specs = listSpecsUseCase.execute();
 
         if (specs.length === 0) {
           console.error(translate("err_no_specs_run", lang));
@@ -62,7 +65,9 @@ export function registerRunCommand(program: Command): void {
 
       const runner = RunnerFactory.createRunner(config.environment);
       const reporter = new TerminalSchedulerReporter(gw);
-      const scheduler = new TaskScheduler(gw, runner, config, reporter);
+      const stateRepo = new ExecutionStateRepository(gw);
+      const promptService = new PromptService(gw);
+      const scheduler = new TaskScheduler(gw, runner, config, stateRepo, promptService, reporter);
 
       await scheduler.run(specName, config.executorAgent);
     });
