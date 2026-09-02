@@ -2,16 +2,10 @@ import { WorkspaceGateway } from "../infrastructure/workspace.js";
 import { AgentRunner, TaskContext } from "../runners/AgentRunner.js";
 import { DAGResolver } from "./DAGResolver.js";
 import { Task } from "../domain/task.js";
-import { buildContextPrompt } from "../application/context-builder.js";
+import { ExecutionStateRepository } from "../infrastructure/repositories/ExecutionStateRepository.js";
+import { PromptService } from "../application/services/PromptService.js";
 import { PATHS } from "../infrastructure/paths.js";
 import { SchedulerReporter } from "../application/ports/SchedulerReporter.js";
-
-import {
-  loadExecutionState,
-  saveExecutionState,
-  initExecutionState,
-} from "../application/execution-state.js";
-
 import { CodeForgeConfig } from "../config/types.js";
 
 export class TaskScheduler {
@@ -19,6 +13,8 @@ export class TaskScheduler {
     private gw: WorkspaceGateway,
     private runner: AgentRunner,
     private config: CodeForgeConfig,
+    private stateRepo: ExecutionStateRepository,
+    private promptService: PromptService,
     private reporter?: SchedulerReporter,
   ) {}
 
@@ -43,30 +39,26 @@ export class TaskScheduler {
       return;
     }
 
-    let state = loadExecutionState(this.gw, specName);
+    let state = this.stateRepo.load(specName);
     if (!state) {
-      state = initExecutionState(specName, tasks);
-      saveExecutionState(this.gw, state);
+      state = this.stateRepo.init(specName, tasks);
+      this.stateRepo.save(state);
     } else {
       if (state.status === "completed") {
         this.reporter?.onComplete(specName);
         return;
       }
       state.status = "running";
-      saveExecutionState(this.gw, state);
+      this.stateRepo.save(state);
     }
 
     const resolver = new DAGResolver();
-    const specExecDir = `${PATHS.executionsDir}/${specName}`;
-    if (!this.gw.exists(specExecDir)) {
-      this.gw.mkdir(specExecDir);
-    }
 
     this.reporter?.onStart(specName);
 
     try {
       while (true) {
-        state = loadExecutionState(this.gw, specName);
+        state = this.stateRepo.load(specName);
         if (!state) break;
 
         if (state.status === "completed") {
@@ -92,7 +84,7 @@ export class TaskScheduler {
           if (runningTasksCount === 0 && pendingTasksCount === 0) {
             state.status = "completed";
             state.completedAt = new Date().toISOString();
-            saveExecutionState(this.gw, state);
+            this.stateRepo.save(state);
             this.reporter?.onComplete(specName);
             break;
           }
@@ -105,18 +97,16 @@ export class TaskScheduler {
           const task = tasks.find((t) => t.id === taskId);
           if (!task) return;
 
-          let currentState = loadExecutionState(this.gw, specName);
+          const currentState = this.stateRepo.load(specName);
           if (currentState) {
             currentState.tasks[task.id].status = "running";
             currentState.tasks[task.id].startedAt = new Date().toISOString();
             if (!currentState.startedAt) currentState.startedAt = new Date().toISOString();
-            saveExecutionState(this.gw, currentState);
+            this.stateRepo.save(currentState);
             this.reporter?.onUpdate(specName);
           }
 
-          const promptPath = `${specExecDir}/${task.id}.temp.prompt.md`;
-          const promptContent = buildContextPrompt(this.gw, specName, task, this.config.language);
-          this.gw.writeFile(promptPath, promptContent);
+          const promptPath = this.promptService.createPromptFile(specName, task, this.config.language);
 
           const context: TaskContext = {
             promptFilePath: promptPath,
@@ -129,15 +119,15 @@ export class TaskScheduler {
           try {
             await this.runner.execute(context);
 
-            let postState = loadExecutionState(this.gw, specName);
+            const postState = this.stateRepo.load(specName);
             if (postState) {
               postState.tasks[task.id].status = "completed";
               postState.tasks[task.id].completedAt = new Date().toISOString();
-              saveExecutionState(this.gw, postState);
+              this.stateRepo.save(postState);
               this.reporter?.onUpdate(specName);
             }
           } catch (error) {
-            let errState = loadExecutionState(this.gw, specName);
+            const errState = this.stateRepo.load(specName);
             if (errState) {
               errState.tasks[task.id].status = "failed";
               errState.tasks[task.id].completedAt = new Date().toISOString();
@@ -148,12 +138,12 @@ export class TaskScheduler {
               }
               errState.tasks[task.id].errors!.push(errorMessage);
               
-              saveExecutionState(this.gw, errState);
+              this.stateRepo.save(errState);
               this.reporter?.onUpdate(specName);
             }
             this.reporter?.onError(error instanceof Error ? error : String(error));
           } finally {
-            this.gw.deleteFile(promptPath);
+            this.promptService.deletePromptFile(promptPath);
           }
         });
 

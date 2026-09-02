@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
-import { preparePlanningPrompt } from "../plan.js";
-import { validatePlan } from "../validate.js";
-import { buildPlanningFixPrompt } from "../../prompts/planning.js";
+import { PATHS } from "../../infrastructure/paths.js";
+import { ValidatePlanUseCase } from "./ValidatePlanUseCase.js";
+import { buildPlanningFixPrompt, buildPlanningPrompt } from "../../infrastructure/assets/prompts/planning.js";
 import { CodeForgeConfig } from "../../config/types.js";
 
 export type GeneratePlanResult =
@@ -14,28 +14,46 @@ export type GeneratePlanResult =
   | { kind: "valid"; autoRun?: boolean };
 
 export class GeneratePlanUseCase {
+  private validateUseCase: ValidatePlanUseCase;
+
   constructor(
     private readonly workspace: WorkspaceGateway,
     private readonly runner: AgentRunner,
     private readonly config: CodeForgeConfig,
-  ) {}
+  ) {
+    this.validateUseCase = new ValidatePlanUseCase(this.workspace);
+  }
 
   async execute(specName: string, model: string): Promise<GeneratePlanResult> {
-    const result = preparePlanningPrompt(this.workspace, specName, this.config.language);
-
-    if (result.kind === "not-initialized") {
+    if (!this.workspace.exists(PATHS.metadata)) {
       return { kind: "not-initialized" };
     }
-    if (result.kind === "spec-not-found") {
+
+    const specPath = PATHS.specFile(specName);
+    if (!this.workspace.exists(specPath)) {
       return { kind: "spec-not-found" };
     }
+
+    let rulesContent = "";
+    if (this.workspace.exists(PATHS.planningRules)) {
+      rulesContent = this.workspace.readFile(PATHS.planningRules);
+    }
+
+    const specContent = this.workspace.readFile(specPath);
+
+    const specTasksDir = `${PATHS.tasksDir}/${specName}`;
+    if (!this.workspace.exists(specTasksDir)) {
+      this.workspace.mkdir(specTasksDir);
+    }
+
+    const prompt = buildPlanningPrompt(specName, specContent, rulesContent, specTasksDir, this.config.language);
 
     const plansDir = ".codeforge/plans";
     if (!this.workspace.exists(plansDir)) {
       this.workspace.mkdir(plansDir);
     }
     const promptPath = `${plansDir}/${specName}.temp.prompt.md`;
-    this.workspace.writeFile(promptPath, result.prompt);
+    this.workspace.writeFile(promptPath, prompt);
 
     const context: TaskContext = {
       promptFilePath: promptPath,
@@ -46,14 +64,14 @@ export class GeneratePlanUseCase {
 
     try {
       await this.runner.execute(context);
-      let valResult = validatePlan(this.workspace, specName);
+      let valResult = this.validateUseCase.execute(specName);
 
       if (valResult.kind === "invalid") {
         const fixPrompt = buildPlanningFixPrompt(specName, valResult.errors, this.config.language);
         this.workspace.writeFile(promptPath, fixPrompt);
         
         await this.runner.execute(context);
-        valResult = validatePlan(this.workspace, specName);
+        valResult = this.validateUseCase.execute(specName);
       }
 
       if (valResult.kind === "spec-not-found") {

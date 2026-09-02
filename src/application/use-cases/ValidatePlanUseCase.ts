@@ -1,6 +1,6 @@
-import { Task } from "../domain/task.js";
-import { WorkspaceGateway } from "../infrastructure/workspace.js";
-import { PATHS } from "../infrastructure/paths.js";
+import { Task } from "../../domain/task.js";
+import { WorkspaceGateway } from "../../infrastructure/workspace.js";
+import { PATHS } from "../../infrastructure/paths.js";
 
 export type ValidationResult =
   | { kind: "not-initialized" }
@@ -49,44 +49,43 @@ function hasCycle(adjList: Map<string, string[]>): string[] | null {
   return null;
 }
 
-export function validatePlan(
-  gw: WorkspaceGateway,
-  specName: string,
-  taskId?: string,
-): ValidationResult {
-  if (!gw.exists(PATHS.metadata)) {
+export class ValidatePlanUseCase {
+  constructor(private readonly gw: WorkspaceGateway) {}
+
+  execute(specName: string, taskId?: string): ValidationResult {
+    if (!this.gw.exists(PATHS.metadata)) {
     return { kind: "not-initialized" };
   }
 
-  const tasksDir = `${PATHS.tasksDir}/${specName}`;
-  if (!gw.exists(tasksDir)) {
-    return { kind: "spec-not-found" };
-  }
+    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    if (!this.gw.exists(tasksDir)) {
+      return { kind: "spec-not-found" };
+    }
 
-  const errors: string[] = [];
-  let files = gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
+    const errors: string[] = [];
+    let files = this.gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
 
-  if (taskId) {
-    const expectedFile = `${taskId}.json`;
-    if (!files.includes(expectedFile)) {
-      errors.push(`Task file ${expectedFile} not found.`);
+    if (taskId) {
+      const expectedFile = `${taskId}.json`;
+      if (!files.includes(expectedFile)) {
+        errors.push(`Task file ${expectedFile} not found.`);
+        return { kind: "invalid", errors };
+      }
+      files = [expectedFile];
+    }
+
+    if (files.length === 0) {
+      errors.push("No JSON files found in tasks directory.");
       return { kind: "invalid", errors };
     }
-    files = [expectedFile];
-  }
 
-  if (files.length === 0) {
-    errors.push("No JSON files found in tasks directory.");
-    return { kind: "invalid", errors };
-  }
+    const taskMap = new Map<string, Task>();
+    const declaredIds = new Set<string>();
 
-  const taskMap = new Map<string, Task>();
-  const declaredIds = new Set<string>();
-
-  // 1. File parsing and schema validation
-  for (const file of files) {
-    const filePath = `${tasksDir}/${file}`;
-    const raw = gw.readFile(filePath);
+    // 1. File parsing and schema validation
+    for (const file of files) {
+      const filePath = `${tasksDir}/${file}`;
+      const raw = this.gw.readFile(filePath);
 
     let json: Partial<Task>;
     try {
@@ -175,5 +174,6 @@ export function validatePlan(
     errors.push(`Circular dependency detected: ${cycle.join(" -> ")}`);
   }
 
-  return errors.length === 0 ? { kind: "valid" } : { kind: "invalid", errors };
+    return errors.length === 0 ? { kind: "valid" } : { kind: "invalid", errors };
+  }
 }

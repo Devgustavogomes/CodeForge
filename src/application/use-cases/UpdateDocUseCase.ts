@@ -4,9 +4,26 @@ import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { CodeForgeConfig } from "../../config/types.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { minimatch } from "minimatch";
-import { buildDocsUpdatePrompt, buildDocsManualUpdatePrompt } from "../../prompts/docs.js";
-import { loadOrCreateManifest, AffectedDoc, DocsUpdateResult, ManualDocUpdateResult } from "../docs.js";
+import { buildDocsUpdatePrompt, buildDocsManualUpdatePrompt } from "../../infrastructure/assets/prompts/docs.js";
+import { AffectedDoc } from "../../domain/doc.js";
+import { DocsManifestRepository } from "../../infrastructure/repositories/DocsManifestRepository.js";
 import fs from "node:fs";
+
+export type DocsUpdateResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "rules-not-found" }
+  | { kind: "no-git" }
+  | { kind: "no-changed-files" }
+  | { kind: "no-affected-docs" }
+  | { kind: "affected-docs"; affectedDocs: AffectedDoc[] };
+
+export type ManualDocUpdateResult =
+  | { kind: "not-initialized" }
+  | { kind: "spec-not-found" }
+  | { kind: "rules-not-found" }
+  | { kind: "doc-not-found" }
+  | { kind: "doc"; doc: AffectedDoc };
 
 export class UpdateDocUseCase {
   constructor(
@@ -26,7 +43,7 @@ export class UpdateDocUseCase {
     const changedFiles = this.git.getChangedFiles();
     if (changedFiles.length === 0) return { kind: "no-changed-files" };
 
-    const manifest = loadOrCreateManifest(this.gw, PATHS.docsManifest);
+    const manifest = new DocsManifestRepository(this.gw).load();
     const affectedDocs: AffectedDoc[] = [];
 
     for (const [docName, entry] of Object.entries(manifest.documents)) {
@@ -53,6 +70,7 @@ export class UpdateDocUseCase {
     }
 
     if (affectedDocs.length === 0) return { kind: "no-affected-docs" };
+
     return { kind: "affected-docs", affectedDocs };
   }
 
@@ -62,7 +80,7 @@ export class UpdateDocUseCase {
     if (!this.gw.exists(specPath)) return { kind: "spec-not-found" };
     if (!this.gw.exists(PATHS.docsUpdateRules)) return { kind: "rules-not-found" };
 
-    const manifest = loadOrCreateManifest(this.gw, PATHS.docsManifest);
+    const manifest = new DocsManifestRepository(this.gw).load();
     const manifestEntry = manifest.documents[docName];
 
     const docFilePath = `${PATHS.docsDir}/${docName}.md`;
@@ -82,7 +100,7 @@ export class UpdateDocUseCase {
 
   public async execute(specName: string, doc: AffectedDoc, isManual: boolean = false): Promise<void> {
     const rulesContent = this.gw.readFile(PATHS.docsUpdateRules);
-    let promptStr = "";
+    let promptStr: string;
 
     if (isManual) {
       promptStr = buildDocsManualUpdatePrompt(doc, rulesContent, specName, this.config.language);
