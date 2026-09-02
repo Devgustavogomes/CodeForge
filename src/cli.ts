@@ -12,6 +12,7 @@ import { registerTaskRetryCommand } from "./cli/commands/task/retry.js";
 import { registerTaskInfoCommand } from "./cli/commands/task/info.js";
 import { registerDocsCreateCommand } from "./cli/commands/docs/create.js";
 import { registerDocsUpdateCommand } from "./cli/commands/docs/update.js";
+import { registerConfigCommand } from "./cli/commands/config.js";
 
 import { runInteractiveMenu } from "./cli/interactive.js";
 
@@ -25,6 +26,7 @@ program
 registerInitCommand(program);
 registerRunCommand(program);
 registerStatusCommand(program);
+registerConfigCommand(program);
 
 const plan = program
   .command("plan")

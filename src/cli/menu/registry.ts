@@ -69,6 +69,11 @@ export function getMenuGroups(lang: SupportedLanguage): MenuGroup[] {
       ]
     },
     {
+      id: "config",
+      label: translate("menu_config_label", lang),
+      action: { type: "command", args: ["config"] }
+    },
+    {
       id: "exit",
       label: translate("menu_exit", lang)
     }
