@@ -10,6 +10,7 @@ export interface TaskStatusInfo {
   dependencies: string[];
   startedAt?: string;
   completedAt?: string;
+  errors?: string[];
 }
 
 export type StatusResult =
@@ -56,6 +57,7 @@ export function getSpecStatus(
       dependencies: taskDef.dependencies || [],
       startedAt: taskState?.startedAt,
       completedAt: taskState?.completedAt,
+      errors: taskState?.errors,
     });
   }
 
@@ -154,6 +156,18 @@ export function formatStatusOutput(result: Extract<StatusResult, { kind: "status
     }
 
     lines.push(`  ${color}${icon}${RESET} ${BOLD}${task.id}${RESET} ${task.title}${depInfo}${timeStr}`);
+    
+    if (task.status === "failed" && task.errors && task.errors.length > 0) {
+      for (const err of task.errors) {
+        // Split by lines so we can indent them properly
+        const errLines = err.split("\n");
+        for (const errLine of errLines) {
+          if (errLine.trim() !== "") {
+            lines.push(`      ${STATUS_COLORS.failed}↳ ${errLine}${RESET}`);
+          }
+        }
+      }
+    }
   }
 
   lines.push(`${DIM}  ─────────────────────────────────────────${RESET}`);

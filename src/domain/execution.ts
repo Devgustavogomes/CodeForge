@@ -5,6 +5,6 @@ export interface SpecExecutionState {
   status: TaskStatus;
   startedAt?: string;
   completedAt?: string;
-  tasks: Record<string, { status: TaskStatus; dependencies: string[]; title?: string; startedAt?: string; completedAt?: string; }>;
+  tasks: Record<string, { status: TaskStatus; dependencies: string[]; title?: string; startedAt?: string; completedAt?: string; errors?: string[]; }>;
   updatedAt: string;
 }

@@ -141,6 +141,13 @@ export class TaskScheduler {
             if (errState) {
               errState.tasks[task.id].status = "failed";
               errState.tasks[task.id].completedAt = new Date().toISOString();
+              
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              if (!errState.tasks[task.id].errors) {
+                errState.tasks[task.id].errors = [];
+              }
+              errState.tasks[task.id].errors!.push(errorMessage);
+              
               saveExecutionState(this.gw, errState);
               this.reporter?.onUpdate(specName);
             }

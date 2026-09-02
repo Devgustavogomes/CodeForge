@@ -10,15 +10,32 @@ export class ClaudeRunner implements AgentRunner {
       }
 
       const child = spawn("claude", args, {
-        stdio: context.silent ? "ignore" : "inherit",
+        stdio: context.silent ? "pipe" : "inherit",
         shell: true,
       });
+
+      let outputBuffer = "";
+      if (context.silent) {
+        child.stdout?.on("data", (data) => {
+          outputBuffer += data.toString();
+          if (outputBuffer.length > 5000) {
+            outputBuffer = outputBuffer.slice(-5000);
+          }
+        });
+        child.stderr?.on("data", (data) => {
+          outputBuffer += data.toString();
+          if (outputBuffer.length > 5000) {
+            outputBuffer = outputBuffer.slice(-5000);
+          }
+        });
+      }
 
       child.on("close", (code) => {
         if (code === 0) {
           resolve();
         } else {
-          reject(new Error(`Claude execution failed with exit code ${code}`));
+          const tail = outputBuffer.trim() ? `\n\nOutput Tail:\n${outputBuffer.trim()}` : '';
+          reject(new Error(`Claude execution failed with exit code ${code}${tail}`));
         }
       });
 
