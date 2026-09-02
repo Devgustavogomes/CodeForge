@@ -1,7 +1,8 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
-import { describe, it, expect, beforeEach } from "vitest";
-import { prepareDocsPrompt } from "../../src/application/docs.js";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { CreateDocUseCase } from "../../src/application/use-cases/CreateDocUseCase.js";
 import { UpdateDocUseCase } from "../../src/application/use-cases/UpdateDocUseCase.js";
+import { buildDocsCreatePrompt } from "../../src/infrastructure/assets/prompts/docs.js";
 import { GitGateway } from "../../src/infrastructure/git/GitGateway.js";
 import { AgentRunner } from "../../src/runners/AgentRunner.js";
 import { CodeForgeConfig } from "../../src/config/types.js";
@@ -40,45 +41,56 @@ function writeDocsUpdateRules(
 }
 
 // ─────────────────────────────────────────────────────────
-// prepareDocsPrompt
+// CreateDocUseCase & buildDocsCreatePrompt
 // ─────────────────────────────────────────────────────────
-describe("prepareDocsPrompt", () => {
+describe("CreateDocUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let runner: AgentRunner;
+  let config: CodeForgeConfig;
+  let useCase: CreateDocUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
+    runner = { execute: vi.fn().mockResolvedValue(undefined) };
+    config = {
+      environment: "test",
+      plannerAgent: "mock-planner",
+      executorAgent: "mock-executor",
+      language: "en",
+    };
+    useCase = new CreateDocUseCase(gateway, runner, config);
   });
 
-  it("returns notInitialized when metadata.json is missing", () => {
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "pt-BR");
+  it("returns notInitialized when metadata.json is missing", async () => {
+    const result = await useCase.execute("my-doc", "auth");
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
-  it("returns specNotFound when the spec file does not exist", () => {
+  it("returns specNotFound when the spec file does not exist", async () => {
     makeWorkspace(gateway);
-    const result = prepareDocsPrompt(gateway, "my-doc", "missing-spec", "pt-BR");
+    const result = await useCase.execute("my-doc", "missing-spec");
     expect(result).toEqual({ kind: "spec-not-found" });
   });
 
-  it("returns rulesNotFound when .codeforge/rules/docs.md is missing", () => {
+  it("returns rulesNotFound when .codeforge/rules/docs.md is missing", async () => {
     makeWorkspace(gateway);
     writeSpec(gateway, "auth");
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "pt-BR");
+    const result = await useCase.execute("my-doc", "auth");
     expect(result).toEqual({ kind: "rules-not-found" });
   });
 
-  it("returns alreadyExists when the doc file already exists on disk", () => {
+  it("returns alreadyExists when the doc file already exists on disk", async () => {
     makeWorkspace(gateway);
     writeSpec(gateway, "auth");
     writeDocsRules(gateway);
 
     gateway.writeFile(".codeforge/docs/my-doc.md", "# Existing doc");
 
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "pt-BR");
+    const result = await useCase.execute("my-doc", "auth");
     expect(result).toEqual({ kind: "already-exists" });
   });
 
-  it("returns alreadyExists when the doc is already registered in manifest.json", () => {
+  it("returns alreadyExists when the doc is already registered in manifest.json", async () => {
     makeWorkspace(gateway);
     writeSpec(gateway, "auth");
     writeDocsRules(gateway);
@@ -100,42 +112,19 @@ describe("prepareDocsPrompt", () => {
       JSON.stringify(manifest),
     );
 
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "en");
+    const result = await useCase.execute("my-doc", "auth");
     expect(result).toEqual({ kind: "already-exists" });
   });
 
-  it("returns a prompt containing spec and rules content", () => {
-    makeWorkspace(gateway);
-    writeSpec(gateway, "auth", "MY SPEC CONTENT");
-    writeDocsRules(gateway, "MY DOCS RULES");
-
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "en");
-
-    expect(result).toHaveProperty("prompt");
-    if (!("prompt" in result)) throw new Error("expected prompt");
-    expect(result.prompt).toContain("MY SPEC CONTENT");
-    expect(result.prompt).toContain("MY DOCS RULES");
-  });
-
-  it("includes the doc name in the generated prompt", () => {
+  it("creates and writes a manifest entry for the new doc and executes runner", async () => {
     makeWorkspace(gateway);
     writeSpec(gateway, "auth");
     writeDocsRules(gateway);
 
-    const result = prepareDocsPrompt(gateway, "my-doc", "auth", "en");
+    const result = await useCase.execute("my-doc", "auth");
 
-    expect(result).toHaveProperty("prompt");
-    if (!("prompt" in result)) throw new Error("expected prompt");
-    expect(result.prompt).toContain("my-doc");
-  });
-
-  it("creates and writes a manifest entry for the new doc", () => {
-    makeWorkspace(gateway);
-    writeSpec(gateway, "auth");
-    writeDocsRules(gateway);
-
-    prepareDocsPrompt(gateway, "my-doc", "auth", "en");
-
+    expect(result).toEqual({ kind: "success" });
+    expect(runner.execute).toHaveBeenCalled();
     expect(gateway.exists(".codeforge/docs/manifest.json")).toBe(true);
 
     const manifest = JSON.parse(
@@ -148,14 +137,14 @@ describe("prepareDocsPrompt", () => {
     expect(manifest.documents["my-doc"].path).toBe(".codeforge/docs/my-doc.md");
   });
 
-  it("preserves existing manifest entries when adding a new doc", () => {
+  it("preserves existing manifest entries when adding a new doc", async () => {
     makeWorkspace(gateway);
     writeSpec(gateway, "auth");
     writeSpec(gateway, "billing");
     writeDocsRules(gateway);
 
-    prepareDocsPrompt(gateway, "doc-one", "auth", "en");
-    prepareDocsPrompt(gateway, "doc-two", "billing", "en");
+    await useCase.execute("doc-one", "auth");
+    await useCase.execute("doc-two", "billing");
 
     const manifest = JSON.parse(
       gateway.readFile(".codeforge/docs/manifest.json"),
@@ -163,6 +152,16 @@ describe("prepareDocsPrompt", () => {
 
     expect(manifest.documents["doc-one"]).toBeDefined();
     expect(manifest.documents["doc-two"]).toBeDefined();
+  });
+});
+
+describe("buildDocsCreatePrompt", () => {
+  it("returns a prompt containing spec and rules content", () => {
+    const prompt = buildDocsCreatePrompt("my-doc", "MY DOCS RULES", "MY SPEC CONTENT", "en");
+
+    expect(prompt).toContain("MY SPEC CONTENT");
+    expect(prompt).toContain("MY DOCS RULES");
+    expect(prompt).toContain("my-doc");
   });
 });
 

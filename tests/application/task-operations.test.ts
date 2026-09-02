@@ -1,7 +1,8 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
-import { markTaskCompleted, retryTask } from "../../src/application/task-operations.js";
-import { initExecutionState, saveExecutionState } from "../../src/application/execution-state.js";
+import { TaskOperationsUseCase } from "../../src/application/use-cases/TaskOperationsUseCase.js";
+import { ExecutionStateRepository } from "../../src/infrastructure/repositories/ExecutionStateRepository.js";
+import { Task } from "../../src/domain/task.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge");
@@ -13,7 +14,7 @@ function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
 }
 
 function writeTask(gateway: InMemoryWorkspaceGateway, id: string, deps: string[] = []) {
-  const task = {
+  const task: Task = {
     id,
     title: "T",
     objective: "O",
@@ -27,84 +28,83 @@ function writeTask(gateway: InMemoryWorkspaceGateway, id: string, deps: string[]
   gateway.writeFile(`.codeforge/tasks/test-spec/${id}.json`, JSON.stringify(task));
 }
 
-function setupExecutionState(gateway: InMemoryWorkspaceGateway, specName: string, tasks: any[]) {
-  const state = initExecutionState(specName, tasks);
-  saveExecutionState(gateway, state);
+function setupExecutionState(gateway: InMemoryWorkspaceGateway, specName: string, tasks: Partial<Task>[]) {
+  const repo = new ExecutionStateRepository(gateway);
+  const state = repo.init(specName, tasks as Task[]);
+  repo.save(state);
   return state;
 }
 
-describe("retryTask", () => {
+describe("TaskOperationsUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let useCase: TaskOperationsUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
+    useCase = new TaskOperationsUseCase(gateway);
   });
 
-  it("resets a running task back to pending", () => {
-    makeWorkspace(gateway);
-    writeTask(gateway, "TASK-001", []);
-    
-    // Simulate TaskScheduler initialization
-    const state = setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", dependencies: [] }]);
-    state.tasks["TASK-001"].status = "running";
-    saveExecutionState(gateway, state);
+  describe("retryTask", () => {
+    it("resets a running task back to pending", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+      
+      // Simulate TaskScheduler initialization
+      const state = setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      state.tasks["TASK-001"].status = "running";
+      new ExecutionStateRepository(gateway).save(state);
 
-    const result = retryTask(gateway, "test-spec", "TASK-001");
-    expect(result.kind).toBe("retried");
+      const result = useCase.retryTask("test-spec", "TASK-001");
+      expect(result.kind).toBe("retried");
 
-    const statePath = ".codeforge/executions/test-spec.json";
-    const newState = JSON.parse(gateway.readFile(statePath));
-    expect(newState.tasks["TASK-001"].status).toBe("pending");
+      const statePath = ".codeforge/executions/test-spec.json";
+      const newState = JSON.parse(gateway.readFile(statePath));
+      expect(newState.tasks["TASK-001"].status).toBe("pending");
+    });
+
+    it("fails when task is already pending", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+      writeTask(gateway, "TASK-002", ["TASK-001"]);
+
+      setupExecutionState(gateway, "test-spec", [{ id: "TASK-002", title: "T", dependencies: ["TASK-001"] }]);
+
+      const result = useCase.retryTask("test-spec", "TASK-002");
+      expect(result.kind).toBe("already-pending");
+    });
+
+    it("fails when task is already completed", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+
+      setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      useCase.markTaskCompleted("test-spec", "TASK-001");
+
+      const result = useCase.retryTask("test-spec", "TASK-001");
+      expect(result.kind).toBe("already-completed");
+    });
+
+    it("fails when task does not exist", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+      setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+
+      const result = useCase.retryTask("test-spec", "TASK-999");
+      expect(result.kind).toBe("not-found");
+    });
   });
 
-  it("fails when task is already pending", () => {
-    makeWorkspace(gateway);
-    writeTask(gateway, "TASK-001", []);
-    writeTask(gateway, "TASK-002", ["TASK-001"]);
+  describe("markTaskCompleted", () => {
+    it("marks task as completed", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+      setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
 
-    setupExecutionState(gateway, "test-spec", [{ id: "TASK-002", dependencies: ["TASK-001"] }]);
-
-    const result = retryTask(gateway, "test-spec", "TASK-002");
-    expect(result.kind).toBe("already-pending");
-  });
-
-  it("fails when task is already completed", () => {
-    makeWorkspace(gateway);
-    writeTask(gateway, "TASK-001", []);
-
-    setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", dependencies: [] }]);
-    markTaskCompleted(gateway, "test-spec", "TASK-001");
-
-    const result = retryTask(gateway, "test-spec", "TASK-001");
-    expect(result.kind).toBe("already-completed");
-  });
-
-  it("fails when task does not exist", () => {
-    makeWorkspace(gateway);
-    writeTask(gateway, "TASK-001", []);
-    setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", dependencies: [] }]);
-
-    const result = retryTask(gateway, "test-spec", "TASK-999");
-    expect(result.kind).toBe("not-found");
-  });
-});
-
-describe("markTaskCompleted", () => {
-  let gateway: InMemoryWorkspaceGateway;
-
-  beforeEach(() => {
-    gateway = new InMemoryWorkspaceGateway();
-  });
-
-  it("marks task as completed", () => {
-    makeWorkspace(gateway);
-    writeTask(gateway, "TASK-001", []);
-    setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", dependencies: [] }]);
-
-    const result = markTaskCompleted(gateway, "test-spec", "TASK-001");
-    expect(result.kind).toBe("completed");
-    if (result.kind === "completed") {
-      expect(result.allCompleted).toBe(true);
-    }
+      const result = useCase.markTaskCompleted("test-spec", "TASK-001");
+      expect(result.kind).toBe("completed");
+      if (result.kind === "completed") {
+        expect(result.allCompleted).toBe(true);
+      }
+    });
   });
 });

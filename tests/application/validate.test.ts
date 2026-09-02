@@ -1,6 +1,6 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
-import { validatePlan } from "../../src/application/validate.js";
+import { ValidatePlanUseCase } from "../../src/application/use-cases/ValidatePlanUseCase.js";
 import { Task } from "../../src/domain/task.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
@@ -28,15 +28,17 @@ function validTask(id: string, deps: string[] = []): Task {
   };
 }
 
-describe("validatePlan", () => {
+describe("ValidatePlanUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let useCase: ValidatePlanUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
+    useCase = new ValidatePlanUseCase(gateway);
   });
 
   it("returns notInitialized if metadata missing", () => {
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("not-initialized");
   });
 
@@ -44,13 +46,13 @@ describe("validatePlan", () => {
     gateway.mkdir(".codeforge");
     gateway.writeFile(".codeforge/metadata.json", "{}");
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("spec-not-found");
   });
 
   it("fails if no JSON files found", () => {
     makeWorkspace(gateway);
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
@@ -62,7 +64,7 @@ describe("validatePlan", () => {
     makeWorkspace(gateway);
     gateway.writeFile(".codeforge/tasks/test-spec/TASK-001.json", "{ invalid_json: true }");
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors[0]).toContain("is not valid JSON");
@@ -74,10 +76,10 @@ describe("validatePlan", () => {
     // Missing title and objective
     writeTask(gateway, "test-spec", { id: "TASK-001", dependencies: [] });
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some(e => e.includes("missing required field: \"title\""))).toBe(true);
+      expect(result.errors.some((e: string) => e.includes("missing required field: \"title\""))).toBe(true);
     }
   });
 
@@ -85,10 +87,10 @@ describe("validatePlan", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "test-spec", validTask("TASK-002"), "TASK-001.json");
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some(e => e.includes("does not match filename"))).toBe(true);
+      expect(result.errors.some((e: string) => e.includes("does not match filename"))).toBe(true);
     }
   });
 
@@ -96,10 +98,10 @@ describe("validatePlan", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "test-spec", validTask("TASK-001", ["TASK-999"]));
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some(e => e.includes("depends on nonexistent task"))).toBe(true);
+      expect(result.errors.some((e: string) => e.includes("depends on nonexistent task"))).toBe(true);
     }
   });
 
@@ -108,10 +110,10 @@ describe("validatePlan", () => {
     writeTask(gateway, "test-spec", validTask("TASK-001", ["TASK-002"]));
     writeTask(gateway, "test-spec", validTask("TASK-002", ["TASK-001"]));
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some(e => e.includes("Circular dependency detected"))).toBe(true);
+      expect(result.errors.some((e: string) => e.includes("Circular dependency detected"))).toBe(true);
     }
   });
 
@@ -119,10 +121,10 @@ describe("validatePlan", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "test-spec", validTask("TASK-001", ["TASK-001"]));
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some(e => e.includes("Circular dependency detected"))).toBe(true);
+      expect(result.errors.some((e: string) => e.includes("Circular dependency detected"))).toBe(true);
     }
   });
 
@@ -132,7 +134,7 @@ describe("validatePlan", () => {
     writeTask(gateway, "test-spec", validTask("TASK-002", ["TASK-003"]));
     writeTask(gateway, "test-spec", validTask("TASK-001", ["TASK-002"]));
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("valid");
   });
 
@@ -150,7 +152,7 @@ describe("validatePlan", () => {
     writeTask(gateway, "test-spec", validTask("TASK-002", ["TASK-003", "TASK-004"]));
     writeTask(gateway, "test-spec", validTask("TASK-001", ["TASK-002"]));
 
-    const result = validatePlan(gateway, "test-spec");
+    const result = useCase.execute("test-spec");
     expect(result.kind).toBe("valid");
   });
 
@@ -158,7 +160,7 @@ describe("validatePlan", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "test-spec", validTask("TASK-001", ["TASK-999"]));
 
-    const result = validatePlan(gateway, "test-spec", "TASK-001");
+    const result = useCase.execute("test-spec", "TASK-001");
     expect(result.kind).toBe("valid");
   });
 
@@ -166,7 +168,7 @@ describe("validatePlan", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "test-spec", validTask("TASK-001"));
 
-    const result = validatePlan(gateway, "test-spec", "TASK-002");
+    const result = useCase.execute("test-spec", "TASK-002");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
       expect(result.errors[0]).toContain("Task file TASK-002.json not found");
