@@ -5,6 +5,7 @@ import { MenuGroup, MenuItem } from "./types.js";
 import { ConfigService } from "../../config/ConfigService.js";
 import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { translate } from "../ui/i18n.js";
+import { printCodeForgeBanner } from "../ui/banner.js";
 
 export async function renderMainMenu(initialGroupId?: string): Promise<void> {
   const gw = new NodeWorkspaceGateway(process.cwd());
@@ -13,7 +14,8 @@ export async function renderMainMenu(initialGroupId?: string): Promise<void> {
   const lang = config?.language || "en";
 
   if (!initialGroupId) {
-    console.log(`\n${translate("menu_welcome", lang)} 🚀`);
+    printCodeForgeBanner();
+    console.log(`${translate("menu_welcome", lang)} 🚀`);
     console.log(`${translate("menu_select_group", lang)}\n`);
   }
 
