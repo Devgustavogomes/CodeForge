@@ -173,7 +173,11 @@ CodeForge intentionally keeps the specification flexible instead of forcing a ri
 
 ## 2. Plan
 
-The configured AI agent reads the specification and analyzes the existing project.
+The configured AI agent reads the specification and analyzes the existing project:
+
+```bash
+codeforge plan generate user-authentication
+```
 
 It decomposes the feature into executable Tasks and their dependencies.
 
@@ -210,24 +214,24 @@ CodeForge validates the generated graph and determines which tasks are ready to 
 
 Once the plan is ready, CodeForge orchestrates the workflow automatically.
 
-Instead of manually copying prompts between terminals and opening new AI conversations, CodeForge starts the configured AI coding agent as a **child process**.
+Instead of manually copying prompts between terminals and opening new AI conversations, CodeForge executes tasks through a reactive scheduler, starting the configured AI coding agent as a **child process**.
 
 Conceptually:
 
 ```text
 CodeForge
     │
-    ├── Reads execution state
+    ├── Reads execution state & task graph
     │
-    ├── Determines ready tasks
+    ├── Resolves ready tasks via DAG
     │
-    ├── Starts AI agent
+    ├── Starts AI agent as child process
     │
-    ├── Agent implements task
+    ├── Streams prompt & rules via stdin
     │
-    ├── Waits for completion
+    ├── Monitors progress & captures errors in real time
     │
-    └── Continues the workflow
+    └── Advances the workflow automatically
 ```
 
 The agent remains responsible for the actual reasoning and code changes.
@@ -281,7 +285,7 @@ This allows independent work to be processed concurrently instead of forcing eve
 
 ---
 
-## 6. Validation
+## 6. Validation & auto-healing
 
 CodeForge validates generated plans before they enter execution.
 
@@ -297,15 +301,37 @@ It can detect problems such as:
 - invalid task states;
 - structural inconsistencies.
 
+If validation detects errors, CodeForge automatically re-prompts the AI agent with the exact failure diagnostics to repair and self-heal the plan before execution proceeds.
+
 The goal is simple:
 
 > **Do not let an invalid AI-generated plan become an execution plan.**
 
-More deterministic implementation checks are part of the project's evolution.
+---
+
+## 7. Smart retries & recovery
+
+When an AI agent encounters a runtime error or fails a task, CodeForge captures the failure output and stack traces in the execution state.
+
+Instead of restarting the entire feature from scratch or manually pasting error logs:
+
+```bash
+codeforge task retry <spec>
+```
+
+CodeForge injects the previous failure diagnostics directly into the agent's fresh prompt. The agent understands what went wrong and can fix the issue without repeating the same mistake.
+
+You can also inspect task details, reset tasks to pending, or manually mark tasks as complete:
+
+```bash
+codeforge task info <spec> <taskId>
+codeforge task reset <spec> [taskId]
+codeforge task complete <spec> <taskId>
+```
 
 ---
 
-## 7. Documentation
+## 8. Documentation
 
 Documentation is part of the workflow instead of something developers have to remember to do later.
 
@@ -358,14 +384,21 @@ CodeForge does not provide its own AI model.
 
 It orchestrates the coding agent you already use.
 
-Examples include:
+Supported agents include:
 
-- Claude Code
-- Codex
-- Antigravity
-- Cursor
-- Windsurf
+- **Claude Code** (`claude`)
+- **OpenAI Codex** (`codex`)
+- **Google Antigravity** (`antigravity` / `agy`)
+- **Cursor** (`cursor`)
 - other CLI-based coding agents
+
+Process adapters stream prompts through standard input (stdin), avoiding command-line buffer limits on large prompts and rules.
+
+You can also configure separate agents for planning and execution, as well as system language (`en`, `pt`, `es`):
+
+```bash
+codeforge config
+```
 
 The architecture separates the workflow from the AI provider:
 
@@ -464,27 +497,43 @@ After initialization:
 └── config.yaml
 ```
 
-A feature can have its own task directory:
+A feature has its specification, execution state, and generated task definitions:
 
 ```text
 .codeforge/
 ├── specs/
 │   └── authentication.md
 │
-├── plans/
+├── executions/
 │   └── authentication.json
 │
 └── tasks/
     └── authentication/
-        ├── TASK-001.md
-        ├── TASK-002.md
-        ├── TASK-003.md
-        └── TASK-004.md
+        ├── TASK-001.json
+        ├── TASK-002.json
+        ├── TASK-003.json
+        └── TASK-004.json
 ```
 
 ---
 
 # Commands
+
+## Interactive menu
+
+```bash
+codeforge
+```
+
+Launches an interactive terminal menu with step-by-step navigation and back options for all workflows.
+
+## Configuration
+
+```bash
+codeforge config
+```
+
+Interactively configures your environment, AI agents (separately for planning and execution), and system language (`en`, `pt`, `es`).
 
 ## Initialize
 
@@ -492,44 +541,82 @@ A feature can have its own task directory:
 codeforge init
 ```
 
-Initializes CodeForge in the current repository.
+Initializes CodeForge in the current repository and guides environment setup.
 
 ## Create a specification
 
 ```bash
-codeforge spec create <name>
+codeforge spec create [name]
 ```
 
-Creates a new Markdown specification.
+Creates a new Markdown specification. Prompts interactively if the name is omitted.
 
 ## Planning
 
 ```bash
-codeforge plan <spec>
+codeforge plan generate [spec]
 ```
 
-Starts the planning workflow using the configured AI agent.
+Autonomously generates the task DAG using the configured planner agent, with automatic validation and self-healing.
 
 ```bash
-codeforge plan validate <spec>
+codeforge plan validate [spec]
 ```
 
-Validates the generated task graph.
+Validates the task graph deterministically against schema, dependency, and DAG rules.
 
 ## Execution
 
 ```bash
-codeforge run <spec>
+codeforge run [spec]
 ```
 
-Starts or continues the execution workflow.
+Starts or continues the autonomous execution workflow. The reactive scheduler resolves dependencies and dispatches tasks with fresh contexts and live progress monitoring.
 
-CodeForge determines which tasks are ready based on their dependencies and automatically orchestrates the configured AI agent.
+## Task management
+
+```bash
+codeforge task retry [spec]
+```
+
+Retries failed tasks for a spec and resumes execution, injecting prior failure errors and diagnostic context into the agent prompt for self-correction.
+
+```bash
+codeforge task reset [spec] [taskId]
+```
+
+Resets a specific task or all tasks in a spec back to pending state without immediately executing.
+
+```bash
+codeforge task info [spec] [taskId]
+```
+
+Displays comprehensive task details, including objective, context, files to modify, constraints, and acceptance criteria.
+
+```bash
+codeforge task complete <spec> <taskId>
+```
+
+Manually marks a specific task as completed in the execution state.
+
+## Status
+
+```bash
+codeforge status [spec]
+```
+
+Opens a live, flicker-free execution dashboard in an alternate screen buffer, watching progress in real time.
+
+```bash
+codeforge status [spec] --once
+```
+
+Prints the current execution status snapshot once and exits.
 
 ## Documentation
 
 ```bash
-codeforge docs create <spec>
+codeforge docs create [doc-name] [--spec <spec>]
 ```
 
 Creates documentation for a completed feature.
@@ -545,14 +632,6 @@ codeforge docs update --doc <name>
 ```
 
 Updates a specific document directly.
-
-## Status
-
-```bash
-codeforge status <spec>
-```
-
-Displays the current execution state.
 
 ---
 
@@ -585,15 +664,21 @@ codeforge spec create authentication
 
 Write the requirements.
 
-Then start CodeForge:
+Generate the plan:
 
 ```bash
-codeforge plan authentication
+codeforge plan generate authentication
 ```
 
-The AI analyzes the specification and repository and creates the task graph.
+The AI analyzes the specification and repository, creates the task graph, and CodeForge validates it.
 
-From there, CodeForge can orchestrate the workflow automatically:
+Start autonomous execution:
+
+```bash
+codeforge run authentication
+```
+
+From there, CodeForge orchestrates the workflow automatically:
 
 ```text
                     Authentication
@@ -683,15 +768,8 @@ Current and planned areas include:
 
 - deterministic implementation checks;
 - custom project rules;
-- automatic failure recovery;
-- smarter retries;
-- Git/worktree isolation for parallel tasks;
-- richer execution history;
-- improved agent adapters;
-- automatic task progression;
-- deeper documentation tracking;
-- architecture and dependency analysis;
 - more advanced verification workflows.
+- TUI
 
 ---
 
