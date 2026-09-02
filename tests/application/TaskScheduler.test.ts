@@ -30,10 +30,12 @@ describe("TaskScheduler", () => {
     promptService = {
       createPromptFile: vi.fn().mockReturnValue("prompt.md"),
       deletePromptFile: vi.fn(),
+      deletePromptDir: vi.fn(),
     } as any;
     reporter = {
       onStart: vi.fn(),
       onComplete: vi.fn(),
+      onFail: vi.fn(),
       onUpdate: vi.fn(),
       onError: vi.fn(),
       onDeadlock: vi.fn(),
@@ -112,5 +114,69 @@ describe("TaskScheduler", () => {
 
     expect(reporter.onComplete).toHaveBeenCalledWith("test-spec");
     expect(runner.execute).not.toHaveBeenCalled();
+  });
+
+  it("should mark execution as failed when a task fails", async () => {
+    const task: Task = {
+      id: "TASK-001",
+      title: "Test Task",
+      objective: "O",
+      context: "C",
+      implementation: "I",
+      files: [],
+      dependencies: [],
+      constraints: [],
+      acceptanceCriteria: []
+    };
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
+
+    const mockState: SpecExecutionState = {
+      specId: "test-spec",
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+      tasks: {
+        "TASK-001": { status: "pending", dependencies: [] }
+      }
+    };
+
+    (stateRepo.init as any).mockReturnValue(mockState);
+    (stateRepo.load as any).mockReturnValue(mockState);
+    (runner.execute as any).mockRejectedValue(new Error("Runner failed"));
+
+    await scheduler.run("test-spec");
+
+    expect(mockState.tasks["TASK-001"].status).toBe("failed");
+    expect(mockState.status).toBe("failed");
+    expect(reporter.onFail).toHaveBeenCalledWith("test-spec");
+    expect(reporter.onComplete).not.toHaveBeenCalled();
+    expect(promptService.deletePromptDir).toHaveBeenCalledWith("test-spec");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("should mark execution as failed and call onDeadlock when deadlock occurs", async () => {
+    const task1: Task = { id: "TASK-001", dependencies: ["TASK-002"] } as any;
+    const task2: Task = { id: "TASK-002", dependencies: ["TASK-001"] } as any;
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task1));
+    gw.writeFile(`.codeforge/tasks/test-spec/TASK-002.json`, JSON.stringify(task2));
+
+    const mockState: SpecExecutionState = {
+      specId: "test-spec",
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+      tasks: {
+        "TASK-001": { status: "pending", dependencies: ["TASK-002"] },
+        "TASK-002": { status: "pending", dependencies: ["TASK-001"] },
+      }
+    };
+
+    (stateRepo.init as any).mockReturnValue(mockState);
+    (stateRepo.load as any).mockReturnValue(mockState);
+
+    await scheduler.run("test-spec");
+
+    expect(mockState.status).toBe("failed");
+    expect(reporter.onDeadlock).toHaveBeenCalledWith("test-spec");
+    expect(promptService.deletePromptDir).toHaveBeenCalledWith("test-spec");
+    expect(process.exitCode).toBe(1);
   });
 });

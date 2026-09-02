@@ -48,6 +48,21 @@ export class TaskScheduler {
         this.reporter?.onComplete(specName);
         return;
       }
+      const pendingCount = Object.values(state.tasks).filter(
+        (t) => t.status === "pending",
+      ).length;
+      const hasFailed = Object.values(state.tasks).some(
+        (t) => t.status === "failed",
+      );
+      if (pendingCount === 0 && hasFailed) {
+        if (this.reporter?.onFail) {
+          this.reporter.onFail(specName);
+        } else {
+          this.reporter?.onError(new Error("Spec execution has failed tasks."));
+        }
+        process.exitCode = 1;
+        return;
+      }
       state.status = "running";
       this.stateRepo.save(state);
     }
@@ -66,6 +81,16 @@ export class TaskScheduler {
           break;
         }
 
+        if (state.status === "failed") {
+          if (this.reporter?.onFail) {
+            this.reporter.onFail(specName);
+          } else {
+            this.reporter?.onError(new Error("Spec execution failed."));
+          }
+          process.exitCode = 1;
+          break;
+        }
+
         const readyTaskIds = resolver.getReadyTasks(state);
 
         const runningTasksCount = Object.values(state.tasks).filter(
@@ -74,18 +99,36 @@ export class TaskScheduler {
         const pendingTasksCount = Object.values(state.tasks).filter(
           (t) => t.status === "pending",
         ).length;
+        const failedTasksCount = Object.values(state.tasks).filter(
+          (t) => t.status === "failed",
+        ).length;
 
         if (readyTaskIds.length === 0) {
           if (runningTasksCount === 0 && pendingTasksCount > 0) {
-            this.reporter?.onDeadlock();
+            state.status = "failed";
+            state.completedAt = new Date().toISOString();
+            this.stateRepo.save(state);
+            this.reporter?.onDeadlock(specName);
             process.exitCode = 1;
             break;
           }
           if (runningTasksCount === 0 && pendingTasksCount === 0) {
-            state.status = "completed";
-            state.completedAt = new Date().toISOString();
-            this.stateRepo.save(state);
-            this.reporter?.onComplete(specName);
+            if (failedTasksCount > 0) {
+              state.status = "failed";
+              state.completedAt = new Date().toISOString();
+              this.stateRepo.save(state);
+              if (this.reporter?.onFail) {
+                this.reporter.onFail(specName);
+              } else {
+                this.reporter?.onError(new Error("One or more tasks failed."));
+              }
+              process.exitCode = 1;
+            } else {
+              state.status = "completed";
+              state.completedAt = new Date().toISOString();
+              this.stateRepo.save(state);
+              this.reporter?.onComplete(specName);
+            }
             break;
           }
 
@@ -141,7 +184,6 @@ export class TaskScheduler {
               this.stateRepo.save(errState);
               this.reporter?.onUpdate(specName);
             }
-            this.reporter?.onError(error instanceof Error ? error : String(error));
           } finally {
             this.promptService.deletePromptFile(promptPath);
           }
@@ -149,8 +191,11 @@ export class TaskScheduler {
 
         await Promise.all(executionPromises);
       }
+    } catch (error) {
+      this.reporter?.onError(error instanceof Error ? error : String(error));
+      process.exitCode = 1;
     } finally {
-      // Any generic cleanup can go here, but UI cleanup is no longer needed
+      this.promptService.deletePromptDir(specName);
     }
   }
 }

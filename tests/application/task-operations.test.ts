@@ -62,6 +62,26 @@ describe("TaskOperationsUseCase", () => {
       expect(newState.tasks["TASK-001"].status).toBe("pending");
     });
 
+    it("resets a failed task and changes state.status to pending", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+
+      const state = setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      state.status = "failed";
+      state.completedAt = new Date().toISOString();
+      state.tasks["TASK-001"].status = "failed";
+      new ExecutionStateRepository(gateway).save(state);
+
+      const result = useCase.retryTask("test-spec", "TASK-001");
+      expect(result.kind).toBe("retried");
+
+      const statePath = ".codeforge/executions/test-spec.json";
+      const newState = JSON.parse(gateway.readFile(statePath));
+      expect(newState.tasks["TASK-001"].status).toBe("pending");
+      expect(newState.status).toBe("pending");
+      expect(newState.completedAt).toBeUndefined();
+    });
+
     it("fails when task is already pending", () => {
       makeWorkspace(gateway);
       writeTask(gateway, "TASK-001", []);

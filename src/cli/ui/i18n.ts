@@ -32,6 +32,7 @@ const en = {
   status_watching: "  \x1b[2mWatching for changes... (Ctrl+C to exit)\x1b[0m\n\n",
   status_waiting: "  \x1b[2mWaiting for execution to start... (Ctrl+C to exit)\x1b[0m\n\n",
   status_all_done: "\n🎉 All tasks for spec '{spec}' completed!\n",
+  status_failed: "\n✗ Execution failed for spec '{spec}'.\n",
   
   // plan generate
   plan_select_spec: "Select a spec to generate a plan for:",
@@ -145,6 +146,7 @@ const pt: Dictionary = {
   status_watching: "  \x1b[2mObservando alterações... (Ctrl+C para sair)\x1b[0m\n\n",
   status_waiting: "  \x1b[2mAguardando o início da execução... (Ctrl+C para sair)\x1b[0m\n\n",
   status_all_done: "\n🎉 Todas as tarefas para a spec '{spec}' foram concluídas!\n",
+  status_failed: "\n✗ A execução falhou para a spec '{spec}'.\n",
   
   plan_select_spec: "Selecione uma spec para gerar um plano:",
   plan_generating: "\n▶ Gerando plano para a spec: {spec}",
@@ -250,6 +252,7 @@ const es: Dictionary = {
   status_watching: "  \x1b[2mObservando cambios... (Ctrl+C para salir)\x1b[0m\n\n",
   status_waiting: "  \x1b[2mEsperando a que comience la ejecución... (Ctrl+C para salir)\x1b[0m\n\n",
   status_all_done: "\n🎉 ¡Todas las tareas para el spec '{spec}' han sido completadas!\n",
+  status_failed: "\n✗ La ejecución falló para el spec '{spec}'.\n",
   
   plan_select_spec: "Seleccione un spec para generar un plan:",
   plan_generating: "\n▶ Generando plan para el spec: {spec}",

@@ -96,10 +96,17 @@ export function registerStatusCommand(program: Command): void {
         lastResult = render();
 
         if (lastResult.kind === "status") {
+          if (lastResult.specStatus === "failed") {
+            cleanup();
+            console.log(translate("status_failed", lang, { spec: specName as string }));
+            process.exitCode = 1;
+            return;
+          }
           const allDone = lastResult.tasks.every((t) => t.status === "completed");
           if (allDone) {
             cleanup();
             console.log(translate("status_all_done", lang, { spec: specName as string }));
+            return;
           }
         }
       }, 2000);

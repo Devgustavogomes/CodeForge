@@ -81,6 +81,10 @@ export class TaskOperationsUseCase {
     }
 
     state.tasks[taskId].status = "pending";
+    if (state.status === "failed" || state.status === "completed") {
+      state.status = "pending";
+      delete state.completedAt;
+    }
     repo.save(state);
     return { kind: "retried" };
   }
