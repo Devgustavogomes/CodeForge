@@ -22,7 +22,7 @@ const program = new Command();
 program
   .name("codeforge")
   .description("CodeForge — Software Factory for AI-assisted development")
-  .version("0.1.0");
+  .version("0.3.0");
 
 registerInitCommand(program);
 registerRunCommand(program);
@@ -36,9 +36,7 @@ const plan = program
 registerPlanGenerateCommand(plan);
 registerPlanValidateCommand(plan);
 
-const spec = program
-  .command("spec")
-  .description("Manage specs");
+const spec = program.command("spec").description("Manage specs");
 
 registerSpecCreateCommand(spec);
 
