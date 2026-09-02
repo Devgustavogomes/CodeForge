@@ -11,7 +11,7 @@ export class ClaudeRunner implements AgentRunner {
 
       const child = spawn("claude", args, {
         stdio: context.silent ? "pipe" : "inherit",
-        shell: true,
+        shell: false,
       });
 
       let outputBuffer = "";
@@ -34,8 +34,12 @@ export class ClaudeRunner implements AgentRunner {
         if (code === 0) {
           resolve();
         } else {
-          const tail = outputBuffer.trim() ? `\n\nOutput Tail:\n${outputBuffer.trim()}` : '';
-          reject(new Error(`Claude execution failed with exit code ${code}${tail}`));
+          const tail = outputBuffer.trim()
+            ? `\n\nOutput Tail:\n${outputBuffer.trim()}`
+            : "";
+          reject(
+            new Error(`Claude execution failed with exit code ${code}${tail}`),
+          );
         }
       });
 

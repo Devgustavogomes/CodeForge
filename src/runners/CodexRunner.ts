@@ -7,9 +7,23 @@ export class CodexRunner implements AgentRunner {
     return new Promise((resolve, reject) => {
       const promptContent = fs.readFileSync(context.promptFilePath, "utf-8");
 
-      const child = spawn("codex", [promptContent], {
+      const args = [
+        "exec",
+        "--ask-for-approval",
+        "never",
+        "--sandbox",
+        "workspace-write",
+        promptContent,
+      ];
+
+      if (context.model) {
+        args.push("--model", context.model);
+      }
+
+      const child = spawn("codex", args, {
         stdio: context.silent ? "pipe" : "inherit",
-        shell: true,
+        shell: false,
+        cwd: process.cwd(),
       });
 
       let outputBuffer = "";
@@ -32,8 +46,12 @@ export class CodexRunner implements AgentRunner {
         if (code === 0) {
           resolve();
         } else {
-          const tail = outputBuffer.trim() ? `\n\nOutput Tail:\n${outputBuffer.trim()}` : '';
-          reject(new Error(`Codex execution failed with exit code ${code}${tail}`));
+          const tail = outputBuffer.trim()
+            ? `\n\nOutput Tail:\n${outputBuffer.trim()}`
+            : "";
+          reject(
+            new Error(`Codex execution failed with exit code ${code}${tail}`),
+          );
         }
       });
 
