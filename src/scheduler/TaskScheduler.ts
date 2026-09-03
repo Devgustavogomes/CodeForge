@@ -7,6 +7,8 @@ import { ExecutionStateRepository } from "../infrastructure/repositories/Executi
 import { PromptService } from "../application/services/PromptService.js";
 import { PATHS } from "../infrastructure/paths.js";
 import { SchedulerReporter } from "../application/ports/SchedulerReporter.js";
+import { HookDispatcher } from "../application/ports/HookDispatcher.js";
+import { HookEvent } from "../domain/hook.js";
 import { CodeForgeConfig } from "../config/types.js";
 
 export class TaskScheduler {
@@ -17,6 +19,7 @@ export class TaskScheduler {
     private stateRepo: ExecutionStateRepository,
     private promptService: PromptService,
     private reporter?: SchedulerReporter,
+    private hooks?: HookDispatcher,
   ) {}
 
   private loadTasks(specName: string): Task[] {
@@ -83,14 +86,14 @@ export class TaskScheduler {
     specName: string,
     state: SpecExecutionState,
     counts: { running: number; pending: number; failed: number },
-  ): boolean {
+  ): { stop: boolean; event?: HookEvent } {
     if (counts.running === 0 && counts.pending > 0) {
       state.status = "failed";
       state.completedAt = new Date().toISOString();
       this.stateRepo.save(state);
       this.reporter?.onDeadlock(specName);
       process.exitCode = 1;
-      return true;
+      return { stop: true, event: "run.deadlock" };
     }
 
     if (counts.running === 0 && counts.pending === 0) {
@@ -99,16 +102,17 @@ export class TaskScheduler {
         state.completedAt = new Date().toISOString();
         this.stateRepo.save(state);
         this.reportFail(specName, "One or more tasks failed.");
-      } else {
-        state.status = "completed";
-        state.completedAt = new Date().toISOString();
-        this.stateRepo.save(state);
-        this.reporter?.onComplete(specName);
+        return { stop: true, event: "run.failed" };
       }
-      return true;
+
+      state.status = "completed";
+      state.completedAt = new Date().toISOString();
+      this.stateRepo.save(state);
+      this.reporter?.onComplete(specName);
+      return { stop: true, event: "run.completed" };
     }
 
-    return false;
+    return { stop: false };
   }
 
   private async executeTask(
@@ -126,6 +130,8 @@ export class TaskScheduler {
       this.stateRepo.save(currentState);
       this.reporter?.onUpdate(specName);
     }
+
+    await this.hooks?.dispatch({ event: "task.started", specName, taskId: task.id });
 
     const promptPath = this.promptService.createPromptFile(
       specName,
@@ -153,6 +159,8 @@ export class TaskScheduler {
         this.stateRepo.save(postState);
         this.reporter?.onUpdate(specName);
       }
+
+      await this.hooks?.dispatch({ event: "task.completed", specName, taskId: task.id });
     } catch (error) {
       const errState = this.stateRepo.load(specName);
       if (errState) {
@@ -169,6 +177,13 @@ export class TaskScheduler {
         this.stateRepo.save(errState);
         this.reporter?.onUpdate(specName);
       }
+
+      await this.hooks?.dispatch({
+        event: "task.failed",
+        specName,
+        taskId: task.id,
+        errors: errState?.tasks[task.id].errors,
+      });
     } finally {
       this.promptService.deletePromptFile(promptPath);
     }
@@ -187,6 +202,7 @@ export class TaskScheduler {
 
     const resolver = new DAGResolver();
     this.reporter?.onStart(specName);
+    await this.hooks?.dispatch({ event: "run.started", specName });
 
     const activeTasks = new Map<string, Promise<void>>();
 
@@ -197,11 +213,13 @@ export class TaskScheduler {
 
         if (currentState.status === "completed") {
           this.reporter?.onComplete(specName);
+          await this.hooks?.dispatch({ event: "run.completed", specName });
           break;
         }
 
         if (currentState.status === "failed") {
           this.reportFail(specName, "Spec execution failed.");
+          await this.hooks?.dispatch({ event: "run.failed", specName });
           break;
         }
 
@@ -224,12 +242,17 @@ export class TaskScheduler {
         const counts = this.getTaskCounts(currentState);
 
         if (activeTasks.size === 0) {
-          const shouldStop = this.handleNoReadyTasks(
+          const outcome = this.handleNoReadyTasks(
             specName,
             currentState,
             counts,
           );
-          if (shouldStop) break;
+          if (outcome.stop) {
+            if (outcome.event) {
+              await this.hooks?.dispatch({ event: outcome.event, specName });
+            }
+            break;
+          }
         }
 
         await Promise.race(activeTasks.values());
