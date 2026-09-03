@@ -1,6 +1,6 @@
 {
   "name": "codeforge-engine",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Agent-agnostic CLI for structuring and orchestrating AI-assisted software development.",
   "type": "module",
   "bin": {
