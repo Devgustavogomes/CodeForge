@@ -53,6 +53,7 @@ AI AGENT       AI AGENT
   - [8. Documentation](#8-documentation)
 - [Agent agnostic](#agent-agnostic)
 - [Deterministic by design](#deterministic-by-design)
+- [Hooks](#hooks)
 - [Project structure](#project-structure)
 - [Commands](#commands)
   - [Quick Reference](#quick-reference)
@@ -511,6 +512,132 @@ PASS / FAIL
 This is one of the core directions of CodeForge:
 
 > **Use AI where probabilistic reasoning is useful and deterministic systems wherever objective verification is possible.**
+
+---
+
+# Hooks
+
+Everything above happens inside CodeForge. Hooks are how it talks to whatever is
+outside it, and how whatever is outside it gets a say.
+
+A hook is a command CodeForge runs when something happens during a run. It does
+not have to be written in TypeScript, or in any particular language, because the
+only contract is a process, an exit code, and a JSON payload.
+
+There are two kinds, and the difference is whether the exit code matters.
+
+| Kind | Exit code | Use it for |
+| :--- | :--- | :--- |
+| `notify` | reported, never changes anything | telling another system a spec finished, logging, notifications |
+| `gate` | non-zero fails the task | linters, type checkers, test suites, policy checks |
+
+`notify` is the default, so a hook you forgot to classify cannot fail your build
+by accident.
+
+## Events
+
+| Event | Fires |
+| :--- | :--- |
+| `run.started` | a spec begins executing |
+| `run.completed` | every task finished successfully |
+| `run.failed` | the run stopped with at least one failed task |
+| `run.deadlock` | tasks remain pending but none can ever become ready |
+| `task.started` | a task is dispatched to the agent |
+| `task.verify` | the agent returned, **before** the task counts as done |
+| `task.completed` | a task passed |
+| `task.failed` | a task failed, with its diagnostics |
+
+Only `task.verify` is gate-capable, because it is the only point where a veto
+means anything: the agent has finished, and the task is not yet done.
+
+## Configuring them
+
+Hooks live under a `hooks` key in `.codeforge/config.yaml`, grouped by event:
+
+```yaml
+environment: claude
+plannerAgent: opus
+executorAgent: sonnet
+language: en
+hooks:
+  task.verify:
+    - name: lint
+      run: npm run lint
+      type: gate
+    - name: tests
+      run: npm test
+      type: gate
+      timeout: 600000
+  run.completed:
+    - name: notify the tracker
+      run: ./scripts/spec-finished.sh
+```
+
+Omit the key entirely and nothing changes: no hooks run, and execution behaves
+exactly as it does without hook support.
+
+Hooks for one event run **in sequence**, in the order you declare them, because
+a hook is allowed to touch the working tree and two of them racing over it would
+be unpredictable. Each one has a timeout, five minutes by default.
+
+## Writing one
+
+The event reaches your command on two channels, so you can use whichever is
+convenient:
+
+- **stdin**, the whole context as JSON
+- **environment**, as `CODEFORGE_EVENT`, `CODEFORGE_SPEC`, `CODEFORGE_TASK_ID`
+  and `CODEFORGE_CWD`
+
+A shell script is enough:
+
+```sh
+#!/bin/sh
+# scripts/spec-finished.sh
+echo "$CODEFORGE_SPEC finished" | ./notify-my-team
+```
+
+And a gate is just a command that exits non-zero when it disagrees:
+
+```sh
+#!/bin/sh
+# scripts/gate.sh
+if ! npm run typecheck; then
+  echo "typecheck failed, the task is not done"
+  exit 1
+fi
+```
+
+## Why a gate is worth more than a check you run yourself
+
+A gate does not only stop a bad task. Its output becomes the task's diagnostics,
+and CodeForge already replays those into a fresh prompt on retry.
+
+So the loop closes:
+
+```text
+agent implements
+      │
+      ▼
+  task.verify ── gate exits non-zero
+      │                   │
+      │                   ▼
+      │            output recorded as
+      │            the task's errors
+      │                   │
+      │                   ▼
+      │         codeforge task retry <spec>
+      │                   │
+      │                   ▼
+      │          fresh prompt, now carrying
+      │          the exact failure
+      │                   │
+      └───────────────────┘
+```
+
+The agent finds out what a deterministic tool objected to, in its own words,
+without anybody pasting a log. Which means a gate can enforce a rule that was
+never written into the task at all, and the agent will still converge on it.
 
 ---
 

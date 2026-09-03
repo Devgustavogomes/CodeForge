@@ -136,13 +136,14 @@ CodeForge follows Clean Architecture principles to ensure loose coupling, high t
 
 ```text
 src/
-├── domain/            # Pure domain models and rules (Task, Plan, ExecutionState, Doc, etc.)
+├── domain/            # Pure domain models and rules (Task, Plan, ExecutionState, Doc, Hook, etc.)
 ├── application/       # Use cases, interfaces/ports, and orchestration services
 │   ├── ports/         # Abstract contracts and interfaces for persistence and runners
 │   ├── services/      # Domain and application services (e.g., PromptService, ConfigService)
 │   └── use-cases/     # Use case implementations (init, plan, run, docs, status, etc.)
 ├── infrastructure/    # Concrete adapters for ports
 │   ├── adapters/      # Integrations with Git, file system, CLI installer
+│   ├── hooks/         # Hook dispatchers (command-backed, and a no-op)
 │   └── repositories/  # On-disk persistence implementations (.codeforge/)
 ├── runners/           # Adapters for AI CLI agents (Claude, Codex, Antigravity, etc.)
 ├── scheduler/         # Reactive task scheduler and dependency DAG resolution
