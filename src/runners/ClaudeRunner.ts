@@ -3,13 +3,17 @@ import { BaseProcessRunner } from "./BaseProcessRunner.js";
 
 export class ClaudeRunner extends BaseProcessRunner {
   async execute(context: TaskContext): Promise<void> {
-    const args = ["-p", context.promptFilePath];
+    const args: string[] = [];
+
     if (context.model) {
-      args.unshift("-m", context.model);
+      args.push("--model", context.model);
     }
 
+    args.push("-p");
+
     return this.spawnProcess("claude", args, context, {
-      shell: false,
+      shell: process.platform === "win32",
+      pipePromptToStdin: true,
     });
   }
 
