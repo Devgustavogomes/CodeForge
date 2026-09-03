@@ -86,6 +86,7 @@ describe("TaskScheduler hook dispatch", () => {
     expect(hooks.events()).toEqual([
       "run.started",
       "task.started",
+      "task.verify",
       "task.completed",
       "run.completed",
     ]);

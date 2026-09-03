@@ -115,6 +115,38 @@ export class TaskScheduler {
     return { stop: false };
   }
 
+  /**
+   * Runs the gate hooks for a task that the agent just finished.
+   *
+   * A gate that exits non-zero throws, so the failure path that already exists
+   * records the hook output as the task's diagnostics. That is what lets
+   * `codeforge task retry` replay them into a fresh prompt.
+   *
+   * Hooks declared as `notify` are ignored here: they are reported by the
+   * dispatcher but never decide whether a task passed.
+   */
+  private async verify(specName: string, taskId: string): Promise<void> {
+    const results = await this.hooks?.dispatch({
+      event: "task.verify",
+      specName,
+      taskId,
+    });
+
+    const vetoes = (results ?? []).filter((r) => r.type === "gate" && !r.ok);
+    if (vetoes.length === 0) {
+      return;
+    }
+
+    throw new Error(
+      vetoes
+        .map(
+          (v) =>
+            `Gate hook "${v.name}" failed with exit code ${v.exitCode}.\n${v.output}`,
+        )
+        .join("\n\n"),
+    );
+  }
+
   private async executeTask(
     specName: string,
     task: Task,
@@ -150,6 +182,8 @@ export class TaskScheduler {
 
     try {
       await this.runner.execute(context);
+
+      await this.verify(specName, task.id);
 
       const postState = this.stateRepo.load(specName);
       if (postState) {
