@@ -10,6 +10,8 @@ import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
 import { translate } from "../ui/i18n.js";
 import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
 import { PromptService } from "../../application/services/PromptService.js";
+import { CommandHookDispatcher } from "../../infrastructure/hooks/CommandHookDispatcher.js";
+import { NoopHookDispatcher } from "../../infrastructure/hooks/NoopHookDispatcher.js";
 
 export function registerRunCommand(program: Command): void {
   program
@@ -67,7 +69,10 @@ export function registerRunCommand(program: Command): void {
       const reporter = new TerminalSchedulerReporter(gw);
       const stateRepo = new ExecutionStateRepository(gw);
       const promptService = new PromptService(gw);
-      const scheduler = new TaskScheduler(gw, runner, config, stateRepo, promptService, reporter);
+      const hooks = config.hooks
+        ? new CommandHookDispatcher(config.hooks, process.cwd())
+        : new NoopHookDispatcher();
+      const scheduler = new TaskScheduler(gw, runner, config, stateRepo, promptService, reporter, hooks);
 
       await scheduler.run(specName, config.executorAgent);
     });
