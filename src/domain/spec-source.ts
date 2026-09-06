@@ -16,7 +16,7 @@ export interface FetchedSpec {
 
 export interface SpecSourceConfig {
   provider: string;
-  apiKeyEnv?: string;
+  apiKey?: string;
   team?: string;
   project?: string;
   [key: string]: unknown;

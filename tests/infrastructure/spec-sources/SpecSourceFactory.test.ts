@@ -195,12 +195,35 @@ describe("LinearSpecSource", () => {
     );
   });
 
-  it("uses custom apiKeyEnv from config", async () => {
-    delete process.env.CUSTOM_LINEAR_KEY;
-    const source = new LinearSpecSource({ provider: "linear", apiKeyEnv: "CUSTOM_LINEAR_KEY" });
+  it("uses apiKey directly from config instead of environment variable", async () => {
+    delete process.env.LINEAR_API_KEY;
 
-    await expect(source.fetch("ENG-101")).rejects.toThrow(
-      "Linear API key not found. Please set the CUSTOM_LINEAR_KEY environment variable"
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: {
+          issue: {
+            id: "uuid-1",
+            identifier: "ENG-101",
+            title: "First Issue",
+            description: "Detailed description",
+            url: "https://linear.app/1",
+          },
+        },
+      }),
+    } as Response);
+
+    const source = new LinearSpecSource({ provider: "linear", apiKey: "direct-api-token" });
+    const result = await source.fetch("ENG-101");
+
+    expect(result.id).toBe("ENG-101");
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer direct-api-token",
+        }),
+      })
     );
   });
 

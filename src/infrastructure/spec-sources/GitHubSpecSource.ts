@@ -5,7 +5,7 @@ import { BaseRemoteSpecSource } from "./BaseRemoteSpecSource.js";
 export class GitHubSpecSource extends BaseRemoteSpecSource {
   readonly name = "github";
 
-  private getRepoInfo(id?: string): { owner: string; repo: string; issueNumber?: string } {
+  public getRepoInfo(id?: string): { owner: string; repo: string; issueNumber?: string } {
     let owner = (this.config?.owner as string) || "";
     let repo = (this.config?.repo as string) || "";
     const repoSlug = (this.config?.project || this.config?.repository) as string | undefined;
@@ -19,20 +19,50 @@ export class GitHubSpecSource extends BaseRemoteSpecSource {
     let issueNumber: string | undefined;
 
     if (id) {
-      if (id.includes("/")) {
-        const cleaned = id.replace(/#/, "/");
-        const parts = cleaned.split("/").filter(Boolean);
-        if (parts.length >= 3 && parts[parts.length - 2] === "issues") {
-          owner = parts[0];
-          repo = parts[1];
-          issueNumber = parts[parts.length - 1];
-        } else if (parts.length >= 3) {
-          owner = parts[0];
-          repo = parts[1];
-          issueNumber = parts[2];
+      const trimmed = id.trim();
+
+      if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        try {
+          const parsed = new URL(trimmed);
+          const segments = parsed.pathname.split("/").filter(Boolean);
+          const issuesIdx = segments.indexOf("issues");
+          if (issuesIdx >= 2 && issuesIdx + 1 < segments.length) {
+            owner = segments[issuesIdx - 2];
+            repo = segments[issuesIdx - 1];
+            issueNumber = segments[issuesIdx + 1];
+          } else if (segments.length >= 4 && segments[2] === "issues") {
+            owner = segments[0];
+            repo = segments[1];
+            issueNumber = segments[3];
+          } else if (segments.length >= 3) {
+            owner = segments[0];
+            repo = segments[1];
+            issueNumber = segments[2];
+          }
+        } catch {
+          // Fall through to string-based parsing
         }
-      } else {
-        issueNumber = id.replace(/^#/, "");
+      }
+
+      if (!issueNumber) {
+        if (trimmed.includes("/")) {
+          const cleaned = trimmed
+            .replace(/^https?:\/\//i, "")
+            .replace(/^github\.com\//i, "")
+            .replace(/#/, "/");
+          const parts = cleaned.split("/").filter(Boolean);
+          if (parts.length >= 3 && parts[parts.length - 2] === "issues") {
+            owner = parts[parts.length - 4] || parts[0];
+            repo = parts[parts.length - 3] || parts[1];
+            issueNumber = parts[parts.length - 1];
+          } else if (parts.length >= 3) {
+            owner = parts[0];
+            repo = parts[1];
+            issueNumber = parts[2];
+          }
+        } else {
+          issueNumber = trimmed.replace(/^#/, "");
+        }
       }
     }
 
@@ -54,7 +84,7 @@ export class GitHubSpecSource extends BaseRemoteSpecSource {
     const url = `https://api.github.com/repos/${owner}/${repo}/issues?per_page=${limit}&state=${encodeURIComponent(state)}`;
 
     try {
-      const response = await fetch(url, {
+      const response = await this.fetchWithTimeout(url, {
         headers: {
           Accept: "application/vnd.github+json",
           "User-Agent": "CodeForge",
@@ -66,7 +96,7 @@ export class GitHubSpecSource extends BaseRemoteSpecSource {
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           throw new Error(
-            `GitHub authentication failed (${response.status}). Please verify the token in ${this.config?.apiKeyEnv || "GITHUB_TOKEN"}.`
+            `GitHub authentication failed (${response.status}). Please verify the token in .codeforge/config.yaml (apiKey) or GITHUB_TOKEN environment variable.`
           );
         }
         throw new Error(`GitHub API request failed with status ${response.status}: ${response.statusText}`);
@@ -106,7 +136,7 @@ export class GitHubSpecSource extends BaseRemoteSpecSource {
     const url = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
 
     try {
-      const response = await fetch(url, {
+      const response = await this.fetchWithTimeout(url, {
         headers: {
           Accept: "application/vnd.github+json",
           "User-Agent": "CodeForge",
@@ -121,7 +151,7 @@ export class GitHubSpecSource extends BaseRemoteSpecSource {
         }
         if (response.status === 401 || response.status === 403) {
           throw new Error(
-            `GitHub authentication failed (${response.status}). Please verify the token in ${this.config?.apiKeyEnv || "GITHUB_TOKEN"}.`
+            `GitHub authentication failed (${response.status}). Please verify the token in .codeforge/config.yaml (apiKey) or GITHUB_TOKEN environment variable.`
           );
         }
         throw new Error(`GitHub API request failed with status ${response.status}: ${response.statusText}`);

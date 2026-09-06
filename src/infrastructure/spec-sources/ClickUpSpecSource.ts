@@ -5,6 +5,43 @@ import { BaseRemoteSpecSource } from "./BaseRemoteSpecSource.js";
 export class ClickUpSpecSource extends BaseRemoteSpecSource {
   readonly name = "clickup";
 
+  /**
+   * Extracts taskId and optional teamId from a ClickUp task URL or raw task ID.
+   */
+  public extractTaskInfo(input: string): { taskId: string; teamId?: string } {
+    if (!input) return { taskId: input };
+    const trimmed = input.trim();
+
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      try {
+        const url = new URL(trimmed);
+        const segments = url.pathname.split("/").filter(Boolean);
+        const tIndex = segments.indexOf("t");
+        if (tIndex !== -1) {
+          const remaining = segments.slice(tIndex + 1);
+          if (remaining.length === 1) {
+            return { taskId: remaining[0] };
+          } else if (remaining.length >= 2) {
+            return { teamId: remaining[0], taskId: remaining[1] };
+          }
+        }
+      } catch {
+        // Fall through
+      }
+    }
+
+    const matchTwo = trimmed.match(/app\.clickup\.com\/t\/([^/]+)\/([^/?#]+)/i);
+    if (matchTwo) {
+      return { teamId: matchTwo[1], taskId: matchTwo[2] };
+    }
+    const matchOne = trimmed.match(/app\.clickup\.com\/t\/([^/?#]+)/i);
+    if (matchOne) {
+      return { taskId: matchOne[1] };
+    }
+
+    return { taskId: trimmed.replace(/^#/, "") };
+  }
+
   async list(options?: ListSpecOptions): Promise<SpecReference[]> {
     const apiKey = this.getApiKey("CLICKUP_API_KEY");
     const listId = (this.config?.listId || this.config?.project) as string | undefined;
@@ -22,7 +59,7 @@ export class ClickUpSpecSource extends BaseRemoteSpecSource {
     }
 
     try {
-      const response = await fetch(url, {
+      const response = await this.fetchWithTimeout(url, {
         headers: {
           Authorization: apiKey,
           "Content-Type": "application/json",
@@ -32,7 +69,7 @@ export class ClickUpSpecSource extends BaseRemoteSpecSource {
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error(
-            `ClickUp authentication failed (401). Please verify the API key in ${this.config?.apiKeyEnv || "CLICKUP_API_KEY"}.`
+            `ClickUp authentication failed (401). Please verify the API key in .codeforge/config.yaml (apiKey) or CLICKUP_API_KEY environment variable.`
           );
         }
         throw new Error(`ClickUp API request failed with status ${response.status}: ${response.statusText}`);
@@ -76,13 +113,13 @@ export class ClickUpSpecSource extends BaseRemoteSpecSource {
 
   async fetch(id: string): Promise<FetchedSpec> {
     const apiKey = this.getApiKey("CLICKUP_API_KEY");
-    const taskId = id.replace(/^#/, "");
-    const teamId = (this.config?.teamId || this.config?.team) as string | undefined;
+    const { taskId, teamId: urlTeamId } = this.extractTaskInfo(id);
+    const teamId = urlTeamId || ((this.config?.teamId || this.config?.team) as string | undefined);
     const queryParam = teamId ? `?custom_task_ids=true&team_id=${teamId}` : "";
     const url = `https://api.clickup.com/api/v2/task/${taskId}${queryParam}`;
 
     try {
-      const response = await fetch(url, {
+      const response = await this.fetchWithTimeout(url, {
         headers: {
           Authorization: apiKey,
           "Content-Type": "application/json",
@@ -95,7 +132,7 @@ export class ClickUpSpecSource extends BaseRemoteSpecSource {
         }
         if (response.status === 401) {
           throw new Error(
-            `ClickUp authentication failed (401). Please verify the API key in ${this.config?.apiKeyEnv || "CLICKUP_API_KEY"}.`
+            `ClickUp authentication failed (401). Please verify the API key in .codeforge/config.yaml (apiKey) or CLICKUP_API_KEY environment variable.`
           );
         }
         throw new Error(`ClickUp API request failed with status ${response.status}: ${response.statusText}`);

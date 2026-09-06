@@ -5,6 +5,34 @@ import { BaseRemoteSpecSource } from "./BaseRemoteSpecSource.js";
 export class LinearSpecSource extends BaseRemoteSpecSource {
   readonly name = "linear";
 
+  /**
+   * Extracts an issue identifier (e.g. "ENG-123") from a Linear issue URL or raw identifier.
+   */
+  public extractIssueId(input: string): string {
+    if (!input) return input;
+    const trimmed = input.trim();
+
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      try {
+        const url = new URL(trimmed);
+        const segments = url.pathname.split("/").filter(Boolean);
+        const issueIdx = segments.indexOf("issue");
+        if (issueIdx !== -1 && issueIdx + 1 < segments.length) {
+          return segments[issueIdx + 1];
+        }
+      } catch {
+        // Fall through
+      }
+    }
+
+    const match = trimmed.match(/(?:linear\.app\/[^/]+\/issue\/)([A-Za-z0-9_-]+)/i);
+    if (match) {
+      return match[1];
+    }
+
+    return trimmed;
+  }
+
   async list(options?: ListSpecOptions): Promise<SpecReference[]> {
     const apiKey = this.getApiKey("LINEAR_API_KEY");
     const limit = options?.limit ?? 20;
@@ -26,7 +54,7 @@ export class LinearSpecSource extends BaseRemoteSpecSource {
     `;
 
     try {
-      const response = await fetch("https://api.linear.app/graphql", {
+      const response = await this.fetchWithTimeout("https://api.linear.app/graphql", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,6 +112,7 @@ export class LinearSpecSource extends BaseRemoteSpecSource {
 
   async fetch(id: string): Promise<FetchedSpec> {
     const apiKey = this.getApiKey("LINEAR_API_KEY");
+    const issueId = this.extractIssueId(id);
 
     const query = `
       query GetIssue($id: String!) {
@@ -105,7 +134,7 @@ export class LinearSpecSource extends BaseRemoteSpecSource {
     `;
 
     try {
-      const response = await fetch("https://api.linear.app/graphql", {
+      const response = await this.fetchWithTimeout("https://api.linear.app/graphql", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -113,7 +142,7 @@ export class LinearSpecSource extends BaseRemoteSpecSource {
         },
         body: JSON.stringify({
           query,
-          variables: { id },
+          variables: { id: issueId },
         }),
       });
 

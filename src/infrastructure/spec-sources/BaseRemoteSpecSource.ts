@@ -37,19 +37,69 @@ export abstract class BaseRemoteSpecSource implements SpecSource {
   }
 
   /**
-   * Reads the API key from the environment using the configured env var name,
-   * falling back to the provider-specific default.
+   * Default HTTP request timeout in milliseconds (15 seconds).
    */
-  protected getApiKey(defaultEnvVar: string, keyLabel = "API key"): string {
-    const envVarName = this.config?.apiKeyEnv || defaultEnvVar;
-    const apiKey = process.env[envVarName];
-    if (!apiKey) {
-      const displayName = this.getProviderDisplayName();
-      throw new Error(
-        `${displayName} ${keyLabel} not found. Please set the ${envVarName} environment variable or configure apiKeyEnv in .codeforge/config.yaml.`,
-      );
+  public readonly defaultTimeoutMs = 15000;
+
+  /**
+   * Reads the API key directly from config.apiKey (literal or interpolated)
+   * or falls back to the provider-specific default environment variable.
+   */
+  public getApiKey(defaultEnvVar: string, keyLabel = "API key"): string {
+    const configKey = this.config?.apiKey;
+    if (configKey && typeof configKey === "string" && configKey.trim().length > 0) {
+      return configKey.trim();
     }
-    return apiKey;
+
+    const envKey = process.env[defaultEnvVar];
+    if (envKey && typeof envKey === "string" && envKey.trim().length > 0) {
+      return envKey.trim();
+    }
+
+    const displayName = this.getProviderDisplayName();
+    const envFileMsg = this.config?.envPath
+      ? `in the ${this.config.envPath} file`
+      : "in the .env file";
+
+    throw new Error(
+      `${displayName} ${keyLabel} not found. Please set the ${defaultEnvVar} environment variable ${envFileMsg} or configure apiKey: $${defaultEnvVar} in .codeforge/config.yaml.`,
+    );
+  }
+
+  /**
+   * Executes an HTTP request with a 15-second AbortSignal timeout.
+   * Catches timeout errors and produces a user-friendly error message.
+   */
+  public async fetchWithTimeout(
+    url: string | URL,
+    init?: RequestInit,
+    timeoutMs = this.defaultTimeoutMs,
+  ): Promise<Response> {
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    const signal = init?.signal
+      ? AbortSignal.any([init.signal, timeoutSignal])
+      : timeoutSignal;
+
+    try {
+      return await fetch(url, {
+        ...init,
+        signal,
+      });
+    } catch (error: unknown) {
+      if (
+        (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) ||
+        (error as { name?: string })?.name === "TimeoutError" ||
+        (error as { code?: string })?.code === "ETIMEDOUT" ||
+        (error instanceof Error && /timed? ?out/i.test(error.message))
+      ) {
+        const displayName = this.getProviderDisplayName();
+        throw new Error(
+          `Request to ${displayName} timed out after ${timeoutMs / 1000}s. Please check your network connection.`,
+          { cause: error },
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -70,3 +120,4 @@ export abstract class BaseRemoteSpecSource implements SpecSource {
     throw new Error(`${base}: ${message}`, { cause: error });
   }
 }
+
