@@ -1,11 +1,9 @@
-﻿import { describe, it, expect, beforeEach } from "vitest";
-import {
-  PullSpecUseCase,
-  sanitizeFilename,
-} from "../../src/application/use-cases/PullSpecUseCase.js";
+import { describe, it, expect, beforeEach } from "vitest";
+import { PullSpecUseCase } from "../../src/application/use-cases/PullSpecUseCase.js";
 import { SpecSource } from "../../src/application/ports/SpecSource.js";
 import { FetchedSpec, SpecReference } from "../../src/domain/spec-source.js";
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
+import { WorkspaceBuilder } from "../helpers/workspace-builder.js";
 
 class MockSpecSource implements SpecSource {
   readonly name: string;
@@ -32,29 +30,15 @@ class MockSpecSource implements SpecSource {
   }
 }
 
-function initWorkspace(gw: InMemoryWorkspaceGateway): void {
-  gw.mkdir(".codeforge");
-  gw.mkdir(".codeforge/specs");
-  gw.writeFile(
-    ".codeforge/metadata.json",
-    JSON.stringify({
-      initialized: true,
-      version: "1.0",
-      initializedAt: new Date().toISOString(),
-    })
-  );
-}
-
 describe("PullSpecUseCase - Title-Based Naming and Fallbacks", () => {
   let gw: InMemoryWorkspaceGateway;
   let mockSource: MockSpecSource;
   let useCase: PullSpecUseCase;
 
   beforeEach(() => {
-    gw = new InMemoryWorkspaceGateway();
+    gw = WorkspaceBuilder.aWorkspace().withMetadata().build();
     mockSource = new MockSpecSource("linear");
     useCase = new PullSpecUseCase(gw, mockSource);
-    initWorkspace(gw);
   });
 
   it("names spec file using sanitized issue title by default", async () => {

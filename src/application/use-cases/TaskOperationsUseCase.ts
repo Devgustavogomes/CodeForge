@@ -39,13 +39,20 @@ export type ResetTaskResult =
   | { kind: "reset-all"; specName: string; count: number };
 
 export class TaskOperationsUseCase {
-  constructor(private readonly gw: WorkspaceGateway) {}
+  private readonly stateRepo: ExecutionStateRepository;
+
+  constructor(
+    private readonly gw: WorkspaceGateway,
+    stateRepo?: ExecutionStateRepository,
+  ) {
+    this.stateRepo = stateRepo ?? new ExecutionStateRepository(gw);
+  }
 
   markTaskCompleted(
     specName: string,
     taskId: string,
   ): MarkCompleteResult {
-    const repo = new ExecutionStateRepository(this.gw);
+    const repo = this.stateRepo;
     const state = repo.load(specName);
 
     if (!state) {
@@ -74,7 +81,7 @@ export class TaskOperationsUseCase {
     specName: string,
     taskId: string,
   ): RetryResult {
-    const repo = new ExecutionStateRepository(this.gw);
+    const repo = this.stateRepo;
     const state = repo.load(specName);
 
     if (!state) {
@@ -160,7 +167,7 @@ export class TaskOperationsUseCase {
       return { kind: "spec-not-found" };
     }
 
-    const repo = new ExecutionStateRepository(this.gw);
+    const repo = this.stateRepo;
     const state = repo.load(specName);
     if (!state) {
       return { kind: "no-execution", specName };
@@ -205,7 +212,7 @@ export class TaskOperationsUseCase {
       return { kind: "spec-not-found" };
     }
 
-    const repo = new ExecutionStateRepository(this.gw);
+    const repo = this.stateRepo;
     const state = repo.load(specName);
     if (!state) {
       return { kind: "no-execution", specName };

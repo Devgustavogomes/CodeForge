@@ -37,11 +37,13 @@ function setupExecutionState(gateway: InMemoryWorkspaceGateway, specName: string
 
 describe("TaskOperationsUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let repo: ExecutionStateRepository;
   let useCase: TaskOperationsUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
-    useCase = new TaskOperationsUseCase(gateway);
+    repo = new ExecutionStateRepository(gateway);
+    useCase = new TaskOperationsUseCase(gateway, repo);
   });
 
   describe("retryTask", () => {
@@ -52,13 +54,12 @@ describe("TaskOperationsUseCase", () => {
       // Simulate TaskScheduler initialization
       const state = setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
       state.tasks["TASK-001"].status = "running";
-      new ExecutionStateRepository(gateway).save(state);
+      repo.save(state);
 
       const result = useCase.retryTask("test-spec", "TASK-001");
       expect(result.kind).toBe("retried");
 
-      const statePath = ".codeforge/executions/test-spec.json";
-      const newState = JSON.parse(gateway.readFile(statePath));
+      const newState = repo.load("test-spec")!;
       expect(newState.tasks["TASK-001"].status).toBe("pending");
     });
 
@@ -70,13 +71,12 @@ describe("TaskOperationsUseCase", () => {
       state.status = "failed";
       state.completedAt = new Date().toISOString();
       state.tasks["TASK-001"].status = "failed";
-      new ExecutionStateRepository(gateway).save(state);
+      repo.save(state);
 
       const result = useCase.retryTask("test-spec", "TASK-001");
       expect(result.kind).toBe("retried");
 
-      const statePath = ".codeforge/executions/test-spec.json";
-      const newState = JSON.parse(gateway.readFile(statePath));
+      const newState = repo.load("test-spec")!;
       expect(newState.tasks["TASK-001"].status).toBe("pending");
       expect(newState.status).toBe("pending");
       expect(newState.completedAt).toBeUndefined();
@@ -121,10 +121,11 @@ describe("TaskOperationsUseCase", () => {
       setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
 
       const result = useCase.markTaskCompleted("test-spec", "TASK-001");
-      expect(result.kind).toBe("completed");
-      if (result.kind === "completed") {
-        expect(result.allCompleted).toBe(true);
-      }
+      expect(result).toEqual({ kind: "completed", allCompleted: true });
+
+      const updatedState = repo.load("test-spec")!;
+      expect(updatedState.tasks["TASK-001"].status).toBe("completed");
+      expect(updatedState.status).toBe("completed");
     });
   });
 

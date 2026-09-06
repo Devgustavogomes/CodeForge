@@ -71,7 +71,7 @@ export class PullSpecUseCase {
       return { kind: "fetch-failed", error: message };
     }
 
-    let filename = "";
+    let filename: string;
     if (options.customName && options.customName.trim().length > 0) {
       filename = sanitizeFilename(options.customName);
     } else {
