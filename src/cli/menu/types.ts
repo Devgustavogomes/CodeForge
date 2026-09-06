@@ -1,3 +1,8 @@
+export interface ActionResult {
+  back?: boolean;
+  success?: boolean;
+}
+
 export type MenuAction =
   | { type: "command"; args: string[] }
   | { type: "command-with-input"; args: string[]; inputLabel: string; inputFlag: string };

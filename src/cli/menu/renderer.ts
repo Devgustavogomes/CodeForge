@@ -37,14 +37,14 @@ export async function renderMainMenu(initialGroupId?: string): Promise<void> {
   if (selectedGroupId === "exit") {
     console.log(`\n${translate("menu_goodbye", lang)} 👋\n`);
     process.exit(0);
+    return;
   }
 
   const group = menuGroups.find((g: MenuGroup) => g.id === selectedGroupId);
 
   if (group?.action) {
-    const code = await executeAction(group.action);
-    if (code === 200) return renderMainMenu();
-    return;
+    await executeAction(group.action);
+    return renderMainMenu();
   }
 
   if (group?.items && group.items.length > 0) {
@@ -59,8 +59,8 @@ export async function renderMainMenu(initialGroupId?: string): Promise<void> {
 
     const selectedItem = group.items.find((i: MenuItem) => i.value === actionValue);
     if (selectedItem?.action) {
-      const code = await executeAction(selectedItem.action);
-      if (code === 200) {
+      const result = await executeAction(selectedItem.action);
+      if (result.back) {
         return renderMainMenu(selectedGroupId);
       }
     }
