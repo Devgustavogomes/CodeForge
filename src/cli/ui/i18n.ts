@@ -101,6 +101,17 @@ const en = {
   spec_pull_success: "\n✓ Spec '{id}' successfully saved to {path}\n",
   spec_pull_failed: "\n✗ Failed to pull spec: {error}\n",
 
+  // spec list
+  spec_list_description: "List all local specifications and their execution status",
+  spec_list_empty: "\n○ No specifications found in .codeforge/specs. Create one with `codeforge spec create <name>` or pull with `codeforge spec pull <id>`.\n",
+  spec_list_header_name: "SPEC",
+  spec_list_header_title: "TITLE",
+  spec_list_header_status: "STATUS",
+  spec_list_status_not_started: "Not Started",
+  spec_list_status_planned: "Planned",
+  spec_list_status_in_progress: "In Progress",
+  spec_list_status_completed: "Completed",
+
   // menu
   menu_welcome: "Welcome to CodeForge!",
   menu_select_group: "Select a command group:",
@@ -238,6 +249,17 @@ const pt: Dictionary = {
   spec_pull_success: "\n✓ Spec '{id}' salva com sucesso em {path}\n",
   spec_pull_failed: "\n✗ Falha ao obter spec: {error}\n",
 
+  // spec list
+  spec_list_description: "Listar todas as especificações locais e seus status de execução",
+  spec_list_empty: "\n○ Nenhuma especificação encontrada em .codeforge/specs. Crie uma com `codeforge spec create <name>` ou obtenha com `codeforge spec pull <id>`.\n",
+  spec_list_header_name: "SPEC",
+  spec_list_header_title: "TÍTULO",
+  spec_list_header_status: "STATUS",
+  spec_list_status_not_started: "Não Iniciado",
+  spec_list_status_planned: "Planejado",
+  spec_list_status_in_progress: "Em Andamento",
+  spec_list_status_completed: "Concluído",
+
   // menu
   menu_welcome: "Bem-vindo ao CodeForge!",
   menu_select_group: "Selecione um grupo de comandos:",
@@ -370,6 +392,17 @@ const es: Dictionary = {
   spec_pull_fetching: "\n▶ Obteniendo spec '{id}' de {source}...",
   spec_pull_success: "\n✓ Spec '{id}' guardada exitosamente en {path}\n",
   spec_pull_failed: "\n✗ Error al obtener spec: {error}\n",
+
+  // spec list
+  spec_list_description: "Listar todas las especificaciones locales y su estado de ejecución",
+  spec_list_empty: "\n○ No se encontraron especificaciones en .codeforge/specs. Cree una con `codeforge spec create <name>` o descárguela con `codeforge spec pull <id>`.\n",
+  spec_list_header_name: "SPEC",
+  spec_list_header_title: "TÍTULO",
+  spec_list_header_status: "ESTADO",
+  spec_list_status_not_started: "No Iniciado",
+  spec_list_status_planned: "Planificado",
+  spec_list_status_in_progress: "En Progreso",
+  spec_list_status_completed: "Completado",
 
   // menu
   menu_welcome: "¡Bienvenido a CodeForge!",

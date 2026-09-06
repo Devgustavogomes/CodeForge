@@ -34,7 +34,7 @@ describe("ListSpecsUseCase", () => {
 
     const specs = useCase.execute();
     expect(specs).toHaveLength(2);
-    expect(specs).toEqual(["auth", "db"]);
+    expect(specs.map((s) => s.name)).toEqual(["auth", "db"]);
   });
 });
 

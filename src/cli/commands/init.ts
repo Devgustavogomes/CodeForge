@@ -126,7 +126,13 @@ export function registerInitCommand(program: Command): void {
         });
       }
 
-      envUseCase.saveConfig({ environment, plannerAgent, executorAgent, language: lang });
+      envUseCase.saveConfig({
+        ...(config || {}),
+        environment,
+        plannerAgent,
+        executorAgent,
+        language: lang,
+      });
 
       console.log(translate("init_config_saved", lang));
 

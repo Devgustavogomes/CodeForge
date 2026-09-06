@@ -32,7 +32,7 @@ export function registerTaskInfoCommand(task: Command): void {
           message: "Select a spec:",
           choices: [
             { name: translate("menu_back", lang), value: "back" },
-            ...specs.map((s) => ({ name: s, value: s }))
+            ...specs.map((s) => ({ name: s.name, value: s.name }))
           ],
         });
 
