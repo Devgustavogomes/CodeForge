@@ -11,6 +11,11 @@ import { HookDispatcher } from "../application/ports/HookDispatcher.js";
 import { HookEvent } from "../domain/hook.js";
 import { CodeForgeConfig } from "../config/types.js";
 
+export type SchedulerRunResult =
+  | { status: "completed"; specName: string }
+  | { status: "failed"; specName: string; reason?: string }
+  | { status: "deadlock"; specName: string };
+
 export class TaskScheduler {
   constructor(
     private gw: WorkspaceGateway,
@@ -36,28 +41,39 @@ export class TaskScheduler {
     return tasks;
   }
 
-  private prepareState(specName: string, tasks: Task[]): boolean {
+  private prepareState(
+    specName: string,
+    tasks: Task[],
+  ): { ready: true } | { ready: false; result: SchedulerRunResult } {
     let state = this.stateRepo.load(specName);
     if (!state) {
       state = this.stateRepo.init(specName, tasks);
       this.stateRepo.save(state);
-      return true;
+      return { ready: true };
     }
 
     if (state.status === "completed") {
       this.reporter?.onComplete(specName);
-      return false;
+      return { ready: false, result: { status: "completed", specName } };
     }
 
     const { pending, failed } = this.getTaskCounts(state);
     if (pending === 0 && failed > 0) {
-      this.reportFail(specName, "Spec execution has failed tasks.");
-      return false;
+      const reason = "Spec execution has failed tasks.";
+      this.reportFail(specName, reason);
+      return {
+        ready: false,
+        result: {
+          status: "failed",
+          specName,
+          reason,
+        },
+      };
     }
 
     state.status = "running";
     this.stateRepo.save(state);
-    return true;
+    return { ready: true };
   }
 
   private getTaskCounts(state: SpecExecutionState): {
@@ -79,21 +95,23 @@ export class TaskScheduler {
     } else {
       this.reporter?.onError(new Error(message));
     }
-    process.exitCode = 1;
   }
 
   private handleNoReadyTasks(
     specName: string,
     state: SpecExecutionState,
     counts: { running: number; pending: number; failed: number },
-  ): { stop: boolean; event?: HookEvent } {
+  ): { stop: boolean; event?: HookEvent; result?: SchedulerRunResult } {
     if (counts.running === 0 && counts.pending > 0) {
       state.status = "failed";
       state.completedAt = new Date().toISOString();
       this.stateRepo.save(state);
       this.reporter?.onDeadlock(specName);
-      process.exitCode = 1;
-      return { stop: true, event: "run.deadlock" };
+      return {
+        stop: true,
+        event: "run.deadlock",
+        result: { status: "deadlock", specName },
+      };
     }
 
     if (counts.running === 0 && counts.pending === 0) {
@@ -101,15 +119,28 @@ export class TaskScheduler {
         state.status = "failed";
         state.completedAt = new Date().toISOString();
         this.stateRepo.save(state);
-        this.reportFail(specName, "One or more tasks failed.");
-        return { stop: true, event: "run.failed" };
+        const reason = "One or more tasks failed.";
+        this.reportFail(specName, reason);
+        return {
+          stop: true,
+          event: "run.failed",
+          result: {
+            status: "failed",
+            specName,
+            reason,
+          },
+        };
       }
 
       state.status = "completed";
       state.completedAt = new Date().toISOString();
       this.stateRepo.save(state);
       this.reporter?.onComplete(specName);
-      return { stop: true, event: "run.completed" };
+      return {
+        stop: true,
+        event: "run.completed",
+        result: { status: "completed", specName },
+      };
     }
 
     return { stop: false };
@@ -223,15 +254,17 @@ export class TaskScheduler {
     }
   }
 
-  async run(specName: string, model?: string): Promise<void> {
+  async run(specName: string, model?: string): Promise<SchedulerRunResult> {
     const tasks = this.loadTasks(specName);
     if (tasks.length === 0) {
-      this.reporter?.onError(new Error(`No tasks found for spec: ${specName}`));
-      return;
+      const message = `No tasks found for spec: ${specName}`;
+      this.reporter?.onError(new Error(message));
+      return { status: "failed", specName, reason: message };
     }
 
-    if (!this.prepareState(specName, tasks)) {
-      return;
+    const prep = this.prepareState(specName, tasks);
+    if (!prep.ready) {
+      return prep.result;
     }
 
     const resolver = new DAGResolver();
@@ -243,18 +276,25 @@ export class TaskScheduler {
     try {
       while (true) {
         const currentState = this.stateRepo.load(specName);
-        if (!currentState) break;
+        if (!currentState) {
+          return {
+            status: "failed",
+            specName,
+            reason: `Execution state not found for spec: ${specName}`,
+          };
+        }
 
         if (currentState.status === "completed") {
           this.reporter?.onComplete(specName);
           await this.hooks?.dispatch({ event: "run.completed", specName });
-          break;
+          return { status: "completed", specName };
         }
 
         if (currentState.status === "failed") {
-          this.reportFail(specName, "Spec execution failed.");
+          const reason = "Spec execution failed.";
+          this.reportFail(specName, reason);
           await this.hooks?.dispatch({ event: "run.failed", specName });
-          break;
+          return { status: "failed", specName, reason };
         }
 
         const readyTaskIds = resolver.getReadyTasks(currentState);
@@ -281,19 +321,20 @@ export class TaskScheduler {
             currentState,
             counts,
           );
-          if (outcome.stop) {
+          if (outcome.stop && outcome.result) {
             if (outcome.event) {
               await this.hooks?.dispatch({ event: outcome.event, specName });
             }
-            break;
+            return outcome.result;
           }
         }
 
         await Promise.race(activeTasks.values());
       }
     } catch (error) {
-      this.reporter?.onError(error instanceof Error ? error : String(error));
-      process.exitCode = 1;
+      const message = error instanceof Error ? error.message : String(error);
+      this.reporter?.onError(error instanceof Error ? error : message);
+      return { status: "failed", specName, reason: message };
     } finally {
       this.promptService.deletePromptDir(specName);
     }

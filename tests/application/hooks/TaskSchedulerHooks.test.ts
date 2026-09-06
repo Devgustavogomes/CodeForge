@@ -47,7 +47,7 @@ function taskFixture(overrides: Partial<Task> = {}): Task {
 describe("TaskScheduler hook dispatch", () => {
   let gw: InMemoryWorkspaceGateway;
   let hooks: RecordingHookDispatcher;
-  let exitCode: number | string | undefined;
+  let exitCode: typeof process.exitCode;
 
   beforeEach(() => {
     gw = new InMemoryWorkspaceGateway();

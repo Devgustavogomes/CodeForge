@@ -60,7 +60,7 @@ describe("task.verify gate", () => {
   let stateRepo: ExecutionStateRepository;
   let promptService: PromptService;
   let runner: AgentRunner;
-  let exitCode: number | string | undefined;
+  let exitCode: typeof process.exitCode;
 
   beforeEach(() => {
     gw = new InMemoryWorkspaceGateway();
