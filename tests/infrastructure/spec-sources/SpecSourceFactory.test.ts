@@ -4,64 +4,7 @@ import { FilesystemSpecSource } from "../../../src/infrastructure/spec-sources/F
 import { LinearSpecSource } from "../../../src/infrastructure/spec-sources/LinearSpecSource.js";
 import { GitHubSpecSource } from "../../../src/infrastructure/spec-sources/GitHubSpecSource.js";
 import { ClickUpSpecSource } from "../../../src/infrastructure/spec-sources/ClickUpSpecSource.js";
-import { WorkspaceGateway } from "../../../src/infrastructure/workspace.js";
-
-class InMemoryWorkspaceGateway implements WorkspaceGateway {
-  private files: Map<string, string> = new Map();
-
-  constructor(initialFiles: Record<string, string> = {}) {
-    for (const [key, value] of Object.entries(initialFiles)) {
-      this.files.set(key, value);
-    }
-  }
-
-  readFile(relativePath: string): string {
-    const content = this.files.get(relativePath);
-    if (content === undefined) {
-      throw new Error(`File not found: ${relativePath}`);
-    }
-    return content;
-  }
-
-  writeFile(relativePath: string, content: string): void {
-    this.files.set(relativePath, content);
-  }
-
-  deleteFile(relativePath: string): void {
-    this.files.delete(relativePath);
-  }
-
-  deleteDir(relativePath: string): void {
-    for (const key of Array.from(this.files.keys())) {
-      if (key.startsWith(relativePath)) {
-        this.files.delete(key);
-      }
-    }
-  }
-
-  exists(relativePath: string): boolean {
-    if (this.files.has(relativePath)) return true;
-    for (const key of this.files.keys()) {
-      if (key.startsWith(relativePath + "/")) return true;
-    }
-    return false;
-  }
-
-  listDir(relativePath: string): string[] {
-    const results = new Set<string>();
-    const prefix = relativePath ? relativePath + "/" : "";
-    for (const key of this.files.keys()) {
-      if (key.startsWith(prefix)) {
-        const rest = key.slice(prefix.length);
-        const segment = rest.split("/")[0];
-        if (segment) results.add(segment);
-      }
-    }
-    return Array.from(results);
-  }
-
-  mkdir(_relativePath: string): void {}
-}
+import { InMemoryWorkspaceGateway } from "../../helpers/in-memory-workspace.js";
 
 describe("SpecSourceFactory", () => {
   it("returns the list of available providers", () => {
