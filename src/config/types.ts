@@ -8,6 +8,7 @@ export interface CodeForgeConfig {
   plannerAgent: string;
   executorAgent: string;
   language: SupportedLanguage;
+  envPath?: string;
   hooks?: HookMap;
   specSource?: SpecSourceConfig;
 }

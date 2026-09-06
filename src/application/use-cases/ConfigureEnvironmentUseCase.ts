@@ -23,7 +23,12 @@ export class ConfigureEnvironmentUseCase {
   }
 
   saveConfig(config: CodeForgeConfig): void {
-    this.configService.saveConfig(config);
+    const existingConfig = this.loadConfig();
+    const mergedConfig: CodeForgeConfig = {
+      ...(existingConfig || {}),
+      ...config,
+    };
+    this.configService.saveConfig(mergedConfig);
   }
 
   loadConfig(): CodeForgeConfig | null {
