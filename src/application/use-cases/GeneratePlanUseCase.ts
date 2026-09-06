@@ -1,4 +1,4 @@
-import fs from "node:fs";
+
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { PATHS } from "../../infrastructure/paths.js";
@@ -80,8 +80,8 @@ export class GeneratePlanUseCase {
 
       return valResult as GeneratePlanResult;
     } finally {
-      if (fs.existsSync(promptPath)) {
-        fs.unlinkSync(promptPath);
+      if (this.workspace.exists(promptPath)) {
+        this.workspace.deleteFile(promptPath);
       }
     }
   }

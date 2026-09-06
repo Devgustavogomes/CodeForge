@@ -3,7 +3,7 @@ import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { CodeForgeConfig } from "../../config/types.js";
 import { DocsManifestRepository } from "../../infrastructure/repositories/DocsManifestRepository.js";
 import { buildDocsCreatePrompt } from "../../infrastructure/assets/prompts/docs.js";
-import fs from "node:fs";
+
 import { PATHS } from "../../infrastructure/paths.js";
 
 export type CreateDocResult =
@@ -84,8 +84,8 @@ export class CreateDocUseCase {
       await this.runner.execute(context);
       return { kind: "success" };
     } finally {
-      if (fs.existsSync(promptPath)) {
-        fs.unlinkSync(promptPath);
+      if (this.gw.exists(promptPath)) {
+        this.gw.deleteFile(promptPath);
       }
     }
   }

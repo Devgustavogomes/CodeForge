@@ -2,7 +2,8 @@ import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { ListSpecsUseCase } from "../../application/use-cases/ListSpecsUseCase.js";
-import { GetSpecStatusUseCase, formatStatusOutput } from "../../application/use-cases/GetSpecStatusUseCase.js";
+import { GetSpecStatusUseCase } from "../../application/use-cases/GetSpecStatusUseCase.js";
+import { formatStatusOutput } from "../ui/statusFormatter.js";
 import { translate } from "../ui/i18n.js";
 import { ConfigService } from "../../config/ConfigService.js";
 

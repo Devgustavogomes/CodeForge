@@ -1,6 +1,7 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
-import { GetSpecStatusUseCase, formatStatusOutput, TaskStatusInfo } from "../../src/application/use-cases/GetSpecStatusUseCase.js";
+import { GetSpecStatusUseCase, TaskStatusInfo } from "../../src/application/use-cases/GetSpecStatusUseCase.js";
+import { formatStatusOutput } from "../../src/cli/ui/statusFormatter.js";
 import { SpecExecutionState } from "../../src/domain/execution.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {

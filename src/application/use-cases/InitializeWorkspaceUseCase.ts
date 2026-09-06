@@ -22,11 +22,11 @@ export class InitializeWorkspaceUseCase {
   execute(): InitResult {
     if (this.gw.exists(PATHS.metadata)) {
       const raw = this.gw.readFile(PATHS.metadata);
-    const metadata = JSON.parse(raw) as WorkspaceMetadata;
-    if (metadata.initialized) {
-      return { kind: "already-initialized" };
+      const metadata = JSON.parse(raw) as WorkspaceMetadata;
+      if (metadata.initialized) {
+        return { kind: "already-initialized" };
+      }
     }
-  }
 
     const created: string[] = [];
 
@@ -84,4 +84,3 @@ export class InitializeWorkspaceUseCase {
     return { kind: "created", created };
   }
 }
-

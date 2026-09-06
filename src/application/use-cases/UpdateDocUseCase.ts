@@ -7,7 +7,7 @@ import { minimatch } from "minimatch";
 import { buildDocsUpdatePrompt, buildDocsManualUpdatePrompt } from "../../infrastructure/assets/prompts/docs.js";
 import { AffectedDoc } from "../../domain/doc.js";
 import { DocsManifestRepository } from "../../infrastructure/repositories/DocsManifestRepository.js";
-import fs from "node:fs";
+
 
 export type DocsUpdateResult =
   | { kind: "not-initialized" }
@@ -135,8 +135,8 @@ export class UpdateDocUseCase {
     try {
       await this.runner.execute(context);
     } finally {
-      if (fs.existsSync(promptPath)) {
-        fs.unlinkSync(promptPath);
+      if (this.gw.exists(promptPath)) {
+        this.gw.deleteFile(promptPath);
       }
     }
   }
