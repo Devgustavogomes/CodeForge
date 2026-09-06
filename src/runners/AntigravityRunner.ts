@@ -1,11 +1,14 @@
 import path from "node:path";
-import { exec } from "child_process";
-import { promisify } from "util";
 import * as os from "os";
 import { TaskContext } from "./AgentRunner.js";
 import { BaseProcessRunner } from "./BaseProcessRunner.js";
+import { ProcessExecutor } from "../infrastructure/process/ProcessExecutor.js";
 
 export class AntigravityRunner extends BaseProcessRunner {
+  constructor(processExecutor?: ProcessExecutor) {
+    super(processExecutor);
+  }
+
   async execute(context: TaskContext): Promise<void> {
     const absolutePromptPath = path.resolve(
       process.cwd(),
@@ -31,13 +34,14 @@ export class AntigravityRunner extends BaseProcessRunner {
 
   async getAvailableAgents(): Promise<string[]> {
     try {
-      const execAsync = promisify(exec);
-
       const cmd =
         os.platform() === "win32"
           ? "agy models < NUL"
           : "agy models < /dev/null";
-      const { stdout } = await execAsync(cmd, { timeout: 5000 });
+      const { stdout, exitCode } = await this.processExecutor.exec(cmd, { timeout: 5000 });
+      if (exitCode !== 0) {
+        return [];
+      }
 
       const lines = stdout
         .split("\n")

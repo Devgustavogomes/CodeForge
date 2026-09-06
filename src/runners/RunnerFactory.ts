@@ -3,22 +3,23 @@ import { AntigravityRunner } from "./AntigravityRunner.js";
 import { ClaudeRunner } from "./ClaudeRunner.js";
 import { CodexRunner } from "./CodexRunner.js";
 import { CursorRunner } from "./CursorRunner.js";
+import { ProcessExecutor } from "../infrastructure/process/ProcessExecutor.js";
 
 export class RunnerFactory {
   static getAvailableEnvironments(): string[] {
     return ["antigravity", "claude", "codex", "cursor"];
   }
 
-  static createRunner(environment: string): AgentRunner {
+  static createRunner(environment: string, processExecutor?: ProcessExecutor): AgentRunner {
     switch (environment.toLowerCase()) {
       case "antigravity":
-        return new AntigravityRunner();
+        return new AntigravityRunner(processExecutor);
       case "claude":
-        return new ClaudeRunner();
+        return new ClaudeRunner(processExecutor);
       case "codex":
-        return new CodexRunner();
+        return new CodexRunner(processExecutor);
       case "cursor":
-        return new CursorRunner();
+        return new CursorRunner(processExecutor);
       default:
         throw new Error(`Unsupported environment: ${environment}`);
     }

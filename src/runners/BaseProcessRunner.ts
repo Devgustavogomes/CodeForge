@@ -1,76 +1,60 @@
-import { spawn, SpawnOptions } from "child_process";
-import * as fs from "fs";
+import { SpawnOptions } from "child_process";
 import { AgentRunner, TaskContext } from "./AgentRunner.js";
+import { ProcessExecutor, ProcessSpawnOptions } from "../infrastructure/process/ProcessExecutor.js";
+import { NodeProcessExecutor } from "../infrastructure/process/NodeProcessExecutor.js";
 
 export interface RunnerSpawnOptions extends SpawnOptions {
   pipePromptToStdin?: boolean;
 }
 
 export abstract class BaseProcessRunner implements AgentRunner {
+  constructor(
+    protected readonly processExecutor: ProcessExecutor = new NodeProcessExecutor(),
+  ) {}
+
   abstract execute(context: TaskContext): Promise<void>;
 
   protected async spawnProcess(
     cmd: string,
     args: string[],
     context: TaskContext,
-    options: RunnerSpawnOptions = {}
+    options: RunnerSpawnOptions = {},
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      let stdio = options.stdio;
-      if (!stdio) {
-        if (options.pipePromptToStdin) {
-          stdio = [
-            "pipe",
-            context.silent ? "pipe" : "inherit",
-            context.silent ? "pipe" : "inherit",
-          ];
-        } else {
-          stdio = context.silent ? "pipe" : "inherit";
-        }
+    let stdio = options.stdio;
+    if (!stdio) {
+      if (options.pipePromptToStdin) {
+        stdio = [
+          "pipe",
+          context.silent ? "pipe" : "inherit",
+          context.silent ? "pipe" : "inherit",
+        ];
+      } else {
+        stdio = context.silent ? "pipe" : "inherit";
       }
+    }
 
-      const child = spawn(cmd, args, {
-        ...options,
-        stdio,
-      });
+    const spawnOptions: ProcessSpawnOptions = {
+      cwd: typeof options.cwd === "string" ? options.cwd : undefined,
+      env: options.env as NodeJS.ProcessEnv,
+      timeout: options.timeout,
+      shell: options.shell,
+      stdio,
+      pipePromptFile: options.pipePromptToStdin ? context.promptFilePath : undefined,
+    };
 
-      if (options.pipePromptToStdin && child.stdin) {
-        fs.createReadStream(context.promptFilePath).pipe(child.stdin);
-      }
+    const result = await this.processExecutor.spawn(cmd, args, spawnOptions);
 
-      let outputBuffer = "";
-      if (context.silent) {
-        child.stdout?.on("data", (data) => {
-          outputBuffer += data.toString();
-          if (outputBuffer.length > 5000) {
-            outputBuffer = outputBuffer.slice(-5000);
-          }
-        });
-        child.stderr?.on("data", (data) => {
-          outputBuffer += data.toString();
-          if (outputBuffer.length > 5000) {
-            outputBuffer = outputBuffer.slice(-5000);
-          }
-        });
-      }
+    if (result.exitCode === 0) {
+      return;
+    }
 
-      child.on("close", (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          const tail = outputBuffer.trim()
-            ? `\n\nOutput Tail:\n${outputBuffer.trim()}`
-            : "";
-          const runnerName = this.constructor.name.replace("Runner", "");
-          reject(
-            new Error(`${runnerName} execution failed with exit code ${code}${tail}`)
-          );
-        }
-      });
-
-      child.on("error", (error) => {
-        reject(error);
-      });
-    });
+    const output = (
+      result.stdout + (result.stdout && result.stderr ? "\n" : "") + result.stderr
+    ).trim();
+    const tail = output ? `\n\nOutput Tail:\n${output.slice(-5000)}` : "";
+    const runnerName = this.constructor.name.replace("Runner", "");
+    throw new Error(
+      `${runnerName} execution failed with exit code ${result.exitCode}${tail}`,
+    );
   }
 }

@@ -1,4 +1,3 @@
-import { spawn } from "child_process";
 import { HookDispatcher } from "../../application/ports/HookDispatcher.js";
 import {
   HookContext,
@@ -7,6 +6,8 @@ import {
   HookResult,
   HookType,
 } from "../../domain/hook.js";
+import { ProcessExecutor } from "../process/ProcessExecutor.js";
+import { NodeProcessExecutor } from "../process/NodeProcessExecutor.js";
 
 const DEFAULT_TIMEOUT_MS = 300_000;
 const MAX_OUTPUT_CHARS = 5_000;
@@ -26,6 +27,7 @@ export class CommandHookDispatcher implements HookDispatcher {
   constructor(
     private readonly hooks: HookMap,
     private readonly cwd: string = process.cwd(),
+    private readonly processExecutor: ProcessExecutor = new NodeProcessExecutor(),
   ) {}
 
   async dispatch(context: HookContext): Promise<HookResult[]> {
@@ -39,18 +41,19 @@ export class CommandHookDispatcher implements HookDispatcher {
     return results;
   }
 
-  private run(
+  private async run(
     definition: HookDefinition,
     context: HookContext,
   ): Promise<HookResult> {
     const type: HookType = definition.type ?? "notify";
     const timeoutMs = definition.timeout ?? DEFAULT_TIMEOUT_MS;
 
-    return new Promise((resolve) => {
-      const child = spawn(definition.run, {
+    try {
+      const result = await this.processExecutor.spawn(definition.run, [], {
         shell: true,
         cwd: this.cwd,
         stdio: ["pipe", "pipe", "pipe"],
+        timeout: timeoutMs,
         env: {
           ...process.env,
           CODEFORGE_EVENT: context.event,
@@ -58,53 +61,34 @@ export class CommandHookDispatcher implements HookDispatcher {
           CODEFORGE_TASK_ID: context.taskId ?? "",
           CODEFORGE_CWD: this.cwd,
         },
+        pipeStdinContent: JSON.stringify(context),
       });
 
-      let output = "";
-      let settled = false;
+      const rawOutput = [result.stdout, result.stderr]
+        .filter((s) => s && s.length > 0)
+        .join("\n");
 
-      const settle = (exitCode: number | null, extra?: string): void => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
+      const output =
+        rawOutput.length > MAX_OUTPUT_CHARS
+          ? rawOutput.slice(-MAX_OUTPUT_CHARS)
+          : rawOutput;
 
-        resolve({
-          name: definition.name,
-          type,
-          ok: exitCode === 0,
-          exitCode,
-          output: (extra ? `${output}\n${extra}` : output).trim(),
-        });
+      return {
+        name: definition.name,
+        type,
+        ok: result.exitCode === 0,
+        exitCode: result.exitCode,
+        output: output.trim(),
       };
-
-      const collect = (data: Buffer | string): void => {
-        output += data.toString();
-        if (output.length > MAX_OUTPUT_CHARS) {
-          output = output.slice(-MAX_OUTPUT_CHARS);
-        }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        name: definition.name,
+        type,
+        ok: false,
+        exitCode: null,
+        output: `Hook "${definition.name}" could not be started: ${message}`,
       };
-
-      child.stdout?.on("data", collect);
-      child.stderr?.on("data", collect);
-
-      child.on("error", (error) => {
-        settle(null, `Hook "${definition.name}" could not be started: ${error.message}`);
-      });
-
-      child.on("close", (exitCode) => {
-        settle(exitCode);
-      });
-
-      const timer = setTimeout(() => {
-        child.kill();
-        settle(null, `Hook "${definition.name}" timed out after ${timeoutMs}ms.`);
-      }, timeoutMs);
-
-      if (child.stdin) {
-        // A hook is free to ignore stdin and exit before we finish writing.
-        child.stdin.on("error", () => {});
-        child.stdin.end(JSON.stringify(context));
-      }
-    });
+    }
   }
 }
