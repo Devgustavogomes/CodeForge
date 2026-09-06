@@ -1,7 +1,6 @@
 import { Command } from "commander";
-import { NodeWorkspaceGateway } from "../../../infrastructure/workspace.js";
-import { ConfigService } from "../../../config/ConfigService.js";
-import { ListSpecsUseCase, SpecStatus } from "../../../application/use-cases/ListSpecsUseCase.js";
+import { createAppContainer } from "../../../infrastructure/container.js";
+import { SpecStatus } from "../../../application/use-cases/ListSpecsUseCase.js";
 import { translate } from "../../ui/i18n.js";
 import { SupportedLanguage } from "../../../config/types.js";
 
@@ -38,13 +37,11 @@ export function registerSpecListCommand(spec: Command): void {
     .alias("ls")
     .description("List all local specifications and their execution status")
     .action(async () => {
-      const gw = new NodeWorkspaceGateway(process.cwd());
-      const configService = new ConfigService(gw);
-      const config = configService.loadConfig();
+      const container = createAppContainer();
+      const config = container.configService.loadConfig();
       const lang = (config?.language || "en") as SupportedLanguage;
 
-      const useCase = new ListSpecsUseCase(gw);
-      const specs = useCase.execute();
+      const specs = container.listSpecsUseCase.execute();
 
       if (specs.length === 0) {
         console.log(translate("spec_list_empty", lang));

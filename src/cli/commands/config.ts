@@ -1,45 +1,39 @@
 import { Command } from "commander";
 import { select, input } from "@inquirer/prompts";
-import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { CodeForgeConfig, SupportedLanguage } from "../../config/types.js";
-import { ConfigureEnvironmentUseCase } from "../../application/use-cases/ConfigureEnvironmentUseCase.js";
 import { translate } from "../ui/i18n.js";
+import { createAppContainer } from "../../infrastructure/container.js";
 
-export function registerConfigCommand(program: Command): void {
-  program
-    .command("config")
-    .description("Interactively update CodeForge configuration")
-    .action(async () => {
-      const gw = new NodeWorkspaceGateway(process.cwd());
-      const envUseCase = new ConfigureEnvironmentUseCase(gw);
-      const config = envUseCase.loadConfig();
+import { ActionResult } from "../menu/types.js";
 
-      const lang = config?.language || "en";
+export async function configAction(): Promise<ActionResult> {
+  const container = createAppContainer();
+  const envUseCase = container.configureEnvironmentUseCase;
+  const config = envUseCase.loadConfig();
 
-      if (!config) {
-        console.error("CodeForge is not initialized. Run 'codeforge init' first.");
-        process.exit(1);
-      }
+  const lang = config?.language || "en";
 
-      while (true) {
-        const key = await select({
-          message: translate("config_select_key", lang),
-          choices: [
-            { name: translate("menu_back", lang), value: "back" },
-            { name: "language", value: "language" },
-            { name: "environment", value: "environment" },
-            { name: "plannerAgent", value: "plannerAgent" },
-            { name: "executorAgent", value: "executorAgent" },
-          ],
-        });
+  if (!config) {
+    console.error("CodeForge is not initialized. Run 'codeforge init' first.");
+    process.exitCode = 1;
+    return { success: false };
+  }
 
-        if (key === "back") {
-          if (process.env.CODEFORGE_INTERACTIVE) {
-            process.exit(200);
-          } else {
-            process.exit(0);
-          }
-        }
+  while (true) {
+    const key = await select({
+      message: translate("config_select_key", lang),
+      choices: [
+        { name: translate("menu_back", lang), value: "back" },
+        { name: "language", value: "language" },
+        { name: "environment", value: "environment" },
+        { name: "plannerAgent", value: "plannerAgent" },
+        { name: "executorAgent", value: "executorAgent" },
+      ],
+    });
+
+    if (key === "back") {
+      return { back: true };
+    }
 
         const handlers: Record<string, (config: CodeForgeConfig) => Promise<boolean>> = {
           language: async (c) => {
@@ -120,5 +114,13 @@ export function registerConfigCommand(program: Command): void {
           }
         }
       }
+}
+
+export function registerConfigCommand(program: Command): void {
+  program
+    .command("config")
+    .description("Interactively update CodeForge configuration")
+    .action(async () => {
+      await configAction();
     });
 }
