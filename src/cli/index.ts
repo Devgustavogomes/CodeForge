@@ -3,6 +3,7 @@
 import { Command } from "commander";
 import { registerInitCommand } from "./commands/init.js";
 import { registerSpecCreateCommand } from "./commands/spec/create.js";
+import { registerSpecPullCommand } from "./commands/spec/pull.js";
 import { registerPlanGenerateCommand } from "./commands/plan/generate.js";
 import { registerPlanValidateCommand } from "./commands/plan/validate.js";
 import { registerRunCommand } from "./commands/run.js";
@@ -39,6 +40,7 @@ registerPlanValidateCommand(plan);
 const spec = program.command("spec").description("Manage specs");
 
 registerSpecCreateCommand(spec);
+registerSpecPullCommand(spec);
 
 const task = program
   .command("task")

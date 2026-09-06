@@ -92,6 +92,15 @@ const en = {
   reset_select_task: "Select task to reset:",
   reset_all_option: "[All Tasks] Reset all tasks in this spec",
   
+  // spec pull
+  spec_pull_select_item: "Select a spec to pull:",
+  spec_pull_enter_id: "Enter the spec/issue ID (e.g. ENG-123):",
+  spec_pull_manual_input_option: "[Enter ID manually]",
+  spec_pull_filesystem_notice: "\nℹ The 'filesystem' provider operates directly on local files.\nTo pull specs from remote issue trackers, configure an external provider (e.g. linear, github, clickup) in .codeforge/config.yaml or use --source <provider>.\nTo create a local spec, use 'codeforge spec create'.\n",
+  spec_pull_fetching: "\n▶ Fetching spec '{id}' from {source}...",
+  spec_pull_success: "\n✓ Spec '{id}' successfully saved to {path}\n",
+  spec_pull_failed: "\n✗ Failed to pull spec: {error}\n",
+
   // menu
   menu_welcome: "Welcome to CodeForge!",
   menu_select_group: "Select a command group:",
@@ -101,6 +110,7 @@ const en = {
   menu_init_label: "🚀  Initialize project                     (init)",
   menu_spec_label: "📄  Spec        — create specifications",
   menu_spec_create: "Create new specification          (spec create)",
+  menu_spec_pull: "Pull spec from remote source       (spec pull)",
   menu_back: "← Back",
   menu_plan_label: "🗺️   Plan        — plan and validate tasks",
   menu_plan_generate: "Generate planning prompt          (plan generate)",
@@ -219,6 +229,15 @@ const pt: Dictionary = {
   reset_select_task: "Selecione a tarefa para resetar:",
   reset_all_option: "[Todas as Tarefas] Resetar todas as tarefas desta spec",
 
+  // spec pull
+  spec_pull_select_item: "Selecione uma spec para obter:",
+  spec_pull_enter_id: "Digite o ID da spec/issue (ex: ENG-123):",
+  spec_pull_manual_input_option: "[Digitar ID manualmente]",
+  spec_pull_filesystem_notice: "\nℹ O provedor 'filesystem' opera diretamente em arquivos locais.\nPara obter specs de rastreadores remotos, configure um provedor externo (ex: linear, github, clickup) em .codeforge/config.yaml ou use --source <provedor>.\nPara criar uma spec local, use 'codeforge spec create'.\n",
+  spec_pull_fetching: "\n▶ Obtendo spec '{id}' de {source}...",
+  spec_pull_success: "\n✓ Spec '{id}' salva com sucesso em {path}\n",
+  spec_pull_failed: "\n✗ Falha ao obter spec: {error}\n",
+
   // menu
   menu_welcome: "Bem-vindo ao CodeForge!",
   menu_select_group: "Selecione um grupo de comandos:",
@@ -228,6 +247,7 @@ const pt: Dictionary = {
   menu_init_label: "🚀  Inicializar projeto                    (init)",
   menu_spec_label: "📄  Spec        — criar especificações",
   menu_spec_create: "Criar nova especificação          (spec create)",
+  menu_spec_pull: "Obter spec de fonte externa        (spec pull)",
   menu_back: "← Voltar",
   menu_plan_label: "🗺️   Plan        — planejar e validar tarefas",
   menu_plan_generate: "Gerar prompt de planejamento      (plan generate)",
@@ -342,6 +362,15 @@ const es: Dictionary = {
   reset_select_task: "Seleccione la tarea para restablecer:",
   reset_all_option: "[Todas las Tareas] Restablecer todas las tareas de este spec",
 
+  // spec pull
+  spec_pull_select_item: "Seleccione un spec para obtener:",
+  spec_pull_enter_id: "Ingrese el ID del spec/issue (ej: ENG-123):",
+  spec_pull_manual_input_option: "[Ingresar ID manualmente]",
+  spec_pull_filesystem_notice: "\nℹ El proveedor 'filesystem' opera directamente en archivos locales.\nPara obtener specs de rastreadores remotos, configure un proveedor externo (ej: linear, github, clickup) en .codeforge/config.yaml o use --source <proveedor>.\nPara crear un spec local, use 'codeforge spec create'.\n",
+  spec_pull_fetching: "\n▶ Obteniendo spec '{id}' de {source}...",
+  spec_pull_success: "\n✓ Spec '{id}' guardada exitosamente en {path}\n",
+  spec_pull_failed: "\n✗ Error al obtener spec: {error}\n",
+
   // menu
   menu_welcome: "¡Bienvenido a CodeForge!",
   menu_select_group: "Seleccione un grupo de comandos:",
@@ -351,6 +380,7 @@ const es: Dictionary = {
   menu_init_label: "🚀  Inicializar proyecto                   (init)",
   menu_spec_label: "📄  Spec        — crear especificaciones",
   menu_spec_create: "Crear nueva especificación        (spec create)",
+  menu_spec_pull: "Obtener spec de fuente externa     (spec pull)",
   menu_back: "← Volver",
   menu_plan_label: "🗺️   Plan        — planificar y validar tareas",
   menu_plan_generate: "Generar prompt de planificación   (plan generate)",

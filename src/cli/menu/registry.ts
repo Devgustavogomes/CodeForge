@@ -14,6 +14,7 @@ export function getMenuGroups(lang: SupportedLanguage): MenuGroup[] {
       label: translate("menu_spec_label", lang),
       items: [
         { name: translate("menu_spec_create", lang), value: "spec create", action: { type: "command", args: ["spec", "create"] } },
+        { name: translate("menu_spec_pull", lang), value: "spec pull", action: { type: "command", args: ["spec", "pull"] } },
         { name: translate("menu_back", lang), value: "back" }
       ]
     },
