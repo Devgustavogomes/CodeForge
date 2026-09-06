@@ -1,4 +1,5 @@
 import { HookMap } from "../domain/hook.js";
+import { SpecSourceConfig } from "../domain/spec-source.js";
 
 export type SupportedLanguage = "en" | "pt" | "es";
 
@@ -8,4 +9,5 @@ export interface CodeForgeConfig {
   executorAgent: string;
   language: SupportedLanguage;
   hooks?: HookMap;
+  specSource?: SpecSourceConfig;
 }
