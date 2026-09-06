@@ -71,8 +71,20 @@ export class PullSpecUseCase {
       return { kind: "fetch-failed", error: message };
     }
 
-    const baseName = options.customName?.trim() ? options.customName : options.id;
-    const filename = sanitizeFilename(baseName) || "spec";
+    let filename = "";
+    if (options.customName && options.customName.trim().length > 0) {
+      filename = sanitizeFilename(options.customName);
+    } else {
+      filename = sanitizeFilename(spec.title || "");
+      if (!filename) {
+        filename = sanitizeFilename(spec.id || "");
+      }
+    }
+
+    if (!filename) {
+      filename = "spec";
+    }
+
     const filePath = PATHS.specFile(filename);
 
     if (!this.gw.exists(PATHS.specsDir)) {

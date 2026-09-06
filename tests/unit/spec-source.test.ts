@@ -210,13 +210,13 @@ describe("PullSpecUseCase", () => {
 
     expect(result.kind).toBe("success");
     if (result.kind === "success") {
-      expect(result.filename).toBe("eng-100");
-      expect(result.filePath).toBe(".codeforge/specs/eng-100.md");
+      expect(result.filename).toBe("add-user-registration");
+      expect(result.filePath).toBe(".codeforge/specs/add-user-registration.md");
       expect(result.overwritten).toBe(false);
       expect(result.spec.id).toBe("ENG-100");
 
-      expect(gw.exists(".codeforge/specs/eng-100.md")).toBe(true);
-      const written = gw.readFile(".codeforge/specs/eng-100.md");
+      expect(gw.exists(".codeforge/specs/add-user-registration.md")).toBe(true);
+      const written = gw.readFile(".codeforge/specs/add-user-registration.md");
       expect(written).toContain("# [ENG-100] Add User Registration");
       expect(written).toContain("> **Source:** linear | **URL:** https://linear.app/issue/ENG-100");
       expect(written).toContain("## Description");
@@ -238,7 +238,7 @@ describe("PullSpecUseCase", () => {
       expect(result.filename).toBe("user-signup-flow");
       expect(result.filePath).toBe(".codeforge/specs/user-signup-flow.md");
       expect(gw.exists(".codeforge/specs/user-signup-flow.md")).toBe(true);
-      expect(gw.exists(".codeforge/specs/eng-100.md")).toBe(false);
+      expect(gw.exists(".codeforge/specs/add-user-registration.md")).toBe(false);
     }
   });
 
@@ -265,7 +265,7 @@ describe("PullSpecUseCase", () => {
 
     // Initial write with old contents
     gw.writeFile(
-      ".codeforge/specs/eng-100.md",
+      ".codeforge/specs/add-user-registration.md",
       "# Old Spec\n\nOld content that should be replaced completely."
     );
 
@@ -274,7 +274,7 @@ describe("PullSpecUseCase", () => {
     expect(result.kind).toBe("success");
     if (result.kind === "success") {
       expect(result.overwritten).toBe(true);
-      const content = gw.readFile(".codeforge/specs/eng-100.md");
+      const content = gw.readFile(".codeforge/specs/add-user-registration.md");
       expect(content).not.toContain("Old Spec");
       expect(content).not.toContain("Old content that should be replaced completely.");
       expect(content).toContain("# [ENG-100] Add User Registration");
@@ -318,7 +318,7 @@ describe("PullSpecUseCase", () => {
 
     expect(result.kind).toBe("success");
     expect(gw.exists(".codeforge/specs")).toBe(true);
-    expect(gw.exists(".codeforge/specs/eng-100.md")).toBe(true);
+    expect(gw.exists(".codeforge/specs/add-user-registration.md")).toBe(true);
   });
 });
 
