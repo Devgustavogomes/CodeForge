@@ -183,10 +183,14 @@ The workflow becomes **explicit, observable, and repeatable**.
 
 ## 1. Spec
 
-You describe the feature you want to build in a Markdown specification.
+You describe the feature you want to build in a Markdown specification. You can create one locally or pull an issue directly from an external issue tracker (Linear, GitHub Issues, ClickUp):
 
 ```bash
+# Create a new local specification template
 codeforge spec create user-authentication
+
+# Or pull an issue from an external tracker
+codeforge spec pull ENG-123
 ```
 
 The specification becomes the source of intent for the feature.
@@ -689,6 +693,7 @@ CodeForge commands are organized into logical functional groups. Most commands s
 |                              | [`codeforge init`](#initialize-workspace)                                   | Initializes CodeForge in the project and sets up AI agent preferences |
 |                              | [`codeforge config`](#configuration)                                        | Interactively updates configuration (language, environment, agents)   |
 | **Specification & Planning** | [`codeforge spec create [name]`](#create-specification)                     | Creates a new feature specification template                          |
+|                              | [`codeforge spec pull [id]`](#pull-specification)                           | Pulls an issue or specification from an external tracker              |
 |                              | [`codeforge plan generate [spec]`](#generate-plan)                          | Generates an executable task DAG using the AI planner agent           |
 |                              | [`codeforge plan validate [spec] [taskId]`](#validate-plan)                 | Deterministically validates task graph and dependencies               |
 | **Execution & Monitoring**   | [`codeforge run [spec]`](#run-autonomous-execution)                         | Autonomously executes tasks in the dependency graph                   |
@@ -748,11 +753,72 @@ codeforge config
   codeforge config
   ```
 
+#### Configuration File (`.codeforge/config.yaml`)
+
+CodeForge reads workspace configuration from `.codeforge/config.yaml`. Below is a reference configuration showing core settings along with external specification sources:
+
+```yaml
+environment: antigravity
+plannerAgent: gemini-3.8-flash-high
+executorAgent: gemini-3.8-flash-medium
+language: en
+
+# External spec source configuration (optional - defaults to filesystem)
+specSource:
+  provider: linear          # Supported: filesystem, linear, github, clickup
+  apiKeyEnv: LINEAR_API_KEY # Environment variable containing the API token
+  team: ENG                 # Optional: team identifier or key filter
+  project: Factory          # Optional: project identifier or name filter
+```
+
+#### Spec Source Configuration (`specSource`)
+
+The optional `specSource` block defines where `codeforge spec pull` fetches remote specifications from:
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `provider` | `string` | `"filesystem"` | Provider adapter to use (`filesystem`, `linear`, `github`, `clickup`). |
+| `apiKeyEnv` | `string` | `undefined` | Name of the environment variable containing the provider API token. |
+| `team` | `string` | `undefined` | Optional team ID, key, or slug filter (e.g. `ENG`). |
+| `project` | `string` | `undefined` | Optional project ID, name, or repo filter (e.g. `Factory` or `owner/repo`). |
+
+> **Credential Security:** Never store plain-text API tokens or secrets directly in `.codeforge/config.yaml`. CodeForge uses `apiKeyEnv` to read credentials dynamically from environment variables at runtime (e.g. `export LINEAR_API_KEY="lin_api_..."`). If the referenced environment variable is unset or empty, CodeForge aborts gracefully with a clear diagnostic message without leaking credentials or committing secrets to version control.
+
 ---
 
 ## Specification & Planning
 
-Commands for creating feature specifications, decomposing them into task graphs (DAG), and validating plan integrity.
+Commands for creating or pulling feature specifications, decomposing them into task graphs (DAG), and validating plan integrity.
+
+### External Ingestion & Local Materialization
+
+CodeForge decouples specification ingestion from execution. Specifications can be authored locally via `codeforge spec create` or pulled directly from external issue tracking tools (Linear, GitHub Issues, ClickUp) via `codeforge spec pull`.
+
+When an external issue or story is pulled, it is **materialized locally** into a standard Markdown file under `.codeforge/specs/<id>.md`:
+
+```text
+                  EXTERNAL SOURCE
+            (Linear / GitHub / ClickUp)
+                        │
+                        │ codeforge spec pull <id>
+                        ▼
+             .codeforge/specs/<id>.md
+               (Local Materialization)
+                        │
+                        │ codeforge plan generate <id>
+                        ▼
+             .codeforge/tasks/<id>/
+                  (Task DAG JSON)
+                        │
+                        │ codeforge run <id>
+                        ▼
+                  TaskScheduler
+                        │
+                        ▼
+                  Agent Runners
+```
+
+Once materialized on disk, the entire subsequent lifecycle (`codeforge plan generate`, `codeforge run`, `codeforge status`, `codeforge task`, `codeforge docs`) remains **100% local, offline, and deterministic**, with zero runtime dependency on external providers or network connectivity.
 
 ### Create Specification
 
@@ -772,6 +838,40 @@ codeforge spec create [name]
 
   # Direct specification creation
   codeforge spec create user-authentication
+  ```
+
+### Pull Specification
+
+Pulls a feature specification, user story, or issue from an external issue tracker (such as Linear, GitHub Issues, or ClickUp) and materializes it locally as a standard Markdown specification in `.codeforge/specs/<id>.md`.
+
+If the issue ID argument is omitted, CodeForge queries the configured provider for open issues and presents an interactive selection list (with option to enter an ID manually). If the local specification file already exists, it is updated idempotently with the latest remote content.
+
+```bash
+codeforge spec pull [id] [options]
+```
+
+- **Arguments**:
+  - `[id]`: _(Optional)_ External issue ID or reference key (e.g. `ENG-123`, `42`). Prompts with an interactive list or input prompt if omitted.
+- **Options**:
+  - `-s, --source <provider>`: _(Optional)_ Overrides the default spec source provider defined in `.codeforge/config.yaml`. Supported providers: `filesystem`, `linear`, `github`, `clickup`.
+  - `-n, --name <slug>`: _(Optional)_ Custom filename/slug for the materialized specification file (e.g. `--name social-login` saves to `.codeforge/specs/social-login.md` instead of the default sanitized ID).
+- **Examples**:
+
+  ```bash
+  # Interactive mode (fetches open issues from configured provider or prompts for ID)
+  codeforge spec pull
+
+  # Pull specific issue from configured default provider
+  codeforge spec pull ENG-123
+
+  # Pull with a custom local filename
+  codeforge spec pull ENG-123 --name user-authentication
+
+  # Pull from a specific provider, overriding config.yaml
+  codeforge spec pull 42 --source github
+
+  # Pull from GitHub with a custom filename
+  codeforge spec pull 42 --source github --name bugfix-token-refresh
   ```
 
 ### Generate Plan
