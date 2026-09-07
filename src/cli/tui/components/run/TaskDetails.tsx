@@ -10,21 +10,33 @@ export interface TaskDetailsProps {
   maxErrorLines?: number;
 }
 
-export const TaskDetails: React.FC<TaskDetailsProps> = ({
+export function areTaskDetailsPropsEqual(
+  prev: TaskDetailsProps,
+  next: TaskDetailsProps
+): boolean {
+  if (prev.borderColor !== next.borderColor) return false;
+  if (prev.maxFilesShown !== next.maxFilesShown) return false;
+  if (prev.maxErrorLines !== next.maxErrorLines) return false;
+  if (prev.task === next.task) return true;
+  if (!prev.task || !next.task) return false;
+  return (
+    prev.task.id === next.task.id &&
+    prev.task.status === next.task.status &&
+    prev.task.title === next.task.title &&
+    prev.task.startedAt === next.task.startedAt &&
+    prev.task.completedAt === next.task.completedAt &&
+    (prev.task.errors?.length ?? 0) === (next.task.errors?.length ?? 0)
+  );
+}
+
+export const TaskDetails: React.FC<TaskDetailsProps> = React.memo(({
   task: propTask,
   borderColor,
   maxFilesShown = 4,
   maxErrorLines = 4,
 }) => {
-  let execSelectedTask: TaskItem | null = null;
-  try {
-    const exec = useExecution();
-    execSelectedTask = exec.selectedTask;
-  } catch {
-    // Outside ExecutionProvider
-  }
-
-  const task = propTask !== undefined ? propTask : execSelectedTask;
+  const exec = useExecution();
+  const task = propTask !== undefined ? propTask : exec.selectedTask;
 
   const effectiveBorderColor =
     borderColor ??
@@ -59,7 +71,7 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
   const dependencies = task.dependencies ?? [];
   const errors = task.errors ?? [];
 
-  // Files to display with truncation if list is long
+  // Files to display with readable multi-line layout
   const displayedFiles = files.slice(0, maxFilesShown);
   const remainingFilesCount = files.length - displayedFiles.length;
 
@@ -78,7 +90,7 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
             {task.id}
           </Text>
           <Text color="gray">│</Text>
-          <Text bold color="white" wrap="truncate-end">
+          <Text bold color="white" wrap="wrap">
             {task.title}
           </Text>
         </Box>
@@ -91,23 +103,29 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
 
       {/* Objective */}
       {Boolean(task.objective) && (
-        <Box gap={1}>
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor="gray"
+          paddingX={1}
+          marginY={0}
+        >
           <Text bold color="yellow">
             Objective:
           </Text>
-          <Text color="white" wrap="truncate-end">
+          <Text color="white" wrap="wrap">
             {task.objective}
           </Text>
         </Box>
       )}
 
       {/* Dependencies & Timing Diagnostics */}
-      <Box justifyContent="space-between">
+      <Box justifyContent="space-between" width="100%">
         <Box gap={1} flexShrink={1}>
           <Text bold color="blue">
             Deps:
           </Text>
-          <Text color="gray" wrap="truncate-end">
+          <Text color="gray" wrap="wrap">
             {dependencies.length > 0 ? dependencies.join(', ') : 'None'}
           </Text>
         </Box>
@@ -117,24 +135,13 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
             Duration:
           </Text>
           <Text color="white">{duration}</Text>
-        </Box>
-      </Box>
-
-      {/* Diagnostic Timestamps */}
-      {(task.startedAt || task.completedAt) && (
-        <Box gap={2}>
           {task.startedAt && (
             <Text dimColor>
-              Started: {new Date(task.startedAt).toLocaleTimeString()}
-            </Text>
-          )}
-          {task.completedAt && (
-            <Text dimColor>
-              Ended: {new Date(task.completedAt).toLocaleTimeString()}
+              ({new Date(task.startedAt).toLocaleTimeString()})
             </Text>
           )}
         </Box>
-      )}
+      </Box>
 
       {/* Files */}
       {files.length > 0 && (
@@ -143,7 +150,7 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
             Files ({files.length}):
           </Text>
           {displayedFiles.map((file, idx) => (
-            <Text key={idx} dimColor wrap="truncate-end">
+            <Text key={idx} dimColor wrap="wrap">
               • {file}
             </Text>
           ))}
@@ -159,16 +166,17 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
       {errors.length > 0 && (
         <Box
           flexDirection="column"
-          borderStyle="single"
+          borderStyle="round"
           borderColor="red"
+          backgroundColor="red"
           paddingX={1}
-          marginTop={1}
+          marginTop={0}
         >
-          <Text bold color="red">
+          <Text bold color="white">
             ✗ Error Diagnostic:
           </Text>
           {errors.slice(-maxErrorLines).map((err, idx) => (
-            <Text key={idx} color="red" wrap="truncate-end">
+            <Text key={idx} color="white" wrap="wrap">
               {err}
             </Text>
           ))}
@@ -176,4 +184,6 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
       )}
     </Box>
   );
-};
+}, areTaskDetailsPropsEqual);
+
+TaskDetails.displayName = 'TaskDetails';

@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { TaskStatus } from '../../../../domain/execution.js';
 import { TaskItem, useExecution } from '../../context/ExecutionContext.js';
+import { Spinner } from '../common/Spinner.js';
+import { useElapsedTime } from '../../hooks/useElapsedTime.js';
 
 export type TaskFilter = 'all' | 'running' | 'failed' | 'completed' | 'pending';
 
@@ -37,12 +39,106 @@ export function formatDuration(startedAt?: string, completedAt?: string): string
   if (diff < 1000) return `${diff}ms`;
   const totalSeconds = Math.floor(diff / 1000);
   if (totalSeconds < 60) return `${totalSeconds}s`;
-  const minutes = Math.floor(totalSeconds / 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
   return `${minutes}m ${seconds}s`;
 }
 
-export const TaskList: React.FC<TaskListProps> = ({
+export interface TaskRowProps {
+  task: TaskItem;
+  isSelected: boolean;
+  isFocused: boolean;
+}
+
+export const TaskRow: React.FC<TaskRowProps> = React.memo(({
+  task,
+  isSelected,
+  isFocused,
+}) => {
+  const statusCfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.pending;
+  const isRunning = task.status === 'running';
+
+  const { formatted: runningElapsed } = useElapsedTime({
+    startTime: task.startedAt,
+    isRunning,
+  });
+
+  const duration = isRunning
+    ? (task.startedAt ? runningElapsed : '-')
+    : formatDuration(task.startedAt, task.completedAt);
+
+  return (
+    <Box justifyContent="space-between" width="100%">
+      <Box gap={1} flexShrink={1}>
+        {/* Selected pointer */}
+        <Text color={isSelected ? (isFocused ? 'cyan' : 'white') : undefined} bold={isSelected}>
+          {isSelected ? '❯' : ' '}
+        </Text>
+
+        {/* Status Icon or Spinner */}
+        {isRunning ? (
+          <Spinner color="cyan" />
+        ) : (
+          <Text color={statusCfg.color} bold={false}>
+            {statusCfg.icon}
+          </Text>
+        )}
+
+        {/* Task ID */}
+        <Text bold={isSelected} color={isSelected ? 'white' : 'gray'}>
+          {task.id}
+        </Text>
+
+        {/* Title (truncated if too long) */}
+        <Text
+          wrap="truncate-end"
+          color={isSelected ? 'cyan' : 'white'}
+          bold={isSelected}
+        >
+          {task.title}
+        </Text>
+      </Box>
+
+      {/* Duration */}
+      <Box flexShrink={0} paddingLeft={1}>
+        <Text dimColor>{duration}</Text>
+      </Box>
+    </Box>
+  );
+});
+TaskRow.displayName = 'TaskRow';
+
+export function areTaskListPropsEqual(prev: TaskListProps, next: TaskListProps): boolean {
+  if (prev.isFocused !== next.isFocused) return false;
+  if (prev.selectedTaskId !== next.selectedTaskId) return false;
+  if (prev.maxHeight !== next.maxHeight) return false;
+  if (prev.showFilterBadges !== next.showFilterBadges) return false;
+  if (prev.filter !== next.filter) return false;
+  if (prev.borderColor !== next.borderColor) return false;
+  if (prev.onSelectTask !== next.onSelectTask) return false;
+  if (prev.onFilterChange !== next.onFilterChange) return false;
+  if (prev.tasks === next.tasks) return true;
+  if (!prev.tasks || !next.tasks) return false;
+  if (prev.tasks.length !== next.tasks.length) return false;
+  for (let i = 0; i < prev.tasks.length; i++) {
+    const p = prev.tasks[i]!;
+    const n = next.tasks[i]!;
+    if (
+      p.id !== n.id ||
+      p.status !== n.status ||
+      p.title !== n.title ||
+      p.startedAt !== n.startedAt ||
+      p.completedAt !== n.completedAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export const TaskList: React.FC<TaskListProps> = React.memo(({
   tasks: propTasks,
   selectedTaskId: propSelectedTaskId,
   onSelectTask: propOnSelectTask,
@@ -53,22 +149,10 @@ export const TaskList: React.FC<TaskListProps> = ({
   onFilterChange,
   borderColor,
 }) => {
-  let execTasks: TaskItem[] = [];
-  let execSelectedTaskId: string | null = null;
-  let execSelectTask: ((id: string | null) => void) | undefined;
-
-  try {
-    const exec = useExecution();
-    execTasks = exec.tasks;
-    execSelectedTaskId = exec.selectedTaskId;
-    execSelectTask = exec.selectTask;
-  } catch {
-    // Outside ExecutionProvider
-  }
-
-  const tasks = propTasks ?? execTasks;
-  const selectedTaskId = propSelectedTaskId !== undefined ? propSelectedTaskId : execSelectedTaskId;
-  const onSelectTask = propOnSelectTask ?? execSelectTask;
+  const exec = useExecution();
+  const tasks = propTasks ?? exec.tasks;
+  const selectedTaskId = propSelectedTaskId !== undefined ? propSelectedTaskId : exec.selectedTaskId;
+  const onSelectTask = propOnSelectTask ?? exec.selectTask;
 
   const [internalFilter, setInternalFilter] = useState<TaskFilter>('all');
   const currentFilter = propFilter ?? internalFilter;
@@ -182,7 +266,7 @@ export const TaskList: React.FC<TaskListProps> = ({
       flexGrow={1}
     >
       {/* Header */}
-      <Box justifyContent="space-between" marginBottom={showFilterBadges ? 0 : 1}>
+      <Box justifyContent="space-between" marginBottom={0}>
         <Text bold color={isFocused ? 'cyan' : 'gray'}>
           {isFocused ? '● ' : '  '}Tasks ({tasks.length})
         </Text>
@@ -230,48 +314,18 @@ export const TaskList: React.FC<TaskListProps> = ({
         </Box>
       ) : (
         <Box flexDirection="column">
-          {visibleTasks.map((task) => {
-            const isSelected = task.id === selectedTaskId;
-            const statusCfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.pending;
-            const duration = formatDuration(task.startedAt, task.completedAt);
-
-            return (
-              <Box key={task.id} justifyContent="space-between" width="100%">
-                <Box gap={1} flexShrink={1}>
-                  {/* Selected pointer */}
-                  <Text color={isSelected ? (isFocused ? 'cyan' : 'white') : undefined} bold={isSelected}>
-                    {isSelected ? '❯' : ' '}
-                  </Text>
-
-                  {/* Status Icon */}
-                  <Text color={statusCfg.color} bold={task.status === 'running'}>
-                    {statusCfg.icon}
-                  </Text>
-
-                  {/* Task ID */}
-                  <Text bold={isSelected} color={isSelected ? 'white' : 'gray'}>
-                    {task.id}
-                  </Text>
-
-                  {/* Title (truncated if too long) */}
-                  <Text
-                    wrap="truncate-end"
-                    color={isSelected ? 'cyan' : 'white'}
-                    bold={isSelected}
-                  >
-                    {task.title}
-                  </Text>
-                </Box>
-
-                {/* Duration */}
-                <Box flexShrink={0} paddingLeft={1}>
-                  <Text dimColor>{duration}</Text>
-                </Box>
-              </Box>
-            );
-          })}
+          {visibleTasks.map((task) => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              isSelected={task.id === selectedTaskId}
+              isFocused={isFocused}
+            />
+          ))}
         </Box>
       )}
     </Box>
   );
-};
+}, areTaskListPropsEqual);
+
+TaskList.displayName = 'TaskList';

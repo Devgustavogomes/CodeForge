@@ -1,8 +1,9 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render } from 'ink-testing-library';
 import { RunDashboard, renderProgressBar } from '../../../src/cli/tui/components/run/RunDashboard.js';
 import { TaskItem } from '../../../src/cli/tui/context/ExecutionContext.js';
+import { renderWithProviders, createMockContainer } from './helpers/renderWithProviders.js';
+import { PATHS } from '../../../src/infrastructure/paths.js';
 
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -32,14 +33,14 @@ describe('RunDashboard component', () => {
   ];
 
   it('renders Wide layout with 2 columns: TaskList on left, TaskDetails & LogStreamView on right', () => {
-    const { lastFrame } = render(
+    const { lastFrame } = renderWithProviders(
       <RunDashboard
         breakpoint="wide"
         tasks={mockTasks}
         selectedTaskId="TASK-002"
         selectedTask={mockTasks[1]}
         isInteractive={false}
-      />
+      />,
     );
     const output = lastFrame() ?? '';
 
@@ -58,7 +59,7 @@ describe('RunDashboard component', () => {
   });
 
   it('renders Compact layout with single column and toggles with Tab key', async () => {
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = renderWithProviders(
       <RunDashboard
         breakpoint="compact"
         tasks={mockTasks}
@@ -66,7 +67,7 @@ describe('RunDashboard component', () => {
         selectedTask={mockTasks[0]}
         defaultFocusedPanel="tasks"
         isInteractive={true}
-      />
+      />,
     );
 
     // Initially in Tasks view
@@ -92,14 +93,14 @@ describe('RunDashboard component', () => {
   });
 
   it('renders Minimal layout with compact progress bar and resize advisory', () => {
-    const { lastFrame } = render(
+    const { lastFrame } = renderWithProviders(
       <RunDashboard
         breakpoint="minimal"
         tasks={mockTasks}
         selectedTaskId="TASK-001"
         selectedTask={mockTasks[0]}
         isInteractive={false}
-      />
+      />,
     );
     const output = lastFrame() ?? '';
 
@@ -115,7 +116,7 @@ describe('RunDashboard component', () => {
     const onCompleteTask = vi.fn();
     const onResetTask = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = renderWithProviders(
       <RunDashboard
         breakpoint="wide"
         tasks={mockTasks}
@@ -126,7 +127,7 @@ describe('RunDashboard component', () => {
         onCompleteTask={onCompleteTask}
         onResetTask={onResetTask}
         isInteractive={true}
-      />
+      />,
     );
 
     // Test 'r' -> retry selected task
@@ -154,5 +155,279 @@ describe('RunDashboard component', () => {
     expect(renderProgressBar(0, 0)).toBe('[░░░░░░░░░░░░░░░░░░░░] 0% (0/0)');
     expect(renderProgressBar(2, 4, 10)).toBe('[█████░░░░░] 50% (2/4)');
     expect(renderProgressBar(4, 4, 10)).toBe('[██████████] 100% (4/4)');
+  });
+
+  it('renders live metrics panel during execution with spec name, live spinner, and accurate counters', () => {
+    const runningTasks: TaskItem[] = [
+      {
+        id: 'TASK-001',
+        title: 'Task 1',
+        status: 'completed',
+        dependencies: [],
+        startedAt: '2026-09-06T10:00:00.000Z',
+        completedAt: '2026-09-06T10:00:10.000Z',
+      },
+      {
+        id: 'TASK-002',
+        title: 'Task 2',
+        status: 'running',
+        dependencies: [],
+        startedAt: '2026-09-06T10:00:10.000Z',
+      },
+      {
+        id: 'TASK-003',
+        title: 'Task 3',
+        status: 'pending',
+        dependencies: [],
+      },
+    ];
+
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard
+        breakpoint="wide"
+        tasks={runningTasks}
+        specName="core-engine"
+        schedulerStatus="running"
+        isInteractive={false}
+      />,
+    );
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('⚡ Running [core-engine]');
+    expect(output).toContain('⏱ Time:');
+    expect(output).toContain('Parallel: 1');
+    expect(output).toContain('✓ Completed: 1');
+    expect(output).toContain('✗ Failed: 0');
+    expect(output).toContain('⏳ Remaining: 1');
+    expect(output).toContain('33% (1/3)');
+  });
+
+  it('renders Success Banner when execution state is completed with total time, 0 failures and shortcut hints', () => {
+    const completedTasks: TaskItem[] = [
+      {
+        id: 'TASK-001',
+        title: 'Task 1',
+        status: 'completed',
+        dependencies: [],
+        startedAt: '2026-09-06T10:00:00.000Z',
+        completedAt: '2026-09-06T10:01:00.000Z',
+      },
+      {
+        id: 'TASK-002',
+        title: 'Task 2',
+        status: 'completed',
+        dependencies: [],
+        startedAt: '2026-09-06T10:01:00.000Z',
+        completedAt: '2026-09-06T10:02:15.000Z',
+      },
+    ];
+
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard
+        breakpoint="wide"
+        tasks={completedTasks}
+        specName="core-engine"
+        schedulerStatus="completed"
+        isInteractive={false}
+      />,
+    );
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('✓ Execution Completed Successfully');
+    expect(output).toContain('⏱ Total Time:');
+    expect(output).toContain('✓ 2/2 tasks completed');
+    expect(output).toContain('0 failures');
+    expect(output).toContain('[s] Choose another spec');
+    expect(output).toContain('[Tab] Inspect logs');
+  });
+
+  it('renders Failure Banner when execution state is failed or deadlock with shortcuts', () => {
+    const failedTasks: TaskItem[] = [
+      {
+        id: 'TASK-001',
+        title: 'Task 1',
+        status: 'completed',
+        dependencies: [],
+        startedAt: '2026-09-06T10:00:00.000Z',
+        completedAt: '2026-09-06T10:00:30.000Z',
+      },
+      {
+        id: 'TASK-002',
+        title: 'Task 2',
+        status: 'failed',
+        dependencies: [],
+        startedAt: '2026-09-06T10:00:30.000Z',
+        completedAt: '2026-09-06T10:00:45.000Z',
+        errors: ['Compilation failed'],
+      },
+      {
+        id: 'TASK-003',
+        title: 'Task 3',
+        status: 'pending',
+        dependencies: ['TASK-002'],
+      },
+    ];
+
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard
+        breakpoint="wide"
+        tasks={failedTasks}
+        specName="core-engine"
+        schedulerStatus="failed"
+        isInteractive={false}
+      />,
+    );
+    let output = lastFrame() ?? '';
+
+    expect(output).toContain('✗ Execution Finished with Failures');
+    expect(output).toContain('⏱ Total Time:');
+    expect(output).toContain('✓ 1 completed');
+    expect(output).toContain('✗ 1 failure');
+    expect(output).toContain('⏳ 1 remaining');
+    expect(output).toContain('[R] Retry all failed');
+    expect(output).toContain('[r] Retry selected');
+    expect(output).toContain('[s] Specs');
+
+    // Deadlock banner
+    const { lastFrame: lastFrameDeadlock } = renderWithProviders(
+      <RunDashboard
+        breakpoint="wide"
+        tasks={failedTasks}
+        specName="core-engine"
+        schedulerStatus="deadlock"
+        isInteractive={false}
+      />,
+    );
+    output = lastFrameDeadlock() ?? '';
+    expect(output).toContain('✗ Execution Finished with Failures');
+    expect(output).toContain('[R] Retry all failed');
+  });
+
+  it('renders top metrics panel above panel views in both compact and wide layouts', () => {
+    const { lastFrame: wideFrame } = renderWithProviders(
+      <RunDashboard
+        breakpoint="wide"
+        tasks={mockTasks}
+        specName="test-spec"
+        isInteractive={false}
+      />,
+    );
+    expect(wideFrame()).toContain('test-spec');
+    const { lastFrame: compactFrame } = renderWithProviders(
+      <RunDashboard
+        breakpoint="compact"
+        tasks={mockTasks}
+        specName="test-spec"
+        isInteractive={false}
+      />,
+    );
+    expect(compactFrame()).toContain('test-spec');
+    expect(compactFrame()).toContain('Parallel:');
+    expect(compactFrame()).toContain('Completed:');
+  });
+
+  it('triggers onStartRun when pressing Enter or Space while idle with pending tasks', async () => {
+    const onStartRunSpy = vi.fn();
+    const idleTasks: TaskItem[] = [
+      { id: 'TASK-001', title: 'Task 1', status: 'pending', dependencies: [] },
+    ];
+
+    const { stdin } = renderWithProviders(
+      <RunDashboard
+        breakpoint="wide"
+        tasks={idleTasks}
+        specName="my-spec"
+        schedulerStatus="idle"
+        onStartRun={onStartRunSpy}
+        isInteractive={true}
+      />,
+    );
+
+    stdin.write('\r');
+    await tick();
+
+    expect(onStartRunSpy).toHaveBeenCalledTimes(1);
+    expect(onStartRunSpy).toHaveBeenCalledWith('my-spec');
+
+    stdin.write(' ');
+    await tick();
+
+    expect(onStartRunSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('triggers onResetAllTasks when pressing X (Shift+X)', async () => {
+    const onResetAllTasksSpy = vi.fn();
+
+    const { stdin } = renderWithProviders(
+      <RunDashboard
+        breakpoint="wide"
+        tasks={mockTasks}
+        specName="my-spec"
+        schedulerStatus="completed"
+        onResetAllTasks={onResetAllTasksSpy}
+        isInteractive={true}
+      />,
+    );
+
+    stdin.write('X');
+    await tick();
+
+    expect(onResetAllTasksSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders SpecPicker when no tasks are present in workspace', () => {
+    const container = createMockContainer();
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard
+        tasks={[]}
+        isInteractive={false}
+      />,
+      { container },
+    );
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Welcome to CodeForge');
+    expect(output).toContain('No specifications found');
+    expect(output).toContain('[c] Create new spec');
+  });
+
+  it('renders SpecPicker with available specs when specs exist in workspace', async () => {
+    const container = createMockContainer();
+    container.workspaceGateway.writeFile(`${PATHS.specsDir}/spec-auth.md`, '# Authentication Spec\nDetails');
+
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard
+        tasks={[]}
+        isInteractive={false}
+      />,
+      { container },
+    );
+    await tick();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Select a Specification');
+    expect(output).toContain('spec-auth');
+    expect(output).toContain('Authentication Spec');
+  });
+
+  it('selects and runs a spec from SpecPicker when Enter is pressed', async () => {
+    const container = createMockContainer();
+    container.workspaceGateway.writeFile(`${PATHS.specsDir}/spec-auth.md`, '# Authentication Spec\nDetails');
+    const onSelectSpec = vi.fn();
+
+    const { stdin } = renderWithProviders(
+      <RunDashboard
+        tasks={[]}
+        isInteractive={true}
+        onSelectSpec={onSelectSpec}
+      />,
+      { container },
+    );
+    await tick();
+
+    stdin.write('\r');
+    await tick();
+
+    expect(onSelectSpec).toHaveBeenCalled();
   });
 });

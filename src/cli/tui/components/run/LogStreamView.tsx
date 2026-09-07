@@ -10,9 +10,33 @@ export interface LogStreamViewProps {
   autoScroll?: boolean;
   borderColor?: string;
   title?: string;
+  defaultWrap?: boolean;
 }
 
-export const LogStreamView: React.FC<LogStreamViewProps> = ({
+export function areLogStreamPropsEqual(
+  prev: LogStreamViewProps,
+  next: LogStreamViewProps
+): boolean {
+  if (prev.taskId !== next.taskId) return false;
+  if (prev.isFocused !== next.isFocused) return false;
+  if (prev.maxVisibleLines !== next.maxVisibleLines) return false;
+  if (prev.autoScroll !== next.autoScroll) return false;
+  if (prev.borderColor !== next.borderColor) return false;
+  if (prev.title !== next.title) return false;
+  if (prev.defaultWrap !== next.defaultWrap) return false;
+  if (prev.logs === next.logs) return true;
+  if (!prev.logs || !next.logs) return false;
+  if (prev.logs.length !== next.logs.length) return false;
+  if (
+    prev.logs.length > 0 &&
+    prev.logs[prev.logs.length - 1] !== next.logs[next.logs.length - 1]
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export const LogStreamView: React.FC<LogStreamViewProps> = React.memo(({
   taskId: propTaskId,
   logs: propLogs,
   isFocused = false,
@@ -20,23 +44,14 @@ export const LogStreamView: React.FC<LogStreamViewProps> = ({
   autoScroll: initialAutoScroll = true,
   borderColor,
   title,
+  defaultWrap = true,
 }) => {
-  let execTaskId: string | null = null;
-  let execLogs: string[] = [];
+  const exec = useExecution();
+  const effectiveTaskId = propTaskId !== undefined ? propTaskId : exec.selectedTaskId;
+  const logs = propLogs !== undefined ? propLogs : (effectiveTaskId ? exec.getTaskLogs(effectiveTaskId) : []);
 
-  try {
-    const exec = useExecution();
-    execTaskId = exec.selectedTaskId;
-    const activeId = propTaskId !== undefined ? propTaskId : execTaskId;
-    if (activeId) {
-      execLogs = exec.getTaskLogs(activeId);
-    }
-  } catch {
-    // Outside ExecutionProvider
-  }
-
-  const effectiveTaskId = propTaskId !== undefined ? propTaskId : execTaskId;
-  const logs = propLogs !== undefined ? propLogs : execLogs;
+  // Wrap toggle state: default true (Wrap: ON)
+  const [isWrapEnabled, setIsWrapEnabled] = useState(defaultWrap);
 
   // Auto-scroll state: true when attached to the bottom
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(initialAutoScroll);
@@ -53,13 +68,21 @@ export const LogStreamView: React.FC<LogStreamViewProps> = ({
   // Reset scroll when selected task changes
   useEffect(() => {
     setIsAutoScrollEnabled(true);
-    setScrollStartIndex(bottomStartIndex);
-  }, [effectiveTaskId, bottomStartIndex]);
+    setScrollStartIndex(Math.max(0, logs.length - maxVisibleLines));
+  }, [effectiveTaskId]);
 
-  // Keyboard navigation for scrolling when focused
+  // Keyboard navigation for scrolling and wrap toggle when focused
   useInput(
     (input, key) => {
-      if (!isFocused || logs.length === 0) return;
+      if (!isFocused) return;
+
+      // Toggle wrap: 'w'
+      if (input === 'w') {
+        setIsWrapEnabled((prev) => !prev);
+        return;
+      }
+
+      if (logs.length === 0) return;
 
       // Scroll up: Up arrow or 'k'
       if (key.upArrow || input === 'k') {
@@ -145,15 +168,18 @@ export const LogStreamView: React.FC<LogStreamViewProps> = ({
       flexGrow={1}
     >
       {/* Header with Title and Auto-scroll status */}
-      <Box justifyContent="space-between" width="100%" marginBottom={1}>
-        <Box gap={1} flexShrink={1}>
-          <Text bold color={isFocused ? 'cyan' : 'gray'}>
-            {isFocused ? '● ' : '  '}{title || `Logs: ${effectiveTaskId ?? 'No Task'}`}
+      <Box justifyContent="space-between" width="100%" marginBottom={0}>
+        <Box gap={1} flexShrink={0}>
+          <Text bold color={isFocused ? 'cyan' : 'gray'} wrap="truncate-end">
+            {isFocused ? '● ' : ''}{title || `Logs: ${effectiveTaskId ?? 'No Task'}`}
           </Text>
-          <Text dimColor>({totalLines} lines)</Text>
+          <Text dimColor wrap="truncate-end">({totalLines} lines)</Text>
         </Box>
 
-        <Box gap={1} flexShrink={0} paddingLeft={1}>
+        <Box gap={1} flexShrink={0}>
+          <Text color={isWrapEnabled ? 'cyan' : 'gray'} bold>
+            {isWrapEnabled ? '[Wrap: ON]' : '[Wrap: OFF]'}
+          </Text>
           {isAutoScrollEnabled ? (
             <Text color="green" bold>
               [Auto-scroll: ON]
@@ -188,7 +214,10 @@ export const LogStreamView: React.FC<LogStreamViewProps> = ({
       ) : (
         <Box flexDirection="column" flexGrow={1}>
           {visibleLines.map((line, idx) => (
-            <Text key={scrollStartIndex + idx} wrap="truncate-end">
+            <Text
+              key={effectiveScrollStartIndex + idx}
+              wrap={isWrapEnabled ? 'wrap' : 'truncate-end'}
+            >
               {line}
             </Text>
           ))}
@@ -205,4 +234,6 @@ export const LogStreamView: React.FC<LogStreamViewProps> = ({
       )}
     </Box>
   );
-};
+}, areLogStreamPropsEqual);
+
+LogStreamView.displayName = 'LogStreamView';

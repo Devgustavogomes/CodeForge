@@ -1,8 +1,11 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render } from 'ink-testing-library';
 import { TaskList, formatDuration } from '../../../../../src/cli/tui/components/run/TaskList.js';
 import { TaskItem } from '../../../../../src/cli/tui/context/ExecutionContext.js';
+import { SPINNER_FRAMES } from '../../../../../src/cli/tui/components/common/Spinner.js';
+import { renderWithProviders } from '../../helpers/renderWithProviders.js';
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('TaskList component', () => {
   const mockTasks: TaskItem[] = [
@@ -39,7 +42,7 @@ describe('TaskList component', () => {
   ];
 
   it('renders task items with status icons, durations, IDs, and titles', () => {
-    const { lastFrame } = render(
+    const { lastFrame } = renderWithProviders(
       <TaskList tasks={mockTasks} selectedTaskId="TASK-001" isFocused={false} />
     );
     const output = lastFrame() ?? '';
@@ -52,7 +55,7 @@ describe('TaskList component', () => {
 
     expect(output).toContain('TASK-002');
     expect(output).toContain('Build feature');
-    expect(output).toContain('▶'); // running icon
+    expect(output).toContain(SPINNER_FRAMES[0]); // live spinner on running task
 
     expect(output).toContain('TASK-003');
     expect(output).toContain('Run tests');
@@ -64,8 +67,60 @@ describe('TaskList component', () => {
     expect(output).toContain('●'); // pending icon
   });
 
+  it('renders live spinner on running tasks that updates animation frame', async () => {
+    const { lastFrame } = renderWithProviders(
+      <TaskList
+        tasks={[
+          {
+            id: 'TASK-001',
+            title: 'Running task',
+            status: 'running',
+            dependencies: [],
+            startedAt: new Date().toISOString(),
+          },
+        ]}
+      />
+    );
+
+    expect(lastFrame()).toContain(SPINNER_FRAMES[0]);
+    let advanced = false;
+    for (let i = 0; i < 20; i++) {
+      await sleep(25);
+      if (lastFrame()?.includes(SPINNER_FRAMES[1])) {
+        advanced = true;
+        break;
+      }
+    }
+    expect(advanced).toBe(true);
+  });
+
+  it('ticks dynamic elapsed duration for running tasks', async () => {
+    // Started 2 seconds ago
+    const startTime = new Date(Date.now() - 2000).toISOString();
+    const { lastFrame } = renderWithProviders(
+      <TaskList
+        tasks={[
+          {
+            id: 'TASK-LIVE',
+            title: 'Long running task',
+            status: 'running',
+            dependencies: [],
+            startedAt: startTime,
+          },
+        ]}
+      />
+    );
+
+    const initial = lastFrame() ?? '';
+    expect(initial).toMatch(/[23]s/);
+
+    await sleep(1050);
+    const afterTick = lastFrame() ?? '';
+    expect(afterTick).toMatch(/[34]s/);
+  });
+
   it('renders filter badges with accurate counts', () => {
-    const { lastFrame } = render(
+    const { lastFrame } = renderWithProviders(
       <TaskList tasks={mockTasks} selectedTaskId="TASK-001" showFilterBadges={true} />
     );
     const output = lastFrame() ?? '';
@@ -78,7 +133,7 @@ describe('TaskList component', () => {
 
   it('navigates through tasks via keyboard (down / up arrows)', () => {
     const onSelectTask = vi.fn();
-    const { stdin } = render(
+    const { stdin } = renderWithProviders(
       <TaskList
         tasks={mockTasks}
         selectedTaskId="TASK-001"
@@ -107,5 +162,8 @@ describe('TaskList component', () => {
     expect(
       formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T10:02:30.000Z')
     ).toBe('2m 30s');
+    expect(
+      formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T11:02:30.000Z')
+    ).toBe('1h 2m 30s');
   });
 });
