@@ -8,9 +8,9 @@ export interface UseKeyboardShortcutsOptions {
 }
 
 const TAB_NUMBER_MAP: Record<string, TabId> = {
-  '1': 'specs',
-  '2': 'tasks',
-  '3': 'run',
+  '1': 'run',
+  '2': 'specs',
+  '3': 'tasks',
   '4': 'docs',
   '5': 'config',
 };
@@ -18,11 +18,10 @@ const TAB_NUMBER_MAP: Record<string, TabId> = {
 /**
  * Global keyboard shortcuts listener for CodeForge TUI.
  * Handles:
- * - Numbers 1-5 for tab switching
- * - Ctrl+K or ':' for Command Palette
+ * - Numbers 1-5 for tab switching (1: Run, 2: Specs, 3: Tasks, 4: Docs, 5: Config)
  * - 'q' or Ctrl+C for quit confirmation
  * - Left/Right arrows for circular tab navigation
- * - Escape to close modal or command palette
+ * - Escape to close active modal
  *
  * Suppresses global navigation when a modal or text input is active.
  */
@@ -33,10 +32,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
     prevTab,
     modal,
     closeModal,
-    isCommandPaletteOpen,
     openModal,
-    closeCommandPalette,
-    toggleCommandPalette,
     isTextInputActive,
   } = useNavigation();
 
@@ -49,27 +45,16 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}):
         return;
       }
 
-      // Handle Escape key to close modal or command palette
+      // Handle Escape key to close modal
       if (key.escape) {
-        if (isCommandPaletteOpen) {
-          closeCommandPalette();
-          return;
-        }
         if (modal !== null) {
           closeModal();
           return;
         }
       }
 
-      // Suppress global navigation when modal or command palette is open
-      if (modal !== null || isCommandPaletteOpen) {
-        return;
-      }
-
-      // Command Palette: Ctrl+K or ':'
-      const isCtrlK = (key.ctrl && (input === 'k' || input === 'K')) || input === '\x0b';
-      if (isCtrlK || input === ':') {
-        toggleCommandPalette();
+      // Suppress global navigation when modal is open
+      if (modal !== null) {
         return;
       }
 

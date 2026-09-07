@@ -1,11 +1,11 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
+import { ContainerProvider } from './context/ContainerContext.js';
 import { NavigationProvider, useNavigation, TabId } from './context/NavigationContext.js';
 import { ExecutionProvider, useExecution } from './context/ExecutionContext.js';
 import { Header } from './components/common/Header.js';
 import { TabBar } from './components/common/TabBar.js';
 import { StatusBar } from './components/common/StatusBar.js';
-import { CommandPalette } from './components/common/CommandPalette.js';
 import { Modal } from './components/common/Modal.js';
 import { RunDashboard } from './components/run/RunDashboard.js';
 import { SpecsScreen } from './components/specs/SpecsScreen.js';
@@ -16,12 +16,13 @@ import { DocsScreen } from './components/docs/DocsScreen.js';
 import { ConfigScreen } from './components/config/ConfigScreen.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
 import { useTerminalDimensions } from './hooks/useTerminalDimensions.js';
-import { AppContainer } from '../../infrastructure/container.js';
+import { AppContainer, createAppContainer } from '../../infrastructure/container.js';
 
 export interface AppProps {
   container?: AppContainer;
   initialTab?: TabId;
   initialSpec?: string;
+  autoStart?: boolean;
   onExit?: () => void;
   enableAlternateScreen?: boolean;
 }
@@ -85,26 +86,13 @@ const AppContent: React.FC<{
     enableArrowNav: false,
   });
 
-  // Keep NavigationContext and ExecutionContext activeSpec synchronized
-  useEffect(() => {
-    if (nav.activeSpec && exec.activeSpec !== nav.activeSpec) {
-      exec.setActiveSpec(nav.activeSpec);
-    }
-  }, [nav.activeSpec, exec.activeSpec, exec.setActiveSpec]);
-
-  useEffect(() => {
-    if (exec.activeSpec && nav.activeSpec !== exec.activeSpec) {
-      nav.setActiveSpec(exec.activeSpec);
-    }
-  }, [exec.activeSpec, nav.activeSpec, nav.setActiveSpec]);
-
-  const isInteractive = !nav.isCommandPaletteOpen && nav.modal === null;
+  const isInteractive = nav.modal === null;
 
   return (
     <Box
       flexDirection="column"
       width="100%"
-      height={rows > 0 ? rows : undefined}
+      height={rows > 2 ? rows - 1 : undefined}
       overflow="hidden"
     >
       {/* Unified top navigation bar */}
@@ -115,7 +103,7 @@ const AppContent: React.FC<{
         paddingX={1}
         width="100%"
       >
-        <Header activeSpec={nav.activeSpec} borderStyle="none" />
+        <Header activeSpec={exec.activeSpec} borderStyle="none" />
         <TabBar activeTab={nav.activeTab} borderStyle="none" />
       </Box>
 
@@ -129,7 +117,7 @@ const AppContent: React.FC<{
             width="100%"
             onSuccess={(specName) => {
               nav.closeModal();
-              nav.setActiveSpec(specName);
+              exec.setActiveSpec(specName);
               nav.setActiveTab('specs');
             }}
           />
@@ -141,7 +129,7 @@ const AppContent: React.FC<{
             width="100%"
             onSuccess={(specName) => {
               nav.closeModal();
-              nav.setActiveSpec(specName);
+              exec.setActiveSpec(specName);
               nav.setActiveTab('specs');
             }}
           />
@@ -159,15 +147,13 @@ const AppContent: React.FC<{
       {/* Status bar */}
       <StatusBar
         activeTab={nav.activeTab}
+        borderStyle="none"
         hints={
           nav.activeTab === 'run' && exec.tasks.length === 0
             ? ['↑/↓: Navigate Specs', 'Enter: Start Run', 'c: Create Spec', '2: Specs Tab']
             : undefined
         }
       />
-
-      {/* Command Palette Overlay */}
-      <CommandPalette />
 
       {nav.modal?.type === 'quit_confirm' && (
         <Modal
@@ -208,18 +194,23 @@ export const App: React.FC<AppProps> = ({
   container,
   initialTab = 'specs',
   initialSpec,
+  autoStart = false,
   onExit,
   enableAlternateScreen = false,
 }) => {
+  const appContainer = useMemo(() => container ?? createAppContainer(), [container]);
+
   return (
-    <NavigationProvider initialTab={initialTab} initialActiveSpec={initialSpec}>
-      <ExecutionProvider container={container} initialSpec={initialSpec}>
-        <AppContent
-          container={container}
-          onExit={onExit}
-          enableAlternateScreen={enableAlternateScreen}
-        />
-      </ExecutionProvider>
-    </NavigationProvider>
+    <ContainerProvider container={appContainer}>
+      <NavigationProvider initialTab={initialTab}>
+        <ExecutionProvider container={appContainer} initialSpec={initialSpec} autoStart={autoStart}>
+          <AppContent
+            container={appContainer}
+            onExit={onExit}
+            enableAlternateScreen={enableAlternateScreen}
+          />
+        </ExecutionProvider>
+      </NavigationProvider>
+    </ContainerProvider>
   );
 };

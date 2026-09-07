@@ -13,7 +13,7 @@ export interface StatusBarProps {
 }
 
 const DEFAULT_HINTS: Record<TabId, string> = {
-  run: '↑/↓: Navigate  │  Tab: Switch View  │  r: Retry  │  c: Complete  │  x: Reset',
+  run: '↑/↓: Navigate  │  Enter: Run/Resume  │  Tab: View  │  r: Retry  │  c: Complete  │  x/X: Reset  │  w: Wrap',
   specs: '↑/↓: Navigate  │  Enter: Open Run  │  c: Create  │  p: Pull  │  g: Plan  │  v: Validate',
   tasks: '↑/↓: Navigate  │  r: Retry  │  c: Complete  │  x: Reset  │  Enter: Info',
   docs: 'c: Create  │  u: Update  │  Enter: View',
@@ -24,7 +24,23 @@ const DEFAULT_HINTS: Record<TabId, string> = {
  * StatusBar component rendering bottom bar with context-sensitive key hints
  * and current status / error messages with modern rounded borders.
  */
-export const StatusBar: React.FC<StatusBarProps> = ({
+export function areStatusBarPropsEqual(prev: StatusBarProps, next: StatusBarProps): boolean {
+  const hintsEqual =
+    Array.isArray(prev.hints) && Array.isArray(next.hints)
+      ? prev.hints.length === next.hints.length &&
+        prev.hints.every((h, i) => h === (next.hints as string[])[i])
+      : prev.hints === next.hints;
+  return (
+    prev.activeTab === next.activeTab &&
+    hintsEqual &&
+    prev.status === next.status &&
+    prev.error === next.error &&
+    prev.borderColor === next.borderColor &&
+    prev.borderStyle === next.borderStyle
+  );
+}
+
+export const StatusBar: React.FC<StatusBarProps> = React.memo(({
   activeTab: propActiveTab,
   hints,
   status,
@@ -32,16 +48,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   borderColor,
   borderStyle = 'round',
 }) => {
-  let navActiveTab: TabId = 'run';
-  try {
-    const nav = useNavigation();
-    navActiveTab = nav.activeTab;
-  } catch {
-    // Outside NavigationProvider
-  }
-
+  const nav = useNavigation();
   const { breakpoint } = useTerminalDimensions();
-  const currentTab = propActiveTab ?? navActiveTab;
+  const currentTab = propActiveTab ?? nav.activeTab;
 
   let hintText: string;
   if (Array.isArray(hints)) {
@@ -84,4 +93,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       </Box>
     </Box>
   );
-};
+}, areStatusBarPropsEqual);
+
+StatusBar.displayName = 'StatusBar';

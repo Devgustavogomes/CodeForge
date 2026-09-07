@@ -1,8 +1,17 @@
 import React from "react";
 import { render } from "ink";
 import { App } from "./tui/App.js";
+import { TabId } from "./tui/context/NavigationContext.js";
+import { AppContainer } from "../infrastructure/container.js";
 
-export async function runInteractiveMenu(): Promise<void> {
+export interface RunInteractiveOptions {
+  container?: AppContainer;
+  initialTab?: TabId;
+  initialSpec?: string;
+  autoStart?: boolean;
+}
+
+export async function runInteractiveMenu(options: RunInteractiveOptions = {}): Promise<void> {
   const isTTY = Boolean(process.stdout?.isTTY);
   if (isTTY) {
     // Switch to alternate screen buffer, hide cursor, and clear screen
@@ -25,6 +34,10 @@ export async function runInteractiveMenu(): Promise<void> {
 
   const instance = render(
     React.createElement(App, {
+      container: options.container,
+      initialTab: options.initialTab,
+      initialSpec: options.initialSpec,
+      autoStart: options.autoStart,
       enableAlternateScreen: false,
       onExit: () => {
         instance.unmount();

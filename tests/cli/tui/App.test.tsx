@@ -13,9 +13,9 @@ describe('Root TUI App component', () => {
     // Header brand
     expect(output).toContain('CodeForge');
     // TabBar elements
-    expect(output).toContain('[1] Specs');
-    expect(output).toContain('[2] Tasks');
-    expect(output).toContain('[3] Run');
+    expect(output).toContain('[1] Run');
+    expect(output).toContain('[2] Specs');
+    expect(output).toContain('[3] Tasks');
     expect(output).toContain('[4] Docs');
     expect(output).toContain('[5] Config');
     // StatusBar shortcuts
@@ -31,17 +31,17 @@ describe('Root TUI App component', () => {
   });
 
   it('switches tabs when numeric keys 1-5 are pressed', async () => {
-    const { lastFrame, stdin } = render(<App initialTab="specs" />);
+    const { lastFrame, stdin } = render(<App initialTab="run" />);
 
-    // Press '2' -> Tasks screen
+    // Press '2' -> Specs screen
     stdin.write('2');
     await tick(80);
-    expect(lastFrame()).toContain('Tasks');
+    expect(lastFrame()).toContain('Specifications');
 
-    // Press '3' -> Run screen
+    // Press '3' -> Tasks screen
     stdin.write('3');
     await tick(80);
-    expect(lastFrame()).toContain('[3] Run');
+    expect(lastFrame()).toContain('Tasks');
 
     // Press '4' -> Docs screen
     stdin.write('4');
@@ -53,25 +53,24 @@ describe('Root TUI App component', () => {
     await tick(80);
     expect(lastFrame()).toContain('CodeForge Configuration Editor');
 
-    // Press '1' -> Back to Specs screen
+    // Press '1' -> Back to Run screen
     stdin.write('1');
     await tick(80);
-    expect(lastFrame()).toContain('Specifications');
+    expect(lastFrame()).toContain('[1] Run');
   });
 
-  it('opens CommandPalette on ":" and closes on Escape', async () => {
+  it('does not open CommandPalette on ":" or Ctrl+K', async () => {
     const { lastFrame, stdin } = render(<App initialTab="run" />);
 
-    // Open CommandPalette
+    // Press ':'
     stdin.write(':');
     await tick(80);
-    expect(lastFrame()).toContain('Command Palette');
-    expect(lastFrame()).toContain('Type to search commands');
+    expect(lastFrame()).not.toContain('Command Palette');
 
-    // Close with Escape
-    stdin.write('\u001B');
+    // Press Ctrl+K (\x0B)
+    stdin.write('\x0B');
     await tick(80);
-    expect(lastFrame()).not.toContain('Type to search commands');
+    expect(lastFrame()).not.toContain('Command Palette');
   });
 
   it('exits cleanly on "q" invoking onExit callback', async () => {
@@ -110,7 +109,7 @@ describe('Root TUI App component', () => {
     expect(output).toContain('CodeForge');
     expect(output).toContain('No active spec');
     // Verify TabBar is rendered
-    expect(output).toContain('[1] Specs');
+    expect(output).toContain('[2] Specs');
     // Verify SpecsScreen content is rendered
     expect(output).toContain('Specifications');
 
@@ -134,4 +133,13 @@ describe('Root TUI App component', () => {
       unmount();
     }
   });
+
+  it('provides container to the tree via ContainerProvider', () => {
+    const { lastFrame, unmount } = render(<App initialTab="specs" initialSpec="alpha-spec" />);
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('alpha-spec');
+    unmount();
+  });
 });
+

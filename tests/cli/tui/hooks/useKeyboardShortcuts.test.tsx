@@ -29,25 +29,25 @@ const TestAppInner: React.FC<{ shortcutsOptions?: UseKeyboardShortcutsOptions }>
 
   return (
     <Text>
-      Tab:{nav.activeTab} | Modal:{nav.modal?.type ?? 'none'} | Palette:{String(
-        nav.isCommandPaletteOpen
-      )} | TextActive:{String(nav.isTextInputActive)}
+      Tab:{nav.activeTab} | Modal:{nav.modal?.type ?? 'none'} | TextActive:{String(
+        nav.isTextInputActive
+      )}
     </Text>
   );
 };
 
 describe('useKeyboardShortcuts', () => {
   it('switches tabs when numeric keys 1-5 are pressed', async () => {
-    const { lastFrame, stdin } = render(<TestApp />);
-    expect(lastFrame()).toContain('Tab:specs');
+    const { lastFrame, stdin } = render(<TestApp initialTab="run" />);
+    expect(lastFrame()).toContain('Tab:run');
 
     stdin.write('2');
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:tasks');
+    expect(lastFrame()).toContain('Tab:specs');
 
     stdin.write('3');
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:run');
+    expect(lastFrame()).toContain('Tab:tasks');
 
     stdin.write('4');
     await new Promise((r) => setTimeout(r, 20));
@@ -59,7 +59,7 @@ describe('useKeyboardShortcuts', () => {
 
     stdin.write('1');
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:specs');
+    expect(lastFrame()).toContain('Tab:run');
   });
 
   it('navigates tabs with left and right arrow keys', async () => {
@@ -77,24 +77,19 @@ describe('useKeyboardShortcuts', () => {
     expect(lastFrame()).toContain('Tab:specs');
   });
 
-  it('toggles command palette on Ctrl+K and ":"', async () => {
-    const { lastFrame, stdin } = render(<TestApp />);
-    expect(lastFrame()).toContain('Palette:false');
+  it('ignores Ctrl+K and ":" without opening command palette', async () => {
+    const { lastFrame, stdin } = render(<TestApp initialTab="run" />);
+    expect(lastFrame()).toContain('Tab:run');
 
     // Press ':'
     stdin.write(':');
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Palette:true');
-
-    // Press Escape (\u001B) to close
-    stdin.write('\u001B');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Palette:false');
+    expect(lastFrame()).toContain('Tab:run');
 
     // Press Ctrl+K (\x0B)
     stdin.write('\x0B');
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Palette:true');
+    expect(lastFrame()).toContain('Tab:run');
   });
 
   it('invokes onQuit when "q" or Ctrl+C is pressed', async () => {
@@ -167,7 +162,7 @@ describe('useKeyboardShortcuts', () => {
     // Now pressing '2' should switch tabs
     stdin.write('2');
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:tasks');
+    expect(lastFrame()).toContain('Tab:specs');
   });
 
   it('suppresses shortcuts when text input is active', async () => {
@@ -214,6 +209,6 @@ describe('useKeyboardShortcuts', () => {
     // Now '2' works
     stdin.write('2');
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:tasks');
+    expect(lastFrame()).toContain('Tab:specs');
   });
 });

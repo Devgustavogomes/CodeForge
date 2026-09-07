@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { useNavigation } from '../../context/NavigationContext.js';
+import { useExecution } from '../../context/ExecutionContext.js';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 
 export interface HeaderProps {
@@ -17,7 +17,18 @@ export interface HeaderProps {
  * Displays brand title, active spec / breadcrumb, and quick shortcut hints
  * with responsive truncation and modern rounded borders.
  */
-export const Header: React.FC<HeaderProps> = ({
+export function areHeaderPropsEqual(prev: HeaderProps, next: HeaderProps): boolean {
+  return (
+    prev.title === next.title &&
+    prev.activeSpec === next.activeSpec &&
+    prev.breadcrumb === next.breadcrumb &&
+    prev.shortcuts === next.shortcuts &&
+    prev.borderColor === next.borderColor &&
+    prev.borderStyle === next.borderStyle
+  );
+}
+
+export const Header: React.FC<HeaderProps> = React.memo(({
   title = '⚡ CodeForge',
   activeSpec: propActiveSpec,
   breadcrumb,
@@ -25,18 +36,11 @@ export const Header: React.FC<HeaderProps> = ({
   borderColor = 'cyan',
   borderStyle = 'round',
 }) => {
-  let navActiveSpec: string | null = null;
-  try {
-    const nav = useNavigation();
-    navActiveSpec = nav.activeSpec;
-  } catch {
-    // Graceful fallback if rendered outside NavigationProvider
-  }
-
+  const exec = useExecution();
   const { breakpoint } = useTerminalDimensions();
-  const currentSpec = propActiveSpec !== undefined ? propActiveSpec : navActiveSpec;
+  const currentSpec = propActiveSpec !== undefined ? propActiveSpec : exec.activeSpec;
   const displayBreadcrumb = breadcrumb || (currentSpec ? `Spec: ${currentSpec}` : 'No active spec');
-  const defaultShortcuts = '[Ctrl+K] Commands  [q] Quit';
+  const defaultShortcuts = '[q] Quit';
   const displayShortcuts = shortcuts !== undefined ? shortcuts : defaultShortcuts;
 
   const isNoneBorder = borderStyle === 'none';
@@ -68,4 +72,6 @@ export const Header: React.FC<HeaderProps> = ({
       )}
     </Box>
   );
-};
+}, areHeaderPropsEqual);
+
+Header.displayName = 'Header';

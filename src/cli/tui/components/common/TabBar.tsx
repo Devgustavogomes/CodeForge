@@ -14,25 +14,24 @@ export interface TabBarProps {
  * [1] Run, [2] Specs, [3] Tasks, [4] Docs, [5] Config
  * Displays an active highlight badge and rounded borders.
  */
-export const TabBar: React.FC<TabBarProps> = ({
+export function areTabBarPropsEqual(prev: TabBarProps, next: TabBarProps): boolean {
+  return (
+    prev.activeTab === next.activeTab &&
+    prev.onTabChange === next.onTabChange &&
+    prev.borderColor === next.borderColor &&
+    prev.borderStyle === next.borderStyle
+  );
+}
+
+export const TabBar: React.FC<TabBarProps> = React.memo(({
   activeTab: propActiveTab,
   onTabChange: propOnTabChange,
   borderColor = 'gray',
   borderStyle = 'round',
 }) => {
-  let navActiveTab: TabId = 'run';
-  let navSetActiveTab: ((tab: TabId) => void) | null = null;
-
-  try {
-    const nav = useNavigation();
-    navActiveTab = nav.activeTab;
-    navSetActiveTab = nav.setActiveTab;
-  } catch {
-    // Outside NavigationProvider
-  }
-
-  const currentTab = propActiveTab ?? navActiveTab;
-  const _handleTabChange = propOnTabChange ?? navSetActiveTab;
+  const nav = useNavigation();
+  const currentTab = propActiveTab ?? nav.activeTab;
+  const _handleTabChange = propOnTabChange ?? nav.setActiveTab;
   const isNoneBorder = borderStyle === 'none';
 
   return (
@@ -61,4 +60,6 @@ export const TabBar: React.FC<TabBarProps> = ({
       })}
     </Box>
   );
-};
+}, areTabBarPropsEqual);
+
+TabBar.displayName = 'TabBar';

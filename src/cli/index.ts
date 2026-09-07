@@ -18,13 +18,19 @@ import { registerDocsUpdateCommand } from "./commands/docs/update.js";
 import { registerConfigCommand } from "./commands/config.js";
 
 import { runInteractiveMenu } from "./interactive.js";
+import {
+  launchExternalTerminal,
+  shouldLaunchExternalTerminal,
+} from "./launcher/externalTerminal.js";
+import { createAppContainer } from "../infrastructure/container.js";
 
 const program = new Command();
 
 program
   .name("codeforge")
   .description("CodeForge — Software Factory for AI-assisted development")
-  .version("0.3.0");
+  .version("0.3.0")
+  .option("--external, -w", "Open in a dedicated external terminal window");
 
 registerInitCommand(program);
 registerRunCommand(program);
@@ -59,6 +65,30 @@ const docs = program
 
 registerDocsCreateCommand(docs);
 registerDocsUpdateCommand(docs);
+
+const shouldLaunch = shouldLaunchExternalTerminal(
+  process.argv.slice(2),
+  process.env,
+  () => {
+    try {
+      const container = createAppContainer();
+      const config = container.configService.loadConfig();
+      return Boolean(config?.externalTerminal);
+    } catch {
+      return false;
+    }
+  },
+);
+
+if (shouldLaunch) {
+  const launched = launchExternalTerminal(process.argv.slice(2), process.cwd());
+  if (launched) {
+    process.exit(0);
+  } else {
+    console.error("Failed to launch external terminal.");
+    process.exit(1);
+  }
+}
 
 if (process.argv.length === 2) {
   // Run interactive menu if no arguments are provided
