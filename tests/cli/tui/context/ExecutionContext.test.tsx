@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "ink-testing-library";
 import { Text } from "ink";
@@ -7,41 +7,184 @@ import {
   useExecution,
   ExecutionContextValue,
 } from "../../../../src/cli/tui/context/ExecutionContext.js";
-import { ReactiveTaskScheduler } from "../../../../src/scheduler/ReactiveTaskScheduler.js";
+import { loadTasksFromDisk } from "../../../../src/cli/tui/context/ExecutionContext/taskLoader.js";
+import {
+  sanitizeLogChunk,
+  appendLogLines,
+  appendTaskLog,
+} from "../../../../src/cli/tui/context/ExecutionContext/logBuffer.js";
+import { createExecutionReporter } from "../../../../src/cli/tui/context/ExecutionContext/executionReporter.js";
+import { ContainerProvider } from "../../../../src/cli/tui/context/ContainerContext.js";
+import { TaskScheduler } from "../../../../src/scheduler/TaskScheduler.js";
 import { InMemoryWorkspaceGateway } from "../../../helpers/in-memory-workspace.js";
 import { InMemoryAgentRunner } from "../../../helpers/in-memory-agent-runner.js";
 import { TaskBuilder } from "../../../helpers/task-builder.js";
 import { ExecutionStateRepository } from "../../../../src/infrastructure/repositories/ExecutionStateRepository.js";
 import { PromptService } from "../../../../src/application/services/PromptService.js";
 import { Task } from "../../../../src/domain/task.js";
+import { createAppContainer, AppContainer } from "../../../../src/infrastructure/container.js";
 
 const tick = (ms = 25) => new Promise((resolve) => setTimeout(resolve, ms));
+
+describe("Modular Helpers", () => {
+  let gw: InMemoryWorkspaceGateway;
+  let stateRepo: ExecutionStateRepository;
+
+  beforeEach(() => {
+    gw = new InMemoryWorkspaceGateway();
+    stateRepo = new ExecutionStateRepository(gw);
+  });
+
+  describe("taskLoader", () => {
+    it("loads tasks from disk and merges with execution state", () => {
+      gw.mkdir(".codeforge/tasks/auth-spec");
+      const task1: Task = {
+        id: "TASK-001",
+        title: "Login page",
+        dependencies: [],
+        objective: "Build login",
+      };
+      gw.writeFile(
+        ".codeforge/tasks/auth-spec/TASK-001.json",
+        JSON.stringify(task1),
+      );
+
+      const state = stateRepo.init("auth-spec", [task1]);
+      state.tasks["TASK-001"].status = "completed";
+      state.tasks["TASK-001"].completedAt = "2026-09-01T12:00:00Z";
+      stateRepo.save(state);
+
+      const items = loadTasksFromDisk(gw, stateRepo, "auth-spec");
+      expect(items).toHaveLength(1);
+      expect(items[0].id).toBe("TASK-001");
+      expect(items[0].title).toBe("Login page");
+      expect(items[0].status).toBe("completed");
+      expect(items[0].completedAt).toBe("2026-09-01T12:00:00Z");
+      expect(items[0].objective).toBe("Build login");
+    });
+
+    it("returns empty array if tasks directory does not exist", () => {
+      const items = loadTasksFromDisk(gw, stateRepo, "non-existent");
+      expect(items).toEqual([]);
+    });
+
+    it("includes tasks present in state repository even if missing from disk", () => {
+      const state = stateRepo.init("orphaned-spec", []);
+      state.tasks["TASK-GHOST"] = {
+        title: "Ghost task",
+        status: "failed",
+        dependencies: [],
+        errors: ["Missing file"],
+      };
+      stateRepo.save(state);
+
+      const items = loadTasksFromDisk(gw, stateRepo, "orphaned-spec");
+      expect(items).toHaveLength(1);
+      expect(items[0].id).toBe("TASK-GHOST");
+      expect(items[0].status).toBe("failed");
+      expect(items[0].errors).toEqual(["Missing file"]);
+    });
+  });
+
+  describe("logBuffer", () => {
+    it("sanitizes ANSI escape codes and normalizes carriage returns", () => {
+      const dirty = "\x1b[31mError:\x1b[0m Failed\r\x1b[2KNew line\r\n";
+      const clean = sanitizeLogChunk(dirty);
+      expect(clean).not.toContain("\x1b[31m");
+      expect(clean).not.toContain("\x1b[0m");
+      expect(clean).not.toContain("\x1b[2K");
+      expect(clean).toContain("Error: Failed\nNew line\r\n");
+    });
+
+    it("appends lines and truncates lines exceeding character limit", () => {
+      const veryLong = "a".repeat(6000);
+      const lines = appendLogLines([], veryLong, 10);
+      expect(lines).toHaveLength(1);
+      expect(lines[0].length).toBe(5003); // 5000 + "..."
+      expect(lines[0].endsWith("...")).toBe(true);
+    });
+
+    it("enforces ring-buffer capacity by keeping only latest lines", () => {
+      const existing = ["line 1", "line 2", "line 3"];
+      const updated = appendLogLines(existing, "line 4\nline 5", 4);
+      expect(updated).toEqual(["line 2", "line 3", "line 4", "line 5"]);
+    });
+
+    it("updates task log record with appendTaskLog", () => {
+      const logs = appendTaskLog({}, "TASK-001", "Hello world\n");
+      expect(logs["TASK-001"]).toEqual(["Hello world"]);
+    });
+  });
+
+  describe("executionReporter", () => {
+    it("forwards lifecycle events to registered callbacks", () => {
+      const onStart = vi.fn();
+      const onUpdate = vi.fn();
+      const onComplete = vi.fn();
+      const onFail = vi.fn();
+      const onDeadlock = vi.fn();
+      const onError = vi.fn();
+      const onLog = vi.fn();
+
+      const reporter = createExecutionReporter({
+        onStart,
+        onUpdate,
+        onComplete,
+        onFail,
+        onDeadlock,
+        onError,
+        onLog,
+      });
+
+      reporter.onStart("spec-1");
+      expect(onStart).toHaveBeenCalledWith("spec-1");
+
+      reporter.onUpdate("spec-1");
+      expect(onUpdate).toHaveBeenCalledWith("spec-1");
+
+      reporter.onComplete("spec-1");
+      expect(onComplete).toHaveBeenCalledWith("spec-1");
+
+      reporter.onFail("spec-1");
+      expect(onFail).toHaveBeenCalledWith("spec-1");
+
+      reporter.onDeadlock("spec-1");
+      expect(onDeadlock).toHaveBeenCalledWith("spec-1");
+
+      reporter.onError("fatal");
+      expect(onError).toHaveBeenCalledWith("fatal");
+
+      reporter.onLog?.("TASK-01", "chunk");
+      expect(onLog).toHaveBeenCalledWith("TASK-01", "chunk");
+    });
+  });
+});
 
 describe("ExecutionContext", () => {
   let gw: InMemoryWorkspaceGateway;
   let runner: InMemoryAgentRunner;
   let stateRepo: ExecutionStateRepository;
   let promptService: PromptService;
-  let scheduler: ReactiveTaskScheduler;
+  let scheduler: TaskScheduler;
+  let container: AppContainer;
 
   beforeEach(() => {
     gw = new InMemoryWorkspaceGateway();
     runner = new InMemoryAgentRunner();
     stateRepo = new ExecutionStateRepository(gw);
     promptService = new PromptService(gw);
-
-    scheduler = new ReactiveTaskScheduler(
-      gw,
-      runner,
-      {
-        environment: "test",
-        plannerAgent: "mock",
-        executorAgent: "mock",
-        language: "en",
-      },
-      stateRepo,
+    container = createAppContainer(gw, {
+      runnerProvider: () => runner,
+      executionStateRepository: stateRepo,
       promptService,
-    );
+    });
+
+    scheduler = container.createTaskScheduler(runner, {
+      environment: "test",
+      plannerAgent: "mock",
+      executorAgent: "mock",
+      language: "en",
+    });
 
     gw.mkdir(".codeforge/tasks/test-spec");
   });
@@ -86,7 +229,7 @@ describe("ExecutionContext", () => {
     };
 
     render(
-      <ExecutionProvider scheduler={scheduler} initialSpec="test-spec">
+      <ExecutionProvider scheduler={scheduler} container={container} initialSpec="test-spec">
         <TestConsumer />
       </ExecutionProvider>,
     );
@@ -103,6 +246,63 @@ describe("ExecutionContext", () => {
     expect(contextValue?.logs).toEqual({});
   });
 
+  it("acts as the authoritative single owner of activeSpec when switching specs", async () => {
+    const taskA = TaskBuilder.aTask().withId("TASK-A").withTitle("Task A").build();
+    const taskB = TaskBuilder.aTask().withId("TASK-B").withTitle("Task B").build();
+    writeTask("spec-a", taskA);
+    writeTask("spec-b", taskB);
+
+    let contextValue: ExecutionContextValue | null = null;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      return <Text>Spec: {contextValue.activeSpec}</Text>;
+    };
+
+    render(
+      <ExecutionProvider scheduler={scheduler} container={container} initialSpec="spec-a">
+        <TestConsumer />
+      </ExecutionProvider>,
+    );
+
+    await tick();
+    expect(contextValue?.activeSpec).toBe("spec-a");
+    expect(contextValue?.tasks[0].id).toBe("TASK-A");
+
+    // Switch spec to spec-b
+    contextValue?.setActiveSpec("spec-b");
+    await tick();
+
+    expect(contextValue?.activeSpec).toBe("spec-b");
+    expect(contextValue?.tasks[0].id).toBe("TASK-B");
+
+    // Deselect spec
+    contextValue?.setActiveSpec(null);
+    await tick();
+
+    expect(contextValue?.activeSpec).toBeNull();
+    expect(contextValue?.tasks).toEqual([]);
+    expect(contextValue?.selectedTaskId).toBeNull();
+  });
+
+  it("consumes AppContainer via useContainer() when wrapped in ContainerProvider", () => {
+    let contextValue: ExecutionContextValue | null = null;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      return <Text>Consumer</Text>;
+    };
+
+    render(
+      <ContainerProvider container={container}>
+        <ExecutionProvider scheduler={scheduler} initialSpec="test-spec">
+          <TestConsumer />
+        </ExecutionProvider>
+      </ContainerProvider>,
+    );
+
+    expect(contextValue).not.toBeNull();
+    expect(contextValue?.activeSpec).toBe("test-spec");
+  });
+
   it("buffers log chunks per-task and enforces maxLogLines capacity", async () => {
     let contextValue: ExecutionContextValue | null = null;
     const TestConsumer = () => {
@@ -111,30 +311,22 @@ describe("ExecutionContext", () => {
     };
 
     render(
-      <ExecutionProvider scheduler={scheduler} maxLogLines={3}>
+      <ExecutionProvider scheduler={scheduler} container={container} maxLogLines={3}>
         <TestConsumer />
       </ExecutionProvider>,
     );
 
     await tick();
 
-    // Emit logs for TASK-001
-    scheduler.emit("task:log", {
-      specName: "test-spec",
-      taskId: "TASK-001",
-      chunk: "line 1\nline 2",
-    });
+    // Emit logs for TASK-001 via reporter
+    scheduler.getReporter()?.onLog?.("TASK-001", "line 1\nline 2");
 
     await tick();
 
     expect(contextValue?.getTaskLogs("TASK-001")).toEqual(["line 1", "line 2"]);
 
     // Emit more lines exceeding maxLogLines (3)
-    scheduler.emit("task:log", {
-      specName: "test-spec",
-      taskId: "TASK-001",
-      chunk: "line 3\nline 4\nline 5",
-    });
+    scheduler.getReporter()?.onLog?.("TASK-001", "line 3\nline 4\nline 5");
 
     await tick();
 
@@ -146,11 +338,7 @@ describe("ExecutionContext", () => {
     ]);
 
     // Independent buffer for TASK-002
-    scheduler.emit("task:log", {
-      specName: "test-spec",
-      taskId: "TASK-002",
-      chunk: "other task log",
-    });
+    scheduler.getReporter()?.onLog?.("TASK-002", "other task log");
 
     await tick();
 
@@ -178,7 +366,7 @@ describe("ExecutionContext", () => {
     };
 
     render(
-      <ExecutionProvider scheduler={scheduler} initialSpec="test-spec">
+      <ExecutionProvider scheduler={scheduler} container={container} initialSpec="test-spec">
         <TestConsumer />
       </ExecutionProvider>,
     );
@@ -187,28 +375,30 @@ describe("ExecutionContext", () => {
     expect(contextValue?.tasks[0].status).toBe("pending");
 
     // Task started
-    scheduler.emit("task:started", {
-      specName: "test-spec",
-      taskId: "TASK-001",
-    });
+    const state = stateRepo.init("test-spec", [task1]);
+    state.tasks["TASK-001"].status = "running";
+    state.tasks["TASK-001"].startedAt = new Date().toISOString();
+    stateRepo.save(state);
+    scheduler.getReporter()?.onUpdate("test-spec");
     await tick();
     expect(contextValue?.tasks[0].status).toBe("running");
 
     // Task failed
-    scheduler.emit("task:failed", {
-      specName: "test-spec",
-      taskId: "TASK-001",
-      errors: ["Compilation error"],
-    });
+    state.tasks["TASK-001"].status = "failed";
+    state.tasks["TASK-001"].completedAt = new Date().toISOString();
+    state.tasks["TASK-001"].errors = ["Compilation error"];
+    stateRepo.save(state);
+    scheduler.getReporter()?.onUpdate("test-spec");
     await tick();
     expect(contextValue?.tasks[0].status).toBe("failed");
     expect(contextValue?.tasks[0].errors).toEqual(["Compilation error"]);
 
     // Task completed
-    scheduler.emit("task:completed", {
-      specName: "test-spec",
-      taskId: "TASK-001",
-    });
+    state.tasks["TASK-001"].status = "completed";
+    state.tasks["TASK-001"].completedAt = new Date().toISOString();
+    delete state.tasks["TASK-001"].errors;
+    stateRepo.save(state);
+    scheduler.getReporter()?.onUpdate("test-spec");
     await tick();
     expect(contextValue?.tasks[0].status).toBe("completed");
     expect(contextValue?.tasks[0].errors).toBeUndefined();
@@ -222,7 +412,7 @@ describe("ExecutionContext", () => {
     };
 
     render(
-      <ExecutionProvider scheduler={scheduler}>
+      <ExecutionProvider scheduler={scheduler} container={container}>
         <TestConsumer />
       </ExecutionProvider>,
     );
@@ -230,19 +420,19 @@ describe("ExecutionContext", () => {
     await tick();
     expect(contextValue?.schedulerStatus).toBe("idle");
 
-    scheduler.emit("run:started", { specName: "test-spec" });
+    scheduler.getReporter()?.onStart("test-spec");
     await tick();
     expect(contextValue?.schedulerStatus).toBe("running");
 
-    scheduler.emit("run:deadlock", { specName: "test-spec" });
+    scheduler.getReporter()?.onDeadlock("test-spec");
     await tick();
     expect(contextValue?.schedulerStatus).toBe("deadlock");
 
-    scheduler.emit("run:failed", { specName: "test-spec", reason: "error" });
+    scheduler.getReporter()?.onFail("test-spec");
     await tick();
     expect(contextValue?.schedulerStatus).toBe("failed");
 
-    scheduler.emit("run:completed", { specName: "test-spec" });
+    scheduler.getReporter()?.onComplete("test-spec");
     await tick();
     expect(contextValue?.schedulerStatus).toBe("completed");
   });
@@ -266,7 +456,7 @@ describe("ExecutionContext", () => {
     };
 
     render(
-      <ExecutionProvider scheduler={scheduler} initialSpec="test-spec">
+      <ExecutionProvider scheduler={scheduler} container={container} initialSpec="test-spec">
         <TestConsumer />
       </ExecutionProvider>,
     );
@@ -280,23 +470,23 @@ describe("ExecutionContext", () => {
     expect(contextValue?.selectedTaskId).toBe("TASK-002");
     expect(contextValue?.selectedTask?.id).toBe("TASK-002");
 
-    // Test dispatch spies
-    const retrySpy = vi.spyOn(scheduler, "retryTask").mockResolvedValue(undefined);
-    const retryAllSpy = vi.spyOn(scheduler, "retryAllFailed").mockResolvedValue(undefined);
-    const completeSpy = vi.spyOn(scheduler, "completeTask").mockResolvedValue(undefined);
-    const resetSpy = vi.spyOn(scheduler, "resetTask").mockResolvedValue(undefined);
+    // Test dispatch spies on TaskOperationsUseCase
+    const retrySpy = vi.spyOn(container.taskOperationsUseCase, "retryTask");
+    const retryAllSpy = vi.spyOn(container.taskOperationsUseCase, "retrySpec");
+    const completeSpy = vi.spyOn(container.taskOperationsUseCase, "markTaskCompleted");
+    const resetSpy = vi.spyOn(container.taskOperationsUseCase, "resetTasks");
 
     await contextValue?.retryTask("TASK-001");
-    expect(retrySpy).toHaveBeenCalledWith("TASK-001", "test-spec");
+    expect(retrySpy).toHaveBeenCalledWith("test-spec", "TASK-001");
 
     await contextValue?.retryAllFailed();
     expect(retryAllSpy).toHaveBeenCalledWith("test-spec");
 
     await contextValue?.completeTask("TASK-002");
-    expect(completeSpy).toHaveBeenCalledWith("TASK-002", "test-spec");
+    expect(completeSpy).toHaveBeenCalledWith("test-spec", "TASK-002");
 
     await contextValue?.resetTask("TASK-001");
-    expect(resetSpy).toHaveBeenCalledWith("TASK-001", "test-spec");
+    expect(resetSpy).toHaveBeenCalledWith("test-spec", "TASK-001");
   });
 
   it("triggers startRun and executes spec through scheduler", async () => {
@@ -306,23 +496,71 @@ describe("ExecutionContext", () => {
     let contextValue: ExecutionContextValue | null = null;
     const TestConsumer = () => {
       contextValue = useExecution();
-      useEffect(() => {
-        void contextValue.startRun("test-spec");
-      }, []);
       return <Text>Running</Text>;
     };
 
     render(
-      <ExecutionProvider scheduler={scheduler}>
+      <ExecutionProvider scheduler={scheduler} container={container} initialSpec="test-spec">
         <TestConsumer />
       </ExecutionProvider>,
     );
 
-    // Wait for run to settle
-    await scheduler.waitForSettled();
+    await tick();
+    await contextValue!.startRun("test-spec");
     await tick();
 
     expect(contextValue?.status).toBe("completed");
     expect(contextValue?.tasks[0].status).toBe("completed");
+  });
+
+  it("automatically starts run when autoStart is true", async () => {
+    const task = TaskBuilder.aTask().withId("TASK-001").build();
+    writeTask("test-spec", task);
+
+    let contextValue: ExecutionContextValue | null = null;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      return <Text>AutoStart</Text>;
+    };
+
+    render(
+      <ExecutionProvider
+        scheduler={scheduler}
+        container={container}
+        initialSpec="test-spec"
+        autoStart={true}
+      >
+        <TestConsumer />
+      </ExecutionProvider>,
+    );
+
+    await tick(100);
+
+    expect(contextValue?.status).toBe("completed");
+    expect(contextValue?.tasks[0].status).toBe("completed");
+  });
+
+  it("resets all tasks via resetAllTasks", async () => {
+    const task = TaskBuilder.aTask().withId("TASK-001").build();
+    writeTask("test-spec", task);
+
+    let contextValue: ExecutionContextValue | null = null;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      return <Text>ResetAll</Text>;
+    };
+
+    render(
+      <ExecutionProvider scheduler={scheduler} container={container} initialSpec="test-spec">
+        <TestConsumer />
+      </ExecutionProvider>,
+    );
+
+    await tick();
+    const resetSpy = vi.spyOn(container.taskOperationsUseCase, "resetTasks");
+
+    await contextValue?.resetAllTasks("test-spec");
+
+    expect(resetSpy).toHaveBeenCalledWith("test-spec");
   });
 });

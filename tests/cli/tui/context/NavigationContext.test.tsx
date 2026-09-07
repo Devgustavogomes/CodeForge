@@ -24,7 +24,7 @@ describe('NavigationContext', () => {
     expect(error?.message).toBe('useNavigation must be used within a NavigationProvider');
   });
 
-  it('provides default navigation values', () => {
+  it('provides default navigation values without activeSpec', () => {
     let capturedValues: ReturnType<typeof useNavigation> | undefined;
 
     const TestComponent = () => {
@@ -43,29 +43,27 @@ describe('NavigationContext', () => {
     expect(capturedValues).toBeDefined();
     expect(capturedValues?.activeTab).toBe('specs');
     expect(capturedValues?.modal).toBeNull();
-    expect(capturedValues?.isCommandPaletteOpen).toBe(false);
     expect(capturedValues?.isTextInputActive).toBe(false);
-    expect(capturedValues?.activeSpec).toBeNull();
+    expect((capturedValues as Record<string, unknown>)?.activeSpec).toBeUndefined();
   });
 
-  it('respects initialTab and initialActiveSpec', () => {
+  it('respects initialTab', () => {
     let capturedValues: ReturnType<typeof useNavigation> | undefined;
 
     const TestComponent = () => {
       const nav = useNavigation();
       capturedValues = nav;
-      return <Text>Spec: {nav.activeSpec}</Text>;
+      return <Text>Tab: {nav.activeTab}</Text>;
     };
 
     const { lastFrame } = render(
-      <NavigationProvider initialTab="specs" initialActiveSpec="user-auth">
+      <NavigationProvider initialTab="tasks">
         <TestComponent />
       </NavigationProvider>
     );
 
-    expect(lastFrame()).toContain('Spec: user-auth');
-    expect(capturedValues?.activeTab).toBe('specs');
-    expect(capturedValues?.activeSpec).toBe('user-auth');
+    expect(lastFrame()).toContain('Tab: tasks');
+    expect(capturedValues?.activeTab).toBe('tasks');
   });
 
   it('updates activeTab with setActiveTab', async () => {
@@ -100,21 +98,21 @@ describe('NavigationContext', () => {
     };
 
     const { lastFrame } = render(
-      <NavigationProvider initialTab="specs">
+      <NavigationProvider initialTab="run">
         <TestComponent />
       </NavigationProvider>
     );
 
+    expect(lastFrame()).toContain('Tab: run');
+
+    // next: run -> specs -> tasks -> docs -> config -> run
+    capturedNav.nextTab();
+    await new Promise((r) => setTimeout(r, 20));
     expect(lastFrame()).toContain('Tab: specs');
 
-    // next: specs -> tasks -> run -> docs -> config -> specs
     capturedNav.nextTab();
     await new Promise((r) => setTimeout(r, 20));
     expect(lastFrame()).toContain('Tab: tasks');
-
-    capturedNav.nextTab();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab: run');
 
     capturedNav.nextTab();
     await new Promise((r) => setTimeout(r, 20));
@@ -126,9 +124,9 @@ describe('NavigationContext', () => {
 
     capturedNav.nextTab();
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab: specs');
+    expect(lastFrame()).toContain('Tab: run');
 
-    // prev: specs -> config -> docs -> run -> tasks -> specs
+    // prev: run -> config -> docs -> tasks -> specs -> run
     capturedNav.prevTab();
     await new Promise((r) => setTimeout(r, 20));
     expect(lastFrame()).toContain('Tab: config');
@@ -139,15 +137,15 @@ describe('NavigationContext', () => {
 
     capturedNav.prevTab();
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab: run');
-
-    capturedNav.prevTab();
-    await new Promise((r) => setTimeout(r, 20));
     expect(lastFrame()).toContain('Tab: tasks');
 
     capturedNav.prevTab();
     await new Promise((r) => setTimeout(r, 20));
     expect(lastFrame()).toContain('Tab: specs');
+
+    capturedNav.prevTab();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(lastFrame()).toContain('Tab: run');
   });
 
   it('handles modal state open and close', async () => {
@@ -182,47 +180,14 @@ describe('NavigationContext', () => {
     expect(capturedNav.modal).toBeNull();
   });
 
-  it('manages command palette visibility', async () => {
-    let capturedNav!: ReturnType<typeof useNavigation>;
-
-    const TestComponent = () => {
-      capturedNav = useNavigation();
-      return <Text>Palette: {String(capturedNav.isCommandPaletteOpen)}</Text>;
-    };
-
-    const { lastFrame } = render(
-      <NavigationProvider>
-        <TestComponent />
-      </NavigationProvider>
-    );
-
-    expect(lastFrame()).toContain('Palette: false');
-
-    capturedNav.openCommandPalette();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Palette: true');
-
-    capturedNav.closeCommandPalette();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Palette: false');
-
-    capturedNav.toggleCommandPalette();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Palette: true');
-
-    capturedNav.toggleCommandPalette();
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Palette: false');
-  });
-
-  it('manages text input active flag and activeSpec', async () => {
+  it('manages text input active flag independently of spec', async () => {
     let capturedNav!: ReturnType<typeof useNavigation>;
 
     const TestComponent = () => {
       capturedNav = useNavigation();
       return (
         <Text>
-          Active: {String(capturedNav.isTextInputActive)} | Spec: {capturedNav.activeSpec ?? 'none'}
+          Active: {String(capturedNav.isTextInputActive)}
         </Text>
       );
     };
@@ -233,18 +198,14 @@ describe('NavigationContext', () => {
       </NavigationProvider>
     );
 
-    expect(lastFrame()).toContain('Active: false | Spec: none');
+    expect(lastFrame()).toContain('Active: false');
 
     capturedNav.setTextInputActive(true);
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Active: true | Spec: none');
+    expect(lastFrame()).toContain('Active: true');
 
     capturedNav.setTextInputActive(false);
     await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Active: false | Spec: none');
-
-    capturedNav.setActiveSpec('new-spec');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Active: false | Spec: new-spec');
+    expect(lastFrame()).toContain('Active: false');
   });
 });

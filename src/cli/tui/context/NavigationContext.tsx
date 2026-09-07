@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
-export type TabId = 'specs' | 'tasks' | 'run' | 'docs' | 'config';
+export type TabId = 'run' | 'specs' | 'tasks' | 'docs' | 'config';
 
 export interface TabItem {
   id: TabId;
@@ -9,14 +9,14 @@ export interface TabItem {
 }
 
 export const TABS: readonly TabItem[] = [
-  { id: 'specs', label: 'Specs', numberKey: '1' },
-  { id: 'tasks', label: 'Tasks', numberKey: '2' },
-  { id: 'run', label: 'Run', numberKey: '3' },
+  { id: 'run', label: 'Run', numberKey: '1' },
+  { id: 'specs', label: 'Specs', numberKey: '2' },
+  { id: 'tasks', label: 'Tasks', numberKey: '3' },
   { id: 'docs', label: 'Docs', numberKey: '4' },
   { id: 'config', label: 'Config', numberKey: '5' },
 ] as const;
 
-export const TAB_ORDER: readonly TabId[] = ['specs', 'tasks', 'run', 'docs', 'config'] as const;
+export const TAB_ORDER: readonly TabId[] = ['run', 'specs', 'tasks', 'docs', 'config'] as const;
 
 export interface ModalState {
   type: string;
@@ -33,22 +33,13 @@ export interface NavigationContextValue {
   openModal: (type: string, props?: Record<string, unknown>) => void;
   closeModal: () => void;
 
-  isCommandPaletteOpen: boolean;
-  openCommandPalette: () => void;
-  closeCommandPalette: () => void;
-  toggleCommandPalette: () => void;
-
   isTextInputActive: boolean;
   setTextInputActive: (active: boolean) => void;
-
-  activeSpec: string | null;
-  setActiveSpec: (spec: string | null) => void;
 }
 
 export interface NavigationProviderProps {
   children: ReactNode;
   initialTab?: TabId;
-  initialActiveSpec?: string | null;
 }
 
 export const NavigationContext = createContext<NavigationContextValue | undefined>(undefined);
@@ -56,13 +47,10 @@ export const NavigationContext = createContext<NavigationContextValue | undefine
 export const NavigationProvider: React.FC<NavigationProviderProps> = ({
   children,
   initialTab = 'specs',
-  initialActiveSpec = null,
 }) => {
   const [activeTab, setActiveTabState] = useState<TabId>(initialTab);
   const [modal, setModal] = useState<ModalState | null>(null);
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isTextInputActive, setTextInputActive] = useState(false);
-  const [activeSpec, setActiveSpec] = useState<string | null>(initialActiveSpec);
 
   const setActiveTab = useCallback((tab: TabId) => {
     setActiveTabState(tab);
@@ -92,18 +80,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     setModal(null);
   }, []);
 
-  const openCommandPalette = useCallback(() => {
-    setIsCommandPaletteOpen(true);
-  }, []);
-
-  const closeCommandPalette = useCallback(() => {
-    setIsCommandPaletteOpen(false);
-  }, []);
-
-  const toggleCommandPalette = useCallback(() => {
-    setIsCommandPaletteOpen((prev) => !prev);
-  }, []);
-
   const value: NavigationContextValue = {
     activeTab,
     setActiveTab,
@@ -112,14 +88,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     modal,
     openModal,
     closeModal,
-    isCommandPaletteOpen,
-    openCommandPalette,
-    closeCommandPalette,
-    toggleCommandPalette,
     isTextInputActive,
     setTextInputActive,
-    activeSpec,
-    setActiveSpec,
   };
 
   return (
