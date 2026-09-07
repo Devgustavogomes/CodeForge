@@ -11,4 +11,5 @@ export interface CodeForgeConfig {
   envPath?: string;
   hooks?: HookMap;
   specSource?: SpecSourceConfig;
+  externalTerminal?: boolean;
 }

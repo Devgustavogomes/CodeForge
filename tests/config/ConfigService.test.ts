@@ -30,4 +30,20 @@ describe('ConfigService', () => {
 
     expect(loadedConfig).toEqual(testConfig);
   });
+
+  it('should save and load externalTerminal option correctly', () => {
+    const testConfig: CodeForgeConfig = {
+      environment: 'antigravity',
+      plannerAgent: 'planner-1',
+      executorAgent: 'executor-1',
+      language: 'en',
+      externalTerminal: true,
+    };
+
+    configService.saveConfig(testConfig);
+    const loadedConfig = configService.loadConfig();
+
+    expect(loadedConfig?.externalTerminal).toBe(true);
+  });
 });
+
