@@ -42,14 +42,8 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
   defaultProvider,
   width = "100%",
 }) => {
-  let nav: ReturnType<typeof useNavigation> | undefined;
-  try {
-    nav = useNavigation();
-  } catch {
-    // Graceful fallback outside provider
-  }
-
-  const setTextInputActive = nav?.setTextInputActive;
+  const nav = useNavigation();
+  const setTextInputActive = nav.setTextInputActive;
   const appContainer = useMemo(
     () => container ?? createAppContainer(),
     [container],

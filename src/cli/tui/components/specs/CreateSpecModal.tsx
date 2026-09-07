@@ -26,14 +26,8 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
   createSpecUseCase,
   width = '100%',
 }) => {
-  let nav: ReturnType<typeof useNavigation> | undefined;
-  try {
-    nav = useNavigation();
-  } catch {
-    // Graceful fallback outside provider
-  }
-
-  const setTextInputActive = nav?.setTextInputActive;
+  const nav = useNavigation();
+  const setTextInputActive = nav.setTextInputActive;
   const [title, setTitle] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 

@@ -1,14 +1,14 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render } from 'ink-testing-library';
 import { CreateSpecModal } from '../../../../../src/cli/tui/components/specs/CreateSpecModal.js';
 import { CreateSpecUseCase } from '../../../../../src/application/use-cases/CreateSpecUseCase.js';
+import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('CreateSpecModal component', () => {
   it('renders modal with input field when isOpen is true', () => {
-    const { lastFrame } = render(<CreateSpecModal isOpen={true} />);
+    const { lastFrame } = renderWithProviders(<CreateSpecModal isOpen={true} />);
     const output = lastFrame() ?? '';
 
     expect(output).toContain('Create Specification');
@@ -18,12 +18,12 @@ describe('CreateSpecModal component', () => {
   });
 
   it('does not render when isOpen is false', () => {
-    const { lastFrame } = render(<CreateSpecModal isOpen={false} />);
+    const { lastFrame } = renderWithProviders(<CreateSpecModal isOpen={false} />);
     expect(lastFrame()).toBe('');
   });
 
   it('displays error if submitted with empty title', async () => {
-    const { lastFrame, stdin } = render(<CreateSpecModal isOpen={true} />);
+    const { lastFrame, stdin } = renderWithProviders(<CreateSpecModal isOpen={true} />);
 
     stdin.write('\r');
     await tick();
@@ -44,7 +44,7 @@ describe('CreateSpecModal component', () => {
     const onSuccess = vi.fn();
     const onClose = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = renderWithProviders(
       <CreateSpecModal
         isOpen={true}
         createSpecUseCase={mockUseCase}
@@ -75,7 +75,7 @@ describe('CreateSpecModal component', () => {
       execute: mockExecute,
     } as unknown as CreateSpecUseCase;
 
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = renderWithProviders(
       <CreateSpecModal isOpen={true} createSpecUseCase={mockUseCase} />
     );
 
@@ -90,7 +90,7 @@ describe('CreateSpecModal component', () => {
 
   it('calls onClose when Escape key is pressed', async () => {
     const onClose = vi.fn();
-    const { stdin } = render(<CreateSpecModal isOpen={true} onClose={onClose} />);
+    const { stdin } = renderWithProviders(<CreateSpecModal isOpen={true} onClose={onClose} />);
 
     stdin.write('\u001B'); // Esc
     await tick();

@@ -1,14 +1,14 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render } from 'ink-testing-library';
 import { PullSpecModal } from '../../../../../src/cli/tui/components/specs/PullSpecModal.js';
 import { PullSpecUseCase } from '../../../../../src/application/use-cases/PullSpecUseCase.js';
+import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('PullSpecModal component', () => {
   it('renders modal with provider selector and inputs', () => {
-    const { lastFrame } = render(<PullSpecModal isOpen={true} />);
+    const { lastFrame } = renderWithProviders(<PullSpecModal isOpen={true} />);
     const output = lastFrame() ?? '';
 
     expect(output).toContain('Pull Specification');
@@ -20,7 +20,7 @@ describe('PullSpecModal component', () => {
   });
 
   it('validates required spec ID on submit', async () => {
-    const { lastFrame, stdin } = render(<PullSpecModal isOpen={true} />);
+    const { lastFrame, stdin } = renderWithProviders(<PullSpecModal isOpen={true} />);
 
     // Press Enter immediately on empty ID
     stdin.write('\r');
@@ -46,7 +46,7 @@ describe('PullSpecModal component', () => {
     const onSuccess = vi.fn();
     const onClose = vi.fn();
 
-    const { stdin } = render(
+    const { stdin } = renderWithProviders(
       <PullSpecModal
         isOpen={true}
         pullSpecUseCase={mockUseCase}
@@ -81,7 +81,7 @@ describe('PullSpecModal component', () => {
       execute: mockExecute,
     } as unknown as PullSpecUseCase;
 
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = renderWithProviders(
       <PullSpecModal isOpen={true} pullSpecUseCase={mockUseCase} />
     );
 
@@ -96,7 +96,7 @@ describe('PullSpecModal component', () => {
 
   it('dismisses modal when Escape is pressed', async () => {
     const onClose = vi.fn();
-    const { stdin } = render(<PullSpecModal isOpen={true} onClose={onClose} />);
+    const { stdin } = renderWithProviders(<PullSpecModal isOpen={true} onClose={onClose} />);
 
     stdin.write('\u001B'); // Esc
     await tick();
@@ -105,7 +105,7 @@ describe('PullSpecModal component', () => {
   });
 
   it('displays available items when provider is filesystem', async () => {
-    const { lastFrame } = render(<PullSpecModal isOpen={true} defaultProvider="filesystem" />);
+    const { lastFrame } = renderWithProviders(<PullSpecModal isOpen={true} defaultProvider="filesystem" />);
     await tick(100);
 
     const output = lastFrame() ?? '';
