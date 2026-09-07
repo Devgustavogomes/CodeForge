@@ -54,6 +54,7 @@ describe("TaskScheduler", () => {
       onUpdate: vi.fn(),
       onError: vi.fn(),
       onDeadlock: vi.fn(),
+      onLog: vi.fn(),
     };
 
     scheduler = new TaskScheduler(
@@ -416,6 +417,53 @@ describe("TaskScheduler", () => {
       expect(finalTask?.errors).toEqual(["First error", "Second error occurred"]);
       expect(reporter.onFail).toHaveBeenCalledWith("test-spec");
       expect(process.exitCode).toBeUndefined();
+    });
+  });
+
+  describe("streaming logs and status", () => {
+    it("should pass onLog callback in TaskContext and forward chunk to reporter.onLog", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-spec", task);
+
+      runner.withHandler((context) => {
+        context.onLog?.("chunk 1");
+        context.onLog?.("chunk 2");
+      });
+
+      const result = await scheduler.run("test-spec");
+
+      expect(result.status).toBe("completed");
+      expect(reporter.onLog).toHaveBeenCalledWith("TASK-001", "chunk 1");
+      expect(reporter.onLog).toHaveBeenCalledWith("TASK-001", "chunk 2");
+    });
+
+    it("should execute successfully even if reporter does not define onLog", async () => {
+      delete reporter.onLog;
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-spec", task);
+
+      runner.withHandler((context) => {
+        context.onLog?.("chunk without reporter listener");
+      });
+
+      const result = await scheduler.run("test-spec");
+      expect(result.status).toBe("completed");
+    });
+
+    it("should allow getting and setting reporter and tracking scheduler status", async () => {
+      expect(scheduler.getStatus()).toBe("idle");
+      expect(scheduler.getReporter()).toBe(reporter);
+
+      const newReporter: SchedulerReporter = {
+        onStart: vi.fn(),
+        onComplete: vi.fn(),
+        onFail: vi.fn(),
+        onUpdate: vi.fn(),
+        onError: vi.fn(),
+        onDeadlock: vi.fn(),
+      };
+      scheduler.setReporter(newReporter);
+      expect(scheduler.getReporter()).toBe(newReporter);
     });
   });
 });

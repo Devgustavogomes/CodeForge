@@ -5,4 +5,5 @@ export interface SchedulerReporter {
   onFail(specName: string): void;
   onDeadlock(specName?: string): void;
   onError(error: string | Error): void;
+  onLog?(taskId: string, chunk: string): void;
 }

@@ -22,7 +22,6 @@ import { UpdateDocUseCase } from "../application/use-cases/UpdateDocUseCase.js";
 import { GitGateway } from "./git/GitGateway.js";
 import { NodeGitGateway } from "./git/NodeGitGateway.js";
 import { TaskScheduler } from "../scheduler/TaskScheduler.js";
-import { ReactiveTaskScheduler } from "../scheduler/ReactiveTaskScheduler.js";
 import { SchedulerReporter } from "../application/ports/SchedulerReporter.js";
 import { HookDispatcher } from "../application/ports/HookDispatcher.js";
 
@@ -88,12 +87,6 @@ export interface AppContainer {
     reporter?: SchedulerReporter,
     hooks?: HookDispatcher,
   ): TaskScheduler;
-  createReactiveTaskScheduler(
-    runner: AgentRunner,
-    config: CodeForgeConfig,
-    reporter?: SchedulerReporter,
-    hooks?: HookDispatcher,
-  ): ReactiveTaskScheduler;
 }
 
 export function createAppContainer(
@@ -253,23 +246,6 @@ export function createAppContainer(
       hooks?: HookDispatcher,
     ): TaskScheduler {
       return new TaskScheduler(
-        workspaceGateway,
-        runner,
-        config,
-        stateRepo,
-        promptService,
-        reporter,
-        hooks,
-      );
-    },
-
-    createReactiveTaskScheduler(
-      runner: AgentRunner,
-      config: CodeForgeConfig,
-      reporter?: SchedulerReporter,
-      hooks?: HookDispatcher,
-    ): ReactiveTaskScheduler {
-      return new ReactiveTaskScheduler(
         workspaceGateway,
         runner,
         config,

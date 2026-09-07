@@ -205,6 +205,10 @@ export class TaskOperationsUseCase {
     return { kind: "retried", specName, retriedTasks };
   }
 
+  resetTask(specName: string, taskId: string): ResetTaskResult {
+    return this.resetTasks(specName, taskId);
+  }
+
   resetTasks(specName: string, taskId?: string): ResetTaskResult {
     const specPath = PATHS.specFile(specName);
     const tasksDir = `${PATHS.tasksDir}/${specName}`;

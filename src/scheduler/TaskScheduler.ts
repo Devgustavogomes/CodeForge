@@ -11,12 +11,21 @@ import { HookDispatcher } from "../application/ports/HookDispatcher.js";
 import { HookEvent } from "../domain/hook.js";
 import { CodeForgeConfig } from "../config/types.js";
 
+export type SchedulerStatus =
+  | "idle"
+  | "running"
+  | "completed"
+  | "failed"
+  | "deadlock";
+
 export type SchedulerRunResult =
   | { status: "completed"; specName: string }
   | { status: "failed"; specName: string; reason?: string }
   | { status: "deadlock"; specName: string };
 
 export class TaskScheduler {
+  private status: SchedulerStatus = "idle";
+
   constructor(
     private gw: WorkspaceGateway,
     private runner: AgentRunner,
@@ -26,6 +35,18 @@ export class TaskScheduler {
     private reporter?: SchedulerReporter,
     private hooks?: HookDispatcher,
   ) {}
+
+  getStatus(): SchedulerStatus {
+    return this.status;
+  }
+
+  getReporter(): SchedulerReporter | undefined {
+    return this.reporter;
+  }
+
+  setReporter(reporter?: SchedulerReporter): void {
+    this.reporter = reporter;
+  }
 
   private loadTasks(specName: string): Task[] {
     const tasksDir = `${PATHS.tasksDir}/${specName}`;
@@ -53,12 +74,14 @@ export class TaskScheduler {
     }
 
     if (state.status === "completed") {
+      this.status = "completed";
       this.reporter?.onComplete(specName);
       return { ready: false, result: { status: "completed", specName } };
     }
 
     const { pending, failed } = this.getTaskCounts(state);
     if (pending === 0 && failed > 0) {
+      this.status = "failed";
       const reason = "Spec execution has failed tasks.";
       this.reportFail(specName, reason);
       return {
@@ -71,6 +94,7 @@ export class TaskScheduler {
       };
     }
 
+    this.status = "running";
     state.status = "running";
     this.stateRepo.save(state);
     return { ready: true };
@@ -103,6 +127,7 @@ export class TaskScheduler {
     counts: { running: number; pending: number; failed: number },
   ): { stop: boolean; event?: HookEvent; result?: SchedulerRunResult } {
     if (counts.running === 0 && counts.pending > 0) {
+      this.status = "deadlock";
       state.status = "failed";
       state.completedAt = new Date().toISOString();
       this.stateRepo.save(state);
@@ -116,6 +141,7 @@ export class TaskScheduler {
 
     if (counts.running === 0 && counts.pending === 0) {
       if (counts.failed > 0) {
+        this.status = "failed";
         state.status = "failed";
         state.completedAt = new Date().toISOString();
         this.stateRepo.save(state);
@@ -132,6 +158,7 @@ export class TaskScheduler {
         };
       }
 
+      this.status = "completed";
       state.status = "completed";
       state.completedAt = new Date().toISOString();
       this.stateRepo.save(state);
@@ -209,6 +236,7 @@ export class TaskScheduler {
       taskId: task.id,
       model,
       silent: true,
+      onLog: (chunk: string) => this.reporter?.onLog?.(task.id, chunk),
     };
 
     try {
@@ -257,6 +285,7 @@ export class TaskScheduler {
   async run(specName: string, model?: string): Promise<SchedulerRunResult> {
     const tasks = this.loadTasks(specName);
     if (tasks.length === 0) {
+      this.status = "failed";
       const message = `No tasks found for spec: ${specName}`;
       this.reporter?.onError(new Error(message));
       return { status: "failed", specName, reason: message };
@@ -264,9 +293,11 @@ export class TaskScheduler {
 
     const prep = this.prepareState(specName, tasks);
     if (!prep.ready) {
+      this.status = prep.result.status as SchedulerStatus;
       return prep.result;
     }
 
+    this.status = "running";
     const resolver = new DAGResolver();
     this.reporter?.onStart(specName);
     await this.hooks?.dispatch({ event: "run.started", specName });
@@ -277,6 +308,7 @@ export class TaskScheduler {
       while (true) {
         const currentState = this.stateRepo.load(specName);
         if (!currentState) {
+          this.status = "failed";
           return {
             status: "failed",
             specName,
@@ -285,12 +317,14 @@ export class TaskScheduler {
         }
 
         if (currentState.status === "completed") {
+          this.status = "completed";
           this.reporter?.onComplete(specName);
           await this.hooks?.dispatch({ event: "run.completed", specName });
           return { status: "completed", specName };
         }
 
         if (currentState.status === "failed") {
+          this.status = "failed";
           const reason = "Spec execution failed.";
           this.reportFail(specName, reason);
           await this.hooks?.dispatch({ event: "run.failed", specName });
@@ -322,6 +356,7 @@ export class TaskScheduler {
             counts,
           );
           if (outcome.stop && outcome.result) {
+            this.status = outcome.result.status as SchedulerStatus;
             if (outcome.event) {
               await this.hooks?.dispatch({ event: outcome.event, specName });
             }
@@ -332,6 +367,7 @@ export class TaskScheduler {
         await Promise.race(activeTasks.values());
       }
     } catch (error) {
+      this.status = "failed";
       const message = error instanceof Error ? error.message : String(error);
       this.reporter?.onError(error instanceof Error ? error : message);
       return { status: "failed", specName, reason: message };
