@@ -3,7 +3,7 @@ import { select } from "@inquirer/prompts";
 import { PATHS } from "../../../infrastructure/paths.js";
 import { translate } from "../../ui/i18n.js";
 import { createAppContainer } from "../../../infrastructure/container.js";
-import { ActionResult } from "../../menu/types.js";
+import { ActionResult } from "../../types.js";
 
 export async function taskResetAction(spec?: string, taskId?: string): Promise<ActionResult> {
   const container = createAppContainer();

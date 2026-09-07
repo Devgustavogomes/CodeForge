@@ -5,7 +5,7 @@ import { AffectedDoc } from "../../../domain/doc.js";
 import { translate } from "../../ui/i18n.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 
-import { ActionResult } from "../../menu/types.js";
+import { ActionResult } from "../../types.js";
 
 export async function docsUpdateAction(
   spec?: string,

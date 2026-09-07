@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { input } from "@inquirer/prompts";
 import { createAppContainer } from "../../../infrastructure/container.js";
-import { ActionResult } from "../../menu/types.js";
+import { ActionResult } from "../../types.js";
 
 export async function specCreateAction(name?: string): Promise<ActionResult> {
   let specName = name;

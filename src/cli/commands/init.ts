@@ -5,7 +5,7 @@ import { printCodeForgeBanner } from "../ui/banner.js";
 import { CliInstaller } from "../installer/CliInstaller.js";
 import { createAppContainer } from "../../infrastructure/container.js";
 
-import { ActionResult } from "../menu/types.js";
+import { ActionResult } from "../types.js";
 
 export async function initAction(): Promise<ActionResult> {
   printCodeForgeBanner();

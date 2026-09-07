@@ -1,12 +1,11 @@
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { PATHS } from "../../../infrastructure/paths.js";
-import { TerminalSchedulerReporter } from "../../ui/TerminalSchedulerReporter.js";
 import { translate } from "../../ui/i18n.js";
 import { CommandHookDispatcher } from "../../../infrastructure/hooks/CommandHookDispatcher.js";
 import { NoopHookDispatcher } from "../../../infrastructure/hooks/NoopHookDispatcher.js";
 import { createAppContainer } from "../../../infrastructure/container.js";
-import { ActionResult } from "../../menu/types.js";
+import { ActionResult } from "../../types.js";
 
 export async function taskRetryAction(spec?: string): Promise<ActionResult> {
   const container = createAppContainer();
@@ -75,14 +74,13 @@ export async function taskRetryAction(spec?: string): Promise<ActionResult> {
         }),
       );
       const runner = container.runnerProvider(config.environment);
-      const reporter = new TerminalSchedulerReporter(container.gw);
       const hooks = config.hooks
         ? new CommandHookDispatcher(config.hooks, process.cwd(), container.processExecutor)
         : new NoopHookDispatcher();
       const scheduler = container.createTaskScheduler(
         runner,
         config,
-        reporter,
+        undefined,
         hooks,
       );
       const runResult = await scheduler.run(specName, config.executorAgent);

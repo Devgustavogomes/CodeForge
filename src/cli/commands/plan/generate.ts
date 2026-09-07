@@ -3,7 +3,7 @@ import { select } from "@inquirer/prompts";
 import { createAppContainer } from "../../../infrastructure/container.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 import { translate } from "../../ui/i18n.js";
-import { ActionResult } from "../../menu/types.js";
+import { ActionResult } from "../../types.js";
 
 export async function planGenerateAction(spec?: string): Promise<ActionResult> {
   const container = createAppContainer();

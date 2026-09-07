@@ -7,7 +7,7 @@ import { translate } from "../../ui/i18n.js";
 import { SpecReference, SpecSourceConfig } from "../../../domain/spec-source.js";
 import { SpecSource } from "../../../application/ports/SpecSource.js";
 
-import { ActionResult } from "../../menu/types.js";
+import { ActionResult } from "../../types.js";
 
 export async function specPullAction(
   id?: string,

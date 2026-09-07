@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { select } from "@inquirer/prompts";
 import { createAppContainer } from "../../../infrastructure/container.js";
 import { translate } from "../../ui/i18n.js";
-import { ActionResult } from "../../menu/types.js";
+import { ActionResult } from "../../types.js";
 
 export async function taskInfoAction(spec?: string, taskId?: string): Promise<ActionResult> {
   const container = createAppContainer();

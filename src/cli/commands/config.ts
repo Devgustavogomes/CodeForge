@@ -4,7 +4,7 @@ import { CodeForgeConfig, SupportedLanguage } from "../../config/types.js";
 import { translate } from "../ui/i18n.js";
 import { createAppContainer } from "../../infrastructure/container.js";
 
-import { ActionResult } from "../menu/types.js";
+import { ActionResult } from "../types.js";
 
 export async function configAction(): Promise<ActionResult> {
   const container = createAppContainer();
