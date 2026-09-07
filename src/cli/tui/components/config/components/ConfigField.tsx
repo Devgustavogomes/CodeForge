@@ -1,0 +1,287 @@
+import React from 'react';
+import { Box, Text } from 'ink';
+import { CodeForgeConfig, SupportedLanguage } from '../../../../../config/types.js';
+
+export type ConfigFieldKey =
+  | 'language'
+  | 'environment'
+  | 'plannerAgent'
+  | 'executorAgent'
+  | 'preRunHook'
+  | 'postRunHook'
+  | 'saveButton';
+
+export const FIELD_ORDER: ConfigFieldKey[] = [
+  'language',
+  'environment',
+  'plannerAgent',
+  'executorAgent',
+  'preRunHook',
+  'postRunHook',
+  'saveButton',
+];
+
+export const LANGUAGES: SupportedLanguage[] = ['en', 'pt', 'es'];
+
+export interface ConfigFieldProps {
+  fieldKey: ConfigFieldKey;
+  isActive: boolean;
+  isEditing: boolean;
+  editValue: string;
+  config: CodeForgeConfig;
+  availableEnvironments: string[];
+  currentAgentOptions: string[];
+  getHookCommand: (hookName: 'run.started' | 'run.completed') => string;
+}
+
+export const ConfigField: React.FC<ConfigFieldProps> = ({
+  fieldKey,
+  isActive,
+  isEditing,
+  editValue,
+  config,
+  availableEnvironments,
+  currentAgentOptions,
+  getHookCommand,
+}) => {
+  if (fieldKey === 'language') {
+    return (
+      <Box justifyContent="space-between" width="100%">
+        <Box gap={1}>
+          <Text bold color={isActive ? 'cyan' : 'white'}>
+            1. Language (i18n):
+          </Text>
+          <Box gap={1}>
+            {LANGUAGES.map((lang) => {
+              const isSelected = config.language === lang;
+              return (
+                <Text
+                  key={lang}
+                  color={isSelected ? 'cyan' : 'gray'}
+                  bold={isSelected}
+                >
+                  {isSelected ? `● [${lang}]` : `○ ${lang}`}
+                </Text>
+              );
+            })}
+          </Box>
+        </Box>
+        {isActive && <Text dimColor>[Space] toggle</Text>}
+      </Box>
+    );
+  }
+
+  if (fieldKey === 'environment') {
+    return (
+      <Box justifyContent="space-between" width="100%">
+        <Box gap={1} flexShrink={1}>
+          <Text bold color={isActive ? 'cyan' : 'white'}>
+            2. Runner Environment:
+          </Text>
+          <Box gap={1}>
+            <Text color="cyan" bold>
+              ◀ [ {config.environment} ] ▶
+            </Text>
+            {availableEnvironments.length > 1 && (
+              <Text dimColor>
+                (
+                {Math.max(
+                  1,
+                  availableEnvironments.indexOf(config.environment) + 1,
+                )}
+                /{availableEnvironments.length})
+              </Text>
+            )}
+          </Box>
+        </Box>
+        {isActive && <Text dimColor>[Space/←/→] toggle</Text>}
+      </Box>
+    );
+  }
+
+  if (fieldKey === 'plannerAgent') {
+    return (
+      <Box justifyContent="space-between" width="100%">
+        <Box gap={1} flexShrink={1}>
+          <Text bold color={isActive ? 'cyan' : 'white'}>
+            3. Planner Agent Model:
+          </Text>
+          {isEditing && isActive ? (
+            <Box gap={1}>
+              <Text color="blue" bold>
+                {'> '}
+              </Text>
+              {editValue.length > 0 ? (
+                <Text color="white" bold>
+                  {editValue}█
+                </Text>
+              ) : (
+                <Box gap={1}>
+                  <Text color="cyan">█</Text>
+                  <Text dimColor>({config.plannerAgent})</Text>
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Box gap={1}>
+              <Text color="cyan" bold>
+                ◀ [ {config.plannerAgent} ] ▶
+              </Text>
+              {currentAgentOptions.length > 1 && (
+                <Text dimColor>
+                  (
+                  {Math.max(
+                    1,
+                    currentAgentOptions.indexOf(config.plannerAgent) + 1,
+                  )}
+                  /{currentAgentOptions.length})
+                </Text>
+              )}
+            </Box>
+          )}
+        </Box>
+        {isActive && !isEditing && (
+          <Text dimColor>[Space/←/→] · [e] edit</Text>
+        )}
+      </Box>
+    );
+  }
+
+  if (fieldKey === 'executorAgent') {
+    return (
+      <Box justifyContent="space-between" width="100%">
+        <Box gap={1} flexShrink={1}>
+          <Text bold color={isActive ? 'cyan' : 'white'}>
+            4. Executor Agent Model:
+          </Text>
+          {isEditing && isActive ? (
+            <Box gap={1}>
+              <Text color="blue" bold>
+                {'> '}
+              </Text>
+              {editValue.length > 0 ? (
+                <Text color="white" bold>
+                  {editValue}█
+                </Text>
+              ) : (
+                <Box gap={1}>
+                  <Text color="cyan">█</Text>
+                  <Text dimColor>({config.executorAgent})</Text>
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Box gap={1}>
+              <Text color="cyan" bold>
+                ◀ [ {config.executorAgent} ] ▶
+              </Text>
+              {currentAgentOptions.length > 1 && (
+                <Text dimColor>
+                  (
+                  {Math.max(
+                    1,
+                    currentAgentOptions.indexOf(config.executorAgent) + 1,
+                  )}
+                  /{currentAgentOptions.length})
+                </Text>
+              )}
+            </Box>
+          )}
+        </Box>
+        {isActive && !isEditing && (
+          <Text dimColor>[Space/←/→] · [e] edit</Text>
+        )}
+      </Box>
+    );
+  }
+
+  if (fieldKey === 'preRunHook') {
+    return (
+      <Box justifyContent="space-between" width="100%">
+        <Box gap={1} flexShrink={1}>
+          <Text bold color={isActive ? 'cyan' : 'white'}>
+            5. Pre-Run Hook:
+          </Text>
+          {isEditing && isActive ? (
+            <Box gap={1}>
+              <Text color="blue" bold>
+                {'> '}
+              </Text>
+              {editValue.length > 0 ? (
+                <Text color="white" bold wrap="truncate-end">
+                  {editValue}█
+                </Text>
+              ) : (
+                <Box gap={1}>
+                  <Text color="cyan">█</Text>
+                  <Text dimColor wrap="truncate-end">
+                    {getHookCommand('run.started') || 'e.g. npm run test:fast'}
+                  </Text>
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Text color="white" wrap="truncate-end">
+              {getHookCommand('run.started') || '(None)'}
+            </Text>
+          )}
+        </Box>
+        {isActive && !isEditing && <Text dimColor>[Enter] edit</Text>}
+      </Box>
+    );
+  }
+
+  if (fieldKey === 'postRunHook') {
+    return (
+      <Box justifyContent="space-between" width="100%">
+        <Box gap={1} flexShrink={1}>
+          <Text bold color={isActive ? 'cyan' : 'white'}>
+            6. Post-Run Hook:
+          </Text>
+          {isEditing && isActive ? (
+            <Box gap={1}>
+              <Text color="blue" bold>
+                {'> '}
+              </Text>
+              {editValue.length > 0 ? (
+                <Text color="white" bold wrap="truncate-end">
+                  {editValue}█
+                </Text>
+              ) : (
+                <Box gap={1}>
+                  <Text color="cyan">█</Text>
+                  <Text dimColor wrap="truncate-end">
+                    {getHookCommand('run.completed') || 'e.g. echo done'}
+                  </Text>
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Text color="white" wrap="truncate-end">
+              {getHookCommand('run.completed') || '(None)'}
+            </Text>
+          )}
+        </Box>
+        {isActive && !isEditing && <Text dimColor>[Enter] edit</Text>}
+      </Box>
+    );
+  }
+
+  if (fieldKey === 'saveButton') {
+    return (
+      <Box
+        marginTop={1}
+        borderStyle="single"
+        borderColor={isActive ? 'green' : 'gray'}
+        paddingX={1}
+        justifyContent="center"
+      >
+        <Text color={isActive ? 'green' : 'white'} bold>
+          [ Save Configuration to config.yaml ]
+        </Text>
+      </Box>
+    );
+  }
+
+  return null;
+};

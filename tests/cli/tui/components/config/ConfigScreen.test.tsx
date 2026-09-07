@@ -1,9 +1,11 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render } from 'ink-testing-library';
 import { ConfigScreen } from '../../../../../src/cli/tui/components/config/ConfigScreen.js';
+import { ConfigFeedback } from '../../../../../src/cli/tui/components/config/components/ConfigFeedback.js';
+import { ConfigField } from '../../../../../src/cli/tui/components/config/components/ConfigField.js';
 import { ConfigService } from '../../../../../src/config/ConfigService.js';
 import { CodeForgeConfig } from '../../../../../src/config/types.js';
+import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -20,7 +22,7 @@ describe('ConfigScreen component', () => {
   };
 
   it('renders configuration form with language, runners, and hooks', () => {
-    const { lastFrame } = render(
+    const { lastFrame } = renderWithProviders(
       <ConfigScreen initialConfig={mockConfig} isInteractive={false} />
     );
     const output = lastFrame() ?? '';
@@ -35,7 +37,7 @@ describe('ConfigScreen component', () => {
   });
 
   it('toggles language when Space or Arrow is pressed', async () => {
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = renderWithProviders(
       <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
     );
 
@@ -45,6 +47,7 @@ describe('ConfigScreen component', () => {
 
     const output = lastFrame() ?? '';
     expect(output).toContain('● [pt]');
+    expect(output).toContain('Unsaved Changes');
   });
 
   it('persists changes to config service on quick save "s"', async () => {
@@ -56,7 +59,7 @@ describe('ConfigScreen component', () => {
 
     const onSave = vi.fn();
 
-    const { lastFrame, stdin } = render(
+    const { lastFrame, stdin } = renderWithProviders(
       <ConfigScreen
         configService={mockConfigService}
         initialConfig={mockConfig}
@@ -86,5 +89,36 @@ describe('ConfigScreen component', () => {
 
     const output = lastFrame() ?? '';
     expect(output).toContain('successfully saved');
+  });
+
+  it('renders ConfigFeedback component with alert message and unsaved status', () => {
+    const { lastFrame } = renderWithProviders(
+      <ConfigFeedback
+        feedback={{ type: 'success', message: 'Config saved' }}
+        isDirty={true}
+      />
+    );
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Config saved');
+    expect(output).toContain('Unsaved Changes');
+  });
+
+  it('renders ConfigField component for environment field', () => {
+    const { lastFrame } = renderWithProviders(
+      <ConfigField
+        fieldKey="environment"
+        isActive={true}
+        isEditing={false}
+        editValue=""
+        config={mockConfig}
+        availableEnvironments={['antigravity', 'claude']}
+        currentAgentOptions={['pro', 'flash']}
+        getHookCommand={() => ''}
+      />
+    );
+    const output = lastFrame() ?? '';
+    expect(output).toContain('2. Runner Environment:');
+    expect(output).toContain('antigravity');
+    expect(output).toContain('[Space/←/→] toggle');
   });
 });
