@@ -19,6 +19,8 @@ export interface ProcessSpawnOptions {
   shell?: boolean | string;
   pipeStdinContent?: string;
   pipePromptFile?: string;
+  onStdout?: (chunk: string) => void;
+  onStderr?: (chunk: string) => void;
 }
 
 export interface ProcessExecutor {

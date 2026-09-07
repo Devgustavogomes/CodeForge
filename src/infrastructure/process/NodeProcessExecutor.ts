@@ -93,14 +93,18 @@ export class NodeProcessExecutor implements ProcessExecutor {
       }
 
       child.stdout?.on("data", (data: Buffer | string) => {
-        stdoutBuffer += data.toString();
+        const chunk = data.toString();
+        options?.onStdout?.(chunk);
+        stdoutBuffer += chunk;
         if (stdoutBuffer.length > MAX_BUFFER_CHARS) {
           stdoutBuffer = stdoutBuffer.slice(-MAX_BUFFER_CHARS);
         }
       });
 
       child.stderr?.on("data", (data: Buffer | string) => {
-        stderrBuffer += data.toString();
+        const chunk = data.toString();
+        options?.onStderr?.(chunk);
+        stderrBuffer += chunk;
         if (stderrBuffer.length > MAX_BUFFER_CHARS) {
           stderrBuffer = stderrBuffer.slice(-MAX_BUFFER_CHARS);
         }

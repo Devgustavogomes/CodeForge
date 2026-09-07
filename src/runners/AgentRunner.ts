@@ -4,6 +4,7 @@ export interface TaskContext {
     taskId?: string;
     model?: string;
     silent?: boolean;
+    onLog?: (chunk: string) => void;
 }
 
 export interface AgentRunner {

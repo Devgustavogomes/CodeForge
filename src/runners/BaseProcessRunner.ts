@@ -22,14 +22,15 @@ export abstract class BaseProcessRunner implements AgentRunner {
   ): Promise<void> {
     let stdio = options.stdio;
     if (!stdio) {
+      const captureOutput = Boolean(context.silent || context.onLog);
       if (options.pipePromptToStdin) {
         stdio = [
           "pipe",
-          context.silent ? "pipe" : "inherit",
-          context.silent ? "pipe" : "inherit",
+          captureOutput ? "pipe" : "inherit",
+          captureOutput ? "pipe" : "inherit",
         ];
       } else {
-        stdio = context.silent ? "pipe" : "inherit";
+        stdio = captureOutput ? "pipe" : "inherit";
       }
     }
 
@@ -40,6 +41,8 @@ export abstract class BaseProcessRunner implements AgentRunner {
       shell: options.shell,
       stdio,
       pipePromptFile: options.pipePromptToStdin ? context.promptFilePath : undefined,
+      onStdout: context.onLog,
+      onStderr: context.onLog,
     };
 
     const result = await this.processExecutor.spawn(cmd, args, spawnOptions);
