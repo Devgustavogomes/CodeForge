@@ -1,15 +1,60 @@
 import { Command } from "commander";
 import { select } from "@inquirer/prompts";
-import { formatStatusOutput } from "../ui/statusFormatter.js";
-import { translate } from "../ui/i18n.js";
 import { createAppContainer } from "../../infrastructure/container.js";
+import { translate } from "../ui/i18n.js";
+import { runInteractiveMenu } from "../interactive.js";
+import { ActionResult } from "../types.js";
+import { StatusResult } from "../../application/use-cases/GetSpecStatusUseCase.js";
 
-import { ActionResult } from "../menu/types.js";
+export function formatPlainTextStatus(result: Extract<StatusResult, { kind: "status" }>): string {
+  const lines: string[] = [];
+  const total = result.tasks.length;
+  const completed = result.tasks.filter((t) => t.status === "completed").length;
+  const running = result.tasks.filter((t) => t.status === "running").length;
+  const failed = result.tasks.filter((t) => t.status === "failed").length;
+  const pending = result.tasks.filter((t) => t.status === "pending").length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  lines.push(`Spec: ${result.specName} (${result.specStatus})`);
+  lines.push(`Progress: ${completed}/${total} tasks completed (${percent}%)`);
+  lines.push(`Summary: ${completed} completed, ${running} running, ${failed} failed, ${pending} pending`);
+  lines.push("");
+  lines.push("Tasks:");
+
+  for (const task of result.tasks) {
+    let icon = "○";
+    if (task.status === "completed") icon = "✓";
+    else if (task.status === "running") icon = "▶";
+    else if (task.status === "failed") icon = "✗";
+
+    let depStr = "";
+    if (task.dependencies.length > 0) {
+      depStr = ` [depends on: ${task.dependencies.join(", ")}]`;
+    }
+
+    lines.push(`  [${icon}] ${task.id}: ${task.title} (${task.status})${depStr}`);
+    if (task.errors && task.errors.length > 0) {
+      for (const err of task.errors) {
+        lines.push(`      Error: ${err}`);
+      }
+    }
+  }
+
+  return lines.join("\n");
+}
 
 export async function statusAction(
   spec?: string,
   options: { once?: boolean } = {}
 ): Promise<ActionResult> {
+  if (!options.once) {
+    await runInteractiveMenu({
+      initialTab: "run",
+      initialSpec: spec,
+    });
+    return { success: true };
+  }
+
   const container = createAppContainer();
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
@@ -29,7 +74,7 @@ export async function statusAction(
       message: translate("status_select_spec", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((s) => ({ name: s.name, value: s.name }))
+        ...specs.map((s) => ({ name: s.name, value: s.name })),
       ],
     });
 
@@ -38,11 +83,10 @@ export async function statusAction(
     }
   }
 
-  // Validate once before entering loop
   const useCase = container.getSpecStatusUseCase;
-  const initial = useCase.execute(specName);
+  const result = useCase.execute(specName);
 
-  switch (initial.kind) {
+  switch (result.kind) {
     case "not-initialized":
       console.error(translate("err_not_initialized", lang));
       process.exitCode = 1;
@@ -54,77 +98,18 @@ export async function statusAction(
     case "no-execution":
       console.log(translate("status_no_execution", lang, { spec: specName }));
       return { success: true };
-    case "status":
-      if (options.once) {
-        console.log(formatStatusOutput(initial));
-        return { success: true };
-      }
-      break;
-  }
-
-  // Watch mode — enter alternate screen buffer (like vim/htop)
-  process.stdout.write("\x1b[?1049h\x1b[?25l");
-
-  let interval: NodeJS.Timeout;
-  const cleanup = () => {
-    clearInterval(interval);
-    // Leave alternate screen buffer and restore cursor
-    process.stdout.write("\x1b[?25h\x1b[?1049l");
-  };
-
-  const render = () => {
-    const result = useCase.execute(specName as string);
-    process.stdout.write("\x1b[H");
-    if (result.kind === "status") {
-      process.stdout.write(formatStatusOutput(result));
-      process.stdout.write(translate("status_watching", lang));
-    } else {
-      process.stdout.write(translate("status_waiting", lang));
+    case "status": {
+      const summary = formatPlainTextStatus(result);
+      console.log(summary);
+      return { success: true };
     }
-    return result;
-  };
-
-  let lastResult = render();
-
-  return new Promise<ActionResult>((resolve) => {
-    interval = setInterval(() => {
-      lastResult = render();
-
-      if (lastResult.kind === "status") {
-        if (lastResult.specStatus === "failed") {
-          cleanup();
-          console.log(translate("status_failed", lang, { spec: specName as string }));
-          process.exitCode = 1;
-          resolve({ success: false });
-          return;
-        }
-        const allDone = lastResult.tasks.every((t) => t.status === "completed");
-        if (allDone) {
-          cleanup();
-          console.log(translate("status_all_done", lang, { spec: specName as string }));
-          resolve({ success: true });
-          return;
-        }
-      }
-    }, 2000);
-
-    const onResize = () => render();
-    process.stdout.on("resize", onResize);
-
-    const onSigInt = () => {
-      cleanup();
-      process.stdout.off("resize", onResize);
-      process.off("SIGINT", onSigInt);
-      resolve({ success: true });
-    };
-    process.once("SIGINT", onSigInt);
-  });
+  }
 }
 
 export function registerStatusCommand(program: Command): void {
   program
     .command("status [spec]")
-    .description("Show execution progress for a spec (watches by default)")
+    .description("Show execution progress for a spec")
     .option("--once", "Print status once and exit")
     .action(async (spec: string | undefined, options: { once?: boolean }) => {
       await statusAction(spec, options);
