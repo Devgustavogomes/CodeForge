@@ -150,7 +150,70 @@ const en = {
   config_enter_planner: "Enter new value for plannerAgent:",
   config_enter_executor: "Enter new value for executorAgent:",
   config_no_agents: "No agents found for environment '{env}'. Falling back to manual input.",
-  config_updated: "\n✓ Config updated successfully: {key} = {value}\n"
+  config_updated: "\n✓ Config updated successfully: {key} = {value}\n",
+
+  // TUI - Tabs
+  tui_tab_run: "Run",
+  tui_tab_specs: "Specs",
+  tui_tab_tasks: "Tasks",
+  tui_tab_docs: "Docs",
+  tui_tab_config: "Config",
+
+  // TUI - Header & Nav
+  tui_header_title: "⚡ CodeForge",
+  tui_header_no_active_spec: "No active spec",
+  tui_header_active_spec: "Spec: {spec}",
+  tui_header_shortcuts: "[Ctrl+K] Commands  [1-5] Tabs  [q] Quit",
+
+  // TUI - Status Badges
+  tui_badge_not_started: "Not Started",
+  tui_badge_planned: "Planned",
+  tui_badge_in_progress: "In Progress",
+  tui_badge_completed: "Completed",
+  tui_badge_pending: "Pending",
+  tui_badge_running: "Running",
+  tui_badge_failed: "Failed",
+  tui_badge_deadlock: "Deadlock",
+  tui_badge_idle: "Idle",
+  tui_badge_tracked: "Tracked",
+  tui_badge_untracked: "Untracked",
+
+  // TUI - Shortcut Bars / Hints
+  tui_status_hints_run: "↑/↓: Navigate  r: Retry  R: Retry All  c: Complete  x: Reset  Tab: Switch View",
+  tui_status_hints_specs: "c: Create  p: Pull  g: Plan  v: Validate  Enter: Select",
+  tui_status_hints_tasks: "↑/↓: Navigate  r: Retry  c: Complete  x: Reset  Enter: Info",
+  tui_status_hints_docs: "c: Create  u: Update  Enter: View",
+  tui_status_hints_config: "↑/↓: Navigate  Enter: Edit",
+  tui_status_minimal_hints: "[1-5] Tabs  [q] Quit",
+
+  // TUI - Modals
+  tui_modal_command_palette: "Command Palette",
+  tui_modal_create_spec: "Create Specification",
+  tui_modal_pull_spec: "Pull Specification",
+  tui_modal_create_doc: "Create Documentation",
+  tui_modal_quit_confirm: "Exit CodeForge",
+  tui_modal_close_hint: "[Esc] Close",
+
+  // TUI - Quit Confirmation
+  tui_quit_confirm_message: "Are you sure you want to quit CodeForge?",
+  tui_quit_confirm_yes: "[y / Enter] Quit",
+  tui_quit_confirm_no: "[n / Esc] Cancel",
+
+  // TUI - Responsive & Notifications
+  tui_minimal_window_too_small: "⚠️ Window too small ({columns}x{rows})",
+  tui_minimal_resize_prompt: "Please resize window to at least 60x12 for full dashboard.",
+  tui_run_no_tasks: "No tasks found for spec \"{spec}\".",
+  tui_specs_no_specs: "No specifications found in .codeforge/specs/",
+  tui_specs_create_or_pull: "Press 'c' to create a new spec or 'p' to pull from GitHub/Linear.",
+  tui_tasks_no_tasks: "No tasks found for spec \"{spec}\".",
+  tui_docs_no_docs: "No documentation files found in .codeforge/docs/",
+  tui_docs_press_c: "Press 'c' to create a new documentation file.",
+  tui_palette_search_placeholder: "Type to search commands...",
+  tui_palette_no_results: "No matching commands found",
+  tui_palette_footer: "{count} of {total} commands",
+  tui_palette_nav_hint: "↑/↓ Navigate · Enter Select",
+  tui_action_error: "Error: {error}",
+  tui_action_success: "Success: {message}"
 };
 
 type Dictionary = typeof en;
@@ -297,7 +360,70 @@ const pt: Dictionary = {
   config_enter_planner: "Digite o novo valor para plannerAgent:",
   config_enter_executor: "Digite o novo valor para executorAgent:",
   config_no_agents: "Nenhum agente encontrado para o ambiente '{env}'. Usando entrada manual.",
-  config_updated: "\n✓ Configuração atualizada com sucesso: {key} = {value}\n"
+  config_updated: "\n✓ Configuração atualizada com sucesso: {key} = {value}\n",
+
+  // TUI - Tabs
+  tui_tab_run: "Executar",
+  tui_tab_specs: "Specs",
+  tui_tab_tasks: "Tarefas",
+  tui_tab_docs: "Documentação",
+  tui_tab_config: "Configuração",
+
+  // TUI - Header & Nav
+  tui_header_title: "⚡ CodeForge",
+  tui_header_no_active_spec: "Nenhuma spec ativa",
+  tui_header_active_spec: "Spec: {spec}",
+  tui_header_shortcuts: "[Ctrl+K] Comandos  [1-5] Abas  [q] Sair",
+
+  // TUI - Status Badges
+  tui_badge_not_started: "Não Iniciado",
+  tui_badge_planned: "Planejado",
+  tui_badge_in_progress: "Em Andamento",
+  tui_badge_completed: "Concluído",
+  tui_badge_pending: "Pendente",
+  tui_badge_running: "Executando",
+  tui_badge_failed: "Falhou",
+  tui_badge_deadlock: "Deadlock",
+  tui_badge_idle: "Inativo",
+  tui_badge_tracked: "Rastreado",
+  tui_badge_untracked: "Não Rastreado",
+
+  // TUI - Shortcut Bars / Hints
+  tui_status_hints_run: "↑/↓: Navegar  r: Retentar  R: Retentar Tudo  c: Concluir  x: Resetar  Tab: Alternar Vista",
+  tui_status_hints_specs: "c: Criar  p: Obter  g: Planejar  v: Validar  Enter: Selecionar",
+  tui_status_hints_tasks: "↑/↓: Navegar  r: Retentar  c: Concluir  x: Resetar  Enter: Detalhes",
+  tui_status_hints_docs: "c: Criar  u: Atualizar  Enter: Ver",
+  tui_status_hints_config: "↑/↓: Navegar  Enter: Editar",
+  tui_status_minimal_hints: "[1-5] Abas  [q] Sair",
+
+  // TUI - Modals
+  tui_modal_command_palette: "Paleta de Comandos",
+  tui_modal_create_spec: "Criar Especificação",
+  tui_modal_pull_spec: "Obter Especificação",
+  tui_modal_create_doc: "Criar Documentação",
+  tui_modal_quit_confirm: "Sair do CodeForge",
+  tui_modal_close_hint: "[Esc] Fechar",
+
+  // TUI - Quit Confirmation
+  tui_quit_confirm_message: "Tem certeza de que deseja sair do CodeForge?",
+  tui_quit_confirm_yes: "[y / Enter] Sair",
+  tui_quit_confirm_no: "[n / Esc] Cancelar",
+
+  // TUI - Responsive & Notifications
+  tui_minimal_window_too_small: "⚠️ Janela muito pequena ({columns}x{rows})",
+  tui_minimal_resize_prompt: "Por favor redimensione a janela para pelo menos 60x12 para ver o dashboard completo.",
+  tui_run_no_tasks: "Nenhuma tarefa encontrada para a spec \"{spec}\".",
+  tui_specs_no_specs: "Nenhuma especificação encontrada em .codeforge/specs/",
+  tui_specs_create_or_pull: "Pressione 'c' para criar uma nova spec ou 'p' para obter do GitHub/Linear.",
+  tui_tasks_no_tasks: "Nenhuma tarefa encontrada para a spec \"{spec}\".",
+  tui_docs_no_docs: "Nenhum documento encontrado em .codeforge/docs/",
+  tui_docs_press_c: "Pressione 'c' para criar um novo documento.",
+  tui_palette_search_placeholder: "Digite para buscar comandos...",
+  tui_palette_no_results: "Nenhum comando encontrado",
+  tui_palette_footer: "{count} de {total} comandos",
+  tui_palette_nav_hint: "↑/↓ Navegar · Enter Selecionar",
+  tui_action_error: "Erro: {error}",
+  tui_action_success: "Sucesso: {message}"
 };
 
 const es: Dictionary = {
@@ -441,7 +567,70 @@ const es: Dictionary = {
   config_enter_planner: "Ingrese el nuevo valor para plannerAgent:",
   config_enter_executor: "Ingrese el nuevo valor para executorAgent:",
   config_no_agents: "No se encontraron agentes para el entorno '{env}'. Usando entrada manual.",
-  config_updated: "\n✓ Configuración actualizada correctamente: {key} = {value}\n"
+  config_updated: "\n✓ Configuración actualizada correctamente: {key} = {value}\n",
+
+  // TUI - Tabs
+  tui_tab_run: "Ejecutar",
+  tui_tab_specs: "Specs",
+  tui_tab_tasks: "Tareas",
+  tui_tab_docs: "Documentación",
+  tui_tab_config: "Configuración",
+
+  // TUI - Header & Nav
+  tui_header_title: "⚡ CodeForge",
+  tui_header_no_active_spec: "Ningún spec activo",
+  tui_header_active_spec: "Spec: {spec}",
+  tui_header_shortcuts: "[Ctrl+K] Comandos  [1-5] Pestañas  [q] Salir",
+
+  // TUI - Status Badges
+  tui_badge_not_started: "No Iniciado",
+  tui_badge_planned: "Planificado",
+  tui_badge_in_progress: "En Progreso",
+  tui_badge_completed: "Completado",
+  tui_badge_pending: "Pendiente",
+  tui_badge_running: "Ejecutando",
+  tui_badge_failed: "Falló",
+  tui_badge_deadlock: "Punto Muerto",
+  tui_badge_idle: "Inactivo",
+  tui_badge_tracked: "Rastreado",
+  tui_badge_untracked: "No Rastreado",
+
+  // TUI - Shortcut Bars / Hints
+  tui_status_hints_run: "↑/↓: Navegar  r: Reintentar  R: Reintentar Todo  c: Completar  x: Restablecer  Tab: Cambiar Vista",
+  tui_status_hints_specs: "c: Crear  p: Obtener  g: Planificar  v: Validar  Enter: Seleccionar",
+  tui_status_hints_tasks: "↑/↓: Navegar  r: Reintentar  c: Completar  x: Restablecer  Enter: Info",
+  tui_status_hints_docs: "c: Crear  u: Actualizar  Enter: Ver",
+  tui_status_hints_config: "↑/↓: Navegar  Enter: Editar",
+  tui_status_minimal_hints: "[1-5] Pestañas  [q] Salir",
+
+  // TUI - Modals
+  tui_modal_command_palette: "Paleta de Comandos",
+  tui_modal_create_spec: "Crear Especificación",
+  tui_modal_pull_spec: "Obtener Especificación",
+  tui_modal_create_doc: "Crear Documentación",
+  tui_modal_quit_confirm: "Salir de CodeForge",
+  tui_modal_close_hint: "[Esc] Cerrar",
+
+  // TUI - Quit Confirmation
+  tui_quit_confirm_message: "¿Está seguro de que desea salir de CodeForge?",
+  tui_quit_confirm_yes: "[y / Enter] Salir",
+  tui_quit_confirm_no: "[n / Esc] Cancelar",
+
+  // TUI - Responsive & Notifications
+  tui_minimal_window_too_small: "⚠️ Ventana demasiado pequeña ({columns}x{rows})",
+  tui_minimal_resize_prompt: "Por favor redimensione la ventana a al menos 60x12 para ver el panel completo.",
+  tui_run_no_tasks: "No se encontraron tareas para el spec \"{spec}\".",
+  tui_specs_no_specs: "No se encontraron especificaciones en .codeforge/specs/",
+  tui_specs_create_or_pull: "Presione 'c' para crear un nuevo spec o 'p' para obtener de GitHub/Linear.",
+  tui_tasks_no_tasks: "No se encontraron tareas para el spec \"{spec}\".",
+  tui_docs_no_docs: "No se encontraron documentos en .codeforge/docs/",
+  tui_docs_press_c: "Presione 'c' para crear un nuevo documento.",
+  tui_palette_search_placeholder: "Escriba para buscar comandos...",
+  tui_palette_no_results: "No se encontraron comandos coincidentes",
+  tui_palette_footer: "{count} de {total} comandos",
+  tui_palette_nav_hint: "↑/↓ Navegar · Enter Seleccionar",
+  tui_action_error: "Error: {error}",
+  tui_action_success: "Éxito: {message}"
 };
 
 const dictionaries = { en, pt, es };
