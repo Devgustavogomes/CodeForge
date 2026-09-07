@@ -3,19 +3,9 @@ import { Box, Text } from 'ink';
 import { TaskItem, ExecutionStatus } from '../../../context/ExecutionContext.js';
 import { TimerView } from '../../common/TimerView.js';
 import { Spinner } from '../../common/Spinner.js';
+import { theme, renderProgressBar } from '../../../theme.js';
 
-export function renderProgressBar(
-  completed: number,
-  total: number,
-  barWidth: number = 20,
-): string {
-  if (total <= 0) return `[${'░'.repeat(barWidth)}] 0% (0/0)`;
-  const fraction = Math.min(1, Math.max(0, completed / total));
-  const filled = Math.round(fraction * barWidth);
-  const empty = barWidth - filled;
-  const percent = Math.round(fraction * 100);
-  return `[${'█'.repeat(filled)}${'░'.repeat(empty)}] ${percent}% (${completed}/${total})`;
-}
+export { renderProgressBar };
 
 export interface DashboardMetricsPanelProps {
   specName: string;
@@ -56,10 +46,9 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
     return (
       <Box
         flexDirection="column"
-        borderStyle="round"
-        borderColor="green"
         paddingX={1}
-        marginBottom={0}
+        paddingY={0}
+        marginBottom={1}
         width="100%"
       >
         <Box justifyContent="space-between" width="100%">
@@ -70,6 +59,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
             ⏱ Total Time: <TimerView startTime={startedAt} isRunning={false} endTime={completedAt} />
           </Text>
         </Box>
+
         <Box gap={2} marginY={0}>
           <Text color="green" bold>
             ✓ {completedCount}/{totalCount} tasks completed
@@ -79,6 +69,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
             {failedCount} failures
           </Text>
         </Box>
+
         <Box gap={2} marginTop={0} flexWrap="wrap">
           <Text bold color="cyan">
             [s] Choose another spec
@@ -101,10 +92,9 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
     return (
       <Box
         flexDirection="column"
-        borderStyle="round"
-        borderColor="red"
         paddingX={1}
-        marginBottom={0}
+        paddingY={0}
+        marginBottom={1}
         width="100%"
       >
         <Box justifyContent="space-between" width="100%">
@@ -115,6 +105,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
             ⏱ Total Time: <TimerView startTime={startedAt} isRunning={false} endTime={completedAt} />
           </Text>
         </Box>
+
         <Box gap={2} marginY={0} flexWrap="wrap">
           <Text color="green" bold>
             ✓ {completedCount} completed
@@ -128,6 +119,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
             ⏳ {pendingCount} remaining
           </Text>
         </Box>
+
         <Box gap={2} marginTop={0} flexWrap="wrap">
           <Text bold color="red">
             [R] Retry all failed
@@ -150,14 +142,13 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
   }
 
   // Live Metrics Panel during run / idle
-  const progressBar = renderProgressBar(completedCount, totalCount, 24);
+  const progressBar = renderProgressBar(completedCount, totalCount, 18);
 
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor="cyan"
       paddingX={1}
+      paddingY={0}
       marginBottom={0}
       width="100%"
     >
@@ -174,6 +165,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           {isRunning && <Spinner color="cyan" />}
         </Box>
       </Box>
+
       <Box gap={2} marginY={0} flexWrap="wrap">
         <Box gap={1}>
           {isRunning ? <Spinner color="yellow" /> : <Text color="yellow">⠋</Text>}
@@ -194,6 +186,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           ⏳ Remaining: {pendingCount}
         </Text>
       </Box>
+
       <Box marginTop={0} justifyContent="space-between" width="100%">
         <Text bold color="cyan">
           {progressBar}
