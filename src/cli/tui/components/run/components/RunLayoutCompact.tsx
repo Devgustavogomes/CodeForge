@@ -75,16 +75,25 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(({
           tasks={tasks}
           selectedTaskId={selectedTaskId}
           isFocused={true}
-          maxHeight={Math.max(4, rows - 10)}
+          maxHeight={Math.max(6, rows - 8)}
+          borderStyle="round"
         />
       ) : (
-        <Box flexDirection="column" width="100%" flexGrow={1}>
-          <TaskDetails task={selectedTask} maxFilesShown={1} maxErrorLines={2} />
+        <Box flexDirection="column" width="100%" flexGrow={1} gap={0}>
+          <Box paddingX={1} marginBottom={0}>
+            <TaskDetails
+              task={selectedTask}
+              compact={true}
+              maxFilesShown={2}
+              maxErrorLines={2}
+            />
+          </Box>
           <LogStreamView
             taskId={selectedTaskId}
             isFocused={true}
-            maxVisibleLines={Math.max(2, Math.min(4, Math.floor((rows - 16) / 2)))}
+            maxVisibleLines={Math.max(4, rows - 10)}
             defaultWrap={false}
+            borderStyle="round"
           />
         </Box>
       )}

@@ -4,6 +4,7 @@ import { TaskStatus } from '../../../../domain/execution.js';
 import { TaskItem, useExecution } from '../../context/ExecutionContext.js';
 import { Spinner } from '../common/Spinner.js';
 import { useElapsedTime } from '../../hooks/useElapsedTime.js';
+import { theme } from '../../theme.js';
 
 export type TaskFilter = 'all' | 'running' | 'failed' | 'completed' | 'pending';
 
@@ -17,6 +18,7 @@ export interface TaskListProps {
   filter?: TaskFilter;
   onFilterChange?: (filter: TaskFilter) => void;
   borderColor?: string;
+  borderStyle?: 'round' | 'single' | 'none';
 }
 
 export const STATUS_CONFIG: Record<
@@ -72,29 +74,33 @@ export const TaskRow: React.FC<TaskRowProps> = React.memo(({
   return (
     <Box justifyContent="space-between" width="100%">
       <Box gap={1} flexShrink={1}>
-        {/* Selected pointer */}
+        {/* Modern vertical bar pointer when selected */}
         <Text color={isSelected ? (isFocused ? 'cyan' : 'white') : undefined} bold={isSelected}>
-          {isSelected ? '❯' : ' '}
+          {isSelected ? theme.symbols.pointer : ' '}
         </Text>
 
         {/* Status Icon or Spinner */}
-        {isRunning ? (
-          <Spinner color="cyan" />
-        ) : (
-          <Text color={statusCfg.color} bold={false}>
-            {statusCfg.icon}
-          </Text>
-        )}
+        <Box flexShrink={0}>
+          {isRunning ? (
+            <Spinner color="cyan" />
+          ) : (
+            <Text color={statusCfg.color}>
+              {statusCfg.icon}
+            </Text>
+          )}
+        </Box>
 
         {/* Task ID */}
-        <Text bold={isSelected} color={isSelected ? 'white' : 'gray'}>
-          {task.id}
-        </Text>
+        <Box flexShrink={0}>
+          <Text bold={isSelected} color={isSelected ? 'white' : 'gray'}>
+            {task.id}
+          </Text>
+        </Box>
 
         {/* Title (truncated if too long) */}
         <Text
           wrap="truncate-end"
-          color={isSelected ? 'cyan' : 'white'}
+          color={isSelected ? (isFocused ? 'cyan' : 'white') : 'white'}
           bold={isSelected}
         >
           {task.title}
@@ -117,6 +123,7 @@ export function areTaskListPropsEqual(prev: TaskListProps, next: TaskListProps):
   if (prev.showFilterBadges !== next.showFilterBadges) return false;
   if (prev.filter !== next.filter) return false;
   if (prev.borderColor !== next.borderColor) return false;
+  if (prev.borderStyle !== next.borderStyle) return false;
   if (prev.onSelectTask !== next.onSelectTask) return false;
   if (prev.onFilterChange !== next.onFilterChange) return false;
   if (prev.tasks === next.tasks) return true;
@@ -148,6 +155,7 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
   filter: propFilter,
   onFilterChange,
   borderColor,
+  borderStyle = 'round',
 }) => {
   const exec = useExecution();
   const tasks = propTasks ?? exec.tasks;
@@ -171,14 +179,12 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
     let running = 0;
     let completed = 0;
     let failed = 0;
-
     for (const t of tasks) {
       if (t.status === 'pending') pending++;
       else if (t.status === 'running') running++;
       else if (t.status === 'completed') completed++;
       else if (t.status === 'failed') failed++;
     }
-
     return { total, pending, running, completed, failed };
   }, [tasks]);
 
@@ -255,31 +261,36 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
   }, [filteredTasks, maxHeight, selectedTaskId]);
 
   const effectiveBorderColor = borderColor ?? (isFocused ? 'cyan' : 'gray');
+  const isNoneBorder = borderStyle === 'none';
 
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={effectiveBorderColor}
-      paddingX={1}
+      borderStyle={isNoneBorder ? undefined : borderStyle}
+      borderColor={isNoneBorder ? undefined : effectiveBorderColor}
+      paddingX={isNoneBorder ? 0 : 1}
       width="100%"
       flexGrow={1}
     >
       {/* Header */}
-      <Box justifyContent="space-between" marginBottom={0}>
-        <Text bold color={isFocused ? 'cyan' : 'gray'}>
-          {isFocused ? '● ' : '  '}Tasks ({tasks.length})
-        </Text>
-        {isFocused ? (
-          <Text dimColor color="cyan">[Tab] Switch to Logs</Text>
-        ) : (
-          <Text dimColor>[Tab] Focus</Text>
-        )}
+      <Box justifyContent="space-between" width="100%" marginBottom={0}>
+        <Box flexShrink={0}>
+          <Text bold color={isFocused ? 'cyan' : 'gray'}>
+            {isFocused ? '● ' : '  '}Tasks ({tasks.length})
+          </Text>
+        </Box>
+        <Box flexShrink={1} paddingLeft={1}>
+          {isFocused ? (
+            <Text dimColor color="cyan" wrap="truncate-end">[Tab] Logs</Text>
+          ) : (
+            <Text dimColor wrap="truncate-end">[Tab] Focus</Text>
+          )}
+        </Box>
       </Box>
 
       {/* Filter Badges */}
       {showFilterBadges && (
-        <Box gap={1} marginY={1} flexWrap="wrap">
+        <Box gap={1} marginY={0} flexWrap="wrap">
           <Text
             color={currentFilter === 'all' ? 'cyan' : 'gray'}
             bold={currentFilter === 'all'}
@@ -313,7 +324,7 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
           <Text dimColor>No tasks found{currentFilter !== 'all' ? ` for filter '${currentFilter}'` : ''}.</Text>
         </Box>
       ) : (
-        <Box flexDirection="column">
+        <Box flexDirection="column" marginTop={0}>
           {visibleTasks.map((task) => (
             <TaskRow
               key={task.id}

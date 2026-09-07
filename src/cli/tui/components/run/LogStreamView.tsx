@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useExecution } from '../../context/ExecutionContext.js';
+import { theme } from '../../theme.js';
 
 export interface LogStreamViewProps {
   taskId?: string | null;
@@ -9,6 +10,7 @@ export interface LogStreamViewProps {
   maxVisibleLines?: number;
   autoScroll?: boolean;
   borderColor?: string;
+  borderStyle?: 'round' | 'single' | 'none';
   title?: string;
   defaultWrap?: boolean;
 }
@@ -22,6 +24,7 @@ export function areLogStreamPropsEqual(
   if (prev.maxVisibleLines !== next.maxVisibleLines) return false;
   if (prev.autoScroll !== next.autoScroll) return false;
   if (prev.borderColor !== next.borderColor) return false;
+  if (prev.borderStyle !== next.borderStyle) return false;
   if (prev.title !== next.title) return false;
   if (prev.defaultWrap !== next.defaultWrap) return false;
   if (prev.logs === next.logs) return true;
@@ -43,6 +46,7 @@ export const LogStreamView: React.FC<LogStreamViewProps> = React.memo(({
   maxVisibleLines = 8,
   autoScroll: initialAutoScroll = true,
   borderColor,
+  borderStyle = 'round',
   title,
   defaultWrap = true,
 }) => {
@@ -158,77 +162,98 @@ export const LogStreamView: React.FC<LogStreamViewProps> = React.memo(({
     totalLines - (effectiveScrollStartIndex + maxVisibleLines)
   );
 
+  const displayTitle = title ?? (effectiveTaskId ? `Logs: ${effectiveTaskId}` : 'Execution Logs');
+  const isNoneBorder = borderStyle === 'none';
+
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={effectiveBorderColor}
-      paddingX={1}
+      borderStyle={isNoneBorder ? undefined : borderStyle}
+      borderColor={isNoneBorder ? undefined : effectiveBorderColor}
+      paddingX={isNoneBorder ? 0 : 1}
       width="100%"
       flexGrow={1}
     >
-      {/* Header with Title and Auto-scroll status */}
+      {/* Header bar */}
       <Box justifyContent="space-between" width="100%" marginBottom={0}>
-        <Box gap={1} flexShrink={0}>
-          <Text bold color={isFocused ? 'cyan' : 'gray'} wrap="truncate-end">
-            {isFocused ? '● ' : ''}{title || `Logs: ${effectiveTaskId ?? 'No Task'}`}
+        <Box gap={1}>
+          <Text bold color={isFocused ? 'cyan' : 'gray'}>
+            {isFocused ? '● ' : '  '}{displayTitle}
           </Text>
-          <Text dimColor wrap="truncate-end">({totalLines} lines)</Text>
+          <Text dimColor>({totalLines} lines)</Text>
         </Box>
 
-        <Box gap={1} flexShrink={0}>
-          <Text color={isWrapEnabled ? 'cyan' : 'gray'} bold>
-            {isWrapEnabled ? '[Wrap: ON]' : '[Wrap: OFF]'}
+        <Box gap={1}>
+          <Text dimColor color={isWrapEnabled ? 'white' : 'gray'}>
+            [Wrap: {isWrapEnabled ? 'ON' : 'OFF'}]
           </Text>
+          <Text color="gray">│</Text>
           {isAutoScrollEnabled ? (
-            <Text color="green" bold>
-              [Auto-scroll: ON]
-            </Text>
+            <Text color="green">[Auto-scroll: ON]</Text>
           ) : (
-            <Text color="yellow" bold>
-              [PAUSED {startLine}-{endLine}/{totalLines}]
+            <Text color="yellow">
+              [PAUSED: {startLine}-{endLine}/{totalLines}]
             </Text>
-          )}
-          {isFocused && (
-            <Text dimColor color="cyan">[Tab] Tasks</Text>
           )}
         </Box>
       </Box>
 
-      {/* Top Scroll Indicator */}
-      {!isAutoScrollEnabled && linesAbove > 0 && (
+      {/* Scroll indicator: Lines above */}
+      {linesAbove > 0 && (
         <Box justifyContent="center" width="100%">
-          <Text dimColor>▲ {linesAbove} more lines above (press 'g' for top)</Text>
-        </Box>
-      )}
-
-      {/* Log Output */}
-      {logs.length === 0 ? (
-        <Box paddingY={1}>
-          <Text dimColor>
-            {effectiveTaskId
-              ? 'Waiting for agent output or no logs recorded...'
-              : 'No task selected.'}
+          <Text dimColor color="yellow">
+            ▲ {linesAbove} line{linesAbove === 1 ? '' : 's'} above (press 'g' for top)
           </Text>
         </Box>
+      )}
+
+      {/* Log lines content */}
+      {logs.length === 0 ? (
+        <Box paddingY={1}>
+          <Text dimColor>Waiting for agent output or no logs recorded...</Text>
+        </Box>
       ) : (
-        <Box flexDirection="column" flexGrow={1}>
-          {visibleLines.map((line, idx) => (
-            <Text
-              key={effectiveScrollStartIndex + idx}
-              wrap={isWrapEnabled ? 'wrap' : 'truncate-end'}
-            >
-              {line}
-            </Text>
-          ))}
+        <Box flexDirection="column" width="100%" flexGrow={1}>
+          {visibleLines.map((line, idx) => {
+            let color: string | undefined = undefined;
+            let bold = false;
+            let dimColor = false;
+
+            const trimmed = line.trimStart();
+            if (/^(\[ERROR\]|error:|fatal:|stderr:|Exception)/i.test(trimmed)) {
+              color = 'red';
+              bold = true;
+            } else if (/^(\[WARN\]|\[WARNING\]|warning:)/i.test(trimmed)) {
+              color = 'yellow';
+            } else if (/^(\[INFO\]|info:)/i.test(trimmed)) {
+              color = 'cyan';
+            } else if (/^(\[SUCCESS\]|success:|✓)/i.test(trimmed)) {
+              color = 'green';
+              bold = true;
+            } else if (/^(\d{4}-\d{2}-\d{2}|\[\d{2}:\d{2}:\d{2}\])/.test(trimmed)) {
+              dimColor = true;
+            }
+
+            return (
+              <Text
+                key={effectiveScrollStartIndex + idx}
+                color={color}
+                bold={bold}
+                dimColor={dimColor}
+                wrap={isWrapEnabled ? 'wrap' : 'truncate-end'}
+              >
+                {line}
+              </Text>
+            );
+          })}
         </Box>
       )}
 
-      {/* Bottom Scroll Indicator */}
-      {!isAutoScrollEnabled && linesBelow > 0 && (
+      {/* Scroll indicator: Lines below */}
+      {linesBelow > 0 && !isAutoScrollEnabled && (
         <Box justifyContent="center" width="100%">
-          <Text color="yellow">
-            ▼ {linesBelow} more lines below (press 'G' to resume auto-scroll)
+          <Text dimColor color="yellow">
+            ▼ {linesBelow} line{linesBelow === 1 ? '' : 's'} below (press 'G' to resume)
           </Text>
         </Box>
       )}

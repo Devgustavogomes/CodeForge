@@ -2,10 +2,13 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { TaskItem, useExecution } from '../../context/ExecutionContext.js';
 import { formatDuration, STATUS_CONFIG } from './TaskList.js';
+import { theme } from '../../theme.js';
 
 export interface TaskDetailsProps {
   task?: TaskItem | null;
   borderColor?: string;
+  borderStyle?: 'round' | 'single' | 'none';
+  compact?: boolean;
   maxFilesShown?: number;
   maxErrorLines?: number;
 }
@@ -15,6 +18,8 @@ export function areTaskDetailsPropsEqual(
   next: TaskDetailsProps
 ): boolean {
   if (prev.borderColor !== next.borderColor) return false;
+  if (prev.borderStyle !== next.borderStyle) return false;
+  if (prev.compact !== next.compact) return false;
   if (prev.maxFilesShown !== next.maxFilesShown) return false;
   if (prev.maxErrorLines !== next.maxErrorLines) return false;
   if (prev.task === next.task) return true;
@@ -32,6 +37,8 @@ export function areTaskDetailsPropsEqual(
 export const TaskDetails: React.FC<TaskDetailsProps> = React.memo(({
   task: propTask,
   borderColor,
+  borderStyle = 'round',
+  compact = false,
   maxFilesShown = 4,
   maxErrorLines = 4,
 }) => {
@@ -50,15 +57,15 @@ export const TaskDetails: React.FC<TaskDetailsProps> = React.memo(({
     return (
       <Box
         flexDirection="column"
-        borderStyle="round"
-        borderColor="gray"
-        paddingX={1}
+        borderStyle={borderStyle === 'none' ? undefined : borderStyle}
+        borderColor={borderStyle === 'none' ? undefined : 'gray'}
+        paddingX={borderStyle === 'none' ? 0 : 1}
         width="100%"
       >
         <Text bold color="gray">
           Task Details
         </Text>
-        <Box paddingY={1}>
+        <Box paddingY={0}>
           <Text dimColor>No task selected.</Text>
         </Box>
       </Box>
@@ -71,16 +78,76 @@ export const TaskDetails: React.FC<TaskDetailsProps> = React.memo(({
   const dependencies = task.dependencies ?? [];
   const errors = task.errors ?? [];
 
-  // Files to display with readable multi-line layout
   const displayedFiles = files.slice(0, maxFilesShown);
   const remainingFilesCount = files.length - displayedFiles.length;
+
+  // Ultra-compact header mode used in Run dashboard to maximize log space
+  if (compact) {
+    return (
+      <Box flexDirection="column" width="100%" paddingX={0} paddingY={0} marginBottom={0}>
+        <Box justifyContent="space-between" width="100%">
+          <Box gap={1} flexShrink={1}>
+            <Text bold color="cyan">
+              {task.id}
+            </Text>
+            <Text color="gray">│</Text>
+            <Text bold color="white" wrap="truncate-end">
+              {task.title}
+            </Text>
+          </Box>
+          <Box gap={1} flexShrink={0} paddingLeft={1}>
+            <Text color={statusCfg.color} bold>
+              [{task.status.toUpperCase()}]
+            </Text>
+            <Text color="gray">│</Text>
+            <Text dimColor>{duration}</Text>
+          </Box>
+        </Box>
+
+        {Boolean(task.objective) && (
+          <Box marginTop={0}>
+            <Text dimColor wrap="wrap">
+              <Text color="gray">Objective: </Text>
+              {task.objective}
+            </Text>
+          </Box>
+        )}
+
+        {errors.length > 0 && (
+          <Box flexDirection="column" marginTop={0}>
+            <Text color="red" bold>
+              ✗ Error Diagnostic:
+            </Text>
+            {errors.slice(-maxErrorLines).map((err, idx) => (
+              <Text key={idx} color="red" wrap="wrap">
+                {err}
+              </Text>
+            ))}
+          </Box>
+        )}
+
+        {errors.length === 0 && files.length > 0 && (
+          <Box marginTop={0}>
+            <Text dimColor wrap="truncate-end">
+              <Text color="gray">Files ({files.length}): </Text>
+              {displayedFiles.join(', ')}
+              {remainingFilesCount > 0 ? ` (+${remainingFilesCount})` : ''}
+            </Text>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
+  // Full / Standalone mode
+  const isNoneBorder = borderStyle === 'none';
 
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor={effectiveBorderColor}
-      paddingX={1}
+      borderStyle={isNoneBorder ? undefined : borderStyle}
+      borderColor={isNoneBorder ? undefined : effectiveBorderColor}
+      paddingX={isNoneBorder ? 0 : 1}
       width="100%"
     >
       {/* Title & Status Badge */}

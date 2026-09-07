@@ -36,9 +36,9 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(({
   const terminalDims = useTerminalDimensions();
   const rows = propTerminalRows ?? terminalDims.rows ?? 24;
 
-  const availableRows = Math.max(10, rows - 10);
-  const taskListMaxHeight = Math.max(3, Math.min(6, availableRows - 5));
-  const logMaxLines = Math.max(2, Math.min(4, Math.floor((availableRows - 8) / 2)));
+  const availableRows = Math.max(12, rows - 5);
+  const taskListMaxHeight = Math.max(4, availableRows - 3);
+  const logMaxLines = Math.max(4, availableRows - 7);
 
   return (
     <Box flexDirection="column" width="100%" flexGrow={1}>
@@ -54,25 +54,34 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(({
       )}
 
       <Box flexDirection="row" width="100%" flexGrow={1}>
-        {/* Left Column: 46% TaskList */}
-        <Box width="46%" flexDirection="column" paddingRight={1}>
+        {/* Left Column: 42% TaskList */}
+        <Box width="42%" flexDirection="column" paddingRight={1}>
           <TaskList
             tasks={tasks}
             selectedTaskId={selectedTaskId}
             isFocused={focusedPanel === 'tasks'}
             maxHeight={taskListMaxHeight}
             showFilterBadges={false}
+            borderStyle="round"
           />
         </Box>
 
-        {/* Right Column: 54% TaskDetails + LogStreamView */}
-        <Box width="54%" flexDirection="column" flexGrow={1}>
-          <TaskDetails task={selectedTask} maxFilesShown={1} maxErrorLines={2} />
+        {/* Right Column: 58% TaskDetails + LogStreamView */}
+        <Box width="58%" flexDirection="column" flexGrow={1} gap={0}>
+          <Box paddingX={1} marginBottom={0}>
+            <TaskDetails
+              task={selectedTask}
+              compact={true}
+              maxFilesShown={2}
+              maxErrorLines={2}
+            />
+          </Box>
           <LogStreamView
             taskId={selectedTaskId}
             isFocused={focusedPanel === 'logs'}
             maxVisibleLines={logMaxLines}
             defaultWrap={false}
+            borderStyle="round"
           />
         </Box>
       </Box>
