@@ -1,9 +1,10 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useNavigation } from '../../../context/NavigationContext.js';
 import { useExecution } from '../../../context/ExecutionContext.js';
 import { useContainer } from '../../../hooks/useContainer.js';
 import { PATHS } from '../../../../../infrastructure/paths.js';
+import { theme } from '../../../theme.js';
 
 export interface SpecPickerItem {
   name: string;
@@ -16,6 +17,11 @@ export interface SpecPickerProps {
   isInteractive?: boolean;
   onSelectSpec?: (specName: string) => void;
   initialSpecs?: SpecPickerItem[];
+}
+
+interface SpecPreviewDetails {
+  description?: string;
+  taskTitles: string[];
 }
 
 export const SpecPicker: React.FC<SpecPickerProps> = memo(({
@@ -127,6 +133,34 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(({
     { isActive: isInteractive && !nav.isTextInputActive && !nav.modal },
   );
 
+  const selectedSpec = specs[selectedIndex];
+
+  // Load preview data for the selected spec
+  const previewDetails: SpecPreviewDetails = useMemo(() => {
+    if (!selectedSpec) return { taskTitles: [] };
+    const result: SpecPreviewDetails = { taskTitles: [] };
+    try {
+      const tasksDir = `${PATHS.tasksDir}/${selectedSpec.name}`;
+      if (container.gw.exists(tasksDir)) {
+        const files = container.gw.listDir(tasksDir).filter((f) => f.endsWith('.json')).sort();
+        const titles: string[] = [];
+        for (const file of files.slice(0, 5)) {
+          try {
+            const raw = container.gw.readFile(`${tasksDir}/${file}`);
+            const parsed = JSON.parse(raw);
+            titles.push(parsed.title || parsed.id || file.replace('.json', ''));
+          } catch {
+            titles.push(file.replace('.json', ''));
+          }
+        }
+        result.taskTitles = titles;
+      }
+    } catch {
+      // ignore
+    }
+    return result;
+  }, [container, selectedSpec]);
+
   if (specs.length === 0) {
     return (
       <Box
@@ -138,10 +172,12 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(({
         width="100%"
         flexGrow={1}
       >
-        <Text bold color="cyan">
-          🚀 Welcome to CodeForge
-        </Text>
-        <Box marginY={1}>
+        <Box gap={1} marginBottom={1}>
+          <Text bold color="cyan">
+            🚀 Welcome to CodeForge
+          </Text>
+        </Box>
+        <Box marginBottom={1}>
           <Text dimColor>No specifications found in .codeforge/specs/</Text>
         </Box>
         <Box gap={2} marginTop={1}>
@@ -155,66 +191,128 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(({
     );
   }
 
+  const cleanSelectedTitle = selectedSpec?.title.replace(/^Spec:\s*/i, '').trim();
+
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor="cyan"
-      paddingX={1}
-      paddingY={0}
-      width="100%"
-      flexGrow={1}
-    >
-      <Box justifyContent="space-between" width="100%" marginBottom={1}>
-        <Text bold color="cyan">
-          ● Select a Specification
-        </Text>
-        <Text dimColor>[↑/↓] Move [Enter] Select</Text>
-      </Box>
+    <Box flexDirection="column" width="100%" flexGrow={1} paddingX={1} paddingY={0}>
+      {/* Main Split: 42% Left (Spec List), 58% Right (Spec Preview) */}
+      <Box flexDirection="row" width="100%" flexGrow={1}>
+        {/* Left Column: List of Specifications */}
+        <Box flexDirection="column" width="42%" paddingRight={1}>
+          <Box justifyContent="space-between" width="100%" marginBottom={1}>
+            <Text bold color="cyan">
+              Select a Specification ({specs.length})
+            </Text>
+            <Text dimColor>[↑/↓] Move</Text>
+          </Box>
 
-      <Box flexDirection="column" marginY={0}>
-        {specs.map((s, idx) => {
-          const isSelected = idx === selectedIndex;
-          const cleanTitle = s.title.replace(/^Spec:\s*/i, '').trim();
+          <Box flexDirection="column" gap={0}>
+            {specs.map((s, idx) => {
+              const isSelected = idx === selectedIndex;
+              const cleanTitle = s.title.replace(/^Spec:\s*/i, '').trim();
 
-          return (
-            <Box key={s.name} justifyContent="space-between" width="100%">
-              <Box gap={1} flexShrink={1}>
-                <Text bold color={isSelected ? 'cyan' : undefined}>
-                  {isSelected ? '❯' : ' '}
+              return (
+                <Box key={s.name} justifyContent="space-between" width="100%">
+                  <Box gap={1} flexShrink={1}>
+                    <Text bold color={isSelected ? 'cyan' : 'gray'}>
+                      {isSelected ? theme.symbols.pointer : ' '}
+                    </Text>
+                    <Text
+                      bold={isSelected}
+                      color={isSelected ? 'cyan' : 'white'}
+                      wrap="truncate-end"
+                    >
+                      {s.name}
+                    </Text>
+                  </Box>
+
+                  <Box flexShrink={0} paddingLeft={1}>
+                    <Text dimColor>
+                      {s.taskCount} task{s.taskCount === 1 ? '' : 's'}
+                    </Text>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+
+        {/* Vertical Divider */}
+        <Box flexDirection="column" paddingX={1}>
+          <Text color="gray">{theme.symbols.divider}</Text>
+        </Box>
+
+        {/* Right Column: Specification Preview */}
+        <Box flexDirection="column" width="56%" flexGrow={1} paddingLeft={1}>
+          <Box marginBottom={1}>
+            <Text bold color="gray">
+              Specification Preview
+            </Text>
+          </Box>
+
+          {selectedSpec ? (
+            <Box flexDirection="column" gap={1}>
+              <Box gap={1}>
+                <Text bold color="white">
+                  {selectedSpec.name}
                 </Text>
-                <Box width={22}>
-                  <Text
-                    bold={isSelected}
-                    color={isSelected ? 'cyan' : 'white'}
-                    wrap="truncate-end"
-                  >
-                    {s.name}
+                {cleanSelectedTitle && cleanSelectedTitle !== selectedSpec.name && (
+                  <Text dimColor>— {cleanSelectedTitle}</Text>
+                )}
+              </Box>
+
+              <Box gap={2}>
+                <Text dimColor>
+                  Status: <Text color="cyan">{selectedSpec.status.toUpperCase()}</Text>
+                </Text>
+                <Text color="gray">│</Text>
+                <Text dimColor>
+                  Tasks: <Text bold color="white">{selectedSpec.taskCount}</Text>
+                </Text>
+              </Box>
+
+              {previewDetails.taskTitles.length > 0 && (
+                <Box flexDirection="column" marginTop={0}>
+                  <Text dimColor>Planned tasks:</Text>
+                  {previewDetails.taskTitles.map((title, i) => (
+                    <Box key={i} gap={1} paddingLeft={1}>
+                      <Text color="cyan">{theme.symbols.bullet}</Text>
+                      <Text dimColor wrap="truncate-end">{title}</Text>
+                    </Box>
+                  ))}
+                  {selectedSpec.taskCount > previewDetails.taskTitles.length && (
+                    <Box paddingLeft={1}>
+                      <Text dimColor>
+                        ...and {selectedSpec.taskCount - previewDetails.taskTitles.length} more
+                      </Text>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {selectedSpec.taskCount === 0 && (
+                <Box paddingY={1}>
+                  <Text dimColor>
+                    No task files generated yet. Starting run will initialize tasks.
                   </Text>
                 </Box>
-                {cleanTitle && cleanTitle !== s.name ? (
-                  <Text dimColor wrap="truncate-end">
-                    ({cleanTitle})
-                  </Text>
-                ) : null}
-              </Box>
-
-              <Box flexShrink={0} paddingLeft={1}>
-                <Text dimColor>
-                  {s.taskCount} task{s.taskCount === 1 ? '' : 's'}
-                </Text>
-              </Box>
+              )}
             </Box>
-          );
-        })}
+          ) : (
+            <Text dimColor>No specification selected.</Text>
+          )}
+        </Box>
       </Box>
 
-      <Box gap={1} marginTop={1}>
+      {/* Bottom Actions Bar */}
+      <Box gap={1} marginTop={1} paddingTop={0}>
         <Text bold color="cyan">
           [Enter] Start Run
         </Text>
         <Text color="gray">│</Text>
         <Text dimColor>[c] New Spec</Text>
+        <Text color="gray">│</Text>
+        <Text dimColor>[p] Pull Spec</Text>
         <Text color="gray">│</Text>
         <Text dimColor>[2] Specs Tab</Text>
       </Box>
