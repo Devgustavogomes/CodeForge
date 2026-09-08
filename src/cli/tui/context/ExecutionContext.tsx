@@ -1,9 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { TaskScheduler } from '../../../scheduler/TaskScheduler.js';
-import { AppContainer, createAppContainer } from '../../../infrastructure/container.js';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createAppContainer } from '../../../infrastructure/container.js';
 import { ContainerContext } from './ContainerContext.js';
-import { loadTasksFromDisk } from './ExecutionContext/taskLoader.js';
-import { sanitizeLogChunk, appendTaskLog, DEFAULT_MAX_LOG_LINES } from './ExecutionContext/logBuffer.js';
+import { loadTasksFromDisk, areTasksEqual } from './ExecutionContext/taskLoader.js';
+import {
+  sanitizeLogChunk,
+  appendTaskLog,
+  DEFAULT_MAX_LOG_LINES,
+  LogEventBuffer,
+} from './ExecutionContext/logBuffer.js';
 import { createExecutionReporter, createSchedulerInstance } from './ExecutionContext/executionReporter.js';
 import { useTaskOperations } from './ExecutionContext/taskOperations.js';
 import {
@@ -14,8 +18,17 @@ import {
   ExecutionProviderProps,
 } from './ExecutionContext/types.js';
 
+export const DEFAULT_LOG_FLUSH_INTERVAL_MS = 60;
+
 export type { ExecutionStatus, SchedulerStatus, TaskItem, ExecutionContextValue, ExecutionProviderProps };
-export { sanitizeLogChunk, loadTasksFromDisk, DEFAULT_MAX_LOG_LINES };
+export {
+  sanitizeLogChunk,
+  appendTaskLog,
+  loadTasksFromDisk,
+  DEFAULT_MAX_LOG_LINES,
+  LogEventBuffer,
+  areTasksEqual,
+};
 
 export const ExecutionContext = createContext<ExecutionContextValue | null>(null);
 
@@ -26,6 +39,7 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   initialSpec,
   autoStart = false,
   maxLogLines = DEFAULT_MAX_LOG_LINES,
+  flushIntervalMs = DEFAULT_LOG_FLUSH_INTERVAL_MS,
 }) => {
   const contextContainer = useContext(ContainerContext) ?? undefined;
   const appContainer = useMemo(
@@ -34,9 +48,22 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   );
 
   const [activeSpec, setActiveSpecState] = useState<string | null>(initialSpec ?? null);
-  const [tasks, setTasks] = useState<TaskItem[]>(() =>
+  const [tasks, setTasksState] = useState<TaskItem[]>(() =>
     initialSpec ? loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, initialSpec) : [],
   );
+  const tasksRef = useRef<TaskItem[]>(tasks);
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
+  const setTasks: React.Dispatch<React.SetStateAction<TaskItem[]>> = useCallback((action) => {
+    setTasksState((prev) => {
+      const next = typeof action === 'function' ? (action as (p: TaskItem[]) => TaskItem[])(prev) : action;
+      tasksRef.current = next;
+      return next;
+    });
+  }, []);
+
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => {
     if (!initialSpec) return null;
     const items = loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, initialSpec);
@@ -57,9 +84,42 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   );
   const [logs, setLogs] = useState<Record<string, string[]>>({});
 
+  const logBufferRef = useRef<LogEventBuffer | null>(null);
+  if (!logBufferRef.current) {
+    logBufferRef.current = new LogEventBuffer(maxLogLines);
+  }
+
+  useEffect(() => {
+    if (logBufferRef.current) {
+      logBufferRef.current.setMaxLines(maxLogLines);
+    }
+  }, [maxLogLines]);
+
+  const flushLogs = useCallback(() => {
+    if (logBufferRef.current?.hasPending()) {
+      setLogs(logBufferRef.current.flush());
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      flushLogs();
+    }, flushIntervalMs);
+
+    return () => {
+      clearInterval(timer);
+      if (logBufferRef.current?.hasPending()) {
+        setLogs(logBufferRef.current.flush());
+      }
+    };
+  }, [flushIntervalMs, flushLogs]);
+
   const refreshTasks = useCallback((spec: string) => {
     const items = loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, spec);
-    setTasks(items);
+    if (!areTasksEqual(tasksRef.current, items)) {
+      tasksRef.current = items;
+      setTasksState(items);
+    }
     setSelectedTaskId((prev) => (prev && items.some((t) => t.id === prev) ? prev : items[0]?.id ?? null));
   }, [appContainer]);
 
@@ -72,7 +132,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
       setStartedAt(state?.startedAt);
       setCompletedAt(state?.completedAt);
     } else {
-      setTasks([]);
+      tasksRef.current = [];
+      setTasksState([]);
       setSelectedTaskId(null);
       setSchedulerStatus('idle');
       setStartedAt(undefined);
@@ -85,18 +146,38 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   }, [initialSpec, setActiveSpec]);
 
   const appendLog = useCallback((taskId: string, chunk: string) => {
-    setLogs((prev) => appendTaskLog(prev, taskId, chunk, maxLogLines));
-  }, [maxLogLines]);
+    logBufferRef.current?.append(taskId, chunk);
+  }, []);
 
   const reporter = useMemo(() => createExecutionReporter({
-    onStart: (s) => { setSchedulerStatus('running'); setStartedAt(new Date().toISOString()); setCompletedAt(undefined); refreshTasks(s); },
+    onStart: (s) => {
+      setSchedulerStatus('running');
+      setStartedAt(new Date().toISOString());
+      setCompletedAt(undefined);
+      refreshTasks(s);
+    },
     onUpdate: (s) => refreshTasks(s),
-    onComplete: (s) => { setSchedulerStatus('completed'); setCompletedAt(new Date().toISOString()); refreshTasks(s); },
-    onFail: (s) => { setSchedulerStatus('failed'); setCompletedAt(new Date().toISOString()); refreshTasks(s); },
-    onDeadlock: (s) => { setSchedulerStatus('deadlock'); setCompletedAt(new Date().toISOString()); if (s) refreshTasks(s); },
+    onComplete: (s) => {
+      flushLogs();
+      setSchedulerStatus('completed');
+      setCompletedAt(new Date().toISOString());
+      refreshTasks(s);
+    },
+    onFail: (s) => {
+      flushLogs();
+      setSchedulerStatus('failed');
+      setCompletedAt(new Date().toISOString());
+      refreshTasks(s);
+    },
+    onDeadlock: (s) => {
+      flushLogs();
+      setSchedulerStatus('deadlock');
+      setCompletedAt(new Date().toISOString());
+      if (s) refreshTasks(s);
+    },
     onError: () => setSchedulerStatus('failed'),
     onLog: (taskId, chunk) => appendLog(taskId, chunk),
-  }), [refreshTasks, appendLog]);
+  }), [refreshTasks, flushLogs, appendLog]);
 
   const scheduler = useMemo(() => createSchedulerInstance(appContainer, reporter, propScheduler), [propScheduler, appContainer, reporter]);
   useEffect(() => { if (scheduler) scheduler.setReporter(reporter); }, [scheduler, reporter]);
@@ -113,11 +194,12 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     } catch {
       setSchedulerStatus('failed');
     } finally {
+      flushLogs();
       refreshTasks(spec);
       const state = appContainer.executionStateRepository.load(spec);
       if (state) setSchedulerStatus(state.status as ExecutionStatus);
     }
-  }, [activeSpec, scheduler, setActiveSpec, refreshTasks, appContainer]);
+  }, [activeSpec, scheduler, setActiveSpec, refreshTasks, appContainer, flushLogs]);
 
   useEffect(() => {
     if (autoStart && initialSpec) void startRun(initialSpec);
@@ -129,12 +211,12 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
 
   const getTaskLogs = useCallback((taskId: string) => logs[taskId] || [], [logs]);
   const clearLogs = useCallback((taskId?: string) => {
-    setLogs((prev) => {
-      if (!taskId) return {};
-      const next = { ...prev };
-      delete next[taskId];
-      return next;
-    });
+    if (logBufferRef.current) {
+      logBufferRef.current.clear(taskId);
+      setLogs(logBufferRef.current.flush());
+    } else {
+      setLogs({});
+    }
   }, []);
 
   const selectTask = useCallback((taskId: string | null) => setSelectedTaskId(taskId), []);
@@ -161,3 +243,4 @@ export function useExecution(): ExecutionContextValue {
   }
   return context;
 }
+

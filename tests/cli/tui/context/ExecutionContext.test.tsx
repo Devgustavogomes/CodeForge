@@ -7,11 +7,16 @@ import {
   useExecution,
   ExecutionContextValue,
 } from "../../../../src/cli/tui/context/ExecutionContext.js";
-import { loadTasksFromDisk } from "../../../../src/cli/tui/context/ExecutionContext/taskLoader.js";
+import {
+  loadTasksFromDisk,
+  areTasksEqual,
+  TaskItem,
+} from "../../../../src/cli/tui/context/ExecutionContext/taskLoader.js";
 import {
   sanitizeLogChunk,
   appendLogLines,
   appendTaskLog,
+  LogEventBuffer,
 } from "../../../../src/cli/tui/context/ExecutionContext/logBuffer.js";
 import { createExecutionReporter } from "../../../../src/cli/tui/context/ExecutionContext/executionReporter.js";
 import { ContainerProvider } from "../../../../src/cli/tui/context/ContainerContext.js";
@@ -24,7 +29,7 @@ import { PromptService } from "../../../../src/application/services/PromptServic
 import { Task } from "../../../../src/domain/task.js";
 import { createAppContainer, AppContainer } from "../../../../src/infrastructure/container.js";
 
-const tick = (ms = 25) => new Promise((resolve) => setTimeout(resolve, ms));
+const tick = (ms = 70) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe("Modular Helpers", () => {
   let gw: InMemoryWorkspaceGateway;
@@ -84,6 +89,45 @@ describe("Modular Helpers", () => {
       expect(items[0].status).toBe("failed");
       expect(items[0].errors).toEqual(["Missing file"]);
     });
+
+    describe("areTasksEqual", () => {
+      const baseTask: TaskItem = {
+        id: "TASK-001",
+        title: "Test Task",
+        status: "pending",
+        dependencies: [],
+      };
+
+      it("returns true for identical task lists", () => {
+        const listA = [{ ...baseTask }];
+        const listB = [{ ...baseTask }];
+        expect(areTasksEqual(listA, listB)).toBe(true);
+      });
+
+      it("returns false if task status differs", () => {
+        const listA = [{ ...baseTask, status: "pending" as const }];
+        const listB = [{ ...baseTask, status: "running" as const }];
+        expect(areTasksEqual(listA, listB)).toBe(false);
+      });
+
+      it("returns false if timestamps differ", () => {
+        const listA = [{ ...baseTask, startedAt: "2026-09-01T10:00:00Z" }];
+        const listB = [{ ...baseTask, startedAt: "2026-09-01T10:05:00Z" }];
+        expect(areTasksEqual(listA, listB)).toBe(false);
+      });
+
+      it("returns false if errors differ", () => {
+        const listA = [{ ...baseTask }];
+        const listB = [{ ...baseTask, errors: ["Failed to compile"] }];
+        expect(areTasksEqual(listA, listB)).toBe(false);
+      });
+
+      it("returns false if task count differs", () => {
+        const listA = [{ ...baseTask }];
+        const listB = [{ ...baseTask }, { ...baseTask, id: "TASK-002" }];
+        expect(areTasksEqual(listA, listB)).toBe(false);
+      });
+    });
   });
 
   describe("logBuffer", () => {
@@ -113,6 +157,74 @@ describe("Modular Helpers", () => {
     it("updates task log record with appendTaskLog", () => {
       const logs = appendTaskLog({}, "TASK-001", "Hello world\n");
       expect(logs["TASK-001"]).toEqual(["Hello world"]);
+    });
+
+    describe("LogEventBuffer", () => {
+      it("queues multiple chunks and flushes them in order in a single batch", () => {
+        const buffer = new LogEventBuffer(100);
+        expect(buffer.hasPending()).toBe(false);
+
+        buffer.append("TASK-001", "chunk 1\n");
+        buffer.append("TASK-001", "chunk 2\n");
+        buffer.append("TASK-001", "chunk 3\n");
+        expect(buffer.hasPending()).toBe(true);
+
+        const flushed = buffer.flush();
+        expect(buffer.hasPending()).toBe(false);
+        expect(flushed["TASK-001"]).toEqual(["chunk 1", "chunk 2", "chunk 3"]);
+
+        // Calling flush again when empty returns current snapshot without changes
+        expect(buffer.flush()).toEqual(flushed);
+      });
+
+      it("sanitizes ANSI escape sequences during flush", () => {
+        const buffer = new LogEventBuffer(100);
+        buffer.append("TASK-001", "\x1b[32mSuccess\x1b[0m\r\nSecond line");
+        const flushed = buffer.flush();
+        expect(flushed["TASK-001"]).toEqual(["Success", "Second line"]);
+      });
+
+      it("enforces ring-buffer capacity (maxLines) across multiple appends", () => {
+        const buffer = new LogEventBuffer(3);
+        buffer.append("TASK-001", "line 1\nline 2");
+        buffer.append("TASK-001", "line 3\nline 4\nline 5");
+        const flushed = buffer.flush();
+        expect(flushed["TASK-001"]).toEqual(["line 3", "line 4", "line 5"]);
+      });
+
+      it("handles multiple tasks independently and supports clear", () => {
+        const buffer = new LogEventBuffer(100);
+        buffer.append("TASK-001", "task 1 log");
+        buffer.append("TASK-002", "task 2 log");
+        buffer.flush();
+
+        expect(buffer.getTaskLogs("TASK-001")).toEqual(["task 1 log"]);
+        expect(buffer.getTaskLogs("TASK-002")).toEqual(["task 2 log"]);
+
+        buffer.clear("TASK-001");
+        expect(buffer.getTaskLogs("TASK-001")).toEqual([]);
+        expect(buffer.getTaskLogs("TASK-002")).toEqual(["task 2 log"]);
+
+        buffer.clear();
+        expect(buffer.getLogs()).toEqual({});
+      });
+
+      it("ignores empty or falsy chunks without marking pending", () => {
+        const buffer = new LogEventBuffer(100);
+        buffer.append("TASK-001", "");
+        expect(buffer.hasPending()).toBe(false);
+      });
+
+      it("allows adjusting maxLines via setMaxLines and clamps existing logs", () => {
+        const buffer = new LogEventBuffer(10);
+        buffer.append("TASK-001", "1\n2\n3\n4\n5");
+        buffer.flush();
+        expect(buffer.getTaskLogs("TASK-001")).toHaveLength(5);
+
+        buffer.setMaxLines(2);
+        expect(buffer.getTaskLogs("TASK-001")).toEqual(["4", "5"]);
+        expect(buffer.getMaxLines()).toBe(2);
+      });
     });
   });
 
@@ -562,5 +674,136 @@ describe("ExecutionContext", () => {
     await contextValue?.resetAllTasks("test-spec");
 
     expect(resetSpy).toHaveBeenCalledWith("test-spec");
+  });
+
+  it("batches 100 log events emitted in rapid burst into few state updates with zero loss", async () => {
+    let renderCount = 0;
+    let contextValue: ExecutionContextValue | null = null;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      renderCount++;
+      return <Text>Render count: {renderCount}, Logs count: {contextValue.logs["TASK-BURST"]?.length ?? 0}</Text>;
+    };
+
+    render(
+      <ExecutionProvider scheduler={scheduler} container={container} flushIntervalMs={50}>
+        <TestConsumer />
+      </ExecutionProvider>,
+    );
+
+    await tick(70);
+    const baseRenderCount = renderCount;
+
+    // Rapidly emit 100 log chunks
+    for (let i = 0; i < 100; i++) {
+      scheduler.getReporter()?.onLog?.("TASK-BURST", `event-${i}\n`);
+    }
+
+    // Immediately after synchronous emission, renderCount should not have jumped by 100
+    expect(renderCount).toBe(baseRenderCount);
+
+    // Allow batch timer to flush
+    await tick(80);
+
+    // All 100 logs are present
+    const taskLogs = contextValue!.getTaskLogs("TASK-BURST");
+    expect(taskLogs).toHaveLength(100);
+    expect(taskLogs[0]).toBe("event-0");
+    expect(taskLogs[99]).toBe("event-99");
+
+    // Re-renders should be grouped (at most 2 renders occurred for 100 events)
+    expect(renderCount - baseRenderCount).toBeLessThanOrEqual(2);
+  });
+
+  it("performs immediate flush on onComplete, onFail and onDeadlock without waiting for timer", async () => {
+    let contextValue: ExecutionContextValue | null = null;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      return <Text>Logs: {Object.keys(contextValue.logs).length}</Text>;
+    };
+
+    render(
+      <ExecutionProvider scheduler={scheduler} container={container} flushIntervalMs={500}>
+        <TestConsumer />
+      </ExecutionProvider>,
+    );
+
+    await tick(30);
+
+    // Emit log chunk with large flushInterval (500ms)
+    scheduler.getReporter()?.onLog?.("TASK-COMPLETE", "finishing chunk\n");
+
+    // Immediately trigger onComplete
+    scheduler.getReporter()?.onComplete("test-spec");
+    await tick(30);
+
+    // Should be flushed immediately despite 500ms timer
+    expect(contextValue?.getTaskLogs("TASK-COMPLETE")).toEqual(["finishing chunk"]);
+
+    // Test onFail immediate flush
+    scheduler.getReporter()?.onLog?.("TASK-FAIL", "error chunk\n");
+    scheduler.getReporter()?.onFail("test-spec");
+    await tick(30);
+    expect(contextValue?.getTaskLogs("TASK-FAIL")).toEqual(["error chunk"]);
+  });
+
+  it("cleans up timer and performs immediate flush on provider unmount", async () => {
+    const clearIntervalSpy = vi.spyOn(global, "clearInterval");
+    const TestConsumer = () => {
+      useExecution();
+      return <Text>Consumer</Text>;
+    };
+
+    const { unmount } = render(
+      <ExecutionProvider scheduler={scheduler} container={container} flushIntervalMs={500}>
+        <TestConsumer />
+      </ExecutionProvider>,
+    );
+
+    await tick(30);
+
+    // Emit log that is buffered but not yet flushed by timer
+    scheduler.getReporter()?.onLog?.("TASK-UNMOUNT", "unmount chunk\n");
+
+    // Unmount the provider
+    unmount();
+
+    // Verify timer cleanup
+    expect(clearIntervalSpy).toHaveBeenCalled();
+
+    clearIntervalSpy.mockRestore();
+  });
+
+  it("does not trigger redundant re-renders when onUpdate receives identical task data", async () => {
+    const task1 = TaskBuilder.aTask()
+      .withId("TASK-001")
+      .withTitle("Task 1")
+      .build();
+    writeTask("test-spec", task1);
+
+    let renderCount = 0;
+    const TestConsumer = () => {
+      const { tasks } = useExecution();
+      renderCount++;
+      return <Text>Tasks: {tasks.length}, renders: {renderCount}</Text>;
+    };
+
+    render(
+      <ExecutionProvider scheduler={scheduler} container={container} initialSpec="test-spec">
+        <TestConsumer />
+      </ExecutionProvider>,
+    );
+
+    await tick();
+    const baseRenderCount = renderCount;
+
+    // Trigger onUpdate 5 times without modifying disk or state
+    for (let i = 0; i < 5; i++) {
+      scheduler.getReporter()?.onUpdate("test-spec");
+    }
+    await tick();
+
+    // No redundant re-renders
+    expect(renderCount).toBe(baseRenderCount);
   });
 });

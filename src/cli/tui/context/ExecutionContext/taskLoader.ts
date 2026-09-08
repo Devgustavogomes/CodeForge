@@ -85,3 +85,39 @@ export function loadTasksFromDisk(
 }
 
 export const loadTaskItems = loadTasksFromDisk;
+
+/**
+ * Compares two task lists by id, status, startedAt, completedAt, and errors
+ * to determine if the state has genuinely changed.
+ */
+export function areTasksEqual(
+  prevTasks: TaskItem[] = [],
+  newTasks: TaskItem[] = [],
+): boolean {
+  if (prevTasks === newTasks) return true;
+  if (prevTasks.length !== newTasks.length) return false;
+
+  for (let i = 0; i < prevTasks.length; i++) {
+    const prev = prevTasks[i];
+    const next = newTasks[i];
+
+    if (prev.id !== next.id) return false;
+    if (prev.status !== next.status) return false;
+    if (prev.startedAt !== next.startedAt) return false;
+    if (prev.completedAt !== next.completedAt) return false;
+    if (prev.title !== next.title) return false;
+
+    const prevErrors = prev.errors;
+    const nextErrors = next.errors;
+    if (prevErrors !== nextErrors) {
+      if (!prevErrors || !nextErrors) return false;
+      if (prevErrors.length !== nextErrors.length) return false;
+      for (let j = 0; j < prevErrors.length; j++) {
+        if (prevErrors[j] !== nextErrors[j]) return false;
+      }
+    }
+  }
+
+  return true;
+}
+

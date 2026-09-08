@@ -16,6 +16,7 @@ export interface RenderWithProvidersOptions {
   scheduler?: TaskScheduler;
   autoStart?: boolean;
   maxLogLines?: number;
+  flushIntervalMs?: number;
 }
 
 export function createMockContainer(overrides?: Partial<AppContainerDependencies>): AppContainer {
@@ -36,6 +37,7 @@ export interface TestProvidersProps {
   scheduler?: TaskScheduler;
   autoStart?: boolean;
   maxLogLines?: number;
+  flushIntervalMs?: number;
 }
 
 export const TestProviders: React.FC<TestProvidersProps> = ({
@@ -47,6 +49,7 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
   scheduler,
   autoStart = false,
   maxLogLines,
+  flushIntervalMs,
 }) => {
   const resolvedContainer = container ?? createMockContainer();
   const spec = initialSpec ?? initialActiveSpec ?? undefined;
@@ -60,6 +63,7 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
           initialSpec={spec}
           autoStart={autoStart}
           maxLogLines={maxLogLines}
+          flushIntervalMs={flushIntervalMs}
         >
           {children}
         </ExecutionProvider>
@@ -82,6 +86,12 @@ export function renderWithProviders(
 
   return {
     ...renderResult,
+    rerender: (newUi: ReactElement) =>
+      renderResult.rerender(
+        <TestProviders {...options} container={container}>
+          {newUi}
+        </TestProviders>,
+      ),
     container,
   };
 }

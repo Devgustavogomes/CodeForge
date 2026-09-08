@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex */
 export const DEFAULT_MAX_LOG_LINES = 1000;
 export const MAX_LOG_LINES = 1000;
 export const MAX_LINE_CHARS = 5000;
@@ -53,4 +54,105 @@ export function appendTaskLog(
     ...logs,
     [taskId]: appendLogLines(logs[taskId] || [], chunk, maxLines),
   };
+}
+
+/**
+ * Buffer for batching log chunks per task before flushing to React state.
+ */
+export class LogEventBuffer {
+  private maxLines: number;
+  private logs: Record<string, string[]>;
+  private pendingQueue: Map<string, string[]>;
+
+  constructor(
+    maxLines: number = DEFAULT_MAX_LOG_LINES,
+    initialLogs: Record<string, string[]> = {},
+  ) {
+    this.maxLines = maxLines;
+    this.logs = { ...initialLogs };
+    this.pendingQueue = new Map();
+  }
+
+  /**
+   * Enqueues a log chunk for the specified taskId.
+   */
+  append(taskId: string, chunk: string): void {
+    if (!chunk) return;
+    const queue = this.pendingQueue.get(taskId);
+    if (queue) {
+      queue.push(chunk);
+    } else {
+      this.pendingQueue.set(taskId, [chunk]);
+    }
+  }
+
+  /**
+   * Returns true if there are pending chunks waiting to be flushed.
+   */
+  hasPending(): boolean {
+    return this.pendingQueue.size > 0;
+  }
+
+  /**
+   * Flushes all pending chunks in batch, applying sanitization and ring-buffer capping,
+   * and returns a consolidated snapshot of logs.
+   */
+  flush(): Record<string, string[]> {
+    if (this.pendingQueue.size > 0) {
+      for (const [taskId, chunks] of this.pendingQueue.entries()) {
+        let current = this.logs[taskId] || [];
+        for (const chunk of chunks) {
+          current = appendLogLines(current, chunk, this.maxLines);
+        }
+        this.logs[taskId] = current;
+      }
+      this.pendingQueue.clear();
+    }
+    return { ...this.logs };
+  }
+
+  /**
+   * Clears logs and pending chunks for a specific taskId or for all tasks.
+   */
+  clear(taskId?: string): void {
+    if (taskId) {
+      delete this.logs[taskId];
+      this.pendingQueue.delete(taskId);
+    } else {
+      this.logs = {};
+      this.pendingQueue.clear();
+    }
+  }
+
+  /**
+   * Returns current consolidated logs snapshot.
+   */
+  getLogs(): Record<string, string[]> {
+    return { ...this.logs };
+  }
+
+  private static readonly EMPTY_LOGS: string[] = [];
+
+  /**
+   * Returns log lines for a specific taskId.
+   */
+  getTaskLogs(taskId: string): string[] {
+    return this.logs[taskId] || LogEventBuffer.EMPTY_LOGS;
+  }
+
+  /**
+   * Sets maxLines capacity and trims existing logs if needed.
+   */
+  setMaxLines(maxLines: number): void {
+    this.maxLines = maxLines;
+    for (const taskId of Object.keys(this.logs)) {
+      if (this.logs[taskId].length > maxLines) {
+        this.logs[taskId] = this.logs[taskId].slice(this.logs[taskId].length - maxLines);
+      }
+    }
+  }
+
+  getMaxLines(): number {
+    return this.maxLines;
+  }
 }

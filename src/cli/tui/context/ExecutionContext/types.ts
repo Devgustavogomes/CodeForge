@@ -37,4 +37,6 @@ export interface ExecutionProviderProps {
   initialSpec?: string;
   autoStart?: boolean;
   maxLogLines?: number;
+  flushIntervalMs?: number;
 }
+
