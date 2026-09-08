@@ -166,6 +166,9 @@ describe('ConfigScreen component', () => {
     expect(output).toContain('Configuração de Hooks');
     expect(output).toContain('run.started');
     expect(output).toContain('task.verify');
+    // Ensure modal replaces the 2 main boxes (Editor and Summary inspector)
+    expect(output).not.toContain('CodeForge Configuration Editor');
+    expect(output).not.toContain('Hooks Summary');
   });
 
   it('renders categorized preview when hooks field is active', async () => {
@@ -208,7 +211,9 @@ describe('ConfigScreen component', () => {
     stdin.write('\r');
     await tick();
 
-    expect(lastFrame() ?? '').toContain('Configuração de Hooks');
+    const modalOutput = lastFrame() ?? '';
+    expect(modalOutput).toContain('Configuração de Hooks');
+    expect(modalOutput).not.toContain('CodeForge Configuration Editor');
 
     // Press Esc to close
     stdin.write('\u001B');

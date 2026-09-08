@@ -64,6 +64,19 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   const isSideBySide = breakpoint !== 'minimal';
   const { config, activeField, isDirty, feedback } = configState;
 
+  if (configState.isHooksModalOpen) {
+    return (
+      <ConfigureHooksModal
+        isOpen={true}
+        onClose={configState.closeHooksModal}
+        config={config}
+        configService={configService ?? container?.configService}
+        onUpdateHooks={configState.handleUpdateHooks}
+        width="100%"
+      />
+    );
+  }
+
   return (
     <Box flexDirection="column" width="100%" flexGrow={1}>
       <Box flexDirection={isSideBySide ? 'row' : 'column'} width="100%" flexGrow={1}>
@@ -107,17 +120,6 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
           availableEnvironments={configState.availableEnvironments}
         />
       </Box>
-
-      {/* Modal de Configuração de Hooks */}
-      {configState.isHooksModalOpen && (
-        <ConfigureHooksModal
-          isOpen={configState.isHooksModalOpen}
-          onClose={configState.closeHooksModal}
-          config={config}
-          configService={configService ?? container?.configService}
-          onUpdateHooks={configState.handleUpdateHooks}
-        />
-      )}
     </Box>
   );
 };

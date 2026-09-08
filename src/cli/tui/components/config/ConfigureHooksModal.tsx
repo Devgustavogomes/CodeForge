@@ -32,7 +32,7 @@ export const ConfigureHooksModal: React.FC<ConfigureHooksModalProps> = ({
   config,
   configService,
   onUpdateHooks,
-  width,
+  width = '100%',
 }) => {
   const { breakpoint } = useTerminalDimensions();
 
@@ -81,10 +81,8 @@ export const ConfigureHooksModal: React.FC<ConfigureHooksModalProps> = ({
       : `Novo Hook — ${selectedEvent}`;
   }
 
-  // Largura responsiva conforme dimensões do terminal
-  const responsiveWidth =
-    width ??
-    (breakpoint === 'minimal' ? '100%' : breakpoint === 'wide' ? 88 : '90%');
+  // Largura responsiva conforme dimensões do terminal (padrão 100% full-width modal)
+  const responsiveWidth = width ?? '100%';
 
   return (
     <Modal
