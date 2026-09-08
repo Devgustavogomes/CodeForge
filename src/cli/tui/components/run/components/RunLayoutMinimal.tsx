@@ -34,6 +34,7 @@ export const RunLayoutMinimal: React.FC<RunLayoutMinimalProps> = memo(({
       borderColor="yellow"
       paddingX={1}
       width="100%"
+      overflow="hidden"
     >
       <Box justifyContent="space-between">
         <Text bold color="yellow">

@@ -34,6 +34,8 @@ export interface RunDashboardProps {
   startedAt?: string;
   completedAt?: string;
   onSelectSpec?: () => void;
+  logs?: Record<string, string[]>;
+  taskLogs?: string[];
 }
 
 export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
@@ -51,6 +53,8 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
     selectedTaskId,
     selectedTask,
     focusedPanel,
+    logs,
+    taskLogs,
     completedCount,
     failedCount,
     runningCount,
@@ -103,6 +107,8 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
         selectedTaskId={selectedTaskId}
         selectedTask={selectedTask}
         terminalRows={terminalDims.rows}
+        logs={logs}
+        taskLogs={taskLogs}
       />
     );
   }
@@ -115,6 +121,8 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
       selectedTaskId={selectedTaskId}
       selectedTask={selectedTask}
       terminalRows={terminalDims.rows}
+      logs={logs}
+      taskLogs={taskLogs}
     />
   );
 });

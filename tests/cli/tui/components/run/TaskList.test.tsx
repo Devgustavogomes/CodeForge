@@ -1,13 +1,27 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { TaskList, formatDuration } from '../../../../../src/cli/tui/components/run/TaskList.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  TaskList,
+  areTaskRowPropsEqual,
+  formatDuration,
+} from '../../../../../src/cli/tui/components/run/TaskList.js';
 import { TaskItem } from '../../../../../src/cli/tui/context/ExecutionContext.js';
-import { SPINNER_FRAMES } from '../../../../../src/cli/tui/components/common/Spinner.js';
+import {
+  SPINNER_FRAMES,
+  resetSharedSpinnerTicker,
+} from '../../../../../src/cli/tui/components/common/Spinner.js';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('TaskList component', () => {
+  beforeEach(() => {
+    resetSharedSpinnerTicker();
+  });
+
+  afterEach(() => {
+    resetSharedSpinnerTicker();
+  });
   const mockTasks: TaskItem[] = [
     {
       id: 'TASK-001',
@@ -166,4 +180,131 @@ describe('TaskList component', () => {
       formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T11:02:30.000Z')
     ).toBe('1h 2m 30s');
   });
+
+  describe('areTaskRowPropsEqual comparator', () => {
+    const baseTask: TaskItem = {
+      id: 'TASK-001',
+      title: 'Setup task',
+      status: 'completed',
+      dependencies: [],
+      startedAt: '2026-09-06T10:00:00.000Z',
+      completedAt: '2026-09-06T10:00:05.000Z',
+    };
+
+    it('returns true when references and values are identical', () => {
+      const prev = { task: baseTask, isSelected: false, isFocused: true };
+      const next = { task: baseTask, isSelected: false, isFocused: true };
+      expect(areTaskRowPropsEqual(prev, next)).toBe(true);
+    });
+
+    it('returns true when task object is a clone with equal fields', () => {
+      const prev = { task: baseTask, isSelected: true, isFocused: true };
+      const next = {
+        task: { ...baseTask, errors: ['different errors but ignored in row'] },
+        isSelected: true,
+        isFocused: true,
+      };
+      expect(areTaskRowPropsEqual(prev, next)).toBe(true);
+    });
+
+    it('returns false when isSelected changes', () => {
+      const prev = { task: baseTask, isSelected: false, isFocused: true };
+      const next = { task: baseTask, isSelected: true, isFocused: true };
+      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+    });
+
+    it('returns false when isFocused changes', () => {
+      const prev = { task: baseTask, isSelected: true, isFocused: false };
+      const next = { task: baseTask, isSelected: true, isFocused: true };
+      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+    });
+
+    it('returns false when task status changes', () => {
+      const prev = { task: baseTask, isSelected: false, isFocused: false };
+      const next = {
+        task: { ...baseTask, status: 'running' as const },
+        isSelected: false,
+        isFocused: false,
+      };
+      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+    });
+
+    it('returns false when task title changes', () => {
+      const prev = { task: baseTask, isSelected: false, isFocused: false };
+      const next = {
+        task: { ...baseTask, title: 'Updated Title' },
+        isSelected: false,
+        isFocused: false,
+      };
+      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+    });
+
+    it('returns false when startedAt changes', () => {
+      const prev = { task: baseTask, isSelected: false, isFocused: false };
+      const next = {
+        task: { ...baseTask, startedAt: '2026-09-06T10:00:01.000Z' },
+        isSelected: false,
+        isFocused: false,
+      };
+      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+    });
+
+    it('returns false when completedAt changes', () => {
+      const prev = { task: baseTask, isSelected: false, isFocused: false };
+      const next = {
+        task: { ...baseTask, completedAt: '2026-09-06T10:00:10.000Z' },
+        isSelected: false,
+        isFocused: false,
+      };
+      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+    });
+  });
+
+  it('preserves TaskRow rendering and isolates active spinner without affecting other rows', async () => {
+    const tasks: TaskItem[] = [
+      {
+        id: 'TASK-DONE',
+        title: 'Finished work',
+        status: 'completed',
+        dependencies: [],
+        startedAt: '2026-09-06T10:00:00.000Z',
+        completedAt: '2026-09-06T10:00:10.000Z',
+      },
+      {
+        id: 'TASK-ACTIVE',
+        title: 'In progress work',
+        status: 'running',
+        dependencies: [],
+        startedAt: new Date().toISOString(),
+      },
+    ];
+
+    const { lastFrame, unmount } = renderWithProviders(
+      <TaskList tasks={tasks} selectedTaskId="TASK-DONE" isFocused={true} />
+    );
+
+    const initial = lastFrame() ?? '';
+    expect(initial).toContain('TASK-DONE');
+    expect(initial).toContain('✓');
+    expect(initial).toContain('10s');
+    expect(initial).toContain('TASK-ACTIVE');
+    expect(initial).toContain(SPINNER_FRAMES[0]);
+
+    // Advance timer to let spinner tick
+    for (let i = 0; i < 20; i++) {
+      await sleep(25);
+      if (lastFrame()?.includes(SPINNER_FRAMES[1])) break;
+    }
+
+    const afterTick = lastFrame() ?? '';
+    // Completed task row remains intact and unchanged
+    expect(afterTick).toContain('TASK-DONE');
+    expect(afterTick).toContain('✓');
+    expect(afterTick).toContain('10s');
+    // Active task row has updated spinner
+    expect(afterTick).toContain(SPINNER_FRAMES[1]);
+
+    unmount();
+  });
 });
+

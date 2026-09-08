@@ -54,6 +54,49 @@ export interface TaskRowProps {
   isFocused: boolean;
 }
 
+export interface TaskRowDurationProps {
+  status: TaskStatus;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+export const TaskRowDuration: React.FC<TaskRowDurationProps> = React.memo(({
+  status,
+  startedAt,
+  completedAt,
+}) => {
+  const isRunning = status === 'running';
+
+  const { formatted: runningElapsed } = useElapsedTime({
+    startTime: startedAt,
+    isRunning,
+  });
+
+  const duration = isRunning
+    ? (startedAt ? runningElapsed : '-')
+    : formatDuration(startedAt, completedAt);
+
+  return <Text dimColor>{duration}</Text>;
+});
+TaskRowDuration.displayName = 'TaskRowDuration';
+
+export function areTaskRowPropsEqual(prev: TaskRowProps, next: TaskRowProps): boolean {
+  if (prev.isSelected !== next.isSelected) return false;
+  if (prev.isFocused !== next.isFocused) return false;
+  if (prev.task === next.task) return true;
+  if (!prev.task || !next.task) return false;
+
+  const p = prev.task;
+  const n = next.task;
+  return (
+    p.id === n.id &&
+    p.status === n.status &&
+    p.title === n.title &&
+    p.startedAt === n.startedAt &&
+    p.completedAt === n.completedAt
+  );
+}
+
 export const TaskRow: React.FC<TaskRowProps> = React.memo(({
   task,
   isSelected,
@@ -61,15 +104,6 @@ export const TaskRow: React.FC<TaskRowProps> = React.memo(({
 }) => {
   const statusCfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.pending;
   const isRunning = task.status === 'running';
-
-  const { formatted: runningElapsed } = useElapsedTime({
-    startTime: task.startedAt,
-    isRunning,
-  });
-
-  const duration = isRunning
-    ? (task.startedAt ? runningElapsed : '-')
-    : formatDuration(task.startedAt, task.completedAt);
 
   return (
     <Box justifyContent="space-between" width="100%">
@@ -109,11 +143,15 @@ export const TaskRow: React.FC<TaskRowProps> = React.memo(({
 
       {/* Duration */}
       <Box flexShrink={0} paddingLeft={1}>
-        <Text dimColor>{duration}</Text>
+        <TaskRowDuration
+          status={task.status}
+          startedAt={task.startedAt}
+          completedAt={task.completedAt}
+        />
       </Box>
     </Box>
   );
-});
+}, areTaskRowPropsEqual);
 TaskRow.displayName = 'TaskRow';
 
 export function areTaskListPropsEqual(prev: TaskListProps, next: TaskListProps): boolean {

@@ -19,6 +19,8 @@ export interface UseRunDashboardOptions {
   startedAt?: string;
   completedAt?: string;
   onSelectSpec?: () => void;
+  logs?: Record<string, string[]>;
+  taskLogs?: string[];
 }
 
 export function useRunDashboard(options: UseRunDashboardOptions = {}) {
@@ -80,12 +82,19 @@ export function useRunDashboard(options: UseRunDashboardOptions = {}) {
   );
   const totalCount = tasks.length;
 
+  const selectedTaskLogs =
+    options.taskLogs !== undefined
+      ? options.taskLogs
+      : (selectedTaskId ? (options.logs?.[selectedTaskId] ?? exec.getTaskLogs(selectedTaskId)) : undefined);
+
   return {
     focusedPanel,
     setFocusedPanel,
     tasks,
     selectedTaskId,
     selectedTask,
+    logs: options.logs ?? exec.logs,
+    taskLogs: selectedTaskLogs,
     completedCount,
     failedCount,
     runningCount,
