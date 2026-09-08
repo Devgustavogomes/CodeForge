@@ -63,12 +63,17 @@ const AppContent: React.FC<{
   const { exit } = useApp();
   const { rows } = useTerminalDimensions();
 
-  // Manage full-screen alternative screen buffer switching
+  // Manage full-screen alternative screen buffer switching and terminal cleanup
   useEffect(() => {
     if (enableAlternateScreen && process.stdout?.isTTY) {
       process.stdout.write('\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H');
-      return () => {
+      const restore = () => {
         process.stdout.write('\x1b[?25h\x1b[?1049l');
+      };
+      process.on('exit', restore);
+      return () => {
+        process.off('exit', restore);
+        restore();
       };
     }
   }, [enableAlternateScreen]);
@@ -79,6 +84,19 @@ const AppContent: React.FC<{
     }
     exit();
   }, [onExit, exit]);
+
+  // Clean signal handling on unmount / interruption
+  useEffect(() => {
+    const handleSignal = () => {
+      handleQuit();
+    };
+    process.on('SIGINT', handleSignal);
+    process.on('SIGTERM', handleSignal);
+    return () => {
+      process.off('SIGINT', handleSignal);
+      process.off('SIGTERM', handleSignal);
+    };
+  }, [handleQuit]);
 
   // Global keyboard shortcuts (arrows reserved for inside-screen navigation)
   useKeyboardShortcuts({

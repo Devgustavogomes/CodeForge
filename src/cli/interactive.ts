@@ -52,14 +52,20 @@ export async function runInteractiveMenu(options: RunInteractiveOptions = {}): P
     process.exit(0);
   };
 
+  const exitHandler = () => {
+    cleanup();
+  };
+
   process.on("SIGINT", sigintHandler);
   process.on("SIGTERM", sigintHandler);
+  process.on("exit", exitHandler);
 
   try {
     await instance.waitUntilExit();
   } finally {
     process.off("SIGINT", sigintHandler);
     process.off("SIGTERM", sigintHandler);
+    process.off("exit", exitHandler);
     cleanup();
   }
 }
