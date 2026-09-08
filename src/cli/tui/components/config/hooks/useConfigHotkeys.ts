@@ -19,6 +19,7 @@ export interface UseConfigHotkeysProps {
   onCommitEditing: () => void;
   onCancelEditing: () => void;
   onClearFeedback?: () => void;
+  onOpenHooksModal?: () => void;
 }
 
 export function useConfigHotkeys({
@@ -37,6 +38,7 @@ export function useConfigHotkeys({
   onCommitEditing,
   onCancelEditing,
   onClearFeedback,
+  onOpenHooksModal,
 }: UseConfigHotkeysProps) {
   const nav = useContext(NavigationContext);
 
@@ -150,6 +152,23 @@ export function useConfigHotkeys({
         }
         if (input === 'e') {
           onStartCustomEdit();
+          return;
+        }
+      }
+
+      if (activeField === 'hooks') {
+        if (
+          key.return ||
+          input === '\r' ||
+          input === '\n' ||
+          input === ' ' ||
+          key.rightArrow
+        ) {
+          if (onOpenHooksModal) {
+            onOpenHooksModal();
+          } else {
+            onStartEditing();
+          }
           return;
         }
       }

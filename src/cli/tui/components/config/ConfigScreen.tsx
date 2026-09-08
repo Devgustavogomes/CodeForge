@@ -12,6 +12,7 @@ import {
 } from './components/ConfigField.js';
 import { ConfigFeedback } from './components/ConfigFeedback.js';
 import { ConfigPreview } from './components/ConfigPreview.js';
+import { ConfigureHooksModal } from './ConfigureHooksModal.js';
 import { useConfigScreen } from './hooks/useConfigScreen.js';
 import { useConfigHotkeys } from './hooks/useConfigHotkeys.js';
 
@@ -42,7 +43,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   });
 
   useConfigHotkeys({
-    isInteractive,
+    isInteractive: isInteractive && !configState.isHooksModalOpen,
     isEditing: configState.isEditing,
     activeField: configState.activeField,
     setEditValue: configState.setEditValue,
@@ -57,6 +58,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     onCommitEditing: configState.commitEditing,
     onCancelEditing: configState.cancelEditing,
     onClearFeedback: () => configState.setFeedback(null),
+    onOpenHooksModal: configState.openHooksModal,
   });
 
   const isSideBySide = breakpoint !== 'minimal';
@@ -91,7 +93,6 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
               config={config}
               availableEnvironments={configState.availableEnvironments}
               currentAgentOptions={configState.currentAgentOptions}
-              getHookCommand={configState.getHookCommand}
             />
           ))}
         </Box>
@@ -106,6 +107,17 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
           availableEnvironments={configState.availableEnvironments}
         />
       </Box>
+
+      {/* Modal de Configuração de Hooks */}
+      {configState.isHooksModalOpen && (
+        <ConfigureHooksModal
+          isOpen={configState.isHooksModalOpen}
+          onClose={configState.closeHooksModal}
+          config={config}
+          configService={configService ?? container?.configService}
+          onUpdateHooks={configState.handleUpdateHooks}
+        />
+      )}
     </Box>
   );
 };

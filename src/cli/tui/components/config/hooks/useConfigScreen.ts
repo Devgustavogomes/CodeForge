@@ -4,7 +4,7 @@ import { NavigationContext } from '../../../context/NavigationContext.js';
 import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
 import { ConfigService } from '../../../../../config/ConfigService.js';
 import { CodeForgeConfig } from '../../../../../config/types.js';
-import { HookDefinition } from '../../../../../domain/hook.js';
+import { HookMap } from '../../../../../domain/hook.js';
 import { ConfigFieldKey, FIELD_ORDER, LANGUAGES } from '../components/ConfigField.js';
 
 export interface UseConfigScreenOptions {
@@ -48,6 +48,22 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     message: string;
   } | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [isHooksModalOpen, setIsHooksModalOpen] = useState(false);
+
+  const openHooksModal = useCallback(() => {
+    setIsHooksModalOpen(true);
+  }, []);
+
+  const closeHooksModal = useCallback(() => {
+    setIsHooksModalOpen(false);
+  }, []);
+
+  const handleUpdateHooks = useCallback((newHooks: HookMap) => {
+    setConfig((prev) => ({
+      ...prev,
+      hooks: newHooks,
+    }));
+  }, []);
 
   const activeField = FIELD_ORDER[focusedFieldIndex];
 
@@ -146,17 +162,6 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     config.executorAgent,
   ]);
 
-  const getHookCommand = useCallback(
-    (hookName: 'run.started' | 'run.completed'): string => {
-      const hookEntry = config.hooks?.[hookName];
-      if (!hookEntry) return '';
-      if (Array.isArray(hookEntry)) {
-        return hookEntry.map((h) => h.run).join(' && ');
-      }
-      return '';
-    },
-    [config.hooks],
-  );
 
   useEffect(() => {
     nav?.setTextInputActive?.(isEditing);
@@ -273,6 +278,10 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
       handleSave();
       return;
     }
+    if (activeField === 'hooks') {
+      openHooksModal();
+      return;
+    }
 
     setEditValue('');
     setIsEditing(true);
@@ -284,6 +293,7 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     handleCyclePlannerAgent,
     handleCycleExecutorAgent,
     handleSave,
+    openHooksModal,
   ]);
 
   const startCustomEdit = useCallback(() => {
@@ -306,24 +316,6 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
         updated.plannerAgent = trimmed || prev.plannerAgent;
       } else if (activeField === 'executorAgent') {
         updated.executorAgent = trimmed || prev.executorAgent;
-      } else if (activeField === 'preRunHook') {
-        const cmd = trimmed || getHookCommand('run.started');
-        const list: HookDefinition[] = cmd
-          ? [{ name: 'run-started-hook', run: cmd, type: 'notify' }]
-          : [];
-        updated.hooks = {
-          ...(updated.hooks || {}),
-          'run.started': list.length > 0 ? list : undefined,
-        };
-      } else if (activeField === 'postRunHook') {
-        const cmd = trimmed || getHookCommand('run.completed');
-        const list: HookDefinition[] = cmd
-          ? [{ name: 'run-completed-hook', run: cmd, type: 'notify' }]
-          : [];
-        updated.hooks = {
-          ...(updated.hooks || {}),
-          'run.completed': list.length > 0 ? list : undefined,
-        };
       }
       return updated;
     });
@@ -334,7 +326,7 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
       type: 'info',
       message: `Updated ${activeField}. Press 's' to persist to config.yaml.`,
     });
-  }, [activeField, editValue, getHookCommand]);
+  }, [activeField, editValue]);
 
   return {
     config,
@@ -353,7 +345,11 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     availableEnvironments,
     currentAgentOptions,
     isLoadingAgents,
-    getHookCommand,
+    isHooksModalOpen,
+    openHooksModal,
+    closeHooksModal,
+    handleUpdateHooks,
+    configService,
     handleSave,
     handleCycleLanguage,
     handleCycleEnvironment,

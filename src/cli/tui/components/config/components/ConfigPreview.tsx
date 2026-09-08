@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { CodeForgeConfig } from '../../../../../config/types.js';
+import { HOOK_EVENTS } from '../../../../../domain/hook.js';
 import { ConfigFieldKey } from './ConfigField.js';
 
 export interface ConfigPreviewProps {
@@ -28,7 +29,36 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
       borderColor="gray"
       paddingX={1}
     >
-      {activeField === 'plannerAgent' || activeField === 'executorAgent' ? (
+      {activeField === 'hooks' ? (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text bold color="cyan">
+            Hooks Summary
+          </Text>
+          <Box flexDirection="column" marginY={0}>
+            {HOOK_EVENTS.filter(
+              (event) => (config.hooks?.[event]?.length ?? 0) > 0,
+            ).map((event) => {
+              const list = config.hooks?.[event] || [];
+              const types = Array.from(
+                new Set(list.map((h) => h.type || 'notify')),
+              ).join('/');
+              return (
+                <Box key={event}>
+                  <Text color="white">
+                    {event}: {list.length} {list.length === 1 ? 'hook' : 'hooks'} [{types}]
+                  </Text>
+                </Box>
+              );
+            })}
+            <Text dimColor>outros: 0</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text color="cyan" bold>
+              [Enter] Abrir Gerenciador de Hooks
+            </Text>
+          </Box>
+        </Box>
+      ) : activeField === 'plannerAgent' || activeField === 'executorAgent' ? (
         <Box flexDirection="column" marginBottom={1}>
           <Box justifyContent="space-between" marginBottom={0}>
             <Text bold color="cyan">
@@ -96,11 +126,21 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
 
       <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1} flexDirection="column">
         <Text bold color="white">Navigation Shortcuts:</Text>
-        <Text dimColor>[↑/↓] or [Tab] Select Field</Text>
-        <Text dimColor>[Space/←/→] Cycle Option</Text>
-        <Text dimColor>[e] Custom Edit</Text>
-        <Text dimColor>[s] Quick Save to File</Text>
-        <Text dimColor>[Esc] Cancel Edit</Text>
+        {activeField === 'hooks' ? (
+          <>
+            <Text dimColor>[Enter] Abrir Gerenciador de Hooks</Text>
+            <Text dimColor>[↑/↓] or [Tab] Select Field</Text>
+            <Text dimColor>[s] Quick Save to File</Text>
+          </>
+        ) : (
+          <>
+            <Text dimColor>[↑/↓] or [Tab] Select Field</Text>
+            <Text dimColor>[Space/←/→] Cycle Option</Text>
+            <Text dimColor>[e] Custom Edit</Text>
+            <Text dimColor>[s] Quick Save to File</Text>
+            <Text dimColor>[Esc] Cancel Edit</Text>
+          </>
+        )}
       </Box>
     </Box>
   );

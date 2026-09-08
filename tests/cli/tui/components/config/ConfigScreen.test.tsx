@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { ConfigScreen } from '../../../../../src/cli/tui/components/config/ConfigScreen.js';
+import { useConfigScreen } from '../../../../../src/cli/tui/components/config/hooks/useConfigScreen.js';
 import { ConfigFeedback } from '../../../../../src/cli/tui/components/config/components/ConfigFeedback.js';
 import { ConfigField } from '../../../../../src/cli/tui/components/config/components/ConfigField.js';
 import { ConfigService } from '../../../../../src/config/ConfigService.js';
@@ -33,7 +34,10 @@ describe('ConfigScreen component', () => {
     expect(output).toContain('antigravity');
     expect(output).toContain('pro');
     expect(output).toContain('flash');
-    expect(output).toContain('npm run test:fast');
+    expect(output).toContain('5. Hooks:');
+    expect(output).toContain('[ 2 configurados ]');
+    expect(output).not.toContain('Pre-Run Hook');
+    expect(output).not.toContain('Post-Run Hook');
   });
 
   it('toggles language when Space or Arrow is pressed', async () => {
@@ -113,12 +117,171 @@ describe('ConfigScreen component', () => {
         config={mockConfig}
         availableEnvironments={['antigravity', 'claude']}
         currentAgentOptions={['pro', 'flash']}
-        getHookCommand={() => ''}
       />
     );
     const output = lastFrame() ?? '';
     expect(output).toContain('2. Runner Environment:');
     expect(output).toContain('antigravity');
     expect(output).toContain('[Space/←/→] toggle');
+  });
+
+  it('renders ConfigField component for hooks field', () => {
+    const { lastFrame } = renderWithProviders(
+      <ConfigField
+        fieldKey="hooks"
+        isActive={true}
+        isEditing={false}
+        editValue=""
+        config={mockConfig}
+        availableEnvironments={['antigravity', 'claude']}
+        currentAgentOptions={['pro', 'flash']}
+      />
+    );
+    const output = lastFrame() ?? '';
+    expect(output).toContain('5. Hooks:');
+    expect(output).toContain('[ 2 configurados ]');
+    expect(output).toContain('[Enter / Espaço para Configurar ▶]');
+  });
+
+  it('opens ConfigureHooksModal when Enter is pressed on hooks field', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+    );
+
+    // Navigate to hooks field (index 4) by pressing 'j' 4 times:
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+
+    // At index 4 ('hooks'), press Enter to open ConfigureHooksModal:
+    stdin.write('\r');
+    await tick();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Configuração de Hooks');
+    expect(output).toContain('run.started');
+    expect(output).toContain('task.verify');
+  });
+
+  it('renders categorized preview when hooks field is active', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+    );
+
+    // Navigate to hooks field:
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Hooks Summary');
+    expect(output).toContain('run.started: 1 hook [notify]');
+    expect(output).toContain('run.completed: 1 hook [notify]');
+    expect(output).toContain('outros: 0');
+    expect(output).toContain('[Enter] Abrir Gerenciador de Hooks');
+  });
+
+  it('closes ConfigureHooksModal with Esc and returns to ConfigScreen', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+    );
+
+    // Navigate to hooks field and open modal
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('\r');
+    await tick();
+
+    expect(lastFrame() ?? '').toContain('Configuração de Hooks');
+
+    // Press Esc to close
+    stdin.write('\u001B');
+    await tick();
+
+    const closedOutput = lastFrame() ?? '';
+    expect(closedOutput).not.toContain('Configuração de Hooks - Ciclo de Vida');
+    expect(closedOutput).toContain('CodeForge Configuration Editor');
+  });
+
+  it('opens ConfigureHooksModal when Space is pressed on hooks field', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+    );
+
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+
+    stdin.write(' ');
+    await tick();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Configuração de Hooks');
+  });
+
+  it('opens ConfigureHooksModal when Right Arrow is pressed on hooks field', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+    );
+
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+    stdin.write('j');
+    await tick();
+
+    stdin.write('\u001B[C'); // Right arrow escape code
+    await tick();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Configuração de Hooks');
+  });
+
+  it('updates hooks state without setting isDirty to true', async () => {
+    let capturedState: any;
+    const TestComponent = () => {
+      capturedState = useConfigScreen({ initialConfig: mockConfig });
+      return null;
+    };
+    renderWithProviders(<TestComponent />);
+
+    expect(capturedState.isDirty).toBe(false);
+    expect(capturedState.config.hooks?.['run.started']).toHaveLength(1);
+
+    capturedState.handleUpdateHooks({
+      ...mockConfig.hooks,
+      'run.started': [
+        { name: 'test1', run: 'echo 1' },
+        { name: 'test2', run: 'echo 2' },
+      ],
+    });
+    await tick();
+
+    expect(capturedState.isDirty).toBe(false);
+    expect(capturedState.config.hooks?.['run.started']).toHaveLength(2);
   });
 });

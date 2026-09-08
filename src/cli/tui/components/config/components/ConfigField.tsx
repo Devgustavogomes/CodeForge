@@ -7,8 +7,7 @@ export type ConfigFieldKey =
   | 'environment'
   | 'plannerAgent'
   | 'executorAgent'
-  | 'preRunHook'
-  | 'postRunHook'
+  | 'hooks'
   | 'saveButton';
 
 export const FIELD_ORDER: ConfigFieldKey[] = [
@@ -16,8 +15,7 @@ export const FIELD_ORDER: ConfigFieldKey[] = [
   'environment',
   'plannerAgent',
   'executorAgent',
-  'preRunHook',
-  'postRunHook',
+  'hooks',
   'saveButton',
 ];
 
@@ -31,7 +29,6 @@ export interface ConfigFieldProps {
   config: CodeForgeConfig;
   availableEnvironments: string[];
   currentAgentOptions: string[];
-  getHookCommand: (hookName: 'run.started' | 'run.completed') => string;
 }
 
 export const ConfigField: React.FC<ConfigFieldProps> = ({
@@ -42,7 +39,6 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
   config,
   availableEnvironments,
   currentAgentOptions,
-  getHookCommand,
 }) => {
   if (fieldKey === 'language') {
     return (
@@ -195,74 +191,25 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
     );
   }
 
-  if (fieldKey === 'preRunHook') {
-    return (
-      <Box justifyContent="space-between" width="100%">
-        <Box gap={1} flexShrink={1}>
-          <Text bold color={isActive ? 'cyan' : 'white'}>
-            5. Pre-Run Hook:
-          </Text>
-          {isEditing && isActive ? (
-            <Box gap={1}>
-              <Text color="blue" bold>
-                {'> '}
-              </Text>
-              {editValue.length > 0 ? (
-                <Text color="white" bold wrap="truncate-end">
-                  {editValue}█
-                </Text>
-              ) : (
-                <Box gap={1}>
-                  <Text color="cyan">█</Text>
-                  <Text dimColor wrap="truncate-end">
-                    {getHookCommand('run.started') || 'e.g. npm run test:fast'}
-                  </Text>
-                </Box>
-              )}
-            </Box>
-          ) : (
-            <Text color="white" wrap="truncate-end">
-              {getHookCommand('run.started') || '(None)'}
-            </Text>
-          )}
-        </Box>
-        {isActive && !isEditing && <Text dimColor>[Enter] edit</Text>}
-      </Box>
+  if (fieldKey === 'hooks') {
+    const totalHooks = Object.values(config.hooks || {}).reduce(
+      (acc, list) => acc + (Array.isArray(list) ? list.length : 0),
+      0,
     );
-  }
 
-  if (fieldKey === 'postRunHook') {
     return (
       <Box justifyContent="space-between" width="100%">
         <Box gap={1} flexShrink={1}>
           <Text bold color={isActive ? 'cyan' : 'white'}>
-            6. Post-Run Hook:
+            5. Hooks:
           </Text>
-          {isEditing && isActive ? (
-            <Box gap={1}>
-              <Text color="blue" bold>
-                {'> '}
-              </Text>
-              {editValue.length > 0 ? (
-                <Text color="white" bold wrap="truncate-end">
-                  {editValue}█
-                </Text>
-              ) : (
-                <Box gap={1}>
-                  <Text color="cyan">█</Text>
-                  <Text dimColor wrap="truncate-end">
-                    {getHookCommand('run.completed') || 'e.g. echo done'}
-                  </Text>
-                </Box>
-              )}
-            </Box>
-          ) : (
-            <Text color="white" wrap="truncate-end">
-              {getHookCommand('run.completed') || '(None)'}
-            </Text>
-          )}
+          <Text color="cyan" bold>
+            [ {totalHooks} configurados ]
+          </Text>
         </Box>
-        {isActive && !isEditing && <Text dimColor>[Enter] edit</Text>}
+        {isActive && (
+          <Text dimColor>[Enter / Espaço para Configurar ▶]</Text>
+        )}
       </Box>
     );
   }
