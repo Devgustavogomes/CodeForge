@@ -8,7 +8,7 @@ describe('Header component', () => {
     const { lastFrame } = renderWithProviders(<Header />);
     const output = lastFrame() ?? '';
 
-    expect(output).toContain('⚡ CodeForge');
+    expect(output).toContain('</> CodeForge');
     expect(output).toContain('No active spec');
     // Check rounded borders (╭ ╮ ╯ ╰)
     expect(output).toMatch(/[╭─╮│╰╯]/);
@@ -20,7 +20,7 @@ describe('Header component', () => {
     );
     const output = lastFrame() ?? '';
 
-    expect(output).toContain('⚡ CodeForge');
+    expect(output).toContain('</> CodeForge');
     expect(output).toContain('Spec: user-auth');
   });
 

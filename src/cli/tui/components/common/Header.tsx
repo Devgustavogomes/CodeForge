@@ -29,7 +29,7 @@ export function areHeaderPropsEqual(prev: HeaderProps, next: HeaderProps): boole
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
-  title = '⚡ CodeForge',
+  title = '</> CodeForge',
   activeSpec: propActiveSpec,
   breadcrumb,
   shortcuts,
