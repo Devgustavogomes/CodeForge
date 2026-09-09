@@ -9,9 +9,10 @@ export interface UseTasksHotkeysProps {
   onNextSpec: () => void;
   onPrevSpec: () => void;
   onToggleViewJson: () => void;
+  onToggleExpand?: () => void;
   onComplete: () => void;
-  onRetry: () => void;
   onReset: () => void;
+  onStartSearch?: () => void;
 }
 
 export function useTasksHotkeys({
@@ -21,15 +22,22 @@ export function useTasksHotkeys({
   onNextSpec,
   onPrevSpec,
   onToggleViewJson,
+  onToggleExpand,
   onComplete,
-  onRetry,
   onReset,
+  onStartSearch,
 }: UseTasksHotkeysProps) {
   const nav = useContext(NavigationContext);
 
   useInput(
     (input, key) => {
       if (!isInteractive || nav?.isTextInputActive) return;
+
+      // Start Spec Search: '/'
+      if (input === '/') {
+        onStartSearch?.();
+        return;
+      }
 
       // Navigate tasks: Up/Down or k/j
       if (key.upArrow || input === 'k') {
@@ -57,15 +65,15 @@ export function useTasksHotkeys({
         return;
       }
 
-      // Action 'c': Complete task
-      if (input === 'c') {
-        onComplete();
+      // Toggle Expand / Collapse view: 'e' or 'E'
+      if (input === 'e' || input === 'E') {
+        onToggleExpand?.();
         return;
       }
 
-      // Action 'r': Retry task
-      if (input === 'r') {
-        onRetry();
+      // Action 'c': Complete task
+      if (input === 'c') {
+        onComplete();
         return;
       }
 

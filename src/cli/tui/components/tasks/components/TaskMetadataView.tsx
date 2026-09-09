@@ -5,6 +5,8 @@ import { TaskScreenItem, STATUS_ICONS } from './TaskTree.js';
 export interface TaskMetadataViewProps {
   selectedTask: TaskScreenItem | null;
   viewJson: boolean;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
   feedback: {
     type: 'success' | 'error' | 'info';
     message: string;
@@ -15,6 +17,8 @@ export interface TaskMetadataViewProps {
 export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
   selectedTask,
   viewJson,
+  isExpanded = false,
+  onToggleExpand,
   feedback,
   isSideBySide,
 }) => {
@@ -27,9 +31,9 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
       paddingX={1}
     >
       <Box justifyContent="space-between" marginBottom={1}>
-        <Box gap={1}>
+        <Box gap={1} flexShrink={1}>
           <Text bold color="cyan">
-            Task Details: {selectedTask ? selectedTask.id : 'None'}
+            Task: {selectedTask ? selectedTask.id : 'None'}
           </Text>
           {selectedTask && (
             <Text
@@ -40,7 +44,10 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
             </Text>
           )}
         </Box>
-        <Text dimColor>[v] {viewJson ? 'Formatted View' : 'JSON'}</Text>
+        <Box gap={1} flexShrink={0}>
+          <Text dimColor>[e] {isExpanded ? 'Collapse' : 'Expand'}</Text>
+          <Text dimColor>[v] {viewJson ? 'Formatted' : 'JSON'}</Text>
+        </Box>
       </Box>
 
       {feedback && (
@@ -67,69 +74,68 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
           <Box flexDirection="column">
             <Box marginBottom={0}>
               <Text bold>Title: </Text>
-              <Text color="white" wrap="truncate-end">
+              <Text color="white" wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                 {selectedTask.title}
               </Text>
             </Box>
 
             {selectedTask.objective && (
-              <Box marginBottom={0}>
+              <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>
                 <Text bold>Objective: </Text>
-                <Text dimColor wrap="truncate-end">
+                <Text dimColor wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                   {selectedTask.objective}
                 </Text>
               </Box>
             )}
 
-            <Box marginBottom={0} justifyContent="space-between">
-              <Box gap={1} flexShrink={1}>
-                <Text bold>Deps: </Text>
-                <Text dimColor wrap="truncate-end">
-                  {selectedTask.dependencies.length > 0
-                    ? selectedTask.dependencies.join(', ')
-                    : 'None (Root)'}
-                </Text>
-              </Box>
-              {selectedTask.files && selectedTask.files.length > 0 && (
-                <Box gap={1} flexShrink={1} paddingLeft={1}>
-                  <Text bold>Files: </Text>
-                  <Text dimColor wrap="truncate-end">
-                    {selectedTask.files.join(', ')}
-                  </Text>
-                </Box>
-              )}
+            <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>
+              <Text bold>Deps: </Text>
+              <Text dimColor wrap={isExpanded ? 'wrap' : 'truncate-end'}>
+                {selectedTask.dependencies.length > 0
+                  ? selectedTask.dependencies.join(', ')
+                  : 'None (Root)'}
+              </Text>
             </Box>
 
+            {selectedTask.files && selectedTask.files.length > 0 && (
+              <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>
+                <Text bold>Files: </Text>
+                <Text dimColor wrap={isExpanded ? 'wrap' : 'truncate-end'}>
+                  {selectedTask.files.join(', ')}
+                </Text>
+              </Box>
+            )}
+
             {selectedTask.context && (
-              <Box marginBottom={0}>
+              <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>
                 <Text bold>Context: </Text>
-                <Text dimColor wrap="truncate-end">
+                <Text dimColor wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                   {selectedTask.context}
                 </Text>
               </Box>
             )}
 
-            {selectedTask.constraints && selectedTask.constraints.length > 0 && (
-              <Box marginBottom={0}>
+            {isExpanded && selectedTask.constraints && selectedTask.constraints.length > 0 && (
+              <Box marginBottom={0} flexDirection="column">
                 <Text bold>Constraints: </Text>
-                <Text dimColor wrap="truncate-end">
+                <Text dimColor wrap="wrap">
                   {selectedTask.constraints.join(', ')}
                 </Text>
               </Box>
             )}
 
-            {selectedTask.acceptanceCriteria && selectedTask.acceptanceCriteria.length > 0 && (
-              <Box marginBottom={0}>
+            {isExpanded && selectedTask.acceptanceCriteria && selectedTask.acceptanceCriteria.length > 0 && (
+              <Box marginBottom={0} flexDirection="column">
                 <Text bold>Acceptance: </Text>
-                <Text dimColor wrap="truncate-end">
+                <Text dimColor wrap="wrap">
                   {selectedTask.acceptanceCriteria.join(', ')}
                 </Text>
               </Box>
             )}
 
             {selectedTask.errors && selectedTask.errors.length > 0 && (
-              <Box marginBottom={0}>
-                <Text color="red" bold wrap="truncate-end">
+              <Box marginBottom={0} flexDirection="column">
+                <Text color="red" bold wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                   ✗ Error: {selectedTask.errors[0]}
                 </Text>
               </Box>
@@ -143,7 +149,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
               justifyContent="space-between"
             >
               <Text dimColor>
-                [c] Mark Completed · [r] Retry · [x] Reset Status
+                [c] Complete · [x] Reset · [e] {isExpanded ? 'Collapse' : 'Expand All'}
               </Text>
             </Box>
           </Box>

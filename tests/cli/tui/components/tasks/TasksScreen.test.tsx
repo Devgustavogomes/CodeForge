@@ -47,14 +47,13 @@ describe('TasksScreen component', () => {
     expect(output).toContain('TASK-001');
     expect(output).toContain('[COMPLETED]');
     expect(output).toContain('TASK-002');
-    expect(output).toContain('Task Details: TASK-001');
+    expect(output).toContain('Task: TASK-001');
     expect(output).toContain('Define interfaces and domain entities');
     expect(output).toContain('src/domain/entity.ts');
   });
 
-  it('dispatches complete, retry, and reset actions on hotkeys c, r, x', async () => {
+  it('dispatches complete and reset actions on hotkeys c, x, and ignores r', async () => {
     const onCompleteTask = vi.fn();
-    const onRetryTask = vi.fn();
     const onResetTask = vi.fn();
 
     const { stdin } = renderWithProviders(
@@ -62,7 +61,6 @@ describe('TasksScreen component', () => {
         initialSpec="test-spec"
         initialTasks={mockTasks}
         onCompleteTask={onCompleteTask}
-        onRetryTask={onRetryTask}
         onResetTask={onResetTask}
         isInteractive={true}
       />
@@ -73,15 +71,45 @@ describe('TasksScreen component', () => {
     await tick();
     expect(onCompleteTask).toHaveBeenCalledWith('TASK-001');
 
-    // Press 'r' to retry
+    // Press 'r' (should NOT do anything in tasks tab anymore)
     stdin.write('r');
     await tick();
-    expect(onRetryTask).toHaveBeenCalledWith('TASK-001');
 
     // Press 'x' to reset
     stdin.write('x');
     await tick();
     expect(onResetTask).toHaveBeenCalledWith('TASK-001');
+  });
+
+  it('activates and handles spec search bar on "/" hotkey', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen
+        initialSpec="test-spec"
+        initialTasks={mockTasks}
+        isInteractive={true}
+      />
+    );
+
+    // Press '/' to start spec search
+    stdin.write('/');
+    await tick();
+
+    let output = lastFrame() ?? '';
+    expect(output).toContain('Search:');
+
+    // Type query
+    stdin.write('test');
+    await tick();
+
+    output = lastFrame() ?? '';
+    expect(output).toContain('test█');
+
+    // Press Enter to submit search
+    stdin.write('\r');
+    await tick();
+
+    output = lastFrame() ?? '';
+    expect(output).not.toContain('Search:');
   });
 
   it('toggles raw JSON view when "v" is pressed', async () => {
@@ -99,10 +127,10 @@ describe('TasksScreen component', () => {
 
     const output = lastFrame() ?? '';
     expect(output).toContain('"id": "TASK-001"');
-    expect(output).toContain('Formatted View');
+    expect(output).toContain('Formatted');
   });
 
-  it('renders TaskTree with indentation for dependent tasks', () => {
+  it('renders TaskTree with clean flat alignment for tasks', () => {
     const { lastFrame } = renderWithProviders(
       <TaskTree
         tasks={mockTasks}
@@ -118,25 +146,77 @@ describe('TasksScreen component', () => {
     expect(output).toContain('Tasks (2)');
     expect(output).toContain('TASK-001');
     expect(output).toContain('TASK-002');
-    expect(output).toContain('❯');
+    expect(output).toContain('▌');
   });
 
-  it('renders TaskMetadataView with full metadata attributes', () => {
+  it('renders TaskMetadataView compact by default and reveals constraints/acceptance when expanded', () => {
+    // Default (not expanded)
     const { lastFrame } = renderWithProviders(
       <TaskMetadataView
         selectedTask={mockTasks[1]}
         viewJson={false}
+        isExpanded={false}
         feedback={{ type: 'error', message: 'Something failed' }}
         isSideBySide={true}
       />
     );
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Task Details: TASK-002');
+    let output = lastFrame() ?? '';
+    expect(output).toContain('Task: TASK-002');
     expect(output).toContain('Business logic execution');
     expect(output).toContain('TASK-001');
-    expect(output).toContain('TypeScript only');
-    expect(output).toContain('Pass unit tests');
+    expect(output).not.toContain('TypeScript only');
+    expect(output).not.toContain('Pass unit tests');
     expect(output).toContain('ReferenceError: entity is undefined');
     expect(output).toContain('Something failed');
+    expect(output).toContain('[e] Expand');
+
+    // Expanded view
+    const expandedRender = renderWithProviders(
+      <TaskMetadataView
+        selectedTask={mockTasks[1]}
+        viewJson={false}
+        isExpanded={true}
+        feedback={null}
+        isSideBySide={true}
+      />
+    );
+    output = expandedRender.lastFrame() ?? '';
+    expect(output).toContain('Constraints:');
+    expect(output).toContain('TypeScript only');
+    expect(output).toContain('Acceptance:');
+    expect(output).toContain('Pass unit tests');
+    expect(output).toContain('[e] Collapse');
+  });
+
+  it('toggles expand mode in TasksScreen with "e" hotkey', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen
+        initialSpec="test-spec"
+        initialTasks={mockTasks}
+        isInteractive={true}
+      />
+    );
+
+    // Initial task is TASK-001, navigate to TASK-002
+    stdin.write('j');
+    await tick();
+
+    let output = lastFrame() ?? '';
+    expect(output).not.toContain('TypeScript only');
+
+    // Press 'e' to expand
+    stdin.write('e');
+    await tick();
+
+    output = lastFrame() ?? '';
+    expect(output).toContain('TypeScript only');
+    expect(output).toContain('Pass unit tests');
+
+    // Press 'e' again to collapse
+    stdin.write('e');
+    await tick();
+
+    output = lastFrame() ?? '';
+    expect(output).not.toContain('TypeScript only');
   });
 });

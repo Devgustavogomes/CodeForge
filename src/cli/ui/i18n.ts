@@ -181,7 +181,7 @@ const en = {
   // TUI - Shortcut Bars / Hints
   tui_status_hints_run: "↑/↓: Navigate  r: Retry  R: Retry All  c: Complete  x: Reset  Tab: Switch View",
   tui_status_hints_specs: "c: Create  p: Pull  g: Plan  v: Validate  Enter: Select",
-  tui_status_hints_tasks: "↑/↓: Navigate  r: Retry  c: Complete  x: Reset  Enter: Info",
+  tui_status_hints_tasks: "↑/↓: Navigate  c: Complete  x: Reset  /: Search Spec  v: View",
   tui_status_hints_docs: "c: Create  u: Update  Enter: View",
   tui_status_hints_config: "↑/↓: Navigate  Enter: Edit",
   tui_status_minimal_hints: "[1-5] Tabs  [q] Quit",
@@ -391,7 +391,7 @@ const pt: Dictionary = {
   // TUI - Shortcut Bars / Hints
   tui_status_hints_run: "↑/↓: Navegar  r: Retentar  R: Retentar Tudo  c: Concluir  x: Resetar  Tab: Alternar Vista",
   tui_status_hints_specs: "c: Criar  p: Obter  g: Planejar  v: Validar  Enter: Selecionar",
-  tui_status_hints_tasks: "↑/↓: Navegar  r: Retentar  c: Concluir  x: Resetar  Enter: Detalhes",
+  tui_status_hints_tasks: "↑/↓: Navegar  c: Concluir  x: Resetar  /: Buscar Spec  v: Ver",
   tui_status_hints_docs: "c: Criar  u: Atualizar  Enter: Ver",
   tui_status_hints_config: "↑/↓: Navegar  Enter: Editar",
   tui_status_minimal_hints: "[1-5] Abas  [q] Sair",
@@ -598,7 +598,7 @@ const es: Dictionary = {
   // TUI - Shortcut Bars / Hints
   tui_status_hints_run: "↑/↓: Navegar  r: Reintentar  R: Reintentar Todo  c: Completar  x: Restablecer  Tab: Cambiar Vista",
   tui_status_hints_specs: "c: Crear  p: Obtener  g: Planificar  v: Validar  Enter: Seleccionar",
-  tui_status_hints_tasks: "↑/↓: Navegar  r: Reintentar  c: Completar  x: Restablecer  Enter: Info",
+  tui_status_hints_tasks: "↑/↓: Navegar  c: Completar  x: Restablecer  /: Buscar Spec  v: Ver",
   tui_status_hints_docs: "c: Crear  u: Actualizar  Enter: Ver",
   tui_status_hints_config: "↑/↓: Navegar  Enter: Editar",
   tui_status_minimal_hints: "[1-5] Pestañas  [q] Salir",

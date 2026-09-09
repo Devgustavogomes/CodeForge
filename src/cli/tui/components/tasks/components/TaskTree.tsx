@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { TaskStatus } from '../../../../../domain/execution.js';
+import { theme } from '../../../theme.js';
 
 export interface TaskScreenItem {
   id: string;
@@ -20,9 +21,9 @@ export const STATUS_ICONS: Record<
   { icon: string; color: string; label: string }
 > = {
   pending: { icon: '○', color: 'gray', label: '[PENDING]' },
-  running: { icon: '▶', color: 'yellow', label: '[RUNNING]' },
-  completed: { icon: '✓', color: 'green', label: '[COMPLETED]' },
-  failed: { icon: '✗', color: 'red', label: '[FAILED]' },
+  running: { icon: '▶', color: 'cyan', label: '[RUNNING]' },
+  completed: { icon: '√', color: 'green', label: '[COMPLETED]' },
+  failed: { icon: '×', color: 'red', label: '[FAILED]' },
 };
 
 export interface TaskTreeProps {
@@ -33,23 +34,11 @@ export interface TaskTreeProps {
   selectedSpecIndex: number;
   currentSpec: string;
   isSideBySide: boolean;
-}
-
-function calculateDepth(task: TaskScreenItem, allTasks: TaskScreenItem[], visited = new Set<string>()): number {
-  if (!task.dependencies || task.dependencies.length === 0) return 0;
-  if (visited.has(task.id)) return 0;
-  visited.add(task.id);
-
-  let maxDepth = 0;
-  for (const depId of task.dependencies) {
-    const depTask = allTasks.find((t) => t.id === depId);
-    if (depTask) {
-      maxDepth = Math.max(maxDepth, 1 + calculateDepth(depTask, allTasks, new Set(visited)));
-    } else {
-      maxDepth = Math.max(maxDepth, 1);
-    }
-  }
-  return Math.min(maxDepth, 3);
+  isSearchingSpec?: boolean;
+  specSearchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  onSearchSubmit?: () => void;
+  onSearchCancel?: () => void;
 }
 
 export const TaskTree: React.FC<TaskTreeProps> = ({
@@ -60,6 +49,11 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
   selectedSpecIndex,
   currentSpec,
   isSideBySide,
+  isSearchingSpec = false,
+  specSearchQuery = '',
+  onSearchChange,
+  onSearchSubmit,
+  onSearchCancel,
 }) => {
   return (
     <Box
@@ -76,38 +70,45 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
           </Text>
           {specs.length > 0 ? (
             <Box gap={1} flexShrink={1}>
-              {specs.length <= 3 ? (
-                specs.map((sp, idx) => {
-                  const isSelected = idx === selectedSpecIndex;
-                  return (
-                    <Text
-                      key={sp}
-                      color={isSelected ? 'yellow' : 'gray'}
-                      bold={isSelected}
-                    >
-                      {isSelected ? `● [${sp}]` : `○ ${sp}`}
-                    </Text>
-                  );
-                })
-              ) : (
-                <Box gap={1}>
-                  <Text color="yellow" bold>
-                    ● [{currentSpec}]
-                  </Text>
-                  <Text dimColor>
-                    ({selectedSpecIndex + 1}/{specs.length})
-                  </Text>
-                </Box>
+              <Text color="yellow" bold>
+                ● [{currentSpec}]
+              </Text>
+              {specs.length > 1 && (
+                <Text dimColor>
+                  ({selectedSpecIndex + 1}/{specs.length})
+                </Text>
               )}
             </Box>
           ) : (
             <Text dimColor>• No Spec</Text>
           )}
         </Box>
-        <Box flexShrink={0}>
-          <Text dimColor>[←/→] Spec</Text>
+        <Box flexShrink={0} gap={1}>
+          <Text dimColor>[/] Search</Text>
+          <Text dimColor>[←/→]</Text>
         </Box>
       </Box>
+
+      {/* Spec Search Bar */}
+      {isSearchingSpec && (
+        <Box
+          marginBottom={1}
+          paddingX={1}
+          borderStyle="single"
+          borderColor="yellow"
+          flexDirection="column"
+        >
+          <Box gap={1}>
+            <Text bold color="yellow">Search:</Text>
+            <Text color="white" bold>
+              {specSearchQuery}█
+            </Text>
+          </Box>
+          <Box justifyContent="flex-end">
+            <Text dimColor>[Enter] Done  [Esc] Clear</Text>
+          </Box>
+        </Box>
+      )}
 
       {tasks.length === 0 ? (
         <Box paddingY={2} justifyContent="center">
@@ -118,8 +119,6 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
           {visibleTasks.map((task) => {
             const isSelected = task.id === selectedTaskId;
             const statusInfo = STATUS_ICONS[task.status] ?? STATUS_ICONS.pending;
-            const depth = calculateDepth(task, tasks);
-            const indent = depth > 0 ? '  '.repeat(depth) : '';
 
             return (
               <Box
@@ -128,13 +127,24 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
                 width="100%"
               >
                 <Box gap={1} flexShrink={1}>
-                  <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
-                    {isSelected ? '❯' : ' '}
-                  </Text>
-                  {indent.length > 0 && <Text dimColor>{indent}</Text>}
-                  <Text color={statusInfo.color} bold>
-                    {statusInfo.icon} {task.id}
-                  </Text>
+                  {/* Selector indicator */}
+                  <Box flexShrink={0}>
+                    <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+                      {isSelected ? theme.symbols.pointer : ' '}
+                    </Text>
+                  </Box>
+
+                  {/* Status icon + Task ID */}
+                  <Box flexShrink={0} gap={1}>
+                    <Text color={statusInfo.color} bold>
+                      {statusInfo.icon}
+                    </Text>
+                    <Text color={statusInfo.color} bold>
+                      {task.id}
+                    </Text>
+                  </Box>
+
+                  {/* Title */}
                   <Text
                     color={isSelected ? 'cyan' : 'white'}
                     wrap="truncate-end"
@@ -142,6 +152,8 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
                     {task.title}
                   </Text>
                 </Box>
+
+                {/* Status Badge */}
                 <Box flexShrink={0} paddingLeft={1}>
                   <Text color={statusInfo.color}>{statusInfo.label}</Text>
                 </Box>

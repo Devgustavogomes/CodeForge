@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import { NavigationContext } from '../../../context/NavigationContext.js';
 import { ContainerContext } from '../../../context/ContainerContext.js';
 import { ExecutionContext } from '../../../context/ExecutionContext.js';
 import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
@@ -11,11 +12,11 @@ export interface UseTasksScreenOptions {
   initialSpec?: string;
   initialTasks?: TaskScreenItem[];
   onCompleteTask?: (taskId: string) => void;
-  onRetryTask?: (taskId: string) => void;
   onResetTask?: (taskId: string) => void;
 }
 
 export function useTasksScreen(options?: UseTasksScreenOptions) {
+  const nav = useContext(NavigationContext);
   const contextContainer = useContext(ContainerContext);
   const container = useMemo(
     () => options?.container ?? contextContainer ?? createAppContainer(),
@@ -26,6 +27,8 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
 
   const [specs, setSpecs] = useState<string[]>([]);
   const [selectedSpecIndex, setSelectedSpecIndex] = useState(0);
+  const [specSearchQuery, setSpecSearchQuery] = useState('');
+  const [isSearchingSpec, setIsSearchingSpec] = useState(false);
 
   useEffect(() => {
     try {
@@ -41,8 +44,21 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     }
   }, [container, options?.initialSpec, exec?.activeSpec]);
 
+  const filteredSpecs = useMemo(() => {
+    if (!specSearchQuery.trim()) return specs;
+    const q = specSearchQuery.toLowerCase();
+    return specs.filter((s) => s.toLowerCase().includes(q));
+  }, [specs, specSearchQuery]);
+
+  // Adjust selectedSpecIndex if bounds exceed filteredSpecs
+  useEffect(() => {
+    if (filteredSpecs.length > 0 && selectedSpecIndex >= filteredSpecs.length) {
+      setSelectedSpecIndex(0);
+    }
+  }, [filteredSpecs.length, selectedSpecIndex]);
+
   const currentSpec =
-    specs[selectedSpecIndex] ||
+    filteredSpecs[selectedSpecIndex] ||
     options?.initialSpec ||
     exec?.activeSpec ||
     '';
@@ -52,6 +68,7 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   );
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
   const [viewJson, setViewJson] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
@@ -156,34 +173,6 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     }
   }, [selectedTask, currentSpec, options, exec, container]);
 
-  const handleRetry = useCallback(async () => {
-    if (!selectedTask || !currentSpec) return;
-    try {
-      if (options?.onRetryTask) {
-        options.onRetryTask(selectedTask.id);
-      }
-      if (exec?.retryTask) {
-        await exec.retryTask(selectedTask.id);
-      } else {
-        container.taskOperationsUseCase.retryTask(currentSpec, selectedTask.id);
-      }
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === selectedTask.id
-            ? { ...t, status: 'pending', errors: undefined }
-            : t,
-        ),
-      );
-      setFeedback({
-        type: 'success',
-        message: `Task ${selectedTask.id} reset to pending for retry.`,
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setFeedback({ type: 'error', message: `Failed to retry task: ${msg}` });
-    }
-  }, [selectedTask, currentSpec, options, exec, container]);
-
   const handleReset = useCallback(async () => {
     if (!selectedTask || !currentSpec) return;
     try {
@@ -230,22 +219,42 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   }, [tasks.length]);
 
   const handleNextSpec = useCallback(() => {
-    if (specs.length > 0) {
-      setSelectedSpecIndex((prev) => (prev + 1) % specs.length);
+    if (filteredSpecs.length > 0) {
+      setSelectedSpecIndex((prev) => (prev + 1) % filteredSpecs.length);
       setFeedback(null);
     }
-  }, [specs.length]);
+  }, [filteredSpecs.length]);
 
   const handlePrevSpec = useCallback(() => {
-    if (specs.length > 0) {
-      setSelectedSpecIndex((prev) => (prev - 1 + specs.length) % specs.length);
+    if (filteredSpecs.length > 0) {
+      setSelectedSpecIndex((prev) => (prev - 1 + filteredSpecs.length) % filteredSpecs.length);
       setFeedback(null);
     }
-  }, [specs.length]);
+  }, [filteredSpecs.length]);
 
   const handleToggleViewJson = useCallback(() => {
     setViewJson((prev) => !prev);
   }, []);
+
+  const handleToggleExpand = useCallback(() => {
+    setIsExpanded((prev) => !prev);
+  }, []);
+
+  const handleStartSearchSpec = useCallback(() => {
+    setIsSearchingSpec(true);
+    nav?.setTextInputActive(true);
+  }, [nav]);
+
+  const handleStopSearchSpec = useCallback(() => {
+    setIsSearchingSpec(false);
+    nav?.setTextInputActive(false);
+  }, [nav]);
+
+  const handleClearSearchSpec = useCallback(() => {
+    setSpecSearchQuery('');
+    setIsSearchingSpec(false);
+    nav?.setTextInputActive(false);
+  }, [nav]);
 
   const maxVisibleTasks = 6;
   const visibleTasks = useMemo(() => {
@@ -259,23 +268,31 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   }, [tasks, maxVisibleTasks, selectedTaskIndex]);
 
   return {
-    specs,
+    specs: filteredSpecs,
+    rawSpecs: specs,
     selectedSpecIndex,
     currentSpec,
+    specSearchQuery,
+    setSpecSearchQuery,
+    isSearchingSpec,
+    handleStartSearchSpec,
+    handleStopSearchSpec,
+    handleClearSearchSpec,
     tasks,
     visibleTasks,
     selectedTaskIndex,
     selectedTask,
     viewJson,
+    isExpanded,
     feedback,
     handleComplete,
-    handleRetry,
     handleReset,
     handleNextTask,
     handlePrevTask,
     handleNextSpec,
     handlePrevSpec,
     handleToggleViewJson,
+    handleToggleExpand,
     setFeedback,
   };
 }
