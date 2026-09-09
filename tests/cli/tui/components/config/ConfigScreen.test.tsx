@@ -122,7 +122,6 @@ describe('ConfigScreen component', () => {
     const output = lastFrame() ?? '';
     expect(output).toContain('2. Runner Environment:');
     expect(output).toContain('antigravity');
-    expect(output).toContain('[Space/←/→] toggle');
   });
 
   it('renders ConfigField component for hooks field', () => {
@@ -140,7 +139,6 @@ describe('ConfigScreen component', () => {
     const output = lastFrame() ?? '';
     expect(output).toContain('5. Hooks:');
     expect(output).toContain('[ 2 configurados ]');
-    expect(output).toContain('[Enter / Espaço para Configurar ▶]');
   });
 
   it('opens ConfigureHooksModal when Enter is pressed on hooks field', async () => {

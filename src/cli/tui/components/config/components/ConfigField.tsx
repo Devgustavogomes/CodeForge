@@ -42,7 +42,7 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
 }) => {
   if (fieldKey === 'language') {
     return (
-      <Box justifyContent="space-between" width="100%">
+      <Box width="100%">
         <Box gap={1}>
           <Text bold color={isActive ? 'cyan' : 'white'}>
             1. Language (i18n):
@@ -62,21 +62,20 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
             })}
           </Box>
         </Box>
-        {isActive && <Text dimColor>[Space] toggle</Text>}
       </Box>
     );
   }
 
   if (fieldKey === 'environment') {
     return (
-      <Box justifyContent="space-between" width="100%">
+      <Box width="100%">
         <Box gap={1} flexShrink={1}>
           <Text bold color={isActive ? 'cyan' : 'white'}>
             2. Runner Environment:
           </Text>
           <Box gap={1}>
             <Text color="cyan" bold>
-              ◀ [ {config.environment} ] ▶
+              &lt; [ {config.environment} ] &gt;
             </Text>
             {availableEnvironments.length > 1 && (
               <Text dimColor>
@@ -90,14 +89,13 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
             )}
           </Box>
         </Box>
-        {isActive && <Text dimColor>[Space/←/→] toggle</Text>}
       </Box>
     );
   }
 
   if (fieldKey === 'plannerAgent') {
     return (
-      <Box justifyContent="space-between" width="100%">
+      <Box gap={1} flexWrap="nowrap">
         <Box gap={1} flexShrink={1}>
           <Text bold color={isActive ? 'cyan' : 'white'}>
             3. Planner Agent Model:
@@ -121,7 +119,7 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
           ) : (
             <Box gap={1}>
               <Text color="cyan" bold>
-                ◀ [ {config.plannerAgent} ] ▶
+                &lt; [ {config.plannerAgent} ] &gt;
               </Text>
               {currentAgentOptions.length > 1 && (
                 <Text dimColor>
@@ -137,7 +135,7 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
           )}
         </Box>
         {isActive && !isEditing && (
-          <Text dimColor>[Space/←/→] · [e] edit</Text>
+          <Text dimColor>[e]</Text>
         )}
       </Box>
     );
@@ -145,7 +143,7 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
 
   if (fieldKey === 'executorAgent') {
     return (
-      <Box justifyContent="space-between" width="100%">
+      <Box gap={1} flexWrap="nowrap">
         <Box gap={1} flexShrink={1}>
           <Text bold color={isActive ? 'cyan' : 'white'}>
             4. Executor Agent Model:
@@ -169,7 +167,7 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
           ) : (
             <Box gap={1}>
               <Text color="cyan" bold>
-                ◀ [ {config.executorAgent} ] ▶
+                &lt; [ {config.executorAgent} ] &gt;
               </Text>
               {currentAgentOptions.length > 1 && (
                 <Text dimColor>
@@ -185,7 +183,7 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
           )}
         </Box>
         {isActive && !isEditing && (
-          <Text dimColor>[Space/←/→] · [e] edit</Text>
+          <Text dimColor>[e]</Text>
         )}
       </Box>
     );
@@ -198,7 +196,7 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
     );
 
     return (
-      <Box justifyContent="space-between" width="100%">
+      <Box width="100%">
         <Box gap={1} flexShrink={1}>
           <Text bold color={isActive ? 'cyan' : 'white'}>
             5. Hooks:
@@ -207,9 +205,6 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
             [ {totalHooks} configurados ]
           </Text>
         </Box>
-        {isActive && (
-          <Text dimColor>[Enter / Espaço para Configurar ▶]</Text>
-        )}
       </Box>
     );
   }
