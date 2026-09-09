@@ -47,7 +47,7 @@ export const TabBar: React.FC<TabBarProps> = React.memo(({
         return (
           <Box key={tab.id}>
             {isActive ? (
-              <Text bold color="black" backgroundColor="cyan">
+              <Text color="#000000" backgroundColor="cyan">
                 {` [${tab.numberKey}] ${tab.label} `}
               </Text>
             ) : (
