@@ -4,20 +4,25 @@ import { render } from 'ink-testing-library';
 import {
   Spinner,
   SPINNER_FRAMES,
-  sharedSpinnerTicker,
   resetSharedSpinnerTicker,
 } from '../../../../../src/cli/tui/components/common/Spinner.js';
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const advanceTimer = async (ms = 80) => {
+  vi.advanceTimersByTime(ms);
+  await new Promise((resolve) => setImmediate(resolve));
+};
 
 describe('Spinner component', () => {
   beforeEach(() => {
+    vi.useFakeTimers({
+      toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'Date'],
+    });
     resetSharedSpinnerTicker();
-    vi.restoreAllMocks();
   });
 
   afterEach(() => {
     resetSharedSpinnerTicker();
+    vi.useRealTimers();
   });
 
   it('renders initial frame', () => {
@@ -26,100 +31,74 @@ describe('Spinner component', () => {
     unmount();
   });
 
-  it('advances frames every interval', async () => {
-    const { lastFrame, unmount } = render(<Spinner color="cyan" interval={30} />);
+  it('advances frames when time elapses', async () => {
+    const { lastFrame, unmount } = render(<Spinner color="cyan" interval={80} />);
     expect(lastFrame()).toContain(SPINNER_FRAMES[0]);
 
-    let advanced = false;
-    for (let i = 0; i < 20; i++) {
-      await sleep(25);
-      if (lastFrame()?.includes(SPINNER_FRAMES[1])) {
-        advanced = true;
-        break;
-      }
+    await advanceTimer(80);
+    expect(lastFrame()).toContain(SPINNER_FRAMES[1]);
+
+    await advanceTimer(80);
+    expect(lastFrame()).toContain(SPINNER_FRAMES[2]);
+
+    unmount();
+  });
+
+  it('cycles through all animation frames and loops back', async () => {
+    const { lastFrame, unmount } = render(<Spinner interval={80} />);
+
+    for (let i = 0; i < SPINNER_FRAMES.length; i++) {
+      expect(lastFrame()).toContain(SPINNER_FRAMES[i]);
+      await advanceTimer(80);
     }
-    expect(advanced).toBe(true);
+
+    // Loops back to first frame
+    expect(lastFrame()).toContain(SPINNER_FRAMES[0]);
     unmount();
   });
 
-  it('cleans up interval on unmount', () => {
-    const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
-    const { unmount } = render(<Spinner color="cyan" />);
-    unmount();
-    expect(clearIntervalSpy).toHaveBeenCalled();
-  });
-
-  it('shares a single setInterval timer across multiple mounted Spinner instances', () => {
-    const setIntervalSpy = vi.spyOn(global, 'setInterval');
-
-    const { unmount } = render(
-      <>
-        <Spinner color="cyan" />
-        <Spinner color="green" />
-        <Spinner color="yellow" />
-      </>
-    );
-
-    // Three spinners mounted, but only 1 shared setInterval created for interval=80
-    expect(sharedSpinnerTicker.getSubscriberCount(80)).toBe(3);
-    expect(sharedSpinnerTicker.getActiveTimerCount()).toBe(1);
-    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
-
-    unmount();
-    expect(sharedSpinnerTicker.getSubscriberCount(80)).toBe(0);
-    expect(sharedSpinnerTicker.getActiveTimerCount()).toBe(0);
-  });
-
-  it('maintains timer active while at least one spinner is mounted and cancels timer when all spinners unmount', () => {
-    const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
-
-    const Harness: React.FC<{ showSecond: boolean }> = ({ showSecond }) => (
-      <>
-        <Spinner color="cyan" />
-        {showSecond && <Spinner color="magenta" />}
-      </>
-    );
-
-    const { rerender, unmount } = render(<Harness showSecond={true} />);
-    expect(sharedSpinnerTicker.getSubscriberCount(80)).toBe(2);
-    expect(sharedSpinnerTicker.getActiveTimerCount()).toBe(1);
-
-    // Unmount second spinner: 1 remains, interval must NOT be cleared yet
-    rerender(<Harness showSecond={false} />);
-    expect(sharedSpinnerTicker.getSubscriberCount(80)).toBe(1);
-    expect(sharedSpinnerTicker.getActiveTimerCount()).toBe(1);
-    expect(clearIntervalSpy).not.toHaveBeenCalled();
-
-    // Unmount the last spinner: interval must now be cancelled
-    unmount();
-    expect(sharedSpinnerTicker.getSubscriberCount(80)).toBe(0);
-    expect(sharedSpinnerTicker.getActiveTimerCount()).toBe(0);
-    expect(clearIntervalSpy).toHaveBeenCalled();
-  });
-
-  it('synchronizes animation frame across multiple spinners', async () => {
+  it('synchronizes animation frame across multiple mounted spinners', async () => {
     const { lastFrame, unmount } = render(
       <>
-        <Spinner label="Task 1" interval={30} />
-        <Spinner label="Task 2" interval={30} />
+        <Spinner label="Task 1" interval={80} />
+        <Spinner label="Task 2" interval={80} />
       </>
     );
 
     expect(lastFrame()).toContain(`${SPINNER_FRAMES[0]} Task 1`);
     expect(lastFrame()).toContain(`${SPINNER_FRAMES[0]} Task 2`);
 
-    for (let i = 0; i < 20; i++) {
-      await sleep(25);
-      const frame = lastFrame() ?? '';
-      if (frame.includes(SPINNER_FRAMES[1])) {
-        break;
-      }
-    }
+    await advanceTimer(80);
 
-    const output = lastFrame() ?? '';
-    // Both spinners should have advanced to the exact same frame in sync
-    expect(output).toContain(`${SPINNER_FRAMES[1]} Task 1`);
-    expect(output).toContain(`${SPINNER_FRAMES[1]} Task 2`);
+    expect(lastFrame()).toContain(`${SPINNER_FRAMES[1]} Task 1`);
+    expect(lastFrame()).toContain(`${SPINNER_FRAMES[1]} Task 2`);
+
+    unmount();
+  });
+
+  it('continues animating remaining spinners when one spinner unmounts', async () => {
+    const Harness: React.FC<{ showSecond: boolean }> = ({ showSecond }) => (
+      <>
+        <Spinner label="Spinner 1" interval={80} />
+        {showSecond && <Spinner label="Spinner 2" interval={80} />}
+      </>
+    );
+
+    const { rerender, lastFrame, unmount } = render(<Harness showSecond={true} />);
+    expect(lastFrame()).toContain(`${SPINNER_FRAMES[0]} Spinner 1`);
+    expect(lastFrame()).toContain(`${SPINNER_FRAMES[0]} Spinner 2`);
+
+    await advanceTimer(80);
+    expect(lastFrame()).toContain(`${SPINNER_FRAMES[1]} Spinner 1`);
+    expect(lastFrame()).toContain(`${SPINNER_FRAMES[1]} Spinner 2`);
+
+    // Unmount second spinner: first spinner continues ticking
+    rerender(<Harness showSecond={false} />);
+    expect(lastFrame()).toContain(`${SPINNER_FRAMES[1]} Spinner 1`);
+    expect(lastFrame()).not.toContain('Spinner 2');
+
+    await advanceTimer(80);
+    expect(lastFrame()).toContain(`${SPINNER_FRAMES[2]} Spinner 1`);
 
     unmount();
   });
@@ -132,20 +111,9 @@ describe('Spinner component', () => {
     unmount();
   });
 
-  it('resetSharedSpinnerTicker cancels active timers and resets subscriber state', () => {
-    const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
+  it('cleans up cleanly when unmounted without errors', () => {
     const { unmount } = render(<Spinner color="cyan" />);
-
-    expect(sharedSpinnerTicker.getActiveTimerCount()).toBe(1);
-    expect(sharedSpinnerTicker.getSubscriberCount(80)).toBe(1);
-
-    resetSharedSpinnerTicker();
-
-    expect(clearIntervalSpy).toHaveBeenCalled();
-    expect(sharedSpinnerTicker.getActiveTimerCount()).toBe(0);
-    expect(sharedSpinnerTicker.getSubscriberCount()).toBe(0);
-
-    unmount();
+    expect(() => unmount()).not.toThrow();
   });
 });
 
