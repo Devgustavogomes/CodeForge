@@ -3,10 +3,16 @@ import { Box, Text } from 'ink';
 import { Spinner } from '../../common/Spinner.js';
 import { TimerView } from '../../common/TimerView.js';
 
+export interface BatchInfo {
+  current: number;
+  total: number;
+}
+
 export interface DocProgressBannerProps {
   isGenerating?: boolean;
   operation?: 'create' | 'update';
   docName?: string;
+  batchInfo?: BatchInfo | null;
   startTime?: string | number | Date | null;
   elapsedFormatted?: string;
   feedback?: {
@@ -20,12 +26,20 @@ export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
   isGenerating = false,
   operation = 'update',
   docName = 'doc',
+  batchInfo,
   startTime,
   elapsedFormatted: _elapsedFormatted,
   feedback,
 }) => {
   if (isGenerating) {
     const actionLabel = operation === 'create' ? 'Criando' : 'Atualizando';
+
+    let displayDoc = `[${docName}]`;
+    if (docName.startsWith('[')) {
+      displayDoc = docName;
+    } else if (batchInfo) {
+      displayDoc = `[${batchInfo.current}/${batchInfo.total}] ${docName}`;
+    }
 
     return (
       <Box
@@ -38,7 +52,7 @@ export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
       >
         <Box marginBottom={0}>
           <Text bold color="cyan">
-            {`📝 ${actionLabel} Documentação: [${docName}]`}
+            {`📝 ${actionLabel} Documentação: ${displayDoc}`}
           </Text>
         </Box>
         <Box justifyContent="space-between" width="100%">

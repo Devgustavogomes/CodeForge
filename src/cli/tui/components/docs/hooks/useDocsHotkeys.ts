@@ -3,12 +3,15 @@ import { useInput } from 'ink';
 export interface UseDocsHotkeysOptions {
   isInteractive?: boolean;
   isModalOpen?: boolean;
+  isCreateModalOpen?: boolean;
+  isUpdateModalOpen?: boolean;
   isTextInputActive?: boolean;
   docsCount: number;
   selectedIndex: number;
   onSelectIndex: (index: number) => void;
   onOpenCreateModal: () => void;
-  onUpdateDoc: () => void;
+  onOpenUpdateModal?: () => void;
+  onUpdateDoc?: () => void;
   onViewDoc?: () => void;
   onClearFeedback?: () => void;
 }
@@ -16,18 +19,23 @@ export interface UseDocsHotkeysOptions {
 export function useDocsHotkeys({
   isInteractive = true,
   isModalOpen = false,
+  isCreateModalOpen = false,
+  isUpdateModalOpen = false,
   isTextInputActive = false,
   docsCount,
   selectedIndex,
   onSelectIndex,
   onOpenCreateModal,
+  onOpenUpdateModal,
   onUpdateDoc,
   onViewDoc,
   onClearFeedback,
 }: UseDocsHotkeysOptions): void {
+  const modalActive = isModalOpen || isCreateModalOpen || isUpdateModalOpen;
+
   useInput(
     (input, key) => {
-      if (!isInteractive || isModalOpen || isTextInputActive) {
+      if (!isInteractive || modalActive || isTextInputActive) {
         return;
       }
 
@@ -51,9 +59,16 @@ export function useDocsHotkeys({
         return;
       }
 
-      // 'u' -> Update Doc UseCase
+      // 'u' -> Open Update Doc Modal (ignored if docsCount is 0)
       if (input === 'u' || input === 'U') {
-        onUpdateDoc();
+        if (docsCount <= 0) {
+          return;
+        }
+        if (onOpenUpdateModal) {
+          onOpenUpdateModal();
+        } else if (onUpdateDoc) {
+          onUpdateDoc();
+        }
         return;
       }
 
@@ -63,7 +78,7 @@ export function useDocsHotkeys({
         return;
       }
     },
-    { isActive: isInteractive && !isModalOpen }
+    { isActive: isInteractive && !modalActive }
   );
 }
 
