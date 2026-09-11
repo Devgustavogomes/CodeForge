@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { ConfigScreen } from '../../../../../src/cli/tui/components/config/ConfigScreen.js';
 import { useConfigScreen } from '../../../../../src/cli/tui/components/config/hooks/useConfigScreen.js';
@@ -10,7 +10,7 @@ import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
-describe('ConfigScreen component', () => {
+describe('ConfigScreen - Tela de Configuração (BDD)', () => {
   const mockConfig: CodeForgeConfig = {
     environment: 'antigravity',
     plannerAgent: 'pro',
@@ -22,376 +22,354 @@ describe('ConfigScreen component', () => {
     },
   };
 
-  it('renders configuration form with language, runners, and hooks', () => {
-    const { lastFrame } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={false} />
-    );
-    const output = lastFrame() ?? '';
+  describe('Renderização e Visualização de Campos', () => {
+    it('ao carregar a tela, exibe o formulário completo com idioma, runners, hooks e spec source', () => {
+      const { lastFrame } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={false} />
+      );
+      const output = lastFrame() ?? '';
 
-    expect(output).toContain('CodeForge Configuration Editor');
-    expect(output).toContain('1. Language (i18n):');
-    expect(output).toContain('● [en]');
-    expect(output).toContain('antigravity');
-    expect(output).toContain('pro');
-    expect(output).toContain('flash');
-    expect(output).toContain('5. Hooks:');
-    expect(output).toContain('[ 2 configurados ]');
-    expect(output).toContain('6. Spec Source:');
-    expect(output).toContain('filesystem');
-    expect(output).not.toContain('Pre-Run Hook');
-    expect(output).not.toContain('Post-Run Hook');
-  });
-
-  it('toggles language when Space or Arrow is pressed', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    // Language field is active by default. Press Space to cycle language:
-    stdin.write(' ');
-    await tick();
-
-    const output = lastFrame() ?? '';
-    expect(output).toContain('● [pt]');
-    expect(output).toContain('Unsaved Changes');
-  });
-
-  it('persists changes to config service on quick save "s"', async () => {
-    const mockSaveConfig = vi.fn();
-    const mockConfigService = {
-      loadConfig: () => mockConfig,
-      saveConfig: mockSaveConfig,
-    } as unknown as ConfigService;
-
-    const onSave = vi.fn();
-
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen
-        configService={mockConfigService}
-        initialConfig={mockConfig}
-        onSave={onSave}
-        isInteractive={true}
-      />
-    );
-
-    // Change language to 'pt'
-    stdin.write(' ');
-    await tick();
-
-    // Press 's' to save
-    stdin.write('s');
-    await tick();
-
-    expect(mockSaveConfig).toHaveBeenCalledWith(
-      expect.objectContaining({
-        language: 'pt',
-      })
-    );
-    expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        language: 'pt',
-      })
-    );
-
-    const output = lastFrame() ?? '';
-    expect(output).toContain('successfully saved');
-  });
-
-  it('renders ConfigFeedback component with alert message and unsaved status', () => {
-    const { lastFrame } = renderWithProviders(
-      <ConfigFeedback
-        feedback={{ type: 'success', message: 'Config saved' }}
-        isDirty={true}
-      />
-    );
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Config saved');
-    expect(output).toContain('Unsaved Changes');
-  });
-
-  it('renders ConfigField component for environment field', () => {
-    const { lastFrame } = renderWithProviders(
-      <ConfigField
-        fieldKey="environment"
-        isActive={true}
-        isEditing={false}
-        editValue=""
-        config={mockConfig}
-        availableEnvironments={['antigravity', 'claude']}
-        currentAgentOptions={['pro', 'flash']}
-      />
-    );
-    const output = lastFrame() ?? '';
-    expect(output).toContain('2. Runner Environment:');
-    expect(output).toContain('antigravity');
-  });
-
-  it('renders ConfigField component for hooks field', () => {
-    const { lastFrame } = renderWithProviders(
-      <ConfigField
-        fieldKey="hooks"
-        isActive={true}
-        isEditing={false}
-        editValue=""
-        config={mockConfig}
-        availableEnvironments={['antigravity', 'claude']}
-        currentAgentOptions={['pro', 'flash']}
-      />
-    );
-    const output = lastFrame() ?? '';
-    expect(output).toContain('5. Hooks:');
-    expect(output).toContain('[ 2 configurados ]');
-  });
-
-  it('opens ConfigureHooksModal when Enter is pressed on hooks field', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    // Navigate to hooks field (index 4) by pressing 'j' 4 times:
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-
-    // At index 4 ('hooks'), press Enter to open ConfigureHooksModal:
-    stdin.write('\r');
-    await tick();
-
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Configuração de Hooks');
-    expect(output).toContain('run.started');
-    expect(output).toContain('task.verify');
-    // Ensure modal replaces the 2 main boxes (Editor and Summary inspector)
-    expect(output).not.toContain('CodeForge Configuration Editor');
-    expect(output).not.toContain('Hooks Summary');
-  });
-
-  it('renders categorized preview when hooks field is active', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    // Navigate to hooks field:
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Hooks Summary');
-    expect(output).toContain('run.started: 1 hook [notify]');
-    expect(output).toContain('run.completed: 1 hook [notify]');
-    expect(output).toContain('outros: 0');
-    expect(output).toContain('[Enter] Abrir Gerenciador de Hooks');
-  });
-
-  it('closes ConfigureHooksModal with Esc and returns to ConfigScreen', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    // Navigate to hooks field and open modal
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('\r');
-    await tick();
-
-    const modalOutput = lastFrame() ?? '';
-    expect(modalOutput).toContain('Configuração de Hooks');
-    expect(modalOutput).not.toContain('CodeForge Configuration Editor');
-
-    // Press Esc to close
-    stdin.write('\u001B');
-    await tick();
-
-    const closedOutput = lastFrame() ?? '';
-    expect(closedOutput).not.toContain('Configuração de Hooks - Ciclo de Vida');
-    expect(closedOutput).toContain('CodeForge Configuration Editor');
-  });
-
-  it('opens ConfigureHooksModal when Space is pressed on hooks field', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-
-    stdin.write(' ');
-    await tick();
-
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Configuração de Hooks');
-  });
-
-  it('opens ConfigureHooksModal when Right Arrow is pressed on hooks field', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-    stdin.write('j');
-    await tick();
-
-    stdin.write('\u001B[C'); // Right arrow escape code
-    await tick();
-
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Configuração de Hooks');
-  });
-
-  it('updates hooks state without setting isDirty to true', async () => {
-    let capturedState: any;
-    const TestComponent = () => {
-      capturedState = useConfigScreen({ initialConfig: mockConfig });
-      return null;
-    };
-    renderWithProviders(<TestComponent />);
-
-    expect(capturedState.isDirty).toBe(false);
-    expect(capturedState.config.hooks?.['run.started']).toHaveLength(1);
-
-    capturedState.handleUpdateHooks({
-      ...mockConfig.hooks,
-      'run.started': [
-        { name: 'test1', run: 'echo 1' },
-        { name: 'test2', run: 'echo 2' },
-      ],
+      expect(output).toContain('CodeForge Configuration Editor');
+      expect(output).toContain('1. Language (i18n):');
+      expect(output).toContain('● [en]');
+      expect(output).toContain('antigravity');
+      expect(output).toContain('pro');
+      expect(output).toContain('flash');
+      expect(output).toContain('5. Hooks:');
+      expect(output).toContain('[ 2 configurados ]');
+      expect(output).toContain('6. Spec Source:');
+      expect(output).toContain('filesystem');
+      expect(output).not.toContain('Pre-Run Hook');
+      expect(output).not.toContain('Post-Run Hook');
     });
-    await tick();
 
-    expect(capturedState.isDirty).toBe(false);
-    expect(capturedState.config.hooks?.['run.started']).toHaveLength(2);
-  });
-
-  it('renders ConfigField component for specSource field', () => {
-    const { lastFrame } = renderWithProviders(
-      <ConfigField
-        fieldKey="specSource"
-        isActive={true}
-        isEditing={false}
-        editValue=""
-        config={{
-          ...mockConfig,
-          specSource: { provider: 'github', project: 'org/repo' },
-        }}
-        availableEnvironments={['antigravity', 'claude']}
-        currentAgentOptions={['pro', 'flash']}
-      />
-    );
-    const output = lastFrame() ?? '';
-    expect(output).toContain('6. Spec Source:');
-    expect(output).toContain('github (org/repo)');
-  });
-
-  it('opens ConfigureSpecSourceModal when Enter is pressed on specSource field', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    // Navigate to specSource field (index 5) by pressing 'j' 5 times:
-    for (let i = 0; i < 5; i++) {
-      stdin.write('j');
-      await tick();
-    }
-
-    // At index 5 ('specSource'), press Enter to open ConfigureSpecSourceModal:
-    stdin.write('\r');
-    await tick();
-
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Configuração de Spec Source');
-    expect(output).toContain('1. Provedor:');
-    expect(output).not.toContain('CodeForge Configuration Editor');
-  });
-
-  it('opens ConfigureSpecSourceModal when Space is pressed on specSource field', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    for (let i = 0; i < 5; i++) {
-      stdin.write('j');
-      await tick();
-    }
-
-    stdin.write(' ');
-    await tick();
-
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Configuração de Spec Source');
-  });
-
-  it('closes ConfigureSpecSourceModal with Esc and returns to ConfigScreen', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
-    );
-
-    for (let i = 0; i < 5; i++) {
-      stdin.write('j');
-      await tick();
-    }
-
-    stdin.write('\r');
-    await tick();
-
-    const modalOutput = lastFrame() ?? '';
-    expect(modalOutput).toContain('Configuração de Spec Source');
-
-    // Press Esc to close
-    stdin.write('\u001B');
-    await tick();
-
-    const closedOutput = lastFrame() ?? '';
-    expect(closedOutput).not.toContain('Configuração de Spec Source');
-    expect(closedOutput).toContain('CodeForge Configuration Editor');
-  });
-
-  it('updates specSource state via handleUpdateSpecSource', async () => {
-    let capturedState: any;
-    const TestComponent = () => {
-      capturedState = useConfigScreen({ initialConfig: mockConfig });
-      return null;
-    };
-    renderWithProviders(<TestComponent />);
-
-    expect(capturedState.config.specSource).toBeUndefined();
-
-    capturedState.handleUpdateSpecSource({
-      provider: 'linear',
-      team: 'ENG',
-      apiKey: '$LINEAR_API_KEY',
+    it('ao renderizar o componente ConfigFeedback, exibe alerta e status de alterações pendentes', () => {
+      const { lastFrame } = renderWithProviders(
+        <ConfigFeedback
+          feedback={{ type: 'success', message: 'Config saved' }}
+          isDirty={true}
+        />
+      );
+      const output = lastFrame() ?? '';
+      expect(output).toContain('Config saved');
+      expect(output).toContain('Unsaved Changes');
     });
-    await tick();
 
-    expect(capturedState.config.specSource?.provider).toBe('linear');
-    expect(capturedState.config.specSource?.team).toBe('ENG');
-    expect(capturedState.config.specSource?.apiKey).toBe('$LINEAR_API_KEY');
+    it('renderiza o campo environment via dispatcher ConfigField', () => {
+      const { lastFrame } = renderWithProviders(
+        <ConfigField
+          fieldKey="environment"
+          isActive={true}
+          isEditing={false}
+          editValue=""
+          config={mockConfig}
+          availableEnvironments={['antigravity', 'claude']}
+          currentAgentOptions={['pro', 'flash']}
+        />
+      );
+      const output = lastFrame() ?? '';
+      expect(output).toContain('2. Runner Environment:');
+      expect(output).toContain('antigravity');
+    });
+
+    it('renderiza o campo hooks com contagem consolidada via dispatcher ConfigField', () => {
+      const { lastFrame } = renderWithProviders(
+        <ConfigField
+          fieldKey="hooks"
+          isActive={true}
+          isEditing={false}
+          editValue=""
+          config={mockConfig}
+          availableEnvironments={['antigravity', 'claude']}
+          currentAgentOptions={['pro', 'flash']}
+        />
+      );
+      const output = lastFrame() ?? '';
+      expect(output).toContain('5. Hooks:');
+      expect(output).toContain('[ 2 configurados ]');
+    });
+
+    it('renderiza o campo specSource com detalhes via dispatcher ConfigField', () => {
+      const { lastFrame } = renderWithProviders(
+        <ConfigField
+          fieldKey="specSource"
+          isActive={true}
+          isEditing={false}
+          editValue=""
+          config={{
+            ...mockConfig,
+            specSource: { provider: 'github', project: 'org/repo' },
+          }}
+          availableEnvironments={['antigravity', 'claude']}
+          currentAgentOptions={['pro', 'flash']}
+        />
+      );
+      const output = lastFrame() ?? '';
+      expect(output).toContain('6. Spec Source:');
+      expect(output).toContain('github (org/repo)');
+    });
+
+    it('ao selecionar o campo hooks, exibe resumo categorizado e atalho no painel de preview', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      // Navigate to hooks field:
+      for (let i = 0; i < 4; i++) {
+        stdin.write('j');
+        await tick();
+      }
+
+      const output = lastFrame() ?? '';
+      expect(output).toContain('Hooks Summary');
+      expect(output).toContain('run.started: 1 hook [notify]');
+      expect(output).toContain('run.completed: 1 hook [notify]');
+      expect(output).toContain('outros: 0');
+      expect(output).toContain('[Enter] Abrir Gerenciador de Hooks');
+    });
+  });
+
+  describe('Navegação e Alternância de Opções', () => {
+    it('ao pressionar Espaço ou Setas no campo language, alterna o idioma selecionado e marca como dirty', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      // Language field is active by default. Press Space to cycle language:
+      stdin.write(' ');
+      await tick();
+
+      const output = lastFrame() ?? '';
+      expect(output).toContain('● [pt]');
+      expect(output).toContain('Unsaved Changes');
+    });
+  });
+
+  describe('Abertura e Fechamento de Modais', () => {
+    it('ao pressionar Enter no campo hooks, abre o ConfigureHooksModal', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      for (let i = 0; i < 4; i++) {
+        stdin.write('j');
+        await tick();
+      }
+
+      stdin.write('\r');
+      await tick();
+
+      const output = lastFrame() ?? '';
+      expect(output).toContain('Configuração de Hooks');
+      expect(output).toContain('run.started');
+      expect(output).toContain('task.verify');
+      expect(output).not.toContain('CodeForge Configuration Editor');
+      expect(output).not.toContain('Hooks Summary');
+    });
+
+    it('ao pressionar Espaço no campo hooks, abre o ConfigureHooksModal', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      for (let i = 0; i < 4; i++) {
+        stdin.write('j');
+        await tick();
+      }
+
+      stdin.write(' ');
+      await tick();
+
+      const output = lastFrame() ?? '';
+      expect(output).toContain('Configuração de Hooks');
+    });
+
+    it('ao pressionar Seta Direita no campo hooks, abre o ConfigureHooksModal', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      for (let i = 0; i < 4; i++) {
+        stdin.write('j');
+        await tick();
+      }
+
+      stdin.write('\u001B[C');
+      await tick();
+
+      const output = lastFrame() ?? '';
+      expect(output).toContain('Configuração de Hooks');
+    });
+
+    it('ao pressionar Esc no ConfigureHooksModal, fecha o modal e retorna para a tela principal', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      for (let i = 0; i < 4; i++) {
+        stdin.write('j');
+        await tick();
+      }
+      stdin.write('\r');
+      await tick();
+
+      const modalOutput = lastFrame() ?? '';
+      expect(modalOutput).toContain('Configuração de Hooks');
+      expect(modalOutput).not.toContain('CodeForge Configuration Editor');
+
+      stdin.write('\u001B');
+      await tick();
+
+      const closedOutput = lastFrame() ?? '';
+      expect(closedOutput).not.toContain('Configuração de Hooks - Ciclo de Vida');
+      expect(closedOutput).toContain('CodeForge Configuration Editor');
+    });
+
+    it('ao pressionar Enter no campo specSource, abre o ConfigureSpecSourceModal', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      for (let i = 0; i < 5; i++) {
+        stdin.write('j');
+        await tick();
+      }
+
+      stdin.write('\r');
+      await tick();
+
+      const output = lastFrame() ?? '';
+      expect(output).toContain('Configuração de Spec Source');
+      expect(output).toContain('1. Provedor:');
+      expect(output).not.toContain('CodeForge Configuration Editor');
+    });
+
+    it('ao pressionar Espaço no campo specSource, abre o ConfigureSpecSourceModal', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      for (let i = 0; i < 5; i++) {
+        stdin.write('j');
+        await tick();
+      }
+
+      stdin.write(' ');
+      await tick();
+
+      const output = lastFrame() ?? '';
+      expect(output).toContain('Configuração de Spec Source');
+    });
+
+    it('ao pressionar Esc no ConfigureSpecSourceModal, fecha o modal e retorna à tela de configuração', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+      );
+
+      for (let i = 0; i < 5; i++) {
+        stdin.write('j');
+        await tick();
+      }
+
+      stdin.write('\r');
+      await tick();
+
+      const modalOutput = lastFrame() ?? '';
+      expect(modalOutput).toContain('Configuração de Spec Source');
+
+      stdin.write('\u001B');
+      await tick();
+
+      const closedOutput = lastFrame() ?? '';
+      expect(closedOutput).not.toContain('Configuração de Spec Source');
+      expect(closedOutput).toContain('CodeForge Configuration Editor');
+    });
+  });
+
+  describe('Persistência e Gerenciamento de Estado', () => {
+    it('ao pressionar "s", salva rapidamente a configuração no ConfigService e notifica callback onSave', async () => {
+      const mockSaveConfig = vi.fn();
+      const mockConfigService = {
+        loadConfig: () => mockConfig,
+        saveConfig: mockSaveConfig,
+      } as unknown as ConfigService;
+
+      const onSave = vi.fn();
+
+      const { lastFrame, stdin } = renderWithProviders(
+        <ConfigScreen
+          configService={mockConfigService}
+          initialConfig={mockConfig}
+          onSave={onSave}
+          isInteractive={true}
+        />
+      );
+
+      stdin.write(' ');
+      await tick();
+
+      stdin.write('s');
+      await tick();
+
+      expect(mockSaveConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          language: 'pt',
+        })
+      );
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          language: 'pt',
+        })
+      );
+
+      const output = lastFrame() ?? '';
+      expect(output).toContain('successfully saved');
+    });
+
+    it('ao atualizar hooks via handleUpdateHooks, atualiza estado de configuração sem marcar dirty', async () => {
+      let capturedState: any;
+      const TestComponent = () => {
+        capturedState = useConfigScreen({ initialConfig: mockConfig });
+        return null;
+      };
+      renderWithProviders(<TestComponent />);
+
+      expect(capturedState.isDirty).toBe(false);
+      expect(capturedState.config.hooks?.['run.started']).toHaveLength(1);
+
+      capturedState.handleUpdateHooks({
+        ...mockConfig.hooks,
+        'run.started': [
+          { name: 'test1', run: 'echo 1' },
+          { name: 'test2', run: 'echo 2' },
+        ],
+      });
+      await tick();
+
+      expect(capturedState.isDirty).toBe(false);
+      expect(capturedState.config.hooks?.['run.started']).toHaveLength(2);
+    });
+
+    it('ao atualizar specSource via handleUpdateSpecSource, atualiza configuração em memória', async () => {
+      let capturedState: any;
+      const TestComponent = () => {
+        capturedState = useConfigScreen({ initialConfig: mockConfig });
+        return null;
+      };
+      renderWithProviders(<TestComponent />);
+
+      expect(capturedState.config.specSource).toBeUndefined();
+
+      capturedState.handleUpdateSpecSource({
+        provider: 'linear',
+        team: 'ENG',
+        apiKey: '$LINEAR_API_KEY',
+      });
+      await tick();
+
+      expect(capturedState.config.specSource?.provider).toBe('linear');
+      expect(capturedState.config.specSource?.team).toBe('ENG');
+      expect(capturedState.config.specSource?.apiKey).toBe('$LINEAR_API_KEY');
+    });
   });
 });

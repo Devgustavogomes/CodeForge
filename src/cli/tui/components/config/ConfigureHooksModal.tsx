@@ -5,7 +5,6 @@ import { HooksEventList } from './components/HooksEventList.js';
 import { HooksCommandList } from './components/HooksCommandList.js';
 import { HookForm } from './components/HookForm.js';
 import { useConfigureHooksModal } from './hooks/useConfigureHooksModal.js';
-import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { CodeForgeConfig } from '../../../../config/types.js';
 import { ConfigService } from '../../../../config/ConfigService.js';
 import { HookMap } from '../../../../domain/hook.js';
@@ -34,8 +33,6 @@ export const ConfigureHooksModal: React.FC<ConfigureHooksModalProps> = ({
   onUpdateHooks,
   width = '100%',
 }) => {
-  const { breakpoint } = useTerminalDimensions();
-
   const {
     view,
     selectedEventIndex,

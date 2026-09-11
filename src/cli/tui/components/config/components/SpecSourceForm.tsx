@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
+import { TextInput } from '../../common/TextInput.js';
 
 export type SpecSourceFormField = 'provider' | 'project' | 'team' | 'apiKey' | 'save';
 
@@ -11,6 +12,47 @@ export const SPEC_SOURCE_FORM_FIELDS: SpecSourceFormField[] = [
   'apiKey',
   'save',
 ];
+
+export interface ProviderDescriptor {
+  description: string;
+  projectPlaceholder: string;
+  teamPlaceholder: string;
+  apiKeyPlaceholder: string;
+}
+
+export const DEFAULT_PROVIDER_DESCRIPTOR: ProviderDescriptor = {
+  description: 'Provedor de especificações customizado.',
+  projectPlaceholder: '(opcional para este provedor)',
+  teamPlaceholder: '(opcional para este provedor)',
+  apiKeyPlaceholder: '(não obrigatório para filesystem)',
+};
+
+export const SPEC_SOURCE_PROVIDERS_META: Record<string, ProviderDescriptor> = {
+  filesystem: {
+    description: 'Opera em arquivos .md locais na pasta .codeforge/specs/.',
+    projectPlaceholder: '(opcional para este provedor)',
+    teamPlaceholder: '(opcional para este provedor)',
+    apiKeyPlaceholder: '(não obrigatório para filesystem)',
+  },
+  github: {
+    description: 'Importa issues do GitHub. Requer repositório (project: owner/repo) e apiKey ($GITHUB_TOKEN).',
+    projectPlaceholder: 'ex: owner/repo (ex: org/projeto)',
+    teamPlaceholder: '(opcional para este provedor)',
+    apiKeyPlaceholder: 'ex: $GITHUB_TOKEN ou ghp_...',
+  },
+  linear: {
+    description: 'Importa issues do Linear. Requer apiKey ($LINEAR_API_KEY) e opcionalmente team.',
+    projectPlaceholder: '(opcional para este provedor)',
+    teamPlaceholder: 'ex: ENG (identificador ou time)',
+    apiKeyPlaceholder: 'ex: $LINEAR_API_KEY ou lin_api_...',
+  },
+  clickup: {
+    description: 'Importa tarefas do ClickUp. Requer apiKey ($CLICKUP_API_KEY), project (list ID) e team (team ID).',
+    projectPlaceholder: 'ex: 9012001234 (List ID)',
+    teamPlaceholder: 'ex: 12345678 (Team/Workspace ID)',
+    apiKeyPlaceholder: 'ex: $CLICKUP_API_KEY ou pk_...',
+  },
+};
 
 export interface SpecSourceFormProps {
   activeField?: SpecSourceFormField;
@@ -47,55 +89,7 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
       ? SPEC_SOURCE_FORM_FIELDS[activeFieldIndex] ?? 'provider'
       : 'provider');
 
-  const getProviderDescription = (p: string) => {
-    switch (p.toLowerCase()) {
-      case 'filesystem':
-        return 'Opera em arquivos .md locais na pasta .codeforge/specs/.';
-      case 'github':
-        return 'Importa issues do GitHub. Requer repositório (project: owner/repo) e apiKey ($GITHUB_TOKEN).';
-      case 'linear':
-        return 'Importa issues do Linear. Requer apiKey ($LINEAR_API_KEY) e opcionalmente team.';
-      case 'clickup':
-        return 'Importa tarefas do ClickUp. Requer apiKey ($CLICKUP_API_KEY), project (list ID) e team (team ID).';
-      default:
-        return 'Provedor de especificações customizado.';
-    }
-  };
-
-  const getProjectPlaceholder = () => {
-    switch (provider.toLowerCase()) {
-      case 'github':
-        return 'ex: owner/repo (ex: org/projeto)';
-      case 'clickup':
-        return 'ex: 9012001234 (List ID)';
-      default:
-        return '(opcional para este provedor)';
-    }
-  };
-
-  const getTeamPlaceholder = () => {
-    switch (provider.toLowerCase()) {
-      case 'linear':
-        return 'ex: ENG (identificador ou time)';
-      case 'clickup':
-        return 'ex: 12345678 (Team/Workspace ID)';
-      default:
-        return '(opcional para este provedor)';
-    }
-  };
-
-  const getApiKeyPlaceholder = () => {
-    switch (provider.toLowerCase()) {
-      case 'github':
-        return 'ex: $GITHUB_TOKEN ou ghp_...';
-      case 'linear':
-        return 'ex: $LINEAR_API_KEY ou lin_api_...';
-      case 'clickup':
-        return 'ex: $CLICKUP_API_KEY ou pk_...';
-      default:
-        return '(não obrigatório para filesystem)';
-    }
-  };
+  const meta = SPEC_SOURCE_PROVIDERS_META[provider.toLowerCase()] ?? DEFAULT_PROVIDER_DESCRIPTOR;
 
   return (
     <Box flexDirection="column" width="100%">
@@ -124,7 +118,7 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
           </Box>
         </Box>
         <Text dimColor wrap="truncate-end">
-          {getProviderDescription(provider)}
+          {meta.description}
         </Text>
       </Box>
 
@@ -142,25 +136,19 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
               <Text color="blue" bold>
                 {'> '}
               </Text>
-              {project.length > 0 ? (
-                <Text color="white" bold wrap="truncate-end">
-                  {project}█
-                </Text>
-              ) : (
-                <Box gap={1}>
-                  <Text color="cyan">█</Text>
-                  <Text dimColor wrap="truncate-end">
-                    {getProjectPlaceholder()}
-                  </Text>
-                </Box>
-              )}
+              <TextInput
+                value={project}
+                placeholder={meta.projectPlaceholder}
+                isFocused={true}
+                cursorColor="cyan"
+              />
             </Box>
           ) : (
             <Text
               color={project ? 'white' : 'gray'}
               wrap="truncate-end"
             >
-              {project || getProjectPlaceholder()}
+              {project || meta.projectPlaceholder}
             </Text>
           )}
         </Box>
@@ -183,25 +171,19 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
               <Text color="blue" bold>
                 {'> '}
               </Text>
-              {team.length > 0 ? (
-                <Text color="white" bold wrap="truncate-end">
-                  {team}█
-                </Text>
-              ) : (
-                <Box gap={1}>
-                  <Text color="cyan">█</Text>
-                  <Text dimColor wrap="truncate-end">
-                    {getTeamPlaceholder()}
-                  </Text>
-                </Box>
-              )}
+              <TextInput
+                value={team}
+                placeholder={meta.teamPlaceholder}
+                isFocused={true}
+                cursorColor="cyan"
+              />
             </Box>
           ) : (
             <Text
               color={team ? 'white' : 'gray'}
               wrap="truncate-end"
             >
-              {team || getTeamPlaceholder()}
+              {team || meta.teamPlaceholder}
             </Text>
           )}
         </Box>
@@ -224,25 +206,19 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
               <Text color="blue" bold>
                 {'> '}
               </Text>
-              {apiKey.length > 0 ? (
-                <Text color="white" bold wrap="truncate-end">
-                  {apiKey}█
-                </Text>
-              ) : (
-                <Box gap={1}>
-                  <Text color="cyan">█</Text>
-                  <Text dimColor wrap="truncate-end">
-                    {getApiKeyPlaceholder()}
-                  </Text>
-                </Box>
-              )}
+              <TextInput
+                value={apiKey}
+                placeholder={meta.apiKeyPlaceholder}
+                isFocused={true}
+                cursorColor="cyan"
+              />
             </Box>
           ) : (
             <Text
               color={apiKey ? 'white' : 'gray'}
               wrap="truncate-end"
             >
-              {apiKey ? (apiKey.startsWith('$') ? apiKey : '••••••••') : getApiKeyPlaceholder()}
+              {apiKey ? (apiKey.startsWith('$') ? apiKey : '••••••••') : meta.apiKeyPlaceholder}
             </Text>
           )}
         </Box>

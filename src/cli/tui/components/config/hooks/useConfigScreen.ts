@@ -7,7 +7,7 @@ import { CodeForgeConfig } from '../../../../../config/types.js';
 import { HookMap } from '../../../../../domain/hook.js';
 import { SpecSourceConfig } from '../../../../../domain/spec-source.js';
 import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
-import { ConfigFieldKey, FIELD_ORDER, LANGUAGES } from '../components/ConfigField.js';
+import { FIELD_ORDER, LANGUAGES } from '../components/ConfigField.js';
 
 export interface UseConfigScreenOptions {
   container?: AppContainer;
@@ -87,22 +87,14 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
 
   // Dynamically load available environments from useCase
   const availableEnvironments = useMemo(() => {
-    try {
-      const list = container.configureEnvironmentUseCase.getAvailableEnvironments();
-      return list && list.length > 0
-        ? list
-        : ['antigravity', 'claude', 'codex', 'cursor'];
-    } catch {
-      return ['antigravity', 'claude', 'codex', 'cursor'];
-    }
+    const list = container.configureEnvironmentUseCase.getAvailableEnvironments();
+    return list && list.length > 0
+      ? list
+      : ['antigravity', 'claude', 'codex', 'cursor'];
   }, [container]);
 
   const availableSpecSourceProviders = useMemo(() => {
-    try {
-      return SpecSourceFactory.getAvailableProviders();
-    } catch {
-      return ['filesystem', 'linear', 'github', 'clickup'];
-    }
+    return SpecSourceFactory.getAvailableProviders();
   }, []);
 
   const [dynamicAgents, setDynamicAgents] = useState<string[]>([]);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { HookEvent, HookType } from '../../../../../domain/hook.js';
+import { TextInput } from '../../common/TextInput.js';
 
 export type HookFormField = 'run' | 'type' | 'name' | 'save';
 
@@ -87,18 +88,12 @@ export const HookForm: React.FC<HookFormProps> = ({
               <Text color="blue" bold>
                 {'> '}
               </Text>
-              {currentRun.length > 0 ? (
-                <Text color="white" bold wrap="truncate-end">
-                  {currentRun}█
-                </Text>
-              ) : (
-                <Box gap={1}>
-                  <Text color="cyan">█</Text>
-                  <Text dimColor wrap="truncate-end">
-                    ex: npm run lint, pytest tests/unit
-                  </Text>
-                </Box>
-              )}
+              <TextInput
+                value={currentRun}
+                placeholder="ex: npm run lint, pytest tests/unit"
+                isFocused={true}
+                cursorColor="cyan"
+              />
             </Box>
           ) : (
             <Text
@@ -164,18 +159,12 @@ export const HookForm: React.FC<HookFormProps> = ({
               <Text color="blue" bold>
                 {'> '}
               </Text>
-              {currentName.length > 0 ? (
-                <Text color="white" bold wrap="truncate-end">
-                  {currentName}█
-                </Text>
-              ) : (
-                <Box gap={1}>
-                  <Text color="cyan">█</Text>
-                  <Text dimColor wrap="truncate-end">
-                    (opcional: derivado automaticamente como "{autoNamePlaceholder}" se vazio)
-                  </Text>
-                </Box>
-              )}
+              <TextInput
+                value={currentName}
+                placeholder={`(opcional: derivado automaticamente como "${autoNamePlaceholder}" se vazio)`}
+                isFocused={true}
+                cursorColor="cyan"
+              />
             </Box>
           ) : (
             <Text

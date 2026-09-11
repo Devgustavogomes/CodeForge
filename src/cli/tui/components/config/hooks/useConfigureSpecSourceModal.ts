@@ -9,6 +9,7 @@ import {
 } from '../components/SpecSourceForm.js';
 import { CodeForgeConfig } from '../../../../../config/types.js';
 import { ConfigService } from '../../../../../config/ConfigService.js';
+import { useTextInput } from '../../../hooks/useTextInput.js';
 
 export interface UseConfigureSpecSourceModalOptions {
   isOpen?: boolean;
@@ -49,11 +50,7 @@ export function useConfigureSpecSourceModal({
   const nav = useContext(NavigationContext);
 
   const availableProviders = useMemo(() => {
-    try {
-      return SpecSourceFactory.getAvailableProviders();
-    } catch {
-      return ['filesystem', 'linear', 'github', 'clickup'];
-    }
+    return SpecSourceFactory.getAvailableProviders();
   }, []);
 
   const initialProvider = config?.specSource?.provider || 'filesystem';
@@ -74,63 +71,8 @@ export function useConfigureSpecSourceModal({
   const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
-  // Sincronizar campos quando o modal abre ou config muda
-  useEffect(() => {
-    if (isOpen) {
-      const currentProvider = config?.specSource?.provider || 'filesystem';
-      setProvider(currentProvider);
-      setProject((config?.specSource?.project as string | undefined) || '');
-      setTeam((config?.specSource?.team as string | undefined) || '');
-      setApiKey(
-        (config?.specSource?.apiKey as string | undefined) ||
-          SpecSourceFactory.getDefaultApiKey(currentProvider),
-      );
-      setActiveFormFieldIndex(0);
-      setFormErrorMessage(null);
-      setFeedbackMessage(null);
-    }
-  }, [isOpen, config?.specSource]);
-
   const activeFormField: SpecSourceFormField =
     SPEC_SOURCE_FORM_FIELDS[activeFormFieldIndex] ?? 'provider';
-
-  // Sincronizar foco de digitação com o NavigationContext
-  useEffect(() => {
-    if (
-      isOpen &&
-      (activeFormField === 'project' ||
-        activeFormField === 'team' ||
-        activeFormField === 'apiKey')
-    ) {
-      nav?.setTextInputActive?.(true);
-    } else {
-      nav?.setTextInputActive?.(false);
-    }
-    return () => {
-      nav?.setTextInputActive?.(false);
-    };
-  }, [isOpen, activeFormField, nav]);
-
-  const cycleProvider = useCallback(
-    (direction: 1 | -1 = 1) => {
-      const currentIdx = availableProviders.indexOf(provider.toLowerCase());
-      const safeIdx = currentIdx >= 0 ? currentIdx : 0;
-      const nextIdx =
-        (safeIdx + direction + availableProviders.length) %
-        availableProviders.length;
-      const nextProvider = availableProviders[nextIdx];
-      const prevDefault = SpecSourceFactory.getDefaultApiKey(provider);
-
-      // Se o usuário não alterou a apiKey (está vazia ou é o padrão do provedor anterior),
-      // atualiza automaticamente para a variável de ambiente padrão do novo provedor
-      if (!apiKey || apiKey === prevDefault) {
-        setApiKey(SpecSourceFactory.getDefaultApiKey(nextProvider));
-      }
-
-      setProvider(nextProvider);
-    },
-    [availableProviders, provider, apiKey],
-  );
 
   const saveSpecSource = useCallback((): boolean => {
     const trimmedProvider = provider.trim() || 'filesystem';
@@ -166,7 +108,98 @@ export function useConfigureSpecSourceModal({
     return true;
   }, [provider, project, team, apiKey, configService, config, onUpdateSpecSource, onClose]);
 
-  // Captura de teclado do formulário
+  const projectInput = useTextInput({
+    initialValue: project,
+    isActive: isOpen && activeFormField === 'project',
+    syncNavigation: false,
+    onChange: setProject,
+    onSubmit: () => {
+      saveSpecSource();
+    },
+  });
+
+  const teamInput = useTextInput({
+    initialValue: team,
+    isActive: isOpen && activeFormField === 'team',
+    syncNavigation: false,
+    onChange: setTeam,
+    onSubmit: () => {
+      saveSpecSource();
+    },
+  });
+
+  const apiKeyInput = useTextInput({
+    initialValue: apiKey,
+    isActive: isOpen && activeFormField === 'apiKey',
+    syncNavigation: false,
+    onChange: setApiKey,
+    onSubmit: () => {
+      saveSpecSource();
+    },
+  });
+
+  // Sincronizar campos quando o modal abre ou config muda
+  useEffect(() => {
+    if (isOpen) {
+      const currentProvider = config?.specSource?.provider || 'filesystem';
+      setProvider(currentProvider);
+      const proj = (config?.specSource?.project as string | undefined) || '';
+      setProject(proj);
+      projectInput.setValue(proj);
+      const tm = (config?.specSource?.team as string | undefined) || '';
+      setTeam(tm);
+      teamInput.setValue(tm);
+      const key =
+        (config?.specSource?.apiKey as string | undefined) ||
+        SpecSourceFactory.getDefaultApiKey(currentProvider);
+      setApiKey(key);
+      apiKeyInput.setValue(key);
+
+      setActiveFormFieldIndex(0);
+      setFormErrorMessage(null);
+      setFeedbackMessage(null);
+    }
+  }, [isOpen, config?.specSource]);
+
+  // Sincronizar foco de digitação com o NavigationContext
+  useEffect(() => {
+    if (
+      isOpen &&
+      (activeFormField === 'project' ||
+        activeFormField === 'team' ||
+        activeFormField === 'apiKey')
+    ) {
+      nav?.setTextInputActive?.(true);
+    } else {
+      nav?.setTextInputActive?.(false);
+    }
+    return () => {
+      nav?.setTextInputActive?.(false);
+    };
+  }, [isOpen, activeFormField, nav]);
+
+  const cycleProvider = useCallback(
+    (direction: 1 | -1 = 1) => {
+      const currentIdx = availableProviders.indexOf(provider.toLowerCase());
+      const safeIdx = currentIdx >= 0 ? currentIdx : 0;
+      const nextIdx =
+        (safeIdx + direction + availableProviders.length) %
+        availableProviders.length;
+      const nextProvider = availableProviders[nextIdx];
+      const prevDefault = SpecSourceFactory.getDefaultApiKey(provider);
+
+      if (!apiKey || apiKey === prevDefault) {
+        const nextDefault = SpecSourceFactory.getDefaultApiKey(nextProvider);
+        setApiKey(nextDefault);
+        apiKeyInput.setValue(nextDefault);
+      }
+
+      setProvider(nextProvider);
+    },
+    [availableProviders, provider, apiKey, apiKeyInput],
+  );
+
+  // Captura de teclado do formulário para navegação entre campos e controles
   useInput(
     (input, key) => {
       if (!isOpen) return;
@@ -222,43 +255,6 @@ export function useConfigureSpecSourceModal({
         }
         return;
       }
-
-      // Campos de Texto (project, team, apiKey)
-      const currentSetter =
-        activeFormField === 'project'
-          ? setProject
-          : activeFormField === 'team'
-            ? setTeam
-            : setApiKey;
-
-      if (
-        key.backspace ||
-        key.delete ||
-        input === '\x08' ||
-        input === '\x7f'
-      ) {
-        currentSetter((prev) => prev.slice(0, -1));
-        return;
-      }
-
-      if (key.ctrl && input === 'u') {
-        currentSetter('');
-        return;
-      }
-
-      if (!key.ctrl && !key.meta) {
-        const printable = input
-          .split('')
-          .filter((ch) => {
-            const code = ch.charCodeAt(0);
-            return (code >= 32 && code !== 127) || code > 127;
-          })
-          .join('');
-
-        if (printable.length > 0) {
-          currentSetter((prev) => prev + printable);
-        }
-      }
     },
     { isActive: isOpen },
   );
@@ -267,11 +263,11 @@ export function useConfigureSpecSourceModal({
     provider,
     setProvider,
     project,
-    setProject,
+    setProject: projectInput.setValue,
     team,
-    setTeam,
+    setTeam: teamInput.setValue,
     apiKey,
-    setApiKey,
+    setApiKey: apiKeyInput.setValue,
     activeFormFieldIndex,
     setActiveFormFieldIndex,
     activeFormField,

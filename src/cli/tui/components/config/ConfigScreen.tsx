@@ -3,7 +3,7 @@ import { Box, Text } from 'ink';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { AppContainer } from '../../../../infrastructure/container.js';
 import { ConfigService } from '../../../../config/ConfigService.js';
-import { CodeForgeConfig, SupportedLanguage } from '../../../../config/types.js';
+import { CodeForgeConfig } from '../../../../config/types.js';
 import {
   ConfigField,
   FIELD_ORDER,
