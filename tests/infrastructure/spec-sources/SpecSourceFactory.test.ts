@@ -52,6 +52,22 @@ describe("SpecSourceFactory", () => {
       "Unsupported spec source provider: jira"
     );
   });
+
+  it("returns correct default env variable for each provider", () => {
+    expect(SpecSourceFactory.getDefaultEnvVar("github")).toBe("GITHUB_TOKEN");
+    expect(SpecSourceFactory.getDefaultEnvVar("linear")).toBe("LINEAR_API_KEY");
+    expect(SpecSourceFactory.getDefaultEnvVar("clickup")).toBe("CLICKUP_API_KEY");
+    expect(SpecSourceFactory.getDefaultEnvVar("filesystem")).toBe("");
+    expect(SpecSourceFactory.getDefaultEnvVar("unknown")).toBe("");
+  });
+
+  it("returns correct default apiKey ($VAR) for each provider", () => {
+    expect(SpecSourceFactory.getDefaultApiKey("github")).toBe("$GITHUB_TOKEN");
+    expect(SpecSourceFactory.getDefaultApiKey("linear")).toBe("$LINEAR_API_KEY");
+    expect(SpecSourceFactory.getDefaultApiKey("clickup")).toBe("$CLICKUP_API_KEY");
+    expect(SpecSourceFactory.getDefaultApiKey("filesystem")).toBe("");
+    expect(SpecSourceFactory.getDefaultApiKey("unknown")).toBe("");
+  });
 });
 
 describe("FilesystemSpecSource", () => {

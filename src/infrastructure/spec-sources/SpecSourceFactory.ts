@@ -24,4 +24,22 @@ export class SpecSourceFactory {
         throw new Error(`Unsupported spec source provider: ${provider}`);
     }
   }
+
+  static getDefaultEnvVar(provider: string): string {
+    switch (provider.toLowerCase()) {
+      case "github":
+        return "GITHUB_TOKEN";
+      case "linear":
+        return "LINEAR_API_KEY";
+      case "clickup":
+        return "CLICKUP_API_KEY";
+      default:
+        return "";
+    }
+  }
+
+  static getDefaultApiKey(provider: string): string {
+    const envVar = this.getDefaultEnvVar(provider);
+    return envVar ? `$${envVar}` : "";
+  }
 }
