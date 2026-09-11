@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   TaskList,
@@ -14,7 +14,7 @@ import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-describe('TaskList component', () => {
+describe('TaskList - Lista de Tarefas de Execução (BDD)', () => {
   beforeEach(() => {
     resetSharedSpinnerTicker();
   });
@@ -22,6 +22,7 @@ describe('TaskList component', () => {
   afterEach(() => {
     resetSharedSpinnerTicker();
   });
+
   const mockTasks: TaskItem[] = [
     {
       id: 'TASK-001',
@@ -55,285 +56,288 @@ describe('TaskList component', () => {
     },
   ];
 
-  it('renders task items with status icons, durations, IDs, and titles', () => {
-    const { lastFrame } = renderWithProviders(
-      <TaskList tasks={mockTasks} selectedTaskId="TASK-001" isFocused={false} />
-    );
-    const output = lastFrame() ?? '';
+  describe('Renderização e Contadores de Tarefas', () => {
+    it('ao carregar tarefas, exibe lista com ícones de status, durações, IDs e títulos', () => {
+      const { lastFrame } = renderWithProviders(
+        <TaskList tasks={mockTasks} selectedTaskId="TASK-001" isFocused={false} />
+      );
+      const output = lastFrame() ?? '';
 
-    expect(output).toContain('Tasks (4)');
-    expect(output).toContain('TASK-001');
-    expect(output).toContain('Initial setup');
-    expect(output).toContain('✓'); // completed icon
-    expect(output).toContain('5s'); // 5000ms duration
+      expect(output).toContain('Tasks (4)');
+      expect(output).toContain('TASK-001');
+      expect(output).toContain('Initial setup');
+      expect(output).toContain('✓');
+      expect(output).toContain('5s');
 
-    expect(output).toContain('TASK-002');
-    expect(output).toContain('Build feature');
-    expect(output).toContain(SPINNER_FRAMES[0]); // live spinner on running task
+      expect(output).toContain('TASK-002');
+      expect(output).toContain('Build feature');
+      expect(output).toContain(SPINNER_FRAMES[0]);
 
-    expect(output).toContain('TASK-003');
-    expect(output).toContain('Run tests');
-    expect(output).toContain('✗'); // failed icon
-    expect(output).toContain('2s'); // 2000ms duration
+      expect(output).toContain('TASK-003');
+      expect(output).toContain('Run tests');
+      expect(output).toContain('✗');
+      expect(output).toContain('2s');
 
-    expect(output).toContain('TASK-004');
-    expect(output).toContain('Deploy to prod');
-    expect(output).toContain('●'); // pending icon
+      expect(output).toContain('TASK-004');
+      expect(output).toContain('Deploy to prod');
+      expect(output).toContain('●');
+    });
+
+    it('exibe badges de filtro com contagem consolidada por status', () => {
+      const { lastFrame } = renderWithProviders(
+        <TaskList tasks={mockTasks} selectedTaskId="TASK-001" showFilterBadges={true} />
+      );
+      const output = lastFrame() ?? '';
+
+      expect(output).toContain('[All: 4]');
+      expect(output).toContain('[▶ Running: 1]');
+      expect(output).toContain('[✗ Failed: 1]');
+      expect(output).toContain('[✓ Done: 1]');
+    });
+
+    it('formata durações de tarefas de forma precisa consumindo o formatador unificado', () => {
+      expect(formatDuration(undefined, undefined)).toBe('-');
+      expect(
+        formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T10:00:00.500Z')
+      ).toBe('500ms');
+      expect(
+        formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T10:00:15.000Z')
+      ).toBe('15s');
+      expect(
+        formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T10:02:30.000Z')
+      ).toBe('2m 30s');
+      expect(
+        formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T11:02:30.000Z')
+      ).toBe('1h 2m 30s');
+    });
   });
 
-  it('renders live spinner on running tasks that updates animation frame', async () => {
-    const { lastFrame } = renderWithProviders(
-      <TaskList
-        tasks={[
-          {
-            id: 'TASK-001',
-            title: 'Running task',
-            status: 'running',
-            dependencies: [],
-            startedAt: new Date().toISOString(),
-          },
-        ]}
-      />
-    );
+  describe('Navegação e Seleção de Tarefas', () => {
+    it('ao pressionar setas ou teclas j/k, navega e seleciona a tarefa correspondente', () => {
+      const onSelectTask = vi.fn();
+      const { stdin } = renderWithProviders(
+        <TaskList
+          tasks={mockTasks}
+          selectedTaskId="TASK-001"
+          onSelectTask={onSelectTask}
+          isFocused={true}
+        />
+      );
 
-    expect(lastFrame()).toContain(SPINNER_FRAMES[0]);
-    let advanced = false;
-    for (let i = 0; i < 20; i++) {
-      await sleep(25);
-      if (lastFrame()?.includes(SPINNER_FRAMES[1])) {
-        advanced = true;
-        break;
-      }
-    }
-    expect(advanced).toBe(true);
+      // Down arrow to move to TASK-002
+      stdin.write('\u001B[B');
+      expect(onSelectTask).toHaveBeenCalledWith('TASK-002');
+
+      // Key 'j' to move to next
+      stdin.write('j');
+      expect(onSelectTask).toHaveBeenCalledWith('TASK-002');
+    });
   });
 
-  it('ticks dynamic elapsed duration for running tasks', async () => {
-    vi.useFakeTimers();
-    try {
-      // Started 2 seconds ago
-      const startTime = new Date(Date.now() - 2000).toISOString();
+  describe('Atualização Dinâmica e Timers', () => {
+    it('ao existir tarefa em execução, exibe spinner animado e atualiza frames', async () => {
       const { lastFrame } = renderWithProviders(
         <TaskList
           tasks={[
             {
-              id: 'TASK-DONE',
-              title: 'Initial setup',
-              status: 'completed',
-              dependencies: [],
-              startedAt: '2026-09-06T10:00:00.000Z',
-              completedAt: '2026-09-06T10:00:05.000Z',
-            },
-            {
-              id: 'TASK-LIVE',
-              title: 'Long running task',
+              id: 'TASK-001',
+              title: 'Running task',
               status: 'running',
               dependencies: [],
-              startedAt: startTime,
-            },
-            {
-              id: 'TASK-PENDING',
-              title: 'Pending deploy',
-              status: 'pending',
-              dependencies: ['TASK-LIVE'],
+              startedAt: new Date().toISOString(),
             },
           ]}
         />
       );
 
+      expect(lastFrame()).toContain(SPINNER_FRAMES[0]);
+      let advanced = false;
+      for (let i = 0; i < 20; i++) {
+        await sleep(25);
+        if (lastFrame()?.includes(SPINNER_FRAMES[1])) {
+          advanced = true;
+          break;
+        }
+      }
+      expect(advanced).toBe(true);
+    });
+
+    it('atualiza dinamicamente a duração decorrida de tarefas em execução conforme o timer avança', async () => {
+      vi.useFakeTimers();
+      try {
+        const startTime = new Date(Date.now() - 2000).toISOString();
+        const { lastFrame } = renderWithProviders(
+          <TaskList
+            tasks={[
+              {
+                id: 'TASK-DONE',
+                title: 'Initial setup',
+                status: 'completed',
+                dependencies: [],
+                startedAt: '2026-09-06T10:00:00.000Z',
+                completedAt: '2026-09-06T10:00:05.000Z',
+              },
+              {
+                id: 'TASK-LIVE',
+                title: 'Long running task',
+                status: 'running',
+                dependencies: [],
+                startedAt: startTime,
+              },
+              {
+                id: 'TASK-PENDING',
+                title: 'Pending deploy',
+                status: 'pending',
+                dependencies: ['TASK-LIVE'],
+              },
+            ]}
+          />
+        );
+
+        const initial = lastFrame() ?? '';
+        expect(initial).toContain('TASK-DONE');
+        expect(initial).toContain('5s');
+        expect(initial).toContain('TASK-LIVE');
+        expect(initial).toMatch(/[23]s/);
+        expect(initial).toContain('TASK-PENDING');
+
+        vi.advanceTimersByTime(1000);
+        await vi.runOnlyPendingTimersAsync();
+
+        const afterTick = lastFrame() ?? '';
+        expect(afterTick).toContain('TASK-DONE');
+        expect(afterTick).toContain('5s');
+        expect(afterTick).toContain('TASK-LIVE');
+        expect(afterTick).toMatch(/[34]s/);
+        expect(afterTick).toContain('TASK-PENDING');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  describe('Memoization e Isolamento de Renderização (TaskRow)', () => {
+    it('preserva a renderização de tarefas concluídas sem renderizações desnecessárias durante animação do spinner', async () => {
+      const tasks: TaskItem[] = [
+        {
+          id: 'TASK-DONE',
+          title: 'Finished work',
+          status: 'completed',
+          dependencies: [],
+          startedAt: '2026-09-06T10:00:00.000Z',
+          completedAt: '2026-09-06T10:00:10.000Z',
+        },
+        {
+          id: 'TASK-ACTIVE',
+          title: 'In progress work',
+          status: 'running',
+          dependencies: [],
+          startedAt: new Date().toISOString(),
+        },
+      ];
+
+      const { lastFrame, unmount } = renderWithProviders(
+        <TaskList tasks={tasks} selectedTaskId="TASK-DONE" isFocused={true} />
+      );
+
       const initial = lastFrame() ?? '';
       expect(initial).toContain('TASK-DONE');
-      expect(initial).toContain('5s');
-      expect(initial).toContain('TASK-LIVE');
-      expect(initial).toMatch(/[23]s/);
-      expect(initial).toContain('TASK-PENDING');
+      expect(initial).toContain('✓');
+      expect(initial).toContain('10s');
+      expect(initial).toContain('TASK-ACTIVE');
+      expect(initial).toContain(SPINNER_FRAMES[0]);
 
-      vi.advanceTimersByTime(1000);
-      await vi.runOnlyPendingTimersAsync();
+      for (let i = 0; i < 20; i++) {
+        await sleep(25);
+        if (lastFrame()?.includes(SPINNER_FRAMES[1])) break;
+      }
 
       const afterTick = lastFrame() ?? '';
       expect(afterTick).toContain('TASK-DONE');
-      expect(afterTick).toContain('5s');
-      expect(afterTick).toContain('TASK-LIVE');
-      expect(afterTick).toMatch(/[34]s/);
-      expect(afterTick).toContain('TASK-PENDING');
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+      expect(afterTick).toContain('✓');
+      expect(afterTick).toContain('10s');
+      expect(afterTick).toContain(SPINNER_FRAMES[1]);
 
-  it('renders filter badges with accurate counts', () => {
-    const { lastFrame } = renderWithProviders(
-      <TaskList tasks={mockTasks} selectedTaskId="TASK-001" showFilterBadges={true} />
-    );
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('[All: 4]');
-    expect(output).toContain('[▶ Running: 1]');
-    expect(output).toContain('[✗ Failed: 1]');
-    expect(output).toContain('[✓ Done: 1]');
-  });
-
-  it('navigates through tasks via keyboard (down / up arrows)', () => {
-    const onSelectTask = vi.fn();
-    const { stdin } = renderWithProviders(
-      <TaskList
-        tasks={mockTasks}
-        selectedTaskId="TASK-001"
-        onSelectTask={onSelectTask}
-        isFocused={true}
-      />
-    );
-
-    // Down arrow to move to TASK-002
-    stdin.write('\u001B[B');
-    expect(onSelectTask).toHaveBeenCalledWith('TASK-002');
-
-    // Key 'j' to move to next
-    stdin.write('j');
-    expect(onSelectTask).toHaveBeenCalledWith('TASK-002');
-  });
-
-  it('formats durations accurately', () => {
-    expect(formatDuration(undefined, undefined)).toBe('-');
-    expect(
-      formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T10:00:00.500Z')
-    ).toBe('500ms');
-    expect(
-      formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T10:00:15.000Z')
-    ).toBe('15s');
-    expect(
-      formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T10:02:30.000Z')
-    ).toBe('2m 30s');
-    expect(
-      formatDuration('2026-09-06T10:00:00.000Z', '2026-09-06T11:02:30.000Z')
-    ).toBe('1h 2m 30s');
-  });
-
-  describe('areTaskRowPropsEqual comparator', () => {
-    const baseTask: TaskItem = {
-      id: 'TASK-001',
-      title: 'Setup task',
-      status: 'completed',
-      dependencies: [],
-      startedAt: '2026-09-06T10:00:00.000Z',
-      completedAt: '2026-09-06T10:00:05.000Z',
-    };
-
-    it('returns true when references and values are identical', () => {
-      const prev = { task: baseTask, isSelected: false, isFocused: true };
-      const next = { task: baseTask, isSelected: false, isFocused: true };
-      expect(areTaskRowPropsEqual(prev, next)).toBe(true);
+      unmount();
     });
 
-    it('returns true when task object is a clone with equal fields', () => {
-      const prev = { task: baseTask, isSelected: true, isFocused: true };
-      const next = {
-        task: { ...baseTask, errors: ['different errors but ignored in row'] },
-        isSelected: true,
-        isFocused: true,
-      };
-      expect(areTaskRowPropsEqual(prev, next)).toBe(true);
-    });
-
-    it('returns false when isSelected changes', () => {
-      const prev = { task: baseTask, isSelected: false, isFocused: true };
-      const next = { task: baseTask, isSelected: true, isFocused: true };
-      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
-    });
-
-    it('returns false when isFocused changes', () => {
-      const prev = { task: baseTask, isSelected: true, isFocused: false };
-      const next = { task: baseTask, isSelected: true, isFocused: true };
-      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
-    });
-
-    it('returns false when task status changes', () => {
-      const prev = { task: baseTask, isSelected: false, isFocused: false };
-      const next = {
-        task: { ...baseTask, status: 'running' as const },
-        isSelected: false,
-        isFocused: false,
-      };
-      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
-    });
-
-    it('returns false when task title changes', () => {
-      const prev = { task: baseTask, isSelected: false, isFocused: false };
-      const next = {
-        task: { ...baseTask, title: 'Updated Title' },
-        isSelected: false,
-        isFocused: false,
-      };
-      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
-    });
-
-    it('returns false when startedAt changes', () => {
-      const prev = { task: baseTask, isSelected: false, isFocused: false };
-      const next = {
-        task: { ...baseTask, startedAt: '2026-09-06T10:00:01.000Z' },
-        isSelected: false,
-        isFocused: false,
-      };
-      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
-    });
-
-    it('returns false when completedAt changes', () => {
-      const prev = { task: baseTask, isSelected: false, isFocused: false };
-      const next = {
-        task: { ...baseTask, completedAt: '2026-09-06T10:00:10.000Z' },
-        isSelected: false,
-        isFocused: false,
-      };
-      expect(areTaskRowPropsEqual(prev, next)).toBe(false);
-    });
-  });
-
-  it('preserves TaskRow rendering and isolates active spinner without affecting other rows', async () => {
-    const tasks: TaskItem[] = [
-      {
-        id: 'TASK-DONE',
-        title: 'Finished work',
+    describe('comparador areTaskRowPropsEqual', () => {
+      const baseTask: TaskItem = {
+        id: 'TASK-001',
+        title: 'Setup task',
         status: 'completed',
         dependencies: [],
         startedAt: '2026-09-06T10:00:00.000Z',
-        completedAt: '2026-09-06T10:00:10.000Z',
-      },
-      {
-        id: 'TASK-ACTIVE',
-        title: 'In progress work',
-        status: 'running',
-        dependencies: [],
-        startedAt: new Date().toISOString(),
-      },
-    ];
+        completedAt: '2026-09-06T10:00:05.000Z',
+      };
 
-    const { lastFrame, unmount } = renderWithProviders(
-      <TaskList tasks={tasks} selectedTaskId="TASK-DONE" isFocused={true} />
-    );
+      it('retorna true quando referências e propriedades são idênticas', () => {
+        const prev = { task: baseTask, isSelected: false, isFocused: true };
+        const next = { task: baseTask, isSelected: false, isFocused: true };
+        expect(areTaskRowPropsEqual(prev, next)).toBe(true);
+      });
 
-    const initial = lastFrame() ?? '';
-    expect(initial).toContain('TASK-DONE');
-    expect(initial).toContain('✓');
-    expect(initial).toContain('10s');
-    expect(initial).toContain('TASK-ACTIVE');
-    expect(initial).toContain(SPINNER_FRAMES[0]);
+      it('retorna true quando task é clone com campos essenciais iguais', () => {
+        const prev = { task: baseTask, isSelected: true, isFocused: true };
+        const next = {
+          task: { ...baseTask, errors: ['different errors but ignored in row'] },
+          isSelected: true,
+          isFocused: true,
+        };
+        expect(areTaskRowPropsEqual(prev, next)).toBe(true);
+      });
 
-    // Advance timer to let spinner tick
-    for (let i = 0; i < 20; i++) {
-      await sleep(25);
-      if (lastFrame()?.includes(SPINNER_FRAMES[1])) break;
-    }
+      it('retorna false quando isSelected muda', () => {
+        const prev = { task: baseTask, isSelected: false, isFocused: true };
+        const next = { task: baseTask, isSelected: true, isFocused: true };
+        expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+      });
 
-    const afterTick = lastFrame() ?? '';
-    // Completed task row remains intact and unchanged
-    expect(afterTick).toContain('TASK-DONE');
-    expect(afterTick).toContain('✓');
-    expect(afterTick).toContain('10s');
-    // Active task row has updated spinner
-    expect(afterTick).toContain(SPINNER_FRAMES[1]);
+      it('retorna false quando isFocused muda', () => {
+        const prev = { task: baseTask, isSelected: true, isFocused: false };
+        const next = { task: baseTask, isSelected: true, isFocused: true };
+        expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+      });
 
-    unmount();
+      it('retorna false quando status da tarefa muda', () => {
+        const prev = { task: baseTask, isSelected: false, isFocused: false };
+        const next = {
+          task: { ...baseTask, status: 'running' as const },
+          isSelected: false,
+          isFocused: false,
+        };
+        expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+      });
+
+      it('retorna false quando o título da tarefa muda', () => {
+        const prev = { task: baseTask, isSelected: false, isFocused: false };
+        const next = {
+          task: { ...baseTask, title: 'Updated Title' },
+          isSelected: false,
+          isFocused: false,
+        };
+        expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+      });
+
+      it('retorna false quando startedAt muda', () => {
+        const prev = { task: baseTask, isSelected: false, isFocused: false };
+        const next = {
+          task: { ...baseTask, startedAt: '2026-09-06T10:00:01.000Z' },
+          isSelected: false,
+          isFocused: false,
+        };
+        expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+      });
+
+      it('retorna false quando completedAt muda', () => {
+        const prev = { task: baseTask, isSelected: false, isFocused: false };
+        const next = {
+          task: { ...baseTask, completedAt: '2026-09-06T10:00:10.000Z' },
+          isSelected: false,
+          isFocused: false,
+        };
+        expect(areTaskRowPropsEqual(prev, next)).toBe(false);
+      });
+    });
   });
 });
-

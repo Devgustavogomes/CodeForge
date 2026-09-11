@@ -5,6 +5,7 @@ import { useExecution } from '../../../context/ExecutionContext.js';
 import { useContainer } from '../../../hooks/useContainer.js';
 import { PATHS } from '../../../../../infrastructure/paths.js';
 import { theme } from '../../../theme.js';
+import { getSpecTaskCount } from '../../../context/ExecutionContext/taskLoader.js';
 
 export interface SpecPickerItem {
   name: string;
@@ -35,52 +36,26 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(({
 
   const [specs, setSpecs] = useState<SpecPickerItem[]>(() => {
     if (initialSpecs) return initialSpecs;
-    try {
-      const list = container.listSpecsUseCase.execute();
-      return list.map((s) => {
-        const tasksDir = `${PATHS.tasksDir}/${s.name}`;
-        let count = 0;
-        if (container.gw.exists(tasksDir)) {
-          count = container.gw
-            .listDir(tasksDir)
-            .filter((f) => f.endsWith('.json')).length;
-        }
-        return {
-          name: s.name,
-          title: s.title,
-          status: s.status,
-          taskCount: count,
-        };
-      });
-    } catch {
-      return [];
-    }
+    const list = container.listSpecsUseCase.execute();
+    return list.map((s) => ({
+      name: s.name,
+      title: s.title,
+      status: s.status,
+      taskCount: getSpecTaskCount(container.gw, s.name),
+    }));
   });
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useEffect(() => {
     if (initialSpecs) return;
-    try {
-      const list = container.listSpecsUseCase.execute();
-      const enriched = list.map((s) => {
-        const tasksDir = `${PATHS.tasksDir}/${s.name}`;
-        let count = 0;
-        if (container.gw.exists(tasksDir)) {
-          count = container.gw
-            .listDir(tasksDir)
-            .filter((f) => f.endsWith('.json')).length;
-        }
-        return {
-          name: s.name,
-          title: s.title,
-          status: s.status,
-          taskCount: count,
-        };
-      });
-      setSpecs(enriched);
-    } catch {
-      // ignore error loading specs
-    }
+    const list = container.listSpecsUseCase.execute();
+    const enriched = list.map((s) => ({
+      name: s.name,
+      title: s.title,
+      status: s.status,
+      taskCount: getSpecTaskCount(container.gw, s.name),
+    }));
+    setSpecs(enriched);
   }, [container, initialSpecs]);
 
   const specsRef = React.useRef(specs);
@@ -209,7 +184,6 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(({
           <Box flexDirection="column" gap={0}>
             {specs.map((s, idx) => {
               const isSelected = idx === selectedIndex;
-              const cleanTitle = s.title.replace(/^Spec:\s*/i, '').trim();
 
               return (
                 <Box key={s.name} justifyContent="space-between" width="100%">

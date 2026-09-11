@@ -6,7 +6,7 @@ import {
 } from "../../../context/ExecutionContext.js";
 import { TimerView } from "../../common/TimerView.js";
 import { Spinner } from "../../common/Spinner.js";
-import { theme, renderProgressBar } from "../../../theme.js";
+import { renderProgressBar } from "../../../theme.js";
 
 export { renderProgressBar };
 

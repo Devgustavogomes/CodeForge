@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useExecution } from '../../context/ExecutionContext.js';
-import { theme } from '../../theme.js';
 
 export interface LogStreamViewProps {
   taskId?: string | null;

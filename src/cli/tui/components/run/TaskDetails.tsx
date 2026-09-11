@@ -2,7 +2,6 @@ import React from "react";
 import { Box, Text } from "ink";
 import { TaskItem, useExecution } from "../../context/ExecutionContext.js";
 import { formatDuration, STATUS_CONFIG } from "./TaskList.js";
-import { theme } from "../../theme.js";
 
 export interface TaskDetailsProps {
   task?: TaskItem | null;
