@@ -6,13 +6,12 @@ import { AppContainer, createAppContainer } from '../../../../../infrastructure/
 import { DocsManifest } from '../../../../../domain/doc.js';
 import { PATHS } from '../../../../../infrastructure/paths.js';
 import { DocItemInfo } from '../components/DocsList.js';
+import { formatElapsedSeconds } from '../../../utils/formatters.js';
 
 export { DocItemInfo };
 
 export function formatDocDuration(seconds: number): string {
-  const mins = Math.floor(Math.max(0, seconds) / 60);
-  const secs = Math.floor(Math.max(0, seconds) % 60);
-  return `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+  return formatElapsedSeconds(seconds);
 }
 
 export interface UseDocsScreenOptions {
@@ -54,11 +53,7 @@ export function useDocsScreen({
   const [feedback, setFeedback] = useState<DocFeedback | null>(null);
 
   const availableSpecs = useMemo(() => {
-    try {
-      return container.listSpecsUseCase.listNames();
-    } catch {
-      return [];
-    }
+    return container.listSpecsUseCase.listNames();
   }, [container]);
 
   const loadDocs = useCallback(() => {
@@ -120,12 +115,8 @@ export function useDocsScreen({
 
   const previewContent = useMemo(() => {
     if (!selectedDoc?.existsOnDisk) return null;
-    try {
-      if (container.gw.exists(selectedDoc.path)) {
-        return container.gw.readFile(selectedDoc.path);
-      }
-    } catch {
-      // ignore
+    if (container.gw.exists(selectedDoc.path)) {
+      return container.gw.readFile(selectedDoc.path);
     }
     return null;
   }, [selectedDoc, container]);
