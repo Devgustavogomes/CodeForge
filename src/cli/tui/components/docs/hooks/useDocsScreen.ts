@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { NavigationContext } from '../../../context/NavigationContext.js';
-import { ExecutionContext } from '../../../context/ExecutionContext.js';
 import { ContainerContext } from '../../../context/ContainerContext.js';
 import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
 import { DocsManifest, AffectedDoc } from '../../../../../domain/doc.js';
@@ -50,7 +49,6 @@ export function useDocsScreen({
   );
 
   const nav = useContext(NavigationContext);
-  const exec = useContext(ExecutionContext);
 
   const [docs, setDocs] = useState<DocItemInfo[]>(() => initialDocs ?? []);
   const [selectedIndex, setSelectedIndex] = useState(0);
