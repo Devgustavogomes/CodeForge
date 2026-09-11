@@ -1,12 +1,18 @@
 import React from 'react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'ink-testing-library';
 import { Box, Text } from 'ink';
 import { TimerView } from '../../../../../src/cli/tui/components/common/TimerView.js';
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 describe('TimerView component', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders default 0s when no startTime is provided', () => {
     const { lastFrame } = render(<TimerView />);
     expect(lastFrame()).toContain('0s');
@@ -45,7 +51,8 @@ describe('TimerView component', () => {
 
     expect(lastFrame()).toMatch(/⏱ [23]s/);
 
-    await sleep(1050);
+    vi.advanceTimersByTime(1000);
+    await vi.runOnlyPendingTimersAsync();
     expect(lastFrame()).toMatch(/⏱ [34]s/);
   });
 
@@ -56,7 +63,8 @@ describe('TimerView component', () => {
     );
 
     const initialFrame = lastFrame();
-    await sleep(1050);
+    vi.advanceTimersByTime(1000);
+    await vi.runOnlyPendingTimersAsync();
     expect(lastFrame()).toBe(initialFrame);
   });
 
@@ -80,7 +88,8 @@ describe('TimerView component', () => {
     expect(lastFrame()).toMatch(/Timer: [23]s/);
 
     // Wait for the internal timer interval in TimerView to tick
-    await sleep(1050);
+    vi.advanceTimersByTime(1000);
+    await vi.runOnlyPendingTimersAsync();
 
     // Verify TimerView advanced but parent component was NOT re-rendered
     expect(lastFrame()).toMatch(/Timer: [34]s/);

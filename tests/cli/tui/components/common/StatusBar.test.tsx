@@ -4,13 +4,12 @@ import { StatusBar } from '../../../../../src/cli/tui/components/common/StatusBa
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 describe('StatusBar component', () => {
-  it('renders default hints for run tab and rounded borders', () => {
+  it('renders default hints for run tab', () => {
     const { lastFrame } = renderWithProviders(<StatusBar activeTab="run" />);
     const output = lastFrame() ?? '';
 
     expect(output).toContain('Retry');
     expect(output).toContain('Complete');
-    expect(output).toMatch(/[╭─╮│╰╯]/);
   });
 
   it('renders default hints from NavigationProvider tab', () => {

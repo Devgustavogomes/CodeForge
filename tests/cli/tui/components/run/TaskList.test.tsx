@@ -109,28 +109,57 @@ describe('TaskList component', () => {
   });
 
   it('ticks dynamic elapsed duration for running tasks', async () => {
-    // Started 2 seconds ago
-    const startTime = new Date(Date.now() - 2000).toISOString();
-    const { lastFrame } = renderWithProviders(
-      <TaskList
-        tasks={[
-          {
-            id: 'TASK-LIVE',
-            title: 'Long running task',
-            status: 'running',
-            dependencies: [],
-            startedAt: startTime,
-          },
-        ]}
-      />
-    );
+    vi.useFakeTimers();
+    try {
+      // Started 2 seconds ago
+      const startTime = new Date(Date.now() - 2000).toISOString();
+      const { lastFrame } = renderWithProviders(
+        <TaskList
+          tasks={[
+            {
+              id: 'TASK-DONE',
+              title: 'Initial setup',
+              status: 'completed',
+              dependencies: [],
+              startedAt: '2026-09-06T10:00:00.000Z',
+              completedAt: '2026-09-06T10:00:05.000Z',
+            },
+            {
+              id: 'TASK-LIVE',
+              title: 'Long running task',
+              status: 'running',
+              dependencies: [],
+              startedAt: startTime,
+            },
+            {
+              id: 'TASK-PENDING',
+              title: 'Pending deploy',
+              status: 'pending',
+              dependencies: ['TASK-LIVE'],
+            },
+          ]}
+        />
+      );
 
-    const initial = lastFrame() ?? '';
-    expect(initial).toMatch(/[23]s/);
+      const initial = lastFrame() ?? '';
+      expect(initial).toContain('TASK-DONE');
+      expect(initial).toContain('5s');
+      expect(initial).toContain('TASK-LIVE');
+      expect(initial).toMatch(/[23]s/);
+      expect(initial).toContain('TASK-PENDING');
 
-    await sleep(1050);
-    const afterTick = lastFrame() ?? '';
-    expect(afterTick).toMatch(/[34]s/);
+      vi.advanceTimersByTime(1000);
+      await vi.runOnlyPendingTimersAsync();
+
+      const afterTick = lastFrame() ?? '';
+      expect(afterTick).toContain('TASK-DONE');
+      expect(afterTick).toContain('5s');
+      expect(afterTick).toContain('TASK-LIVE');
+      expect(afterTick).toMatch(/[34]s/);
+      expect(afterTick).toContain('TASK-PENDING');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders filter badges with accurate counts', () => {

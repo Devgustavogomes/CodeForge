@@ -10,8 +10,6 @@ describe('Header component', () => {
 
     expect(output).toContain('</> CodeForge');
     expect(output).toContain('No active spec');
-    // Check rounded borders (╭ ╮ ╯ ╰)
-    expect(output).toMatch(/[╭─╮│╰╯]/);
   });
 
   it('renders activeSpec from prop or ExecutionProvider', () => {

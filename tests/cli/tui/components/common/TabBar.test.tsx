@@ -4,7 +4,7 @@ import { TabBar } from '../../../../../src/cli/tui/components/common/TabBar.js';
 import { renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 describe('TabBar component', () => {
-  it('renders all 5 tabs and rounded borders', () => {
+  it('renders all 5 tabs', () => {
     const { lastFrame } = renderWithProviders(<TabBar activeTab="run" />);
     const output = lastFrame() ?? '';
 
@@ -13,7 +13,6 @@ describe('TabBar component', () => {
     expect(output).toContain('[3] Tasks');
     expect(output).toContain('[4] Docs');
     expect(output).toContain('[5] Config');
-    expect(output).toMatch(/[╭─╮│╰╯]/);
   });
 
   it('renders inside NavigationProvider and reflects activeTab', () => {

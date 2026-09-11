@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'ink-testing-library';
 import { Text } from 'ink';
 import {
@@ -7,8 +7,6 @@ import {
   formatElapsedTime,
   UseElapsedTimeOptions,
 } from '../../../../src/cli/tui/hooks/useElapsedTime.js';
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const TestElapsedTime: React.FC<UseElapsedTimeOptions> = (props) => {
   const { seconds, formatted } = useElapsedTime(props);
@@ -40,6 +38,14 @@ describe('formatElapsedTime', () => {
 });
 
 describe('useElapsedTime hook', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('returns formatted 0s when no startTime provided', () => {
     const { lastFrame } = render(<TestElapsedTime />);
     expect(lastFrame()).toContain('Sec:0 | Formatted:0s');
@@ -64,7 +70,8 @@ describe('useElapsedTime hook', () => {
 
     expect(lastFrame()).toMatch(/Sec:[23] \| Formatted:[23]s/);
 
-    await sleep(1050);
+    vi.advanceTimersByTime(1000);
+    await vi.runOnlyPendingTimersAsync();
     expect(lastFrame()).toMatch(/Sec:[34] \| Formatted:[34]s/);
   });
 
