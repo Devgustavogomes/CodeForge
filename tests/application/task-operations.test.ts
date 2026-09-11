@@ -127,6 +127,24 @@ describe("TaskOperationsUseCase", () => {
       expect(updatedState.tasks["TASK-001"].status).toBe("completed");
       expect(updatedState.status).toBe("completed");
     });
+
+    it("auto-initializes execution state and marks task completed when state does not exist yet", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+      writeTask(gateway, "TASK-002", ["TASK-001"]);
+
+      expect(repo.load("test-spec")).toBeNull();
+
+      const result = useCase.markTaskCompleted("test-spec", "TASK-001");
+      expect(result).toEqual({ kind: "completed", allCompleted: false });
+
+      const state = repo.load("test-spec")!;
+      expect(state).not.toBeNull();
+      expect(state.tasks["TASK-001"].status).toBe("completed");
+      expect(state.tasks["TASK-001"].completedAt).toBeDefined();
+      expect(state.tasks["TASK-002"].status).toBe("pending");
+      expect(state.status).toBe("pending");
+    });
   });
 
   describe("retrySpec", () => {
@@ -342,6 +360,24 @@ describe("TaskOperationsUseCase", () => {
       expect(updatedState.tasks["TASK-002"].startedAt).toBeUndefined();
       expect(updatedState.tasks["TASK-002"].completedAt).toBeUndefined();
       expect(updatedState.tasks["TASK-002"].errors).toBeUndefined();
+    });
+
+    it("auto-initializes execution state and resets task when state does not exist yet", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+
+      expect(repo.load("test-spec")).toBeNull();
+
+      const result = useCase.resetTasks("test-spec", "TASK-001");
+      expect(result).toEqual({
+        kind: "reset-single",
+        specName: "test-spec",
+        taskId: "TASK-001",
+      });
+
+      const state = repo.load("test-spec")!;
+      expect(state).not.toBeNull();
+      expect(state.tasks["TASK-001"].status).toBe("pending");
     });
   });
 });

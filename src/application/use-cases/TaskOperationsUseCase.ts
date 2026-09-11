@@ -48,21 +48,47 @@ export class TaskOperationsUseCase {
     this.stateRepo = stateRepo ?? new ExecutionStateRepository(gw);
   }
 
+  private loadTasksFromDisk(specName: string): Task[] {
+    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    if (!this.gw.exists(tasksDir)) {
+      return [];
+    }
+    const files = this.gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
+    const tasks: Task[] = [];
+    for (const file of files) {
+      try {
+        const content = this.gw.readFile(`${tasksDir}/${file}`);
+        tasks.push(JSON.parse(content) as Task);
+      } catch {
+        // ignore invalid files
+      }
+    }
+    return tasks;
+  }
+
   markTaskCompleted(
     specName: string,
     taskId: string,
   ): MarkCompleteResult {
     const repo = this.stateRepo;
-    const state = repo.load(specName);
+    let state = repo.load(specName);
 
     if (!state) {
-      return { kind: "not-found" };
+      const diskTasks = this.loadTasksFromDisk(specName);
+      if (diskTasks.length > 0 && diskTasks.some((t) => t.id === taskId)) {
+        state = repo.init(specName, diskTasks);
+        state.status = "pending";
+        repo.save(state);
+      } else {
+        return { kind: "not-found" };
+      }
     }
     if (!state.tasks[taskId]) {
       return { kind: "not-found" };
     }
 
     state.tasks[taskId].status = "completed";
+    state.tasks[taskId].completedAt = new Date().toISOString();
 
     // Check if all tasks are now completed
     const allCompleted = Object.values(state.tasks).every(
@@ -71,6 +97,7 @@ export class TaskOperationsUseCase {
 
     if (allCompleted) {
       state.status = "completed";
+      state.completedAt = new Date().toISOString();
     }
 
     repo.save(state);
@@ -217,9 +244,16 @@ export class TaskOperationsUseCase {
     }
 
     const repo = this.stateRepo;
-    const state = repo.load(specName);
+    let state = repo.load(specName);
     if (!state) {
-      return { kind: "no-execution", specName };
+      const diskTasks = this.loadTasksFromDisk(specName);
+      if (diskTasks.length > 0) {
+        state = repo.init(specName, diskTasks);
+        state.status = "pending";
+        repo.save(state);
+      } else {
+        return { kind: "no-execution", specName };
+      }
     }
 
     if (taskId !== undefined) {
