@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { formatElapsedSeconds as formatElapsedTime } from '../utils/formatters.js';
+
+export { formatElapsedTime };
 
 export interface UseElapsedTimeOptions {
   startTime?: string | number | Date | null;
@@ -10,21 +13,6 @@ export interface ElapsedTimeResult {
   seconds: number;
   elapsedSeconds: number;
   formatted: string;
-}
-
-export function formatElapsedTime(seconds: number): string {
-  if (isNaN(seconds) || seconds < 0) return '0s';
-  const totalSeconds = Math.floor(seconds);
-  if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
-  }
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const remainingSeconds = totalSeconds % 60;
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${remainingSeconds}s`;
-  }
-  return `${minutes}m ${remainingSeconds}s`;
 }
 
 function parseTimestamp(time?: string | number | Date | null): number | null {
