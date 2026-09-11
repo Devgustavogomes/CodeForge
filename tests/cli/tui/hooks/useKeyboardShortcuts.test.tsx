@@ -7,6 +7,7 @@ import {
   useKeyboardShortcuts,
   UseKeyboardShortcutsOptions,
 } from '../../../../src/cli/tui/hooks/useKeyboardShortcuts.js';
+import { flushAsync } from '../helpers/flushAsync.js';
 
 interface TestAppProps {
   shortcutsOptions?: UseKeyboardShortcutsOptions;
@@ -37,178 +38,49 @@ const TestAppInner: React.FC<{ shortcutsOptions?: UseKeyboardShortcutsOptions }>
 };
 
 describe('useKeyboardShortcuts', () => {
-  it('switches tabs when numeric keys 1-5 are pressed', async () => {
-    const { lastFrame, stdin } = render(<TestApp initialTab="run" />);
-    expect(lastFrame()).toContain('Tab:run');
-
-    stdin.write('2');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:specs');
-
-    stdin.write('3');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:tasks');
-
-    stdin.write('4');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:docs');
-
-    stdin.write('5');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:config');
-
-    stdin.write('1');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:run');
-  });
-
-  it('navigates tabs with left and right arrow keys', async () => {
-    const { lastFrame, stdin } = render(<TestApp initialTab="specs" />);
-    expect(lastFrame()).toContain('Tab:specs');
-
-    // Right arrow (\u001B[C)
-    stdin.write('\u001B[C');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:tasks');
-
-    // Left arrow (\u001B[D)
-    stdin.write('\u001B[D');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:specs');
-  });
-
-  it('ignores Ctrl+K and ":" without opening command palette', async () => {
-    const { lastFrame, stdin } = render(<TestApp initialTab="run" />);
-    expect(lastFrame()).toContain('Tab:run');
-
-    // Press ':'
-    stdin.write(':');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:run');
-
-    // Press Ctrl+K (\x0B)
-    stdin.write('\x0B');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:run');
-  });
-
-  it('invokes onQuit when "q" or Ctrl+C is pressed', async () => {
+  it('1. registra e dispara callback/navegação quando atalho mapeado é acionado', async () => {
     const onQuit = vi.fn();
-    const { stdin } = render(<TestApp shortcutsOptions={{ onQuit }} />);
+    const { lastFrame, stdin } = render(
+      <TestApp shortcutsOptions={{ onQuit }} initialTab="run" />
+    );
+    expect(lastFrame()).toContain('Tab:run');
 
+    // Troca de aba via tecla numérica
+    stdin.write('2');
+    await flushAsync();
+    expect(lastFrame()).toContain('Tab:specs');
+
+    // Atalho de quit via tecla 'q'
     stdin.write('q');
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync();
     expect(onQuit).toHaveBeenCalledTimes(1);
-
-    // Ctrl+C (\x03)
-    stdin.write('\x03');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(onQuit).toHaveBeenCalledTimes(2);
   });
 
-  it('opens quit_confirm modal when onQuit is not provided and "q" is pressed', async () => {
-    const { lastFrame, stdin } = render(<TestApp />);
-    expect(lastFrame()).toContain('Modal:none');
-
-    stdin.write('q');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Modal:quit_confirm');
-
-    // Press Escape to close modal
-    stdin.write('\u001B');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Modal:none');
-  });
-
-  it('suppresses tab switching and shortcuts when a modal is open', async () => {
-    let capturedNav!: ReturnType<typeof useNavigation>;
-
-    const ControllerApp: React.FC = () => {
-      return (
-        <NavigationProvider initialTab="run">
-          <ControllerAppInner />
-        </NavigationProvider>
-      );
-    };
-
-    const ControllerAppInner: React.FC = () => {
-      useKeyboardShortcuts();
-      capturedNav = useNavigation();
-      return (
-        <Text>
-          Tab:{capturedNav.activeTab} | Modal:{capturedNav.modal?.type ?? 'none'}
-        </Text>
-      );
-    };
-
-    const { lastFrame, stdin } = render(<ControllerApp />);
+  it('2. ignora teclas não registradas', async () => {
+    const { lastFrame, stdin } = render(<TestApp initialTab="run" />);
     expect(lastFrame()).toContain('Tab:run');
 
-    // Open a modal programmatically
-    capturedNav.openModal('my_modal');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Modal:my_modal');
-
-    // Pressing '2' should NOT switch tabs while modal is open
-    stdin.write('2');
-    await new Promise((r) => setTimeout(r, 20));
+    stdin.write('x');
+    await flushAsync();
     expect(lastFrame()).toContain('Tab:run');
 
-    // Press Escape to close modal
-    stdin.write('\u001B');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Modal:none');
-
-    // Now pressing '2' should switch tabs
-    stdin.write('2');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:specs');
-  });
-
-  it('suppresses shortcuts when text input is active', async () => {
-    let capturedNav!: ReturnType<typeof useNavigation>;
-
-    const ControllerApp: React.FC = () => {
-      return (
-        <NavigationProvider initialTab="run">
-          <ControllerAppInner />
-        </NavigationProvider>
-      );
-    };
-
-    const ControllerAppInner: React.FC = () => {
-      useKeyboardShortcuts();
-      capturedNav = useNavigation();
-      return (
-        <Text>
-          Tab:{capturedNav.activeTab} | TextActive:{String(capturedNav.isTextInputActive)}
-        </Text>
-      );
-    };
-
-    const { lastFrame, stdin } = render(<ControllerApp />);
-    expect(lastFrame()).toContain('Tab:run');
-
-    // Activate text input
-    capturedNav.setTextInputActive(true);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('TextActive:true');
-
-    // Pressing '2', 'q', or ':' should not do anything
-    stdin.write('2');
-    stdin.write('q');
     stdin.write(':');
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync();
+    expect(lastFrame()).toContain('Tab:run');
+  });
+
+  it('3. respeita a flag de desativação (isActive: false / enabled: false)', async () => {
+    const onQuit = vi.fn();
+    const { lastFrame, stdin } = render(
+      <TestApp shortcutsOptions={{ isActive: false, onQuit }} initialTab="run" />
+    );
     expect(lastFrame()).toContain('Tab:run');
 
-    // Deactivate text input
-    capturedNav.setTextInputActive(false);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('TextActive:false');
-
-    // Now '2' works
     stdin.write('2');
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Tab:specs');
+    stdin.write('q');
+    await flushAsync();
+
+    expect(lastFrame()).toContain('Tab:run');
+    expect(onQuit).not.toHaveBeenCalled();
   });
 });

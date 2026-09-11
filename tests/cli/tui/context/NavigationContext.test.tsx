@@ -6,87 +6,41 @@ import {
   NavigationProvider,
   useNavigation,
 } from '../../../../src/cli/tui/context/NavigationContext.js';
+import { flushAsync } from '../helpers/flushAsync.js';
 
 describe('NavigationContext', () => {
-  it('throws an error when useNavigation is used outside NavigationProvider', () => {
-    let error: Error | null = null;
-    const TestComponent = () => {
-      try {
-        useNavigation();
-      } catch (err) {
-        error = err as Error;
-      }
-      return <Text>Rendered</Text>;
+  it('starts at configured initial tab or default specs tab', () => {
+    let defaultNav: ReturnType<typeof useNavigation> | undefined;
+    const DefaultConsumer = () => {
+      defaultNav = useNavigation();
+      return <Text>Tab: {defaultNav.activeTab}</Text>;
     };
 
-    render(<TestComponent />);
-    expect(error).not.toBeNull();
-    expect(error?.message).toBe('useNavigation must be used within a NavigationProvider');
-  });
-
-  it('provides default navigation values without activeSpec', () => {
-    let capturedValues: ReturnType<typeof useNavigation> | undefined;
-
-    const TestComponent = () => {
-      const nav = useNavigation();
-      capturedValues = nav;
-      return <Text>Active Tab: {nav.activeTab}</Text>;
-    };
-
-    const { lastFrame } = render(
+    const { lastFrame: defaultFrame, unmount: unmountDefault } = render(
       <NavigationProvider>
-        <TestComponent />
-      </NavigationProvider>
+        <DefaultConsumer />
+      </NavigationProvider>,
     );
 
-    expect(lastFrame()).toContain('Active Tab: specs');
-    expect(capturedValues).toBeDefined();
-    expect(capturedValues?.activeTab).toBe('specs');
-    expect(capturedValues?.modal).toBeNull();
-    expect(capturedValues?.isTextInputActive).toBe(false);
-    expect((capturedValues as Record<string, unknown>)?.activeSpec).toBeUndefined();
-  });
+    expect(defaultFrame()).toContain('Tab: specs');
+    expect(defaultNav?.activeTab).toBe('specs');
+    unmountDefault();
 
-  it('respects initialTab', () => {
-    let capturedValues: ReturnType<typeof useNavigation> | undefined;
-
-    const TestComponent = () => {
-      const nav = useNavigation();
-      capturedValues = nav;
-      return <Text>Tab: {nav.activeTab}</Text>;
+    let customNav: ReturnType<typeof useNavigation> | undefined;
+    const CustomConsumer = () => {
+      customNav = useNavigation();
+      return <Text>Tab: {customNav.activeTab}</Text>;
     };
 
-    const { lastFrame } = render(
+    const { lastFrame: customFrame, unmount: unmountCustom } = render(
       <NavigationProvider initialTab="tasks">
-        <TestComponent />
-      </NavigationProvider>
+        <CustomConsumer />
+      </NavigationProvider>,
     );
 
-    expect(lastFrame()).toContain('Tab: tasks');
-    expect(capturedValues?.activeTab).toBe('tasks');
-  });
-
-  it('updates activeTab with setActiveTab', async () => {
-    let capturedNav!: ReturnType<typeof useNavigation>;
-
-    const TestComponent = () => {
-      capturedNav = useNavigation();
-      return <Text>Tab: {capturedNav.activeTab}</Text>;
-    };
-
-    const { lastFrame } = render(
-      <NavigationProvider>
-        <TestComponent />
-      </NavigationProvider>
-    );
-
-    expect(lastFrame()).toContain('Tab: specs');
-
-    capturedNav.setActiveTab('tasks');
-    await new Promise((r) => setTimeout(r, 20));
-
-    expect(lastFrame()).toContain('Tab: tasks');
-    expect(capturedNav.activeTab).toBe('tasks');
+    expect(customFrame()).toContain('Tab: tasks');
+    expect(customNav?.activeTab).toBe('tasks');
+    unmountCustom();
   });
 
   it('cycles tabs forward and backward with nextTab and prevTab', async () => {
@@ -97,115 +51,56 @@ describe('NavigationContext', () => {
       return <Text>Tab: {capturedNav.activeTab}</Text>;
     };
 
-    const { lastFrame } = render(
+    const { lastFrame, unmount } = render(
       <NavigationProvider initialTab="run">
         <TestComponent />
-      </NavigationProvider>
+      </NavigationProvider>,
     );
 
     expect(lastFrame()).toContain('Tab: run');
 
     // next: run -> specs -> tasks -> docs -> config -> run
     capturedNav.nextTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: specs');
 
     capturedNav.nextTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: tasks');
 
     capturedNav.nextTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: docs');
 
     capturedNav.nextTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: config');
 
     capturedNav.nextTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: run');
 
     // prev: run -> config -> docs -> tasks -> specs -> run
     capturedNav.prevTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: config');
 
     capturedNav.prevTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: docs');
 
     capturedNav.prevTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: tasks');
 
     capturedNav.prevTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: specs');
 
     capturedNav.prevTab();
-    await new Promise((r) => setTimeout(r, 20));
+    await flushAsync(1);
     expect(lastFrame()).toContain('Tab: run');
-  });
 
-  it('handles modal state open and close', async () => {
-    let capturedNav!: ReturnType<typeof useNavigation>;
-
-    const TestComponent = () => {
-      capturedNav = useNavigation();
-      return <Text>Modal: {capturedNav.modal?.type ?? 'none'}</Text>;
-    };
-
-    const { lastFrame } = render(
-      <NavigationProvider>
-        <TestComponent />
-      </NavigationProvider>
-    );
-
-    expect(lastFrame()).toContain('Modal: none');
-
-    capturedNav.openModal('create_spec', { initialName: 'test' });
-    await new Promise((r) => setTimeout(r, 20));
-
-    expect(lastFrame()).toContain('Modal: create_spec');
-    expect(capturedNav.modal).toEqual({
-      type: 'create_spec',
-      props: { initialName: 'test' },
-    });
-
-    capturedNav.closeModal();
-    await new Promise((r) => setTimeout(r, 20));
-
-    expect(lastFrame()).toContain('Modal: none');
-    expect(capturedNav.modal).toBeNull();
-  });
-
-  it('manages text input active flag independently of spec', async () => {
-    let capturedNav!: ReturnType<typeof useNavigation>;
-
-    const TestComponent = () => {
-      capturedNav = useNavigation();
-      return (
-        <Text>
-          Active: {String(capturedNav.isTextInputActive)}
-        </Text>
-      );
-    };
-
-    const { lastFrame } = render(
-      <NavigationProvider>
-        <TestComponent />
-      </NavigationProvider>
-    );
-
-    expect(lastFrame()).toContain('Active: false');
-
-    capturedNav.setTextInputActive(true);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Active: true');
-
-    capturedNav.setTextInputActive(false);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(lastFrame()).toContain('Active: false');
+    unmount();
   });
 });

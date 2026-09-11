@@ -7,6 +7,8 @@ import { AppContainer, createAppContainer, AppContainerDependencies } from '../.
 import { InMemoryWorkspaceGateway } from '../../../helpers/in-memory-workspace.js';
 import { InMemoryAgentRunner } from '../../../helpers/in-memory-agent-runner.js';
 import { TaskScheduler } from '../../../../src/scheduler/TaskScheduler.js';
+export { flushAsync } from './flushAsync.js';
+
 
 export interface RenderWithProvidersOptions {
   container?: AppContainer;
@@ -49,7 +51,7 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
   scheduler,
   autoStart = false,
   maxLogLines,
-  flushIntervalMs,
+  flushIntervalMs = 0,
 }) => {
   const resolvedContainer = container ?? createMockContainer();
   const spec = initialSpec ?? initialActiveSpec ?? undefined;
@@ -77,9 +79,10 @@ export function renderWithProviders(
   options: RenderWithProvidersOptions = {},
 ) {
   const container = options.container ?? createMockContainer();
+  const flushIntervalMs = options.flushIntervalMs ?? 0;
 
   const renderResult = render(
-    <TestProviders {...options} container={container}>
+    <TestProviders {...options} flushIntervalMs={flushIntervalMs} container={container}>
       {ui}
     </TestProviders>,
   );
@@ -88,7 +91,7 @@ export function renderWithProviders(
     ...renderResult,
     rerender: (newUi: ReactElement) =>
       renderResult.rerender(
-        <TestProviders {...options} container={container}>
+        <TestProviders {...options} flushIntervalMs={flushIntervalMs} container={container}>
           {newUi}
         </TestProviders>,
       ),
