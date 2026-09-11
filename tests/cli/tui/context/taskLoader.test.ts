@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   loadTasksFromDisk,
   areTasksEqual,
+  getSpecTaskCount,
   TaskItem,
 } from "../../../../src/cli/tui/context/ExecutionContext/taskLoader.js";
 import { InMemoryWorkspaceGateway } from "../../../helpers/in-memory-workspace.js";
@@ -102,6 +103,41 @@ describe("taskLoader", () => {
       const listA = [{ ...baseTask }];
       const listB = [{ ...baseTask }, { ...baseTask, id: "TASK-002" }];
       expect(areTasksEqual(listA, listB)).toBe(false);
+    });
+  });
+
+  describe("getSpecTaskCount", () => {
+    it("returns 0 when tasks directory does not exist", () => {
+      const count = getSpecTaskCount(gw, "non-existent-spec");
+      expect(count).toBe(0);
+    });
+
+    it("returns 0 when tasks directory exists but is empty", () => {
+      gw.mkdir(".codeforge/tasks/empty-spec");
+      const count = getSpecTaskCount(gw, "empty-spec");
+      expect(count).toBe(0);
+    });
+
+    it("counts only .json task definition files in the spec tasks directory", () => {
+      gw.mkdir(".codeforge/tasks/auth-spec");
+      gw.writeFile(".codeforge/tasks/auth-spec/TASK-001.json", "{}");
+      gw.writeFile(".codeforge/tasks/auth-spec/TASK-002.json", "{}");
+      gw.writeFile(".codeforge/tasks/auth-spec/README.md", "# Readme");
+      gw.writeFile(".codeforge/tasks/auth-spec/notes.txt", "Notes");
+
+      const count = getSpecTaskCount(gw, "auth-spec");
+      expect(count).toBe(2);
+    });
+
+    it("handles errors gracefully and returns 0 when gateway throws", () => {
+      const throwingGw = {
+        exists: () => {
+          throw new Error("Disk error");
+        },
+        listDir: () => [],
+      } as unknown as InMemoryWorkspaceGateway;
+
+      expect(getSpecTaskCount(throwingGw, "error-spec")).toBe(0);
     });
   });
 });

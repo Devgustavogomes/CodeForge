@@ -2,19 +2,9 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { TaskStatus } from '../../../../../domain/execution.js';
 import { theme } from '../../../theme.js';
+import { TaskItem } from '../../../context/ExecutionContext/taskLoader.js';
 
-export interface TaskScreenItem {
-  id: string;
-  title: string;
-  status: TaskStatus;
-  dependencies: string[];
-  objective?: string;
-  files?: string[];
-  context?: string;
-  constraints?: string[];
-  acceptanceCriteria?: string[];
-  errors?: string[];
-}
+export type TaskScreenItem = TaskItem;
 
 export const STATUS_ICONS: Record<
   TaskStatus,
@@ -27,8 +17,8 @@ export const STATUS_ICONS: Record<
 };
 
 export interface TaskTreeProps {
-  tasks: TaskScreenItem[];
-  visibleTasks: TaskScreenItem[];
+  tasks: TaskItem[];
+  visibleTasks: TaskItem[];
   selectedTaskId: string | null;
   specs: string[];
   selectedSpecIndex: number;
@@ -51,9 +41,9 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
   isSideBySide,
   isSearchingSpec = false,
   specSearchQuery = '',
-  onSearchChange,
-  onSearchSubmit,
-  onSearchCancel,
+  onSearchChange: _onSearchChange,
+  onSearchSubmit: _onSearchSubmit,
+  onSearchCancel: _onSearchCancel,
 }) => {
   return (
     <Box

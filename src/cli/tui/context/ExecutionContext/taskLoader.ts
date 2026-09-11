@@ -121,3 +121,22 @@ export function areTasksEqual(
   return true;
 }
 
+/**
+ * Pure function to count task definition JSON files for a given spec on disk.
+ * Returns 0 if directory does not exist or upon any read error.
+ */
+export function getSpecTaskCount(
+  gw: WorkspaceGateway,
+  specName: string,
+): number {
+  try {
+    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    if (!gw.exists(tasksDir)) {
+      return 0;
+    }
+    return gw.listDir(tasksDir).filter((f) => f.endsWith('.json')).length;
+  } catch {
+    return 0;
+  }
+}
+

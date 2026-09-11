@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import {
   TasksScreen,
@@ -10,7 +10,7 @@ import { renderWithProviders, createMockContainer } from '../../helpers/renderWi
 
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
-describe('TasksScreen component', () => {
+describe('TasksScreen - Tela de Gerenciamento de Tarefas (BDD)', () => {
   const mockTasks: TaskScreenItem[] = [
     {
       id: 'TASK-001',
@@ -33,246 +33,242 @@ describe('TasksScreen component', () => {
     },
   ];
 
-  it('renders tasks list with status icons and inspects details', () => {
-    const { lastFrame } = renderWithProviders(
-      <TasksScreen
-        initialSpec="test-spec"
-        initialTasks={mockTasks}
-        isInteractive={false}
-      />
-    );
-    const output = lastFrame() ?? '';
+  describe('Renderização e Exibição de Tarefas', () => {
+    it('ao carregar tarefas de uma spec, exibe lista com status e detalhes da tarefa ativa', () => {
+      const { lastFrame } = renderWithProviders(
+        <TasksScreen
+          initialSpec="test-spec"
+          initialTasks={mockTasks}
+          isInteractive={false}
+        />
+      );
+      const output = lastFrame() ?? '';
 
-    expect(output).toContain('Tasks (2)');
-    expect(output).toContain('TASK-001');
-    expect(output).toContain('[COMPLETED]');
-    expect(output).toContain('TASK-002');
-    expect(output).toContain('Task: TASK-001');
-    expect(output).toContain('Define interfaces and domain entities');
-    expect(output).toContain('src/domain/entity.ts');
+      expect(output).toContain('Tasks (2)');
+      expect(output).toContain('TASK-001');
+      expect(output).toContain('[COMPLETED]');
+      expect(output).toContain('TASK-002');
+      expect(output).toContain('Task: TASK-001');
+      expect(output).toContain('Define interfaces and domain entities');
+      expect(output).toContain('src/domain/entity.ts');
+    });
+
+    it('renderiza TaskTree com alinhamento visual e ponteiro de seleção', () => {
+      const { lastFrame } = renderWithProviders(
+        <TaskTree
+          tasks={mockTasks}
+          visibleTasks={mockTasks}
+          selectedTaskId="TASK-001"
+          specs={['test-spec']}
+          selectedSpecIndex={0}
+          currentSpec="test-spec"
+          isSideBySide={true}
+        />
+      );
+      const output = lastFrame() ?? '';
+      expect(output).toContain('Tasks (2)');
+      expect(output).toContain('TASK-001');
+      expect(output).toContain('TASK-002');
+      expect(output).toContain('▌');
+    });
   });
 
-  it('dispatches complete and reset actions on hotkeys c, x, and ignores r', async () => {
-    const onCompleteTask = vi.fn();
-    const onResetTask = vi.fn();
+  describe('Ciclo de Ações do Usuário (Conclusão e Reset)', () => {
+    it('ao pressionar "c", completa a tarefa; ao pressionar "x", reseta para pendente; e ignora "r"', async () => {
+      const onCompleteTask = vi.fn();
+      const onResetTask = vi.fn();
 
-    const { stdin } = renderWithProviders(
-      <TasksScreen
-        initialSpec="test-spec"
-        initialTasks={mockTasks}
-        onCompleteTask={onCompleteTask}
-        onResetTask={onResetTask}
-        isInteractive={true}
-      />
-    );
+      const { stdin } = renderWithProviders(
+        <TasksScreen
+          initialSpec="test-spec"
+          initialTasks={mockTasks}
+          onCompleteTask={onCompleteTask}
+          onResetTask={onResetTask}
+          isInteractive={true}
+        />
+      );
 
-    // Initial task is TASK-001. Press 'c' to complete
-    stdin.write('c');
-    await tick();
-    expect(onCompleteTask).toHaveBeenCalledWith('TASK-001');
+      // Initial task is TASK-001. Press 'c' to complete
+      stdin.write('c');
+      await tick();
+      expect(onCompleteTask).toHaveBeenCalledWith('TASK-001');
 
-    // Press 'r' (should NOT do anything in tasks tab anymore)
-    stdin.write('r');
-    await tick();
+      // Press 'r' (should NOT do anything in tasks tab)
+      stdin.write('r');
+      await tick();
 
-    // Press 'x' to reset
-    stdin.write('x');
-    await tick();
-    expect(onResetTask).toHaveBeenCalledWith('TASK-001');
+      // Press 'x' to reset
+      stdin.write('x');
+      await tick();
+      expect(onResetTask).toHaveBeenCalledWith('TASK-001');
+    });
+
+    it('persiste ações de conclusão e reset no repositório de estado em disco', async () => {
+      const container = createMockContainer();
+      const gw = container.workspaceGateway;
+      gw.mkdir('.codeforge');
+      gw.mkdir('.codeforge/specs');
+      gw.mkdir('.codeforge/executions');
+      gw.mkdir('.codeforge/tasks/test-spec');
+
+      const taskDef = {
+        id: 'TASK-001',
+        title: 'Persisted Task',
+        objective: 'Check persistence',
+        dependencies: [],
+        files: [],
+        constraints: [],
+        acceptanceCriteria: [],
+      };
+      gw.writeFile(
+        '.codeforge/tasks/test-spec/TASK-001.json',
+        JSON.stringify(taskDef),
+      );
+
+      const { stdin, lastFrame } = renderWithProviders(
+        <TasksScreen
+          container={container}
+          initialSpec="test-spec"
+          isInteractive={true}
+        />,
+        { container, initialSpec: 'test-spec' },
+      );
+
+      await tick();
+
+      expect(lastFrame() ?? '').toContain('TASK-001');
+
+      // Press 'c' to mark complete
+      stdin.write('c');
+      await tick();
+
+      const stateAfterComplete = container.executionStateRepository.load('test-spec');
+      expect(stateAfterComplete).not.toBeNull();
+      expect(stateAfterComplete?.tasks['TASK-001']?.status).toBe('completed');
+      expect(lastFrame() ?? '').toContain('marked as completed');
+
+      // Press 'x' to reset
+      stdin.write('x');
+      await tick();
+
+      const stateAfterReset = container.executionStateRepository.load('test-spec');
+      expect(stateAfterReset?.tasks['TASK-001']?.status).toBe('pending');
+      expect(lastFrame() ?? '').toContain('reset to pending');
+    });
   });
 
-  it('activates and handles spec search bar on "/" hotkey', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <TasksScreen
-        initialSpec="test-spec"
-        initialTasks={mockTasks}
-        isInteractive={true}
-      />
-    );
+  describe('Busca e Alternância de Especificações', () => {
+    it('ao pressionar "/", ativa a barra de busca e filtra interativamente', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <TasksScreen
+          initialSpec="test-spec"
+          initialTasks={mockTasks}
+          isInteractive={true}
+        />
+      );
 
-    // Press '/' to start spec search
-    stdin.write('/');
-    await tick();
+      stdin.write('/');
+      await tick();
 
-    let output = lastFrame() ?? '';
-    expect(output).toContain('Search:');
+      let output = lastFrame() ?? '';
+      expect(output).toContain('Search:');
 
-    // Type query
-    stdin.write('test');
-    await tick();
+      stdin.write('test');
+      await tick();
 
-    output = lastFrame() ?? '';
-    expect(output).toContain('test█');
+      output = lastFrame() ?? '';
+      expect(output).toContain('test█');
 
-    // Press Enter to submit search
-    stdin.write('\r');
-    await tick();
+      stdin.write('\r');
+      await tick();
 
-    output = lastFrame() ?? '';
-    expect(output).not.toContain('Search:');
+      output = lastFrame() ?? '';
+      expect(output).not.toContain('Search:');
+    });
   });
 
-  it('toggles raw JSON view when "v" is pressed', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <TasksScreen
-        initialSpec="test-spec"
-        initialTasks={mockTasks}
-        isInteractive={true}
-      />
-    );
+  describe('Modos de Visualização e Inspeção Detalhada', () => {
+    it('ao pressionar "v", alterna entre a visualização formatada e JSON bruto', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <TasksScreen
+          initialSpec="test-spec"
+          initialTasks={mockTasks}
+          isInteractive={true}
+        />
+      );
 
-    // Press 'v' to toggle JSON view
-    stdin.write('v');
-    await tick();
+      stdin.write('v');
+      await tick();
 
-    const output = lastFrame() ?? '';
-    expect(output).toContain('"id": "TASK-001"');
-    expect(output).toContain('Formatted');
-  });
+      const output = lastFrame() ?? '';
+      expect(output).toContain('"id": "TASK-001"');
+      expect(output).toContain('Formatted');
+    });
 
-  it('renders TaskTree with clean flat alignment for tasks', () => {
-    const { lastFrame } = renderWithProviders(
-      <TaskTree
-        tasks={mockTasks}
-        visibleTasks={mockTasks}
-        selectedTaskId="TASK-001"
-        specs={['test-spec']}
-        selectedSpecIndex={0}
-        currentSpec="test-spec"
-        isSideBySide={true}
-      />
-    );
-    const output = lastFrame() ?? '';
-    expect(output).toContain('Tasks (2)');
-    expect(output).toContain('TASK-001');
-    expect(output).toContain('TASK-002');
-    expect(output).toContain('▌');
-  });
+    it('TaskMetadataView renderiza compacto por padrão e revela constraints/aceite quando expandido', () => {
+      const { lastFrame } = renderWithProviders(
+        <TaskMetadataView
+          selectedTask={mockTasks[1]}
+          viewJson={false}
+          isExpanded={false}
+          feedback={{ type: 'error', message: 'Something failed' }}
+          isSideBySide={true}
+        />
+      );
+      let output = lastFrame() ?? '';
+      expect(output).toContain('Task: TASK-002');
+      expect(output).toContain('Business logic execution');
+      expect(output).toContain('TASK-001');
+      expect(output).not.toContain('TypeScript only');
+      expect(output).not.toContain('Pass unit tests');
+      expect(output).toContain('ReferenceError: entity is undefined');
+      expect(output).toContain('Something failed');
+      expect(output).toContain('[e] Expand');
 
-  it('renders TaskMetadataView compact by default and reveals constraints/acceptance when expanded', () => {
-    // Default (not expanded)
-    const { lastFrame } = renderWithProviders(
-      <TaskMetadataView
-        selectedTask={mockTasks[1]}
-        viewJson={false}
-        isExpanded={false}
-        feedback={{ type: 'error', message: 'Something failed' }}
-        isSideBySide={true}
-      />
-    );
-    let output = lastFrame() ?? '';
-    expect(output).toContain('Task: TASK-002');
-    expect(output).toContain('Business logic execution');
-    expect(output).toContain('TASK-001');
-    expect(output).not.toContain('TypeScript only');
-    expect(output).not.toContain('Pass unit tests');
-    expect(output).toContain('ReferenceError: entity is undefined');
-    expect(output).toContain('Something failed');
-    expect(output).toContain('[e] Expand');
+      const expandedRender = renderWithProviders(
+        <TaskMetadataView
+          selectedTask={mockTasks[1]}
+          viewJson={false}
+          isExpanded={true}
+          feedback={null}
+          isSideBySide={true}
+        />
+      );
+      output = expandedRender.lastFrame() ?? '';
+      expect(output).toContain('Constraints:');
+      expect(output).toContain('TypeScript only');
+      expect(output).toContain('Acceptance:');
+      expect(output).toContain('Pass unit tests');
+      expect(output).toContain('[e] Collapse');
+    });
 
-    // Expanded view
-    const expandedRender = renderWithProviders(
-      <TaskMetadataView
-        selectedTask={mockTasks[1]}
-        viewJson={false}
-        isExpanded={true}
-        feedback={null}
-        isSideBySide={true}
-      />
-    );
-    output = expandedRender.lastFrame() ?? '';
-    expect(output).toContain('Constraints:');
-    expect(output).toContain('TypeScript only');
-    expect(output).toContain('Acceptance:');
-    expect(output).toContain('Pass unit tests');
-    expect(output).toContain('[e] Collapse');
-  });
+    it('ao pressionar "e", alterna o modo expandido na tela TasksScreen', async () => {
+      const { lastFrame, stdin } = renderWithProviders(
+        <TasksScreen
+          initialSpec="test-spec"
+          initialTasks={mockTasks}
+          isInteractive={true}
+        />
+      );
 
-  it('toggles expand mode in TasksScreen with "e" hotkey', async () => {
-    const { lastFrame, stdin } = renderWithProviders(
-      <TasksScreen
-        initialSpec="test-spec"
-        initialTasks={mockTasks}
-        isInteractive={true}
-      />
-    );
+      stdin.write('j');
+      await tick();
 
-    // Initial task is TASK-001, navigate to TASK-002
-    stdin.write('j');
-    await tick();
+      let output = lastFrame() ?? '';
+      expect(output).not.toContain('TypeScript only');
 
-    let output = lastFrame() ?? '';
-    expect(output).not.toContain('TypeScript only');
+      stdin.write('e');
+      await tick();
 
-    // Press 'e' to expand
-    stdin.write('e');
-    await tick();
+      output = lastFrame() ?? '';
+      expect(output).toContain('TypeScript only');
+      expect(output).toContain('Pass unit tests');
 
-    output = lastFrame() ?? '';
-    expect(output).toContain('TypeScript only');
-    expect(output).toContain('Pass unit tests');
+      stdin.write('e');
+      await tick();
 
-    // Press 'e' again to collapse
-    stdin.write('e');
-    await tick();
-
-    output = lastFrame() ?? '';
-    expect(output).not.toContain('TypeScript only');
-  });
-
-  it('persists complete and reset to container execution state repository on disk', async () => {
-    const container = createMockContainer();
-    const gw = container.workspaceGateway;
-    gw.mkdir('.codeforge');
-    gw.mkdir('.codeforge/specs');
-    gw.mkdir('.codeforge/executions');
-    gw.mkdir('.codeforge/tasks/test-spec');
-
-    // Create a task file on disk
-    const taskDef = {
-      id: 'TASK-001',
-      title: 'Persisted Task',
-      objective: 'Check persistence',
-      dependencies: [],
-      files: [],
-      constraints: [],
-      acceptanceCriteria: [],
-    };
-    gw.writeFile(
-      '.codeforge/tasks/test-spec/TASK-001.json',
-      JSON.stringify(taskDef),
-    );
-
-    const { stdin, lastFrame } = renderWithProviders(
-      <TasksScreen
-        container={container}
-        initialSpec="test-spec"
-        isInteractive={true}
-      />,
-      { container, initialSpec: 'test-spec' },
-    );
-
-    await tick();
-
-    // Verify initial state shows TASK-001
-    expect(lastFrame() ?? '').toContain('TASK-001');
-
-    // Press 'c' to mark complete
-    stdin.write('c');
-    await tick();
-
-    // Verify it saved to container execution state repository
-    const stateAfterComplete = container.executionStateRepository.load('test-spec');
-    expect(stateAfterComplete).not.toBeNull();
-    expect(stateAfterComplete?.tasks['TASK-001']?.status).toBe('completed');
-    expect(lastFrame() ?? '').toContain('marked as completed');
-
-    // Press 'x' to reset
-    stdin.write('x');
-    await tick();
-
-    const stateAfterReset = container.executionStateRepository.load('test-spec');
-    expect(stateAfterReset?.tasks['TASK-001']?.status).toBe('pending');
-    expect(lastFrame() ?? '').toContain('reset to pending');
+      output = lastFrame() ?? '';
+      expect(output).not.toContain('TypeScript only');
+    });
   });
 });

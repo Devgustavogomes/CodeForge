@@ -3,8 +3,7 @@ import { NavigationContext } from '../../../context/NavigationContext.js';
 import { ContainerContext } from '../../../context/ContainerContext.js';
 import { ExecutionContext } from '../../../context/ExecutionContext.js';
 import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
-import { PATHS } from '../../../../../infrastructure/paths.js';
-import { Task } from '../../../../../domain/task.js';
+import { loadTasksFromDisk } from '../../../context/ExecutionContext/taskLoader.js';
 import { TaskScreenItem } from '../components/TaskTree.js';
 
 export interface UseTasksScreenOptions {
@@ -31,16 +30,12 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   const [isSearchingSpec, setIsSearchingSpec] = useState(false);
 
   useEffect(() => {
-    try {
-      const specList = container.listSpecsUseCase.listNames();
-      setSpecs(specList);
-      const active = options?.initialSpec || exec?.activeSpec;
-      if (active) {
-        const idx = specList.indexOf(active);
-        if (idx >= 0) setSelectedSpecIndex(idx);
-      }
-    } catch {
-      // ignore
+    const specList = container.listSpecsUseCase.listNames();
+    setSpecs(specList);
+    const active = options?.initialSpec || exec?.activeSpec;
+    if (active) {
+      const idx = specList.indexOf(active);
+      if (idx >= 0) setSelectedSpecIndex(idx);
     }
   }, [container, options?.initialSpec, exec?.activeSpec]);
 
@@ -80,54 +75,10 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
         setTasks([]);
         return;
       }
-      try {
-        const tasksDir = `${PATHS.tasksDir}/${spec}`;
-        if (!container.gw.exists(tasksDir)) {
-          setTasks([]);
-          return;
-        }
-
-        const taskFiles = container.gw
-          .listDir(tasksDir)
-          .filter((f) => f.endsWith('.json'));
-        const execState = container.stateRepo.load(spec);
-
-        const loaded: TaskScreenItem[] = [];
-        for (const file of taskFiles) {
-          const id = file.replace('.json', '');
-          try {
-            const raw = container.gw.readFile(`${tasksDir}/${file}`);
-            const parsed = JSON.parse(raw) as Task;
-            const taskState = execState?.tasks[id];
-
-            loaded.push({
-              id,
-              title: parsed.title || id,
-              status: taskState?.status ?? 'pending',
-              dependencies: parsed.dependencies || [],
-              objective: parsed.objective,
-              files: parsed.files,
-              context: parsed.context,
-              constraints: parsed.constraints,
-              acceptanceCriteria: parsed.acceptanceCriteria,
-              errors: taskState?.errors,
-            });
-          } catch {
-            loaded.push({
-              id,
-              title: id,
-              status: 'pending',
-              dependencies: [],
-            });
-          }
-        }
-
-        loaded.sort((a, b) => a.id.localeCompare(b.id));
-        setTasks(loaded);
-        setSelectedTaskIndex(0);
-      } catch {
-        setTasks([]);
-      }
+      const loaded = loadTasksFromDisk(container.gw, container.stateRepo, spec);
+      loaded.sort((a, b) => a.id.localeCompare(b.id));
+      setTasks(loaded);
+      setSelectedTaskIndex(0);
     },
     [container],
   );

@@ -18,7 +18,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
   selectedTask,
   viewJson,
   isExpanded = false,
-  onToggleExpand,
+  onToggleExpand: _onToggleExpand,
   feedback,
   isSideBySide,
 }) => {
