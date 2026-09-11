@@ -19,11 +19,12 @@ export interface ExecutionContextValue {
   selectTask: (taskId: string | null) => void;
   setActiveSpec: (specName: string | null) => void;
   startRun: (specName?: string) => Promise<void>;
-  retryTask: (taskId: string) => Promise<void>;
+  retryTask: (taskId: string, specName?: string) => Promise<void>;
   retryAllFailed: () => Promise<void>;
-  completeTask: (taskId: string) => Promise<void>;
-  resetTask: (taskId: string) => Promise<void>;
+  completeTask: (taskId: string, specName?: string) => Promise<void>;
+  resetTask: (taskId: string, specName?: string) => Promise<void>;
   resetAllTasks: (specName?: string) => Promise<void>;
+  refreshTasks?: (spec: string) => void;
   clearLogs: (taskId?: string) => void;
   scheduler: TaskScheduler | null;
   startedAt?: string;

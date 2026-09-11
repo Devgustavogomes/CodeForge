@@ -6,7 +6,7 @@ import {
 } from '../../../../../src/cli/tui/components/tasks/TasksScreen.js';
 import { TaskTree } from '../../../../../src/cli/tui/components/tasks/components/TaskTree.js';
 import { TaskMetadataView } from '../../../../../src/cli/tui/components/tasks/components/TaskMetadataView.js';
-import { renderWithProviders } from '../../helpers/renderWithProviders.js';
+import { renderWithProviders, createMockContainer } from '../../helpers/renderWithProviders.js';
 
 const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -218,5 +218,61 @@ describe('TasksScreen component', () => {
 
     output = lastFrame() ?? '';
     expect(output).not.toContain('TypeScript only');
+  });
+
+  it('persists complete and reset to container execution state repository on disk', async () => {
+    const container = createMockContainer();
+    const gw = container.workspaceGateway;
+    gw.mkdir('.codeforge');
+    gw.mkdir('.codeforge/specs');
+    gw.mkdir('.codeforge/executions');
+    gw.mkdir('.codeforge/tasks/test-spec');
+
+    // Create a task file on disk
+    const taskDef = {
+      id: 'TASK-001',
+      title: 'Persisted Task',
+      objective: 'Check persistence',
+      dependencies: [],
+      files: [],
+      constraints: [],
+      acceptanceCriteria: [],
+    };
+    gw.writeFile(
+      '.codeforge/tasks/test-spec/TASK-001.json',
+      JSON.stringify(taskDef),
+    );
+
+    const { stdin, lastFrame } = renderWithProviders(
+      <TasksScreen
+        container={container}
+        initialSpec="test-spec"
+        isInteractive={true}
+      />,
+      { container, initialSpec: 'test-spec' },
+    );
+
+    await tick();
+
+    // Verify initial state shows TASK-001
+    expect(lastFrame() ?? '').toContain('TASK-001');
+
+    // Press 'c' to mark complete
+    stdin.write('c');
+    await tick();
+
+    // Verify it saved to container execution state repository
+    const stateAfterComplete = container.executionStateRepository.load('test-spec');
+    expect(stateAfterComplete).not.toBeNull();
+    expect(stateAfterComplete?.tasks['TASK-001']?.status).toBe('completed');
+    expect(lastFrame() ?? '').toContain('marked as completed');
+
+    // Press 'x' to reset
+    stdin.write('x');
+    await tick();
+
+    const stateAfterReset = container.executionStateRepository.load('test-spec');
+    expect(stateAfterReset?.tasks['TASK-001']?.status).toBe('pending');
+    expect(lastFrame() ?? '').toContain('reset to pending');
   });
 });

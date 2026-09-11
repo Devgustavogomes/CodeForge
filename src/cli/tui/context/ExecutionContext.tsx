@@ -226,11 +226,11 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     activeSpec, tasks, selectedTaskId, selectedTask, status: schedulerStatus,
     schedulerStatus, logs, getTaskLogs, setSelectedTaskId, selectTask,
     setActiveSpec, startRun, retryTask, retryAllFailed, completeTask,
-    resetTask, resetAllTasks, clearLogs, scheduler, startedAt, completedAt,
+    resetTask, resetAllTasks, refreshTasks, clearLogs, scheduler, startedAt, completedAt,
   }), [
     activeSpec, tasks, selectedTaskId, selectedTask, schedulerStatus, logs, getTaskLogs,
     selectTask, setActiveSpec, startRun, retryTask, retryAllFailed, completeTask,
-    resetTask, resetAllTasks, clearLogs, scheduler, startedAt, completedAt,
+    resetTask, resetAllTasks, refreshTasks, clearLogs, scheduler, startedAt, completedAt,
   ]);
 
   return <ExecutionContext.Provider value={value}>{children}</ExecutionContext.Provider>;

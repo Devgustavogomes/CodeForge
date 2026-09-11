@@ -145,14 +145,30 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
       if (options?.onCompleteTask) {
         options.onCompleteTask(selectedTask.id);
       }
-      if (exec?.completeTask) {
-        await exec.completeTask(selectedTask.id);
-      } else {
-        container.taskOperationsUseCase.markTaskCompleted(
-          currentSpec,
-          selectedTask.id,
-        );
+
+      const result = container.taskOperationsUseCase.markTaskCompleted(
+        currentSpec,
+        selectedTask.id,
+      );
+
+      if (result.kind === 'not-found') {
+        if (!options?.initialTasks) {
+          setFeedback({
+            type: 'error',
+            message: `Task ${selectedTask.id} not found in spec ${currentSpec}.`,
+          });
+          return;
+        }
       }
+
+      if (exec?.activeSpec === currentSpec) {
+        if (exec.refreshTasks) {
+          exec.refreshTasks(currentSpec);
+        } else if (exec.completeTask) {
+          await exec.completeTask(selectedTask.id, currentSpec);
+        }
+      }
+
       setTasks((prev) =>
         prev.map((t) =>
           t.id === selectedTask.id
@@ -179,14 +195,36 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
       if (options?.onResetTask) {
         options.onResetTask(selectedTask.id);
       }
-      if (exec?.resetTask) {
-        await exec.resetTask(selectedTask.id);
-      } else {
-        container.taskOperationsUseCase.resetTasks(
-          currentSpec,
-          selectedTask.id,
-        );
+
+      const result = container.taskOperationsUseCase.resetTasks(
+        currentSpec,
+        selectedTask.id,
+      );
+
+      if (result.kind !== 'reset-single' && result.kind !== 'reset-all') {
+        if (!options?.initialTasks) {
+          const msg =
+            result.kind === 'spec-not-found'
+              ? `Spec ${currentSpec} not found.`
+              : result.kind === 'task-not-found'
+              ? `Task ${selectedTask.id} not found in spec ${currentSpec}.`
+              : `No execution state found for spec ${currentSpec}.`;
+          setFeedback({
+            type: 'error',
+            message: msg,
+          });
+          return;
+        }
       }
+
+      if (exec?.activeSpec === currentSpec) {
+        if (exec.refreshTasks) {
+          exec.refreshTasks(currentSpec);
+        } else if (exec.resetTask) {
+          await exec.resetTask(selectedTask.id, currentSpec);
+        }
+      }
+
       setTasks((prev) =>
         prev.map((t) =>
           t.id === selectedTask.id
