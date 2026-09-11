@@ -7,6 +7,7 @@ import { ValidationResult } from '../../../../../application/use-cases/ValidateP
 import { PATHS } from '../../../../../infrastructure/paths.js';
 import { SpecItemWithStats } from '../components/SpecList.js';
 import { PlanGenerationResult } from '../components/SpecPlanProgress.js';
+import { getSpecTaskCount } from '../../../context/ExecutionContext/taskLoader.js';
 
 export type { SpecItemWithStats, PlanGenerationResult };
 
@@ -45,39 +46,30 @@ export function useSpecsScreen({
   const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
 
   const loadSpecs = useCallback(() => {
-    try {
-      const listUseCase = container.listSpecsUseCase;
-      const rawSpecs = listUseCase.execute();
-      const enriched: SpecItemWithStats[] = rawSpecs.map((s) => {
-        const tasksDir = `${PATHS.tasksDir}/${s.name}`;
-        let taskCount = (s as SpecItemWithStats).taskCount ?? 0;
-        if (container.gw?.exists && container.gw.exists(tasksDir)) {
-          const files = container.gw.listDir(tasksDir);
-          taskCount = files.filter((f) => f.endsWith('.json')).length;
+    const listUseCase = container.listSpecsUseCase;
+    const rawSpecs = listUseCase.execute();
+    const enriched: SpecItemWithStats[] = rawSpecs.map((s) => {
+      const taskCount = getSpecTaskCount(container.gw, s.name);
+
+      let updatedAt: string | undefined;
+      const execStatePath = PATHS.executionState(s.name);
+      if (container.gw.exists(execStatePath)) {
+        try {
+          const parsed = JSON.parse(container.gw.readFile(execStatePath));
+          updatedAt = parsed.updatedAt || parsed.completedAt || parsed.startedAt;
+        } catch {
+          // ignore corrupt state file
         }
+      }
 
-        let updatedAt: string | undefined;
-        const execStatePath = PATHS.executionState(s.name);
-        if (container.gw?.exists && container.gw.exists(execStatePath)) {
-          try {
-            const parsed = JSON.parse(container.gw.readFile(execStatePath));
-            updatedAt = parsed.updatedAt || parsed.completedAt || parsed.startedAt;
-          } catch {
-            // ignore
-          }
-        }
+      return {
+        ...s,
+        taskCount,
+        updatedAt,
+      };
+    });
 
-        return {
-          ...s,
-          taskCount,
-          updatedAt,
-        };
-      });
-
-      setSpecs(enriched);
-    } catch {
-      // ignore
-    }
+    setSpecs(enriched);
   }, [container]);
 
   useEffect(() => {
@@ -186,11 +178,7 @@ export function useSpecsScreen({
 
       loadSpecs();
 
-      let taskCount = selectedSpec.taskCount;
-      const tasksDir = `${PATHS.tasksDir}/${selectedSpec.name}`;
-      if (container.gw?.exists && container.gw.exists(tasksDir)) {
-        taskCount = container.gw.listDir(tasksDir).filter((f) => f.endsWith('.json')).length;
-      }
+      const taskCount = getSpecTaskCount(container.gw, selectedSpec.name);
 
       if (result.kind === 'valid') {
         setPlanResult({

@@ -3,8 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { render } from 'ink-testing-library';
 import { SpecPlanProgress } from '../../../../../src/cli/tui/components/specs/components/SpecPlanProgress.js';
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 describe('SpecPlanProgress component', () => {
   it('renders nothing when not generating and no result', () => {
     const { lastFrame } = render(
