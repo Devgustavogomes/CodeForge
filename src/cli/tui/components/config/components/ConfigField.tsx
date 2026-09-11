@@ -8,6 +8,7 @@ export type ConfigFieldKey =
   | 'plannerAgent'
   | 'executorAgent'
   | 'hooks'
+  | 'specSource'
   | 'saveButton';
 
 export const FIELD_ORDER: ConfigFieldKey[] = [
@@ -16,6 +17,7 @@ export const FIELD_ORDER: ConfigFieldKey[] = [
   'plannerAgent',
   'executorAgent',
   'hooks',
+  'specSource',
   'saveButton',
 ];
 
@@ -29,6 +31,7 @@ export interface ConfigFieldProps {
   config: CodeForgeConfig;
   availableEnvironments: string[];
   currentAgentOptions: string[];
+  availableSpecSourceProviders?: string[];
 }
 
 export const ConfigField: React.FC<ConfigFieldProps> = ({
@@ -39,6 +42,7 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
   config,
   availableEnvironments,
   currentAgentOptions,
+  availableSpecSourceProviders,
 }) => {
   if (fieldKey === 'language') {
     return (
@@ -203,6 +207,30 @@ export const ConfigField: React.FC<ConfigFieldProps> = ({
           </Text>
           <Text color="cyan" bold>
             [ {totalHooks} configurados ]
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (fieldKey === 'specSource') {
+    const provider = config.specSource?.provider || 'filesystem';
+    const project = config.specSource?.project as string | undefined;
+    const team = config.specSource?.team as string | undefined;
+    const details = project
+      ? `${provider} (${project})`
+      : team
+        ? `${provider} (${team})`
+        : provider;
+
+    return (
+      <Box width="100%">
+        <Box gap={1} flexShrink={1} flexWrap="wrap">
+          <Text bold color={isActive ? 'cyan' : 'white'}>
+            6. Spec Source:
+          </Text>
+          <Text color="cyan" bold>
+            [ {details} ]
           </Text>
         </Box>
       </Box>

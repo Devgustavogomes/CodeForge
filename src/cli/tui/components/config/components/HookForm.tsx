@@ -203,9 +203,7 @@ export const HookForm: React.FC<HookFormProps> = ({
             bold={currentActiveField === 'save'}
             color={currentActiveField === 'save' ? 'cyan' : 'gray'}
           >
-            {currentActiveField === 'save'
-              ? '▶ [ Salvar Hook ] ◀'
-              : '[ Salvar Hook ]'}
+            [ Salvar Hook ]
           </Text>
         </Box>
       </Box>

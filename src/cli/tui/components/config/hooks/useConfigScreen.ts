@@ -5,6 +5,8 @@ import { AppContainer, createAppContainer } from '../../../../../infrastructure/
 import { ConfigService } from '../../../../../config/ConfigService.js';
 import { CodeForgeConfig } from '../../../../../config/types.js';
 import { HookMap } from '../../../../../domain/hook.js';
+import { SpecSourceConfig } from '../../../../../domain/spec-source.js';
+import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
 import { ConfigFieldKey, FIELD_ORDER, LANGUAGES } from '../components/ConfigField.js';
 
 export interface UseConfigScreenOptions {
@@ -49,6 +51,7 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
   } | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isHooksModalOpen, setIsHooksModalOpen] = useState(false);
+  const [isSpecSourceModalOpen, setIsSpecSourceModalOpen] = useState(false);
 
   const openHooksModal = useCallback(() => {
     setIsHooksModalOpen(true);
@@ -65,6 +68,21 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     }));
   }, []);
 
+  const openSpecSourceModal = useCallback(() => {
+    setIsSpecSourceModalOpen(true);
+  }, []);
+
+  const closeSpecSourceModal = useCallback(() => {
+    setIsSpecSourceModalOpen(false);
+  }, []);
+
+  const handleUpdateSpecSource = useCallback((newSpecSource: SpecSourceConfig) => {
+    setConfig((prev) => ({
+      ...prev,
+      specSource: newSpecSource,
+    }));
+  }, []);
+
   const activeField = FIELD_ORDER[focusedFieldIndex];
 
   // Dynamically load available environments from useCase
@@ -78,6 +96,14 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
       return ['antigravity', 'claude', 'codex', 'cursor'];
     }
   }, [container]);
+
+  const availableSpecSourceProviders = useMemo(() => {
+    try {
+      return SpecSourceFactory.getAvailableProviders();
+    } catch {
+      return ['filesystem', 'linear', 'github', 'clickup'];
+    }
+  }, []);
 
   const [dynamicAgents, setDynamicAgents] = useState<string[]>([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(false);
@@ -282,6 +308,10 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
       openHooksModal();
       return;
     }
+    if (activeField === 'specSource') {
+      openSpecSourceModal();
+      return;
+    }
 
     setEditValue('');
     setIsEditing(true);
@@ -294,6 +324,7 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     handleCycleExecutorAgent,
     handleSave,
     openHooksModal,
+    openSpecSourceModal,
   ]);
 
   const startCustomEdit = useCallback(() => {
@@ -349,6 +380,11 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     openHooksModal,
     closeHooksModal,
     handleUpdateHooks,
+    isSpecSourceModalOpen,
+    openSpecSourceModal,
+    closeSpecSourceModal,
+    handleUpdateSpecSource,
+    availableSpecSourceProviders,
     configService,
     handleSave,
     handleCycleLanguage,

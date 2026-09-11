@@ -36,6 +36,8 @@ describe('ConfigScreen component', () => {
     expect(output).toContain('flash');
     expect(output).toContain('5. Hooks:');
     expect(output).toContain('[ 2 configurados ]');
+    expect(output).toContain('6. Spec Source:');
+    expect(output).toContain('filesystem');
     expect(output).not.toContain('Pre-Run Hook');
     expect(output).not.toContain('Post-Run Hook');
   });
@@ -286,5 +288,110 @@ describe('ConfigScreen component', () => {
 
     expect(capturedState.isDirty).toBe(false);
     expect(capturedState.config.hooks?.['run.started']).toHaveLength(2);
+  });
+
+  it('renders ConfigField component for specSource field', () => {
+    const { lastFrame } = renderWithProviders(
+      <ConfigField
+        fieldKey="specSource"
+        isActive={true}
+        isEditing={false}
+        editValue=""
+        config={{
+          ...mockConfig,
+          specSource: { provider: 'github', project: 'org/repo' },
+        }}
+        availableEnvironments={['antigravity', 'claude']}
+        currentAgentOptions={['pro', 'flash']}
+      />
+    );
+    const output = lastFrame() ?? '';
+    expect(output).toContain('6. Spec Source:');
+    expect(output).toContain('github (org/repo)');
+  });
+
+  it('opens ConfigureSpecSourceModal when Enter is pressed on specSource field', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+    );
+
+    // Navigate to specSource field (index 5) by pressing 'j' 5 times:
+    for (let i = 0; i < 5; i++) {
+      stdin.write('j');
+      await tick();
+    }
+
+    // At index 5 ('specSource'), press Enter to open ConfigureSpecSourceModal:
+    stdin.write('\r');
+    await tick();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Configuração de Spec Source');
+    expect(output).toContain('1. Provedor:');
+    expect(output).not.toContain('CodeForge Configuration Editor');
+  });
+
+  it('opens ConfigureSpecSourceModal when Space is pressed on specSource field', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+    );
+
+    for (let i = 0; i < 5; i++) {
+      stdin.write('j');
+      await tick();
+    }
+
+    stdin.write(' ');
+    await tick();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Configuração de Spec Source');
+  });
+
+  it('closes ConfigureSpecSourceModal with Esc and returns to ConfigScreen', async () => {
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen initialConfig={mockConfig} isInteractive={true} />
+    );
+
+    for (let i = 0; i < 5; i++) {
+      stdin.write('j');
+      await tick();
+    }
+
+    stdin.write('\r');
+    await tick();
+
+    const modalOutput = lastFrame() ?? '';
+    expect(modalOutput).toContain('Configuração de Spec Source');
+
+    // Press Esc to close
+    stdin.write('\u001B');
+    await tick();
+
+    const closedOutput = lastFrame() ?? '';
+    expect(closedOutput).not.toContain('Configuração de Spec Source');
+    expect(closedOutput).toContain('CodeForge Configuration Editor');
+  });
+
+  it('updates specSource state via handleUpdateSpecSource', async () => {
+    let capturedState: any;
+    const TestComponent = () => {
+      capturedState = useConfigScreen({ initialConfig: mockConfig });
+      return null;
+    };
+    renderWithProviders(<TestComponent />);
+
+    expect(capturedState.config.specSource).toBeUndefined();
+
+    capturedState.handleUpdateSpecSource({
+      provider: 'linear',
+      team: 'ENG',
+      apiKey: '$LINEAR_API_KEY',
+    });
+    await tick();
+
+    expect(capturedState.config.specSource?.provider).toBe('linear');
+    expect(capturedState.config.specSource?.team).toBe('ENG');
+    expect(capturedState.config.specSource?.apiKey).toBe('$LINEAR_API_KEY');
   });
 });

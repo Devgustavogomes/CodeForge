@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import { CodeForgeConfig } from '../../../../../config/types.js';
 import { HOOK_EVENTS } from '../../../../../domain/hook.js';
 import { ConfigFieldKey } from './ConfigField.js';
+import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
 
 export interface ConfigPreviewProps {
   isSideBySide: boolean;
@@ -11,6 +12,7 @@ export interface ConfigPreviewProps {
   isLoadingAgents: boolean;
   currentAgentOptions: string[];
   availableEnvironments: string[];
+  availableSpecSourceProviders?: string[];
 }
 
 export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
@@ -20,6 +22,7 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
   isLoadingAgents,
   currentAgentOptions,
   availableEnvironments,
+  availableSpecSourceProviders,
 }) => {
   return (
     <Box
@@ -107,6 +110,65 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
             })}
           </Box>
         </Box>
+      ) : activeField === 'specSource' ? (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text bold color="cyan">
+            Spec Sources ({((availableSpecSourceProviders && availableSpecSourceProviders.length > 0) ? availableSpecSourceProviders : ['filesystem', 'linear', 'github', 'clickup']).length} disponíveis)
+          </Text>
+          <Box flexDirection="column" marginY={0}>
+            {((availableSpecSourceProviders && availableSpecSourceProviders.length > 0) ? availableSpecSourceProviders : ['filesystem', 'linear', 'github', 'clickup']).map((p) => {
+              const isCurrent =
+                (config.specSource?.provider || 'filesystem').toLowerCase() ===
+                p.toLowerCase();
+              return (
+                <Box key={p} gap={1}>
+                  <Text color={isCurrent ? 'cyan' : 'gray'} bold={isCurrent}>
+                    {isCurrent ? '❯ ●' : '  ○'}
+                  </Text>
+                  <Text color={isCurrent ? 'cyan' : 'white'} bold={isCurrent}>
+                    {p}
+                  </Text>
+                </Box>
+              );
+            })}
+          </Box>
+          <Box flexDirection="column" marginTop={1}>
+            <Box gap={1}>
+              <Text color="white">Projeto:</Text>
+              <Text color={config.specSource?.project ? 'white' : 'gray'}>
+                {(config.specSource?.project as string) || '(não configurado)'}
+              </Text>
+            </Box>
+            <Box gap={1}>
+              <Text color="white">Time:</Text>
+              <Text color={config.specSource?.team ? 'white' : 'gray'}>
+                {(config.specSource?.team as string) || '(não configurado)'}
+              </Text>
+            </Box>
+            <Box gap={1}>
+              <Text color="white">Chave API:</Text>
+              <Text color={config.specSource?.apiKey ? 'white' : 'yellow'}>
+                {config.specSource?.apiKey
+                  ? typeof config.specSource.apiKey === 'string' &&
+                    config.specSource.apiKey.startsWith('$')
+                    ? config.specSource.apiKey
+                    : '••••••••'
+                  : SpecSourceFactory.getDefaultApiKey(
+                      config.specSource?.provider || 'filesystem',
+                    )
+                    ? `${SpecSourceFactory.getDefaultApiKey(
+                        config.specSource?.provider || 'filesystem',
+                      )} (padrão)`
+                    : '(não configurada)'}
+              </Text>
+            </Box>
+          </Box>
+          <Box marginTop={1}>
+            <Text color="cyan" bold>
+              [Enter] Configurar Spec Source
+            </Text>
+          </Box>
+        </Box>
       ) : (
         <Box flexDirection="column" marginBottom={1}>
           <Text bold color="cyan">Configuration Preview</Text>
@@ -121,6 +183,7 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
             ).length}{' '}
             active
           </Text>
+          <Text dimColor>Spec Source: {config.specSource?.provider || 'filesystem'}</Text>
         </Box>
       )}
 
@@ -129,6 +192,12 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = ({
         {activeField === 'hooks' ? (
           <>
             <Text dimColor>[Enter] Abrir Gerenciador de Hooks</Text>
+            <Text dimColor>[↑/↓] or [Tab] Select Field</Text>
+            <Text dimColor>[s] Quick Save to File</Text>
+          </>
+        ) : activeField === 'specSource' ? (
+          <>
+            <Text dimColor>[Enter] Configurar Spec Source</Text>
             <Text dimColor>[↑/↓] or [Tab] Select Field</Text>
             <Text dimColor>[s] Quick Save to File</Text>
           </>

@@ -20,6 +20,7 @@ export interface UseConfigHotkeysProps {
   onCancelEditing: () => void;
   onClearFeedback?: () => void;
   onOpenHooksModal?: () => void;
+  onOpenSpecSourceModal?: () => void;
 }
 
 export function useConfigHotkeys({
@@ -39,6 +40,7 @@ export function useConfigHotkeys({
   onCancelEditing,
   onClearFeedback,
   onOpenHooksModal,
+  onOpenSpecSourceModal,
 }: UseConfigHotkeysProps) {
   const nav = useContext(NavigationContext);
 
@@ -166,6 +168,23 @@ export function useConfigHotkeys({
         ) {
           if (onOpenHooksModal) {
             onOpenHooksModal();
+          } else {
+            onStartEditing();
+          }
+          return;
+        }
+      }
+
+      if (activeField === 'specSource') {
+        if (
+          key.return ||
+          input === '\r' ||
+          input === '\n' ||
+          input === ' ' ||
+          key.rightArrow
+        ) {
+          if (onOpenSpecSourceModal) {
+            onOpenSpecSourceModal();
           } else {
             onStartEditing();
           }

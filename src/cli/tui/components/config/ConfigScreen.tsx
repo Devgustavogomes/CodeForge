@@ -13,6 +13,7 @@ import {
 import { ConfigFeedback } from './components/ConfigFeedback.js';
 import { ConfigPreview } from './components/ConfigPreview.js';
 import { ConfigureHooksModal } from './ConfigureHooksModal.js';
+import { ConfigureSpecSourceModal } from './ConfigureSpecSourceModal.js';
 import { useConfigScreen } from './hooks/useConfigScreen.js';
 import { useConfigHotkeys } from './hooks/useConfigHotkeys.js';
 
@@ -43,7 +44,10 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   });
 
   useConfigHotkeys({
-    isInteractive: isInteractive && !configState.isHooksModalOpen,
+    isInteractive:
+      isInteractive &&
+      !configState.isHooksModalOpen &&
+      !configState.isSpecSourceModalOpen,
     isEditing: configState.isEditing,
     activeField: configState.activeField,
     setEditValue: configState.setEditValue,
@@ -59,6 +63,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     onCancelEditing: configState.cancelEditing,
     onClearFeedback: () => configState.setFeedback(null),
     onOpenHooksModal: configState.openHooksModal,
+    onOpenSpecSourceModal: configState.openSpecSourceModal,
   });
 
   const isSideBySide = breakpoint !== 'minimal';
@@ -72,6 +77,19 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
         config={config}
         configService={configService ?? container?.configService}
         onUpdateHooks={configState.handleUpdateHooks}
+        width="100%"
+      />
+    );
+  }
+
+  if (configState.isSpecSourceModalOpen) {
+    return (
+      <ConfigureSpecSourceModal
+        isOpen={true}
+        onClose={configState.closeSpecSourceModal}
+        config={config}
+        configService={configService ?? container?.configService}
+        onUpdateSpecSource={configState.handleUpdateSpecSource}
         width="100%"
       />
     );
@@ -106,6 +124,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
               config={config}
               availableEnvironments={configState.availableEnvironments}
               currentAgentOptions={configState.currentAgentOptions}
+              availableSpecSourceProviders={configState.availableSpecSourceProviders}
             />
           ))}
         </Box>
@@ -118,6 +137,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
           isLoadingAgents={configState.isLoadingAgents}
           currentAgentOptions={configState.currentAgentOptions}
           availableEnvironments={configState.availableEnvironments}
+          availableSpecSourceProviders={configState.availableSpecSourceProviders}
         />
       </Box>
     </Box>
