@@ -4,6 +4,9 @@ import { SpecsScreen, SpecItemWithStats } from '../../../../../src/cli/tui/compo
 import { CreateSpecUseCase } from '../../../../../src/application/use-cases/CreateSpecUseCase.js';
 import { PullSpecUseCase } from '../../../../../src/application/use-cases/PullSpecUseCase.js';
 import { ListSpecsUseCase } from '../../../../../src/application/use-cases/ListSpecsUseCase.js';
+import { PlanningProvider } from '../../../../../src/cli/tui/context/PlanningContext.js';
+import { useNavigation } from '../../../../../src/cli/tui/context/NavigationContext.js';
+import { useExecution } from '../../../../../src/cli/tui/context/ExecutionContext.js';
 import { renderWithProviders, createMockContainer, flushAsync } from '../../helpers/renderWithProviders.js';
 
 describe('SpecsScreen component', () => {
@@ -75,7 +78,7 @@ describe('SpecsScreen component', () => {
     expect(lastFrame() ?? '').toContain('Specification "auth-service" created');
   });
 
-  it('opens PullSpecModal on "P" and submits successfully', async () => {
+  it('opens PullSpecModal on "p" and submits successfully', async () => {
     const mockPullSpec = vi.spyOn(PullSpecUseCase.prototype, 'execute').mockResolvedValue({
       kind: 'success',
       filename: 'issue-101',
@@ -85,20 +88,26 @@ describe('SpecsScreen component', () => {
       overwritten: false,
     });
 
+    const mockGeneratePlan = vi.fn();
     const container = createMockContainer({
       listSpecsUseCase: mockListSpecsUseCase,
+      generatePlanUseCase: { execute: mockGeneratePlan } as any,
     });
 
     const { lastFrame, stdin } = renderWithProviders(
-      <SpecsScreen initialSpecs={mockSpecs} container={container} isInteractive={true} />,
+      <PlanningProvider container={container}>
+        <SpecsScreen initialSpecs={mockSpecs} container={container} isInteractive={true} />
+      </PlanningProvider>,
       { container }
     );
 
-    // Open pull modal (P hotkey)
-    stdin.write('P');
+    // Open pull modal ('p' hotkey)
+    stdin.write('p');
     await flushAsync();
 
     expect(lastFrame() ?? '').toContain('Pull Specification');
+    // Ensure 'p' does NOT trigger plan generation
+    expect(mockGeneratePlan).not.toHaveBeenCalled();
 
     // Type spec ID and submit
     stdin.write('101');
@@ -114,5 +123,188 @@ describe('SpecsScreen component', () => {
     expect(lastFrame() ?? '').toContain('Specification "issue-101" pulled');
 
     mockPullSpec.mockRestore();
+  });
+
+  it('triggers plan generation on "g" for selected spec via PlanningContext', async () => {
+    const mockGeneratePlanUseCase = {
+      execute: vi.fn().mockResolvedValue({
+        kind: 'valid',
+      }),
+    };
+
+    const container = createMockContainer({
+      listSpecsUseCase: mockListSpecsUseCase,
+      generatePlanUseCase: mockGeneratePlanUseCase as any,
+    });
+
+    const { lastFrame, stdin } = renderWithProviders(
+      <PlanningProvider container={container}>
+        <SpecsScreen
+          initialSpecs={mockSpecs}
+          container={container}
+          isInteractive={true}
+        />
+      </PlanningProvider>,
+      { container }
+    );
+
+    stdin.write('g');
+
+    await vi.waitFor(() => {
+      expect(mockGeneratePlanUseCase.execute).toHaveBeenCalledWith('auth', expect.any(String));
+      expect(lastFrame() ?? '').toContain('Plano Gerado com Sucesso');
+      expect(lastFrame() ?? '').toContain('Plan generated and validated successfully for');
+    });
+  });
+
+  it('invokes onOpenTasks callback on "t"', async () => {
+    const onOpenTasks = vi.fn();
+    const container = createMockContainer({
+      listSpecsUseCase: mockListSpecsUseCase,
+    });
+
+    let currentActiveSpec: string | null | undefined;
+    const Observer: React.FC = () => {
+      const exec = useExecution();
+      currentActiveSpec = exec.activeSpec;
+      return null;
+    };
+
+    const { stdin } = renderWithProviders(
+      <PlanningProvider container={container}>
+        <Observer />
+        <SpecsScreen
+          initialSpecs={mockSpecs}
+          container={container}
+          isInteractive={true}
+          onOpenTasks={onOpenTasks}
+        />
+      </PlanningProvider>,
+      { container }
+    );
+
+    stdin.write('t');
+    await flushAsync();
+
+    expect(onOpenTasks).toHaveBeenCalledWith('auth');
+    expect(currentActiveSpec).toBe('auth');
+  });
+
+  it('switches to tasks tab and sets activeSpec on "t" without onOpenTasks callback', async () => {
+    let currentTab: string | undefined;
+    let currentActiveSpec: string | null | undefined;
+    const Observer: React.FC = () => {
+      const nav = useNavigation();
+      const exec = useExecution();
+      currentTab = nav.activeTab;
+      currentActiveSpec = exec.activeSpec;
+      return null;
+    };
+
+    const container = createMockContainer({
+      listSpecsUseCase: mockListSpecsUseCase,
+    });
+
+    const { stdin } = renderWithProviders(
+      <PlanningProvider container={container}>
+        <Observer />
+        <SpecsScreen
+          initialSpecs={mockSpecs}
+          container={container}
+          isInteractive={true}
+        />
+      </PlanningProvider>,
+      { container }
+    );
+
+    stdin.write('t');
+    await flushAsync();
+
+    expect(currentActiveSpec).toBe('auth');
+    expect(currentTab).toBe('tasks');
+  });
+
+  it('ignores "t" safely when specs list is empty', async () => {
+    const emptyListUseCase = {
+      execute: vi.fn().mockReturnValue([]),
+      listNames: vi.fn().mockReturnValue([]),
+    } as unknown as ListSpecsUseCase;
+
+    const container = createMockContainer({
+      listSpecsUseCase: emptyListUseCase,
+    });
+
+    const { lastFrame, stdin } = renderWithProviders(
+      <PlanningProvider container={container}>
+        <SpecsScreen
+          initialSpecs={[]}
+          container={container}
+          isInteractive={true}
+        />
+      </PlanningProvider>,
+      { container }
+    );
+
+    expect(() => {
+      stdin.write('t');
+    }).not.toThrow();
+    await flushAsync();
+
+    expect(lastFrame() ?? '').toContain('Specifications (0)');
+  });
+
+  it('displays concurrency warning when attempting to generate plan while another is running', async () => {
+    let resolveGeneratePlan: (val: any) => void;
+    const pendingPromise = new Promise((resolve) => {
+      resolveGeneratePlan = resolve;
+    });
+
+    const mockGeneratePlanUseCase = {
+      execute: vi.fn().mockReturnValue(pendingPromise),
+    };
+
+    const container = createMockContainer({
+      listSpecsUseCase: mockListSpecsUseCase,
+      generatePlanUseCase: mockGeneratePlanUseCase as any,
+    });
+
+    const { lastFrame, stdin } = renderWithProviders(
+      <PlanningProvider container={container}>
+        <SpecsScreen
+          initialSpecs={mockSpecs}
+          container={container}
+          isInteractive={true}
+        />
+      </PlanningProvider>,
+      { container }
+    );
+
+    // Trigger plan generation on first spec ('auth')
+    stdin.write('g');
+    await flushAsync();
+
+    // Verify 'auth' is currently generating
+    expect(lastFrame() ?? '').toContain('Gerando Plano de Execução [auth]');
+
+    // Navigate down to 'tui'
+    stdin.write('j');
+    await flushAsync();
+    expect(lastFrame() ?? '').toContain('Name:  tui');
+
+    // Attempt to generate plan on 'tui' while 'auth' is generating
+    stdin.write('g');
+    await flushAsync();
+
+    // Concurrency warning should appear
+    expect(lastFrame() ?? '').toContain(
+      'Já existe um plano sendo gerado para "auth".'
+    );
+
+    // Verify use case was only called once
+    expect(mockGeneratePlanUseCase.execute).toHaveBeenCalledTimes(1);
+
+    // Resolve promise to clean up
+    resolveGeneratePlan!({ kind: 'valid' });
+    await flushAsync();
   });
 });

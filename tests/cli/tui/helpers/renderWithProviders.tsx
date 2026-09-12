@@ -3,6 +3,7 @@ import { render } from 'ink-testing-library';
 import { ContainerProvider } from '../../../../src/cli/tui/context/ContainerContext.js';
 import { NavigationProvider, TabId } from '../../../../src/cli/tui/context/NavigationContext.js';
 import { ExecutionProvider } from '../../../../src/cli/tui/context/ExecutionContext.js';
+import { PlanningProvider } from '../../../../src/cli/tui/context/PlanningContext.js';
 import { AppContainer, createAppContainer, AppContainerDependencies } from '../../../../src/infrastructure/container.js';
 import { InMemoryWorkspaceGateway } from '../../../helpers/in-memory-workspace.js';
 import { InMemoryAgentRunner } from '../../../helpers/in-memory-agent-runner.js';
@@ -67,7 +68,9 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
           maxLogLines={maxLogLines}
           flushIntervalMs={flushIntervalMs}
         >
-          {children}
+          <PlanningProvider container={resolvedContainer}>
+            {children}
+          </PlanningProvider>
         </ExecutionProvider>
       </NavigationProvider>
     </ContainerProvider>
