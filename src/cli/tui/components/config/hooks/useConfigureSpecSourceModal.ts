@@ -17,6 +17,8 @@ export interface UseConfigureSpecSourceModalOptions {
   config?: CodeForgeConfig;
   configService?: ConfigService;
   onUpdateSpecSource?: (specSource: SpecSourceConfig) => void;
+  availableProviders?: string[];
+  formFields?: SpecSourceFormField[];
 }
 
 export interface UseConfigureSpecSourceModalReturn {
@@ -46,12 +48,14 @@ export function useConfigureSpecSourceModal({
   config,
   configService,
   onUpdateSpecSource,
+  availableProviders: requestedProviders,
+  formFields = SPEC_SOURCE_FORM_FIELDS,
 }: UseConfigureSpecSourceModalOptions): UseConfigureSpecSourceModalReturn {
   const nav = useContext(NavigationContext);
 
   const availableProviders = useMemo(() => {
-    return SpecSourceFactory.getAvailableProviders();
-  }, []);
+    return requestedProviders ?? SpecSourceFactory.getAvailableProviders();
+  }, [requestedProviders]);
 
   const initialProvider = config?.specSource?.provider || 'filesystem';
   const [provider, setProvider] = useState<string>(initialProvider);
@@ -72,7 +76,7 @@ export function useConfigureSpecSourceModal({
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const activeFormField: SpecSourceFormField =
-    SPEC_SOURCE_FORM_FIELDS[activeFormFieldIndex] ?? 'provider';
+    formFields[activeFormFieldIndex] ?? formFields[0] ?? 'provider';
 
   const saveSpecSource = useCallback((): boolean => {
     const trimmedProvider = provider.trim() || 'filesystem';
@@ -113,9 +117,6 @@ export function useConfigureSpecSourceModal({
     isActive: isOpen && activeFormField === 'project',
     syncNavigation: false,
     onChange: setProject,
-    onSubmit: () => {
-      saveSpecSource();
-    },
   });
 
   const teamInput = useTextInput({
@@ -123,9 +124,6 @@ export function useConfigureSpecSourceModal({
     isActive: isOpen && activeFormField === 'team',
     syncNavigation: false,
     onChange: setTeam,
-    onSubmit: () => {
-      saveSpecSource();
-    },
   });
 
   const apiKeyInput = useTextInput({
@@ -133,9 +131,6 @@ export function useConfigureSpecSourceModal({
     isActive: isOpen && activeFormField === 'apiKey',
     syncNavigation: false,
     onChange: setApiKey,
-    onSubmit: () => {
-      saveSpecSource();
-    },
   });
 
   // Sincronizar campos quando o modal abre ou config muda
@@ -216,14 +211,14 @@ export function useConfigureSpecSourceModal({
 
       if (isShiftTab || key.upArrow) {
         setActiveFormFieldIndex((prev) =>
-          (prev - 1 + SPEC_SOURCE_FORM_FIELDS.length) % SPEC_SOURCE_FORM_FIELDS.length,
+          (prev - 1 + formFields.length) % formFields.length,
         );
         return;
       }
 
       if (isTab || key.downArrow) {
         setActiveFormFieldIndex((prev) =>
-          (prev + 1) % SPEC_SOURCE_FORM_FIELDS.length,
+          (prev + 1) % formFields.length,
         );
         return;
       }

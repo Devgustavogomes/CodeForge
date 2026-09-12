@@ -20,26 +20,33 @@ export { deriveHookName } from './useHookFormState.js';
 /**
  * Orchestrator hook for ConfigureHooksModal.
  * Decomposes logic into sub-hooks (useHooksEventsView, useHooksCommandsView, useHookFormState),
- * managing view transitions, immediate auto-save in ConfigService, and feedback.
+ * managing view transitions, ConfigService auto-save (or controlled state), and feedback.
  */
 export function useConfigureHooksModal({
   isOpen = true,
   onClose,
   config,
   configService,
+  hooks: controlledHooks,
   onUpdateHooks,
+  persistenceMode = 'auto-save',
+  selectEventOnEnter = true,
 }: UseConfigureHooksModalOptions): UseConfigureHooksModalReturn {
   const nav = useContext(NavigationContext);
   const [view, setView] = useState<ConfigureHooksView>('events');
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
-  const [hooks, setHooks] = useState<HookMap>(() => config?.hooks || {});
+  const [hooks, setHooks] = useState<HookMap>(
+    () => controlledHooks ?? config?.hooks ?? {},
+  );
 
-  // Sync hooks if external config updates
+  // Sincroniza a fonte externa. No onboarding, o HookMap do wizard é a fonte
+  // controlada e nenhuma alteração deve chegar ao ConfigService antes do resumo.
   useEffect(() => {
-    if (config?.hooks) {
-      setHooks(config.hooks);
+    const externalHooks = controlledHooks ?? config?.hooks;
+    if (externalHooks) {
+      setHooks(externalHooks);
     }
-  }, [config?.hooks]);
+  }, [controlledHooks, config?.hooks]);
 
   // Temporary feedback timeout
   useEffect(() => {
@@ -59,6 +66,7 @@ export function useConfigureHooksModal({
       commandsView.setDeleteConfirmIndex(null);
     },
     onClose,
+    selectOnEnter: selectEventOnEnter,
   });
 
   const selectedEvent = eventsView.selectedEvent;
@@ -112,7 +120,9 @@ export function useConfigureHooksModal({
 
     setHooks(updatedHooks);
 
-    if (configService) {
+    if (persistenceMode === 'controlled') {
+      setFeedbackMessage('✔ Hook mantido para a confirmação final');
+    } else if (configService) {
       try {
         configService.saveConfig({
           ...(config || {}),
@@ -145,6 +155,7 @@ export function useConfigureHooksModal({
     configService,
     config,
     onUpdateHooks,
+    persistenceMode,
   ]);
 
   const deleteHook = useCallback(
@@ -164,7 +175,9 @@ export function useConfigureHooksModal({
 
       setHooks(updatedHooks);
 
-      if (configService) {
+      if (persistenceMode === 'controlled') {
+        setFeedbackMessage('✔ Alteração mantida para a confirmação final');
+      } else if (configService) {
         try {
           configService.saveConfig({
             ...(config || {}),
@@ -187,7 +200,7 @@ export function useConfigureHooksModal({
         return prev > maxIndex ? maxIndex : prev;
       });
     },
-    [hooks, selectedEvent, configService, config, onUpdateHooks]
+    [hooks, selectedEvent, configService, config, onUpdateHooks, persistenceMode]
   );
 
   // Sub-hook 2: Commands View (Nível 2)
@@ -254,8 +267,9 @@ export function useConfigureHooksModal({
       eventsView.resetEventsView();
       commandsView.resetCommandsView();
       formState.initAddForm();
-      if (config?.hooks) {
-        setHooks(config.hooks);
+      const externalHooks = controlledHooks ?? config?.hooks;
+      if (externalHooks) {
+        setHooks(externalHooks);
       }
     } else {
       setFeedbackMessage(null);

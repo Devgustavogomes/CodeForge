@@ -6,6 +6,7 @@ export interface UseHooksEventsViewOptions {
   isActive: boolean;
   onSelectEvent: (event: HookEvent) => void;
   onClose?: () => void;
+  selectOnEnter?: boolean;
 }
 
 export interface UseHooksEventsViewReturn {
@@ -23,6 +24,7 @@ export function useHooksEventsView({
   isActive,
   onSelectEvent,
   onClose,
+  selectOnEnter = true,
 }: UseHooksEventsViewOptions): UseHooksEventsViewReturn {
   const [selectedEventIndex, setSelectedEventIndex] = useState<number>(0);
 
@@ -56,7 +58,8 @@ export function useHooksEventsView({
         return;
       }
 
-      if (key.return || input === '\r' || input === '\n' || key.rightArrow) {
+      const isEnter = key.return || input === '\r' || input === '\n';
+      if ((selectOnEnter && isEnter) || key.rightArrow) {
         onSelectEvent(selectedEvent);
         return;
       }

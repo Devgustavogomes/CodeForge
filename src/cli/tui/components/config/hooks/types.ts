@@ -9,13 +9,17 @@ import { CodeForgeConfig } from '../../../../../config/types.js';
 import { ConfigService } from '../../../../../config/ConfigService.js';
 
 export type ConfigureHooksView = 'events' | 'commands' | 'form';
+export type ConfigureHooksPersistenceMode = 'auto-save' | 'controlled';
 
 export interface UseConfigureHooksModalOptions {
   isOpen?: boolean;
   onClose?: () => void;
   config?: CodeForgeConfig;
   configService?: ConfigService;
+  hooks?: HookMap;
   onUpdateHooks?: (hooks: HookMap) => void;
+  persistenceMode?: ConfigureHooksPersistenceMode;
+  selectEventOnEnter?: boolean;
 }
 
 export interface UseConfigureHooksModalReturn {

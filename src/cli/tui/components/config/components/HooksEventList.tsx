@@ -19,6 +19,7 @@ export interface HooksEventListProps {
   selectedIndex: number;
   onSelectEvent?: (event: HookEvent) => void;
   onClose?: () => void;
+  showContinueAction?: boolean;
 }
 
 /**
@@ -28,6 +29,7 @@ export interface HooksEventListProps {
 export const HooksEventList: React.FC<HooksEventListProps> = ({
   hooks,
   selectedIndex,
+  showContinueAction = false,
 }) => {
   return (
     <Box flexDirection="column" width="100%">
@@ -89,8 +91,20 @@ export const HooksEventList: React.FC<HooksEventListProps> = ({
         width="100%"
       >
         <Text color={theme.colors.muted}>[↑/↓ ou k/j] Navegar</Text>
-        <Text color={theme.colors.muted}>[Enter ou →] Selecionar</Text>
-        <Text color={theme.colors.muted}>[Esc/q] Voltar</Text>
+        {showContinueAction ? (
+          <>
+            <Text color={theme.colors.muted}>[→] Gerenciar evento</Text>
+            <Text color={theme.colors.primary} bold>
+              [Enter / c] Continuar / Pular para o Resumo
+            </Text>
+            <Text color={theme.colors.muted}>[Esc] Voltar</Text>
+          </>
+        ) : (
+          <>
+            <Text color={theme.colors.muted}>[Enter ou →] Selecionar</Text>
+            <Text color={theme.colors.muted}>[Esc/q] Voltar</Text>
+          </>
+        )}
       </Box>
     </Box>
   );
