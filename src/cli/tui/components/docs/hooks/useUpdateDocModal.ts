@@ -5,6 +5,8 @@ import { AppContainer, createAppContainer } from '../../../../../infrastructure/
 import { AffectedDoc } from '../../../../../domain/doc.js';
 import { DocsUpdateResult } from '../../../../../application/use-cases/UpdateDocUseCase.js';
 import { DocItemInfo } from '../components/DocsList.js';
+import { translate } from '../../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../../config/types.js';
 
 export type UpdateMode = 'direct' | 'auto';
 export type UpdateStep = 'mode-select' | 'direct' | 'auto';
@@ -22,6 +24,7 @@ export interface UseUpdateDocModalOptions {
   initialSpec?: string;
   initialMode?: UpdateMode;
   initialStep?: UpdateStep;
+  language?: SupportedLanguage;
   onClose?: () => void;
   onConfirmDirect?: (docName: string, specName: string) => void | Promise<void>;
   onConfirmAuto?: (
@@ -64,6 +67,7 @@ export interface UseUpdateDocModalReturn {
   isNoChangedFiles: boolean;
   isNoAffectedDocs: boolean;
   edgeCaseMessage: string | null;
+  language: SupportedLanguage;
 
   handleConfirm: () => Promise<void> | void;
   handleBack: () => void;
@@ -113,6 +117,7 @@ export function useUpdateDocModal({
   initialSpec,
   initialMode = 'direct',
   initialStep = 'mode-select',
+  language: propLanguage,
   onClose,
   onConfirmDirect,
   onConfirmAuto,
@@ -125,6 +130,15 @@ export function useUpdateDocModal({
   );
 
   const exec = useContext(ExecutionContext);
+
+  const language: SupportedLanguage = useMemo(() => {
+    if (propLanguage) return propLanguage;
+    try {
+      return container.configService.loadConfig()?.language ?? 'en';
+    } catch {
+      return 'en';
+    }
+  }, [propLanguage, container]);
 
   const availableSpecs = useMemo(() => {
     let specs: string[];
@@ -195,23 +209,23 @@ export function useUpdateDocModal({
     if (!affectedResult) return null;
     switch (affectedResult.kind) {
       case 'no-git':
-        return 'Repositório Git não encontrado.';
+        return translate('tui_docs_edge_no_git', language);
       case 'no-changed-files':
-        return 'Nenhum arquivo modificado no Git.';
+        return translate('tui_docs_edge_no_changed_files', language);
       case 'no-affected-docs':
-        return 'Nenhum documento do manifest cobre os arquivos modificados.';
+        return translate('tui_docs_edge_no_affected_docs', language);
       case 'spec-not-found':
-        return `Especificação "${selectedSpec}" não encontrada.`;
+        return translate('tui_docs_edge_spec_not_found', language, { spec: selectedSpec });
       case 'rules-not-found':
-        return 'Regras de documentação não encontradas (.codeforge/rules/docs.md).';
+        return translate('tui_docs_edge_rules_not_found', language);
       case 'not-initialized':
-        return 'Workspace não inicializado (.codeforge/metadata.json não encontrado).';
+        return translate('tui_docs_edge_not_initialized', language);
       case 'affected-docs':
         return null;
       default:
         return null;
     }
-  }, [affectedResult, selectedSpec]);
+  }, [affectedResult, selectedSpec, language]);
 
   const selectedAutoTarget: AutoTarget = useMemo(() => {
     if (autoSelectedIndex === 0 || affectedDocs.length === 0) {
@@ -427,6 +441,7 @@ export function useUpdateDocModal({
     isNoChangedFiles,
     isNoAffectedDocs,
     edgeCaseMessage,
+    language,
     handleConfirm,
     handleBack,
     reset,

@@ -213,7 +213,103 @@ const en = {
   tui_palette_footer: "{count} of {total} commands",
   tui_palette_nav_hint: "↑/↓ Navigate · Enter Select",
   tui_action_error: "Error: {error}",
-  tui_action_success: "Success: {message}"
+  tui_action_success: "Success: {message}",
+
+  // TUI - Docs List & Details
+  tui_docs_list_title: "Docs ({count})",
+  tui_docs_list_shortcuts: "[c] Create · [u] Update",
+  tui_docs_details_title: "Document Details: {name}",
+  tui_docs_details_none: "None",
+  tui_docs_label_name: "Name:",
+  tui_docs_label_path: "Path:",
+  tui_docs_label_status: "Status:",
+  tui_docs_label_created: "Created:",
+  tui_docs_label_specs: "Specs:",
+  tui_docs_none_linked: "None linked",
+  tui_docs_label_scope: "Scope:",
+  tui_docs_all_changes: "All codebase changes",
+  tui_docs_label_preview: "Preview:",
+  tui_docs_viewer_shortcuts: "[Enter] View · [u] Update · [c] Create",
+  tui_docs_viewer_empty: "Select a documentation file to view metadata and trigger updates.",
+  tui_docs_view_title: "View Documentation: {name}",
+  tui_docs_view_shortcuts: "[↑/↓ or j/k] Scroll · [g/G] Top/Bottom · [Esc/q] Close",
+  tui_docs_view_empty: "Document is empty or not found on disk.",
+
+  // TUI - Docs Progress Banner & Feedback
+  tui_docs_progress_action_create: "Creating",
+  tui_docs_progress_action_update: "Updating",
+  tui_docs_progress_title: "{action} Documentation: {doc}",
+  tui_docs_progress_generating: "Generating technical content via use-case...",
+  tui_docs_progress_elapsed: "Elapsed: ",
+  tui_docs_create_success: "✓ Documentation \"{name}\" created successfully in {elapsed}!",
+  tui_docs_create_failed: "Failed to create documentation: {error}",
+  tui_docs_update_single_success: "✓ Documentation \"{name}\" updated successfully in {elapsed}!",
+  tui_docs_update_batch_success: "✓ {count} documentations updated successfully in {elapsed}!",
+  tui_docs_update_failed: "Failed to update documentation: {error}",
+  tui_docs_update_none_affected: "No affected documents found to update.",
+
+  // TUI - Create Doc Modal
+  tui_docs_create_name_label: "1. Document Name (slug):",
+  tui_docs_create_name_placeholder: "e.g. architecture, system-design, api-reference",
+  tui_docs_create_spec_label: "2. Associated Spec:",
+  tui_docs_create_spec_placeholder: "e.g. tui, decouple-spec-source",
+  tui_docs_create_spec_hint: "[Space/←/→] Select spec",
+  tui_docs_create_generating_notice: "Generating documentation with agent runner...",
+  tui_docs_create_shortcuts: "[Tab] Switch field · [Enter] Generate Doc",
+  tui_docs_create_cancel_hint: "[Esc] Cancel",
+  tui_docs_create_err_name_required: "Documentation name is required.",
+  tui_docs_create_err_spec_required: "Associated specification name is required.",
+
+  // TUI - Update Doc Modal
+  tui_modal_update_doc: "Update Documentation",
+  tui_modal_update_doc_direct: "Update Documentation — Direct Mode",
+  tui_modal_update_doc_auto: "Update Documentation — Automatic Mode",
+
+  // TUI - Update Doc Step 1 (Mode Select)
+  tui_docs_mode_direct_title: "1. Update selected document directly",
+  tui_docs_mode_direct_target: "Target document:",
+  tui_docs_mode_direct_desc: "AI will inspect the document and code according to the selected specification.",
+  tui_docs_mode_auto_title: "2. Detect automatically via Git and Manifest Scope",
+  tui_docs_mode_auto_desc: "Analyzes recent Git changes (git diff) and updates documents whose scope was affected.",
+  tui_docs_mode_shortcuts: "[↑/↓ or j/k] Navigate · [Enter] Next · ",
+  tui_docs_mode_cancel: "[Esc] Cancel",
+
+  // TUI - Update Doc Step 2A (Direct Mode)
+  tui_docs_direct_target_doc: "Target Document:",
+  tui_docs_direct_ref_spec: "Reference Spec:",
+  tui_docs_direct_no_specs: "[No specs available]",
+  tui_docs_direct_desc: "AI will inspect specification rules and current source code to update documentation.",
+  tui_docs_direct_loading: "Preparing manual update...",
+  tui_docs_direct_shortcuts: "[Space/←/→] Select Spec · [Enter] Update · ",
+  tui_docs_direct_back: "[Esc] Back",
+
+  // TUI - Update Doc Step 2B (Auto Mode)
+  tui_docs_auto_ref_spec: "Reference Spec:",
+  tui_docs_auto_general: "General",
+  tui_docs_auto_loading: "Analyzing Git changes and manifest scope...",
+  tui_docs_auto_no_git_title: "⚠ Git repository not found (no-git)",
+  tui_docs_auto_no_git_desc: "This operation requires an initialized Git repository to detect changes.",
+  tui_docs_auto_no_changes_title: "⚠ No Git modifications found (no-changed-files)",
+  tui_docs_auto_no_changes_desc: "No modified files detected in the working repository.",
+  tui_docs_auto_no_affected_title: "⚠ No affected documents found (no-affected-docs)",
+  tui_docs_auto_no_affected_desc: "No document in manifest covers the modified files.",
+  tui_docs_auto_error_title: "✗ Analysis error",
+  tui_docs_auto_error_default: "An error occurred while inspecting affected documents.",
+  tui_docs_auto_affected_heading: "Documents identified with scope changes:",
+  tui_docs_auto_all_option: "[ Update all {count} affected ]",
+  tui_docs_auto_file_count_single: "1 file changed",
+  tui_docs_auto_file_count_plural: "{count} files changed",
+  tui_docs_auto_shortcuts_update: "[Enter] Update · ",
+  tui_docs_auto_shortcuts_back: "[Esc] Back",
+
+  // TUI - Update Doc Edge Cases
+  tui_docs_edge_no_git: "Git repository not found.",
+  tui_docs_edge_no_changed_files: "No changed files in Git.",
+  tui_docs_edge_no_affected_docs: "No manifest document covers modified files.",
+  tui_docs_edge_spec_not_found: "Specification \"{spec}\" not found.",
+  tui_docs_edge_rules_not_found: "Documentation rules not found (.codeforge/rules/docs.md).",
+  tui_docs_edge_not_initialized: "Workspace not initialized (.codeforge/metadata.json not found).",
+  tui_docs_edge_doc_not_found: "Documentation \"{doc}\" not found."
 };
 
 type Dictionary = typeof en;
@@ -423,7 +519,103 @@ const pt: Dictionary = {
   tui_palette_footer: "{count} de {total} comandos",
   tui_palette_nav_hint: "↑/↓ Navegar · Enter Selecionar",
   tui_action_error: "Erro: {error}",
-  tui_action_success: "Sucesso: {message}"
+  tui_action_success: "Sucesso: {message}",
+
+  // TUI - Docs List & Details
+  tui_docs_list_title: "Docs ({count})",
+  tui_docs_list_shortcuts: "[c] Criar · [u] Atualizar",
+  tui_docs_details_title: "Detalhes do Documento: {name}",
+  tui_docs_details_none: "Nenhum",
+  tui_docs_label_name: "Nome:",
+  tui_docs_label_path: "Caminho:",
+  tui_docs_label_status: "Status:",
+  tui_docs_label_created: "Criado:",
+  tui_docs_label_specs: "Specs:",
+  tui_docs_none_linked: "Nenhuma vinculada",
+  tui_docs_label_scope: "Escopo:",
+  tui_docs_all_changes: "Todas as alterações do código",
+  tui_docs_label_preview: "Pré-visualização:",
+  tui_docs_viewer_shortcuts: "[Enter] Ver · [u] Atualizar · [c] Criar",
+  tui_docs_viewer_empty: "Selecione um arquivo de documentação para ver metadados e atualizar.",
+  tui_docs_view_title: "Visualizar Documentação: {name}",
+  tui_docs_view_shortcuts: "[↑/↓ ou j/k] Rolar · [g/G] Início/Fim · [Esc/q] Voltar",
+  tui_docs_view_empty: "Documentação vazia ou não encontrada no disco.",
+
+  // TUI - Docs Progress Banner & Feedback
+  tui_docs_progress_action_create: "Criando",
+  tui_docs_progress_action_update: "Atualizando",
+  tui_docs_progress_title: "{action} Documentação: {doc}",
+  tui_docs_progress_generating: "Gerando conteúdo técnico via use-case...",
+  tui_docs_progress_elapsed: "Decorrido: ",
+  tui_docs_create_success: "✓ Documentação \"{name}\" criada com sucesso em {elapsed}!",
+  tui_docs_create_failed: "Falha ao criar documentação: {error}",
+  tui_docs_update_single_success: "✓ Documentação \"{name}\" atualizada com sucesso em {elapsed}!",
+  tui_docs_update_batch_success: "✓ {count} documentações atualizadas com sucesso em {elapsed}!",
+  tui_docs_update_failed: "Falha ao atualizar documentação: {error}",
+  tui_docs_update_none_affected: "Nenhum documento afetado encontrado para atualizar.",
+
+  // TUI - Create Doc Modal
+  tui_docs_create_name_label: "1. Nome do Documento (slug):",
+  tui_docs_create_name_placeholder: "ex: architecture, system-design, api-reference",
+  tui_docs_create_spec_label: "2. Spec Associada:",
+  tui_docs_create_spec_placeholder: "ex: tui, decouple-spec-source",
+  tui_docs_create_spec_hint: "[Espaço/←/→] Selecionar spec",
+  tui_docs_create_generating_notice: "Gerando documentação com o runner do agente...",
+  tui_docs_create_shortcuts: "[Tab] Alternar campo · [Enter] Gerar Documento",
+  tui_docs_create_cancel_hint: "[Esc] Cancelar",
+  tui_docs_create_err_name_required: "O nome da documentação é obrigatório.",
+  tui_docs_create_err_spec_required: "O nome da especificação associada é obrigatório.",
+
+  // TUI - Update Doc Modal
+  tui_modal_update_doc: "Atualizar Documentação",
+  tui_modal_update_doc_direct: "Atualizar Documentação — Modo Direto",
+  tui_modal_update_doc_auto: "Atualizar Documentação — Modo Automático",
+
+  // TUI - Update Doc Step 1 (Mode Select)
+  tui_docs_mode_direct_title: "1. Atualizar documento selecionado diretamente",
+  tui_docs_mode_direct_target: "Documento alvo:",
+  tui_docs_mode_direct_desc: "A IA inspecionará o documento e o código à luz de uma especificação selecionada.",
+  tui_docs_mode_auto_title: "2. Detectar automaticamente via Git e Escopo do Manifest",
+  tui_docs_mode_auto_desc: "Analisa as alterações recentes no Git (git diff) e atualiza os documentos cujo escopo foi afetado.",
+  tui_docs_mode_shortcuts: "[↑/↓ ou j/k] Navegar · [Enter] Avançar · ",
+  tui_docs_mode_cancel: "[Esc] Cancelar",
+
+  // TUI - Update Doc Step 2A (Direct Mode)
+  tui_docs_direct_target_doc: "Documento Alvo:",
+  tui_docs_direct_ref_spec: "Spec de Referência:",
+  tui_docs_direct_no_specs: "[Nenhuma spec disponível]",
+  tui_docs_direct_desc: "A IA inspecionará as regras da especificação e o código-fonte atual para atualizar a documentação.",
+  tui_docs_direct_loading: "Preparando atualização manual...",
+  tui_docs_direct_shortcuts: "[Space/←/→] Selecionar Spec · [Enter] Atualizar · ",
+  tui_docs_direct_back: "[Esc] Voltar",
+
+  // TUI - Update Doc Step 2B (Auto Mode)
+  tui_docs_auto_ref_spec: "Spec de Referência:",
+  tui_docs_auto_general: "Geral",
+  tui_docs_auto_loading: "Analisando alterações do Git e escopo do manifest...",
+  tui_docs_auto_no_git_title: "⚠ Repositório Git não encontrado (no-git)",
+  tui_docs_auto_no_git_desc: "Esta operação requer um repositório Git inicializado para detectar alterações.",
+  tui_docs_auto_no_changes_title: "⚠ Ausência de modificações no Git (no-changed-files)",
+  tui_docs_auto_no_changes_desc: "Não há arquivos modificados detectados no repositório de trabalho.",
+  tui_docs_auto_no_affected_title: "⚠ Ausência de documentos impactados (no-affected-docs)",
+  tui_docs_auto_no_affected_desc: "Nenhum documento cadastrado no manifest possui escopo cobrindo os arquivos modificados.",
+  tui_docs_auto_error_title: "✗ Erro na análise",
+  tui_docs_auto_error_default: "Ocorreu um erro ao consultar documentos afetados.",
+  tui_docs_auto_affected_heading: "Documentos identificados com alterações de escopo:",
+  tui_docs_auto_all_option: "[ Atualizar todos os {count} afetados ]",
+  tui_docs_auto_file_count_single: "1 arquivo alterado",
+  tui_docs_auto_file_count_plural: "{count} arquivos alterados",
+  tui_docs_auto_shortcuts_update: "[Enter] Atualizar · ",
+  tui_docs_auto_shortcuts_back: "[Esc] Voltar",
+
+  // TUI - Update Doc Edge Cases
+  tui_docs_edge_no_git: "Repositório Git não encontrado.",
+  tui_docs_edge_no_changed_files: "Nenhum arquivo modificado no Git.",
+  tui_docs_edge_no_affected_docs: "Nenhum documento do manifest cobre os arquivos modificados.",
+  tui_docs_edge_spec_not_found: "Especificação \"{spec}\" não encontrada.",
+  tui_docs_edge_rules_not_found: "Regras de documentação não encontradas (.codeforge/rules/docs.md).",
+  tui_docs_edge_not_initialized: "Workspace não inicializado (.codeforge/metadata.json não encontrado).",
+  tui_docs_edge_doc_not_found: "Documento \"{doc}\" não encontrado."
 };
 
 const es: Dictionary = {
@@ -630,7 +822,103 @@ const es: Dictionary = {
   tui_palette_footer: "{count} de {total} comandos",
   tui_palette_nav_hint: "↑/↓ Navegar · Enter Seleccionar",
   tui_action_error: "Error: {error}",
-  tui_action_success: "Éxito: {message}"
+  tui_action_success: "Éxito: {message}",
+
+  // TUI - Docs List & Details
+  tui_docs_list_title: "Docs ({count})",
+  tui_docs_list_shortcuts: "[c] Crear · [u] Actualizar",
+  tui_docs_details_title: "Detalles del Documento: {name}",
+  tui_docs_details_none: "Ninguno",
+  tui_docs_label_name: "Nombre:",
+  tui_docs_label_path: "Ruta:",
+  tui_docs_label_status: "Estado:",
+  tui_docs_label_created: "Creado:",
+  tui_docs_label_specs: "Specs:",
+  tui_docs_none_linked: "Ninguna vinculada",
+  tui_docs_label_scope: "Alcance:",
+  tui_docs_all_changes: "Todos los cambios del código",
+  tui_docs_label_preview: "Vista previa:",
+  tui_docs_viewer_shortcuts: "[Enter] Ver · [u] Actualizar · [c] Crear",
+  tui_docs_viewer_empty: "Seleccione un archivo de documentación para ver metadatos y actualizar.",
+  tui_docs_view_title: "Ver Documentación: {name}",
+  tui_docs_view_shortcuts: "[↑/↓ o j/k] Desplazar · [g/G] Inicio/Fin · [Esc/q] Volver",
+  tui_docs_view_empty: "Documentación vacía o no encontrada en disco.",
+
+  // TUI - Docs Progress Banner & Feedback
+  tui_docs_progress_action_create: "Creando",
+  tui_docs_progress_action_update: "Actualizando",
+  tui_docs_progress_title: "{action} Documentación: {doc}",
+  tui_docs_progress_generating: "Generando contenido técnico mediante caso de uso...",
+  tui_docs_progress_elapsed: "Transcurrido: ",
+  tui_docs_create_success: "✓ ¡Documentación \"{name}\" creada exitosamente en {elapsed}!",
+  tui_docs_create_failed: "Error al crear la documentación: {error}",
+  tui_docs_update_single_success: "✓ ¡Documentación \"{name}\" actualizada exitosamente en {elapsed}!",
+  tui_docs_update_batch_success: "✓ ¡{count} documentaciones actualizadas exitosamente en {elapsed}!",
+  tui_docs_update_failed: "Error al actualizar la documentación: {error}",
+  tui_docs_update_none_affected: "No se encontraron documentos afectados para actualizar.",
+
+  // TUI - Create Doc Modal
+  tui_docs_create_name_label: "1. Nombre del Documento (slug):",
+  tui_docs_create_name_placeholder: "ej. architecture, system-design, api-reference",
+  tui_docs_create_spec_label: "2. Spec Asociada:",
+  tui_docs_create_spec_placeholder: "ej. tui, decouple-spec-source",
+  tui_docs_create_spec_hint: "[Espacio/←/→] Seleccionar spec",
+  tui_docs_create_generating_notice: "Generando documentación con el agente ejecutor...",
+  tui_docs_create_shortcuts: "[Tab] Cambiar campo · [Enter] Generar Doc",
+  tui_docs_create_cancel_hint: "[Esc] Cancelar",
+  tui_docs_create_err_name_required: "El nombre de la documentación es obligatorio.",
+  tui_docs_create_err_spec_required: "El nombre de la especificación asociada es obligatorio.",
+
+  // TUI - Update Doc Modal
+  tui_modal_update_doc: "Actualizar Documentación",
+  tui_modal_update_doc_direct: "Actualizar Documentación — Modo Directo",
+  tui_modal_update_doc_auto: "Actualizar Documentación — Modo Automático",
+
+  // TUI - Update Doc Step 1 (Mode Select)
+  tui_docs_mode_direct_title: "1. Actualizar documento seleccionado directamente",
+  tui_docs_mode_direct_target: "Documento objetivo:",
+  tui_docs_mode_direct_desc: "La IA inspeccionará el documento y el código a la luz de la especificación seleccionada.",
+  tui_docs_mode_auto_title: "2. Detectar automáticamente mediante Git y Alcance del Manifiesto",
+  tui_docs_mode_auto_desc: "Analiza los cambios recientes en Git (git diff) y actualiza los documentos cuyo alcance fue afectado.",
+  tui_docs_mode_shortcuts: "[↑/↓ o j/k] Navegar · [Enter] Avanzar · ",
+  tui_docs_mode_cancel: "[Esc] Cancelar",
+
+  // TUI - Update Doc Step 2A (Direct Mode)
+  tui_docs_direct_target_doc: "Documento Objetivo:",
+  tui_docs_direct_ref_spec: "Spec de Referencia:",
+  tui_docs_direct_no_specs: "[No hay specs disponibles]",
+  tui_docs_direct_desc: "La IA inspeccionará las reglas de la especificación y el código fuente actual para actualizar la documentación.",
+  tui_docs_direct_loading: "Preparando actualización manual...",
+  tui_docs_direct_shortcuts: "[Space/←/→] Seleccionar Spec · [Enter] Actualizar · ",
+  tui_docs_direct_back: "[Esc] Volver",
+
+  // TUI - Update Doc Step 2B (Auto Mode)
+  tui_docs_auto_ref_spec: "Spec de Referencia:",
+  tui_docs_auto_general: "General",
+  tui_docs_auto_loading: "Analizando cambios de Git y alcance del manifiesto...",
+  tui_docs_auto_no_git_title: "⚠ Repositorio Git no encontrado (no-git)",
+  tui_docs_auto_no_git_desc: "Esta operación requiere un repositorio Git inicializado para detectar cambios.",
+  tui_docs_auto_no_changes_title: "⚠ Sin modificaciones en Git (no-changed-files)",
+  tui_docs_auto_no_changes_desc: "No se detectaron archivos modificados en el repositorio de trabajo.",
+  tui_docs_auto_no_affected_title: "⚠ Sin documentos afectados (no-affected-docs)",
+  tui_docs_auto_no_affected_desc: "Ningún documento registrado en el manifiesto cubre los archivos modificados.",
+  tui_docs_auto_error_title: "✗ Error en el análisis",
+  tui_docs_auto_error_default: "Ocurrió un error al consultar documentos afectados.",
+  tui_docs_auto_affected_heading: "Documentos identificados con cambios de alcance:",
+  tui_docs_auto_all_option: "[ Actualizar todos los {count} afectados ]",
+  tui_docs_auto_file_count_single: "1 archivo modificado",
+  tui_docs_auto_file_count_plural: "{count} archivos modificados",
+  tui_docs_auto_shortcuts_update: "[Enter] Actualizar · ",
+  tui_docs_auto_shortcuts_back: "[Esc] Volver",
+
+  // TUI - Update Doc Edge Cases
+  tui_docs_edge_no_git: "Repositorio Git no encontrado.",
+  tui_docs_edge_no_changed_files: "No hay archivos modificados en Git.",
+  tui_docs_edge_no_affected_docs: "Ningún documento del manifiesto cubre los archivos modificados.",
+  tui_docs_edge_spec_not_found: "Especificación \"{spec}\" no encontrada.",
+  tui_docs_edge_rules_not_found: "Reglas de documentación no encontradas (.codeforge/rules/docs.md).",
+  tui_docs_edge_not_initialized: "Workspace no inicializado (.codeforge/metadata.json no encontrado).",
+  tui_docs_edge_doc_not_found: "Documento \"{doc}\" no encontrado."
 };
 
 const dictionaries = { en, pt, es };

@@ -1,106 +1,134 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { DocItemInfo } from './DocsList.js';
+import { MarkdownView } from '../../common/MarkdownView.js';
+import { useTerminalDimensions } from '../../../hooks/useTerminalDimensions.js';
+import { translate } from '../../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../../config/types.js';
 
 export interface DocViewerProps {
   selectedDoc: DocItemInfo | null;
   width?: string | number;
   previewContent?: string | null;
+  language?: SupportedLanguage;
 }
 
 export const DocViewer: React.FC<DocViewerProps> = memo(({
   selectedDoc,
   width = '100%',
   previewContent,
+  language = 'en',
 }) => {
+  const { rows } = useTerminalDimensions();
+  const maxPreviewLines = rows < 22 ? 2 : 3;
+
+  const docTitle = selectedDoc
+    ? `${selectedDoc.name}.md`
+    : translate('tui_docs_details_none', language);
+
+  const formattedDate =
+    selectedDoc?.createdAt && selectedDoc.createdAt !== 'N/A'
+      ? selectedDoc.createdAt.includes('T')
+        ? selectedDoc.createdAt.split('T')[0]
+        : selectedDoc.createdAt
+      : null;
+
+  const filteredPreview = useMemo(() => {
+    if (!previewContent) return null;
+    const meaningfulLines = previewContent
+      .split(/\r?\n/)
+      .map((l) => l.trimEnd())
+      .filter((l) => l.trim().length > 0);
+    return meaningfulLines.length > 0 ? meaningfulLines.join('\n') : null;
+  }, [previewContent]);
+
   return (
     <Box
       flexDirection="column"
       width={width}
       borderStyle="round"
-      borderColor="blue"
+      borderColor="cyan"
       paddingX={1}
     >
-      <Box marginBottom={1}>
-        <Text bold color="blue">
-          Document Details: {selectedDoc ? `${selectedDoc.name}.md` : 'None'}
+      <Box marginBottom={0}>
+        <Text bold color="cyan">
+          {translate('tui_docs_details_title', language, { name: docTitle })}
         </Text>
       </Box>
 
       {selectedDoc ? (
         <Box flexDirection="column">
           <Box marginBottom={0}>
-            <Text bold>Name: </Text>
-            <Text color="white" wrap="truncate-end">
+            <Text bold>{translate('tui_docs_label_name', language)} </Text>
+            <Text color="cyan" bold wrap="truncate-end">
               {selectedDoc.name}
             </Text>
           </Box>
           <Box marginBottom={0}>
-            <Text bold>Path: </Text>
+            <Text bold>{translate('tui_docs_label_path', language)} </Text>
             <Text dimColor wrap="truncate-end">
               {selectedDoc.path}
             </Text>
           </Box>
-          <Box marginBottom={0} justifyContent="space-between">
-            <Box gap={1} flexShrink={1}>
-              <Text bold>Status: </Text>
-              <Text color={selectedDoc.inManifest ? 'green' : 'yellow'}>
-                {selectedDoc.inManifest ? 'Tracked' : 'Untracked'}
-              </Text>
-            </Box>
-            {selectedDoc.createdAt !== 'N/A' && (
-              <Box gap={1} flexShrink={0} paddingLeft={1}>
-                <Text bold>Created: </Text>
+          <Box marginBottom={0}>
+            <Text bold>{translate('tui_docs_label_status', language)} </Text>
+            <Text color={selectedDoc.inManifest ? 'green' : 'yellow'}>
+              {translate(
+                selectedDoc.inManifest ? 'tui_badge_tracked' : 'tui_badge_untracked',
+                language
+              )}
+            </Text>
+            {formattedDate && (
+              <Box marginLeft={2}>
+                <Text bold>{translate('tui_docs_label_created', language)} </Text>
                 <Text dimColor wrap="truncate-end">
-                  {selectedDoc.createdAt}
+                  {formattedDate}
                 </Text>
               </Box>
             )}
           </Box>
 
           <Box marginBottom={0}>
-            <Text bold>Associated Specs: </Text>
+            <Text bold>{translate('tui_docs_label_specs', language)} </Text>
             <Text dimColor wrap="truncate-end">
               {selectedDoc.specs.length === 0
-                ? 'None linked'
+                ? translate('tui_docs_none_linked', language)
                 : selectedDoc.specs.join(', ')}
             </Text>
           </Box>
 
           <Box marginBottom={0}>
-            <Text bold>Tracked Scope: </Text>
+            <Text bold>{translate('tui_docs_label_scope', language)} </Text>
             <Text color="cyan" wrap="truncate-end">
               {selectedDoc.scope.length === 0
-                ? 'All codebase changes'
+                ? translate('tui_docs_all_changes', language)
                 : selectedDoc.scope.join(', ')}
             </Text>
           </Box>
 
-          {previewContent && (
+          {filteredPreview && rows >= 16 && (
             <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-              <Text bold color="blue">Preview:</Text>
-              <Text dimColor wrap="truncate-end">
-                {previewContent.split('\n').slice(0, 4).join('\n')}
-              </Text>
+              <Text bold color="blue">{translate('tui_docs_label_preview', language)}</Text>
+              <MarkdownView content={filteredPreview} maxLines={maxPreviewLines} truncate={true} />
             </Box>
           )}
 
           <Box
-            marginTop={1}
+            marginTop={filteredPreview && rows >= 16 ? 1 : 0}
             borderStyle="single"
             borderColor="gray"
             paddingX={1}
-            justifyContent="space-between"
+            justifyContent="center"
           >
-            <Text dimColor>
-              [u] Update from Codebase · [c] Create new Document
+            <Text dimColor wrap="truncate-end">
+              {translate('tui_docs_viewer_shortcuts', language)}
             </Text>
           </Box>
         </Box>
       ) : (
         <Box paddingY={2} justifyContent="center">
           <Text dimColor>
-            Select a documentation file to view metadata and trigger updates.
+            {translate('tui_docs_viewer_empty', language)}
           </Text>
         </Box>
       )}

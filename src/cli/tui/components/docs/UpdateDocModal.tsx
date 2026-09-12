@@ -16,6 +16,8 @@ import {
 import { AppContainer } from '../../../../infrastructure/container.js';
 import { AffectedDoc } from '../../../../domain/doc.js';
 import { DocItemInfo } from './components/DocsList.js';
+import { translate } from '../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../config/types.js';
 
 export type { UpdateMode, UpdateStep, AutoTarget, UpdateConfirmPayload };
 
@@ -43,6 +45,7 @@ export interface UpdateDocModalProps {
   title?: string;
   error?: string | null;
   isLoading?: boolean;
+  language?: SupportedLanguage;
 }
 
 /**
@@ -71,6 +74,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
   title: propTitle,
   error: propError,
   isLoading = false,
+  language: propLanguage,
 }) => {
   const normalizedSelectedDoc = useMemo(() => {
     if (typeof selectedDoc === 'string') {
@@ -95,6 +99,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
     selectedAutoTarget,
     handleCycleAutoTarget,
     edgeCaseMessage,
+    language: resolvedLanguage,
     handleConfirm,
     handleBack,
   } = useUpdateDocModal({
@@ -105,6 +110,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
     initialSpec,
     initialMode,
     initialStep,
+    language: propLanguage,
     onClose,
     onConfirmDirect,
     onConfirmAuto,
@@ -114,14 +120,14 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
   const defaultTitle = useMemo(() => {
     switch (step) {
       case 'direct':
-        return 'Atualizar Documentação — Modo Direto';
+        return translate('tui_modal_update_doc_direct', resolvedLanguage);
       case 'auto':
-        return 'Atualizar Documentação — Modo Automático';
+        return translate('tui_modal_update_doc_auto', resolvedLanguage);
       case 'mode-select':
       default:
-        return 'Atualizar Documentação';
+        return translate('tui_modal_update_doc', resolvedLanguage);
     }
-  }, [step]);
+  }, [step, resolvedLanguage]);
 
   const modalTitle = propTitle ?? defaultTitle;
 
@@ -218,6 +224,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
           selectedMode={mode}
           selectedDocName={targetDocDisplayName || targetDocName}
           width="100%"
+          language={resolvedLanguage}
         />
       )}
 
@@ -229,6 +236,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
           width="100%"
           error={propError ?? (edgeCaseMessage && !isEdgeCase ? edgeCaseMessage : null)}
           isLoading={isLoading}
+          language={resolvedLanguage}
         />
       )}
 
@@ -241,6 +249,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
           selectedTarget={selectedAutoTarget}
           width="100%"
           error={propError ?? (!isEdgeCase ? edgeCaseMessage : null)}
+          language={resolvedLanguage}
         />
       )}
     </Modal>

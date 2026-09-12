@@ -4,6 +4,8 @@ import { Modal } from '../common/Modal.js';
 import { TextInput } from '../common/TextInput.js';
 import { useTextInput } from '../../hooks/useTextInput.js';
 import { useNavigation } from '../../context/NavigationContext.js';
+import { translate } from '../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../config/types.js';
 
 export interface CreateDocModalProps {
   isOpen?: boolean;
@@ -14,6 +16,7 @@ export interface CreateDocModalProps {
   width?: string | number;
   isCreating?: boolean;
   error?: string | null;
+  language?: SupportedLanguage;
 }
 
 /**
@@ -29,6 +32,7 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
   width = '100%',
   isCreating = false,
   error: propError,
+  language = 'en',
 }) => {
   const nav = useNavigation();
   const [docSpec, setDocSpec] = useState(() => initialSpec ?? (availableSpecs[0] || ''));
@@ -64,12 +68,12 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
       .replace(/\.md$/i, '');
 
     if (!trimmedName) {
-      setLocalError('Documentation name is required.');
+      setLocalError(translate('tui_docs_create_err_name_required', language));
       setActiveField('name');
       return;
     }
     if (!trimmedSpec) {
-      setLocalError('Associated specification name is required.');
+      setLocalError(translate('tui_docs_create_err_spec_required', language));
       setActiveField('spec');
       return;
     }
@@ -196,15 +200,15 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
   const effectiveSpec = isSpecCustom || availableSpecs.length === 0 ? specInput.value : docSpec;
 
   return (
-    <Modal title="Create Documentation" isOpen={true} onClose={handleClose} borderColor="cyan" width={width}>
+    <Modal title={translate('tui_modal_create_doc', language)} isOpen={true} onClose={handleClose} borderColor="cyan" width={width}>
       <Box flexDirection="column" width="100%">
         <Box justifyContent="space-between" width="100%" marginBottom={0}>
           <Box gap={1} flexShrink={1}>
-            <Text bold color={activeField === 'name' ? 'cyan' : 'white'}>1. Document Name (slug):</Text>
+            <Text bold color={activeField === 'name' ? 'cyan' : 'white'}>{translate('tui_docs_create_name_label', language)}</Text>
             <Text color="cyan" bold>{'> '}</Text>
             <TextInput
               value={docName}
-              placeholder="e.g. architecture, system-design, api-reference"
+              placeholder={translate('tui_docs_create_name_placeholder', language)}
               isFocused={activeField === 'name'}
               cursorColor="cyan"
             />
@@ -213,7 +217,7 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
 
         <Box justifyContent="space-between" width="100%" marginBottom={0}>
           <Box gap={1} flexShrink={1}>
-            <Text bold color={activeField === 'spec' ? 'cyan' : 'white'}>2. Associated Spec:</Text>
+            <Text bold color={activeField === 'spec' ? 'cyan' : 'white'}>{translate('tui_docs_create_spec_label', language)}</Text>
             {availableSpecs.length > 0 && !isSpecCustom ? (
               <Box gap={1}>
                 {availableSpecs.map((sp) => {
@@ -230,7 +234,7 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
                 <Text color="cyan" bold>{'> '}</Text>
                 <TextInput
                   value={effectiveSpec}
-                  placeholder="e.g. tui, decouple-spec-source"
+                  placeholder={translate('tui_docs_create_spec_placeholder', language)}
                   isFocused={activeField === 'spec'}
                   cursorColor="cyan"
                 />
@@ -238,7 +242,7 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
             )}
           </Box>
           {activeField === 'spec' && availableSpecs.length > 0 && !isSpecCustom && (
-            <Text dimColor>[Space/←/→] Select spec</Text>
+            <Text dimColor>{translate('tui_docs_create_spec_hint', language)}</Text>
           )}
         </Box>
 
@@ -249,13 +253,13 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
         )}
         {isCreating && (
           <Box marginBottom={0}>
-            <Text color="yellow">⏳ Generating documentation with agent runner...</Text>
+            <Text color="yellow">{translate('tui_docs_create_generating_notice', language)}</Text>
           </Box>
         )}
 
         <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1} justifyContent="space-between" width="100%">
-          <Text dimColor>[Tab] Switch field · [Enter] Generate Doc</Text>
-          <Text bold color="red">[Esc] Cancel / Voltar</Text>
+          <Text dimColor>{translate('tui_docs_create_shortcuts', language)}</Text>
+          <Text bold color="red">{translate('tui_docs_create_cancel_hint', language)}</Text>
         </Box>
       </Box>
     </Modal>

@@ -1,6 +1,8 @@
 import React, { memo } from 'react';
 import { Box, Text } from 'ink';
 import { AffectedDoc } from '../../../../../../domain/doc.js';
+import { translate } from '../../../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../../../config/types.js';
 
 export type AutoUpdateStatus =
   | 'idle'
@@ -22,6 +24,7 @@ export interface AutoUpdateStepProps {
   width?: string | number;
   error?: string | null;
   showEnterShortcut?: boolean;
+  language?: SupportedLanguage;
 }
 
 /**
@@ -40,8 +43,9 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
   width = '100%',
   error,
   showEnterShortcut,
+  language = 'en',
 }) => {
-  const referenceSpec = selectedSpec ?? specName ?? 'Geral';
+  const referenceSpec = selectedSpec ?? specName ?? translate('tui_docs_auto_general', language);
   const effectiveStatus = (resultKind ?? status ?? (affectedDocs.length > 0 ? 'affected-docs' : 'no-affected-docs')) as AutoUpdateStatus;
 
   const isNoGit = effectiveStatus === 'no-git';
@@ -63,51 +67,51 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
     <Box flexDirection="column" width={width} gap={1}>
       {/* Spec de Referência Associada */}
       <Box flexDirection="row" gap={1}>
-        <Text bold color="white">Spec de Referência:</Text>
+        <Text bold color="white">{translate('tui_docs_auto_ref_spec', language)}</Text>
         <Text bold color="cyan">{referenceSpec}</Text>
       </Box>
 
       {/* Alerta de Loading */}
       {isLoading && (
         <Box marginY={1}>
-          <Text color="yellow">⏳ Analisando alterações do Git e escopo do manifest...</Text>
+          <Text color="yellow">{translate('tui_docs_auto_loading', language)}</Text>
         </Box>
       )}
 
       {/* Alertas de Casos de Borda */}
       {isNoGit && (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
-          <Text bold color="yellow">⚠ Repositório Git não encontrado (no-git)</Text>
-          <Text color="gray">Esta operação requer um repositório Git inicializado para detectar alterações.</Text>
+          <Text bold color="yellow">{translate('tui_docs_auto_no_git_title', language)}</Text>
+          <Text color="gray">{translate('tui_docs_auto_no_git_desc', language)}</Text>
         </Box>
       )}
 
       {isNoChangedFiles && (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
-          <Text bold color="yellow">⚠ Ausência de modificações no Git (no-changed-files)</Text>
-          <Text color="gray">Não há arquivos modificados detectados no repositório de trabalho.</Text>
+          <Text bold color="yellow">{translate('tui_docs_auto_no_changes_title', language)}</Text>
+          <Text color="gray">{translate('tui_docs_auto_no_changes_desc', language)}</Text>
         </Box>
       )}
 
       {isNoAffectedDocs && (
         <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
-          <Text bold color="yellow">⚠ Ausência de documentos impactados (no-affected-docs)</Text>
-          <Text color="gray">Nenhum documento cadastrado no manifest possui escopo cobrindo os arquivos modificados.</Text>
+          <Text bold color="yellow">{translate('tui_docs_auto_no_affected_title', language)}</Text>
+          <Text color="gray">{translate('tui_docs_auto_no_affected_desc', language)}</Text>
         </Box>
       )}
 
       {/* Alerta de Erro */}
       {isError && (
         <Box flexDirection="column" borderStyle="round" borderColor="red" paddingX={1} marginY={1}>
-          <Text bold color="red">✗ Erro na análise</Text>
-          <Text color="gray">{error || 'Ocorreu um erro ao consultar documentos afetados.'}</Text>
+          <Text bold color="red">{translate('tui_docs_auto_error_title', language)}</Text>
+          <Text color="gray">{error || translate('tui_docs_auto_error_default', language)}</Text>
         </Box>
       )}
 
       {/* Listagem de Documentos Afetados */}
       {hasAffectedDocs && (
         <Box flexDirection="column" gap={0}>
-          <Text color="gray">Documentos identificados com alterações de escopo:</Text>
+          <Text color="gray">{translate('tui_docs_auto_affected_heading', language)}</Text>
 
           {/* Opção em Lote */}
           <Box gap={1} marginTop={1}>
@@ -115,7 +119,7 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
               {isAllSelected ? '●' : '○'}
             </Text>
             <Text bold={isAllSelected} color={isAllSelected ? 'cyan' : 'white'}>
-              [ Atualizar todos os {affectedDocs.length} afetados ]
+              {translate('tui_docs_auto_all_option', language, { count: affectedDocs.length })}
             </Text>
           </Box>
 
@@ -125,7 +129,10 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
               selectedTarget === doc.docName ||
               (selectedTarget === undefined && selectedIndex === idx + 1);
             const count = doc.matchedFiles?.length ?? 0;
-            const countText = count === 1 ? '1 arquivo alterado' : `${count} arquivos alterados`;
+            const countText =
+              count === 1
+                ? translate('tui_docs_auto_file_count_single', language)
+                : translate('tui_docs_auto_file_count_plural', language, { count });
 
             return (
               <Box key={doc.docName} gap={1}>
@@ -155,11 +162,11 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
         <Text>
           {canUpdate ? (
             <>
-              <Text dimColor>[Enter] Atualizar · </Text>
-              <Text bold color="red">[Esc] Voltar</Text>
+              <Text dimColor>{translate('tui_docs_auto_shortcuts_update', language)}</Text>
+              <Text bold color="red">{translate('tui_docs_auto_shortcuts_back', language)}</Text>
             </>
           ) : (
-            <Text bold color="red">[Esc] Voltar</Text>
+            <Text bold color="red">{translate('tui_docs_auto_shortcuts_back', language)}</Text>
           )}
         </Text>
       </Box>

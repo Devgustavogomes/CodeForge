@@ -2,6 +2,8 @@ import React, { memo } from 'react';
 import { Box, Text } from 'ink';
 import { Spinner } from '../../common/Spinner.js';
 import { TimerView } from '../../common/TimerView.js';
+import { translate } from '../../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../../config/types.js';
 
 export interface BatchInfo {
   current: number;
@@ -20,6 +22,7 @@ export interface DocProgressBannerProps {
     message: string;
     elapsed?: string;
   } | null;
+  language?: SupportedLanguage;
 }
 
 export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
@@ -30,9 +33,15 @@ export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
   startTime,
   elapsedFormatted: _elapsedFormatted,
   feedback,
+  language = 'en',
 }) => {
   if (isGenerating) {
-    const actionLabel = operation === 'create' ? 'Criando' : 'Atualizando';
+    const actionLabel = translate(
+      operation === 'create'
+        ? 'tui_docs_progress_action_create'
+        : 'tui_docs_progress_action_update',
+      language
+    );
 
     let displayDoc = `[${docName}]`;
     if (docName.startsWith('[')) {
@@ -52,18 +61,23 @@ export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
       >
         <Box marginBottom={0}>
           <Text bold color="cyan">
-            {`📝 ${actionLabel} Documentação: ${displayDoc}`}
+            {translate('tui_docs_progress_title', language, {
+              action: actionLabel,
+              doc: displayDoc,
+            })}
           </Text>
         </Box>
         <Box justifyContent="space-between" width="100%">
           <Box gap={1}>
             <Spinner color="cyan" />
-            <Text color="yellow">Gerando conteúdo técnico via use-case...</Text>
+            <Text color="yellow">
+              {translate('tui_docs_progress_generating', language)}
+            </Text>
           </Box>
           <TimerView
             startTime={startTime}
             isRunning={true}
-            prefix="⏱ Decorrido: "
+            prefix={translate('tui_docs_progress_elapsed', language)}
             color="cyan"
           />
         </Box>

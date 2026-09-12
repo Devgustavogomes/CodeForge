@@ -8,6 +8,8 @@ import { DocItemInfo } from '../components/DocsList.js';
 import { BatchInfo } from '../components/DocProgressBanner.js';
 import { AutoTarget } from './useUpdateDocModal.js';
 import { formatElapsedSeconds } from '../../../utils/formatters.js';
+import { translate } from '../../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../../config/types.js';
 
 export { DocItemInfo, BatchInfo, AutoTarget };
 
@@ -26,6 +28,7 @@ export interface UseDocsScreenOptions {
     target: AutoTarget,
     affectedDocs?: AffectedDoc[]
   ) => Promise<void> | void;
+  language?: SupportedLanguage;
 }
 
 export interface DocFeedback {
@@ -41,6 +44,7 @@ export function useDocsScreen({
   onUpdateDoc,
   onConfirmDirectUpdate,
   onConfirmAutoUpdate,
+  language: propLanguage,
 }: UseDocsScreenOptions = {}) {
   const contextContainer = useContext(ContainerContext);
   const container = useMemo(
@@ -48,12 +52,22 @@ export function useDocsScreen({
     [propContainer, contextContainer]
   );
 
+  const language: SupportedLanguage = useMemo(() => {
+    if (propLanguage) return propLanguage;
+    try {
+      return container.configService.loadConfig()?.language ?? 'en';
+    } catch {
+      return 'en';
+    }
+  }, [propLanguage, container]);
+
   const nav = useContext(NavigationContext);
 
   const [docs, setDocs] = useState<DocItemInfo[]>(() => initialDocs ?? []);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedFormatted, setElapsedFormatted] = useState<string | null>(null);
@@ -134,6 +148,7 @@ export function useDocsScreen({
   const handleOpenCreateModal = useCallback(() => {
     setIsCreateModalOpen(true);
     setIsUpdateModalOpen(false);
+    setIsViewModalOpen(false);
     setFeedback(null);
   }, []);
 
@@ -145,11 +160,24 @@ export function useDocsScreen({
     if (docs.length === 0) return;
     setIsUpdateModalOpen(true);
     setIsCreateModalOpen(false);
+    setIsViewModalOpen(false);
     setFeedback(null);
   }, [docs.length]);
 
   const handleCloseUpdateModal = useCallback(() => {
     setIsUpdateModalOpen(false);
+  }, []);
+
+  const handleOpenViewModal = useCallback(() => {
+    if (!selectedDoc) return;
+    setIsViewModalOpen(true);
+    setIsCreateModalOpen(false);
+    setIsUpdateModalOpen(false);
+    setFeedback(null);
+  }, [selectedDoc]);
+
+  const handleCloseViewModal = useCallback(() => {
+    setIsViewModalOpen(false);
   }, []);
 
   const handleCreateDoc = useCallback(
@@ -195,7 +223,10 @@ export function useDocsScreen({
         loadDocs();
         setFeedback({
           type: 'success',
-          message: `✓ Documentação "${docNameTrimmed}" criada com sucesso em ${formatted}!`,
+          message: translate('tui_docs_create_success', language, {
+            name: docNameTrimmed,
+            elapsed: formatted,
+          }),
           elapsed: formatted,
         });
       } catch (err: unknown) {
@@ -203,12 +234,12 @@ export function useDocsScreen({
         const msg = err instanceof Error ? err.message : String(err);
         setFeedback({
           type: 'error',
-          message: `Falha ao criar documentação: ${msg}`,
+          message: translate('tui_docs_create_failed', language, { error: msg }),
         });
         throw err;
       }
     },
-    [onCreateDoc, container, handleCloseCreateModal, loadDocs]
+    [onCreateDoc, container, handleCloseCreateModal, loadDocs, language]
   );
 
   const handleConfirmDirectUpdate = useCallback(
@@ -257,7 +288,10 @@ export function useDocsScreen({
         loadDocs();
         setFeedback({
           type: 'success',
-          message: `✓ Documentação "${docDisplayName}" atualizada com sucesso em ${formatted}!`,
+          message: translate('tui_docs_update_single_success', language, {
+            name: docDisplayName,
+            elapsed: formatted,
+          }),
           elapsed: formatted,
         });
       } catch (err: unknown) {
@@ -266,11 +300,11 @@ export function useDocsScreen({
         const msg = err instanceof Error ? err.message : String(err);
         setFeedback({
           type: 'error',
-          message: `Falha ao atualizar documentação: ${msg}`,
+          message: translate('tui_docs_update_failed', language, { error: msg }),
         });
       }
     },
-    [container, onConfirmDirectUpdate, onUpdateDoc, handleCloseUpdateModal, loadDocs]
+    [container, onConfirmDirectUpdate, onUpdateDoc, handleCloseUpdateModal, loadDocs, language]
   );
 
   const handleConfirmAutoUpdate = useCallback(
@@ -319,7 +353,7 @@ export function useDocsScreen({
       if (docsToUpdate.length === 0) {
         setFeedback({
           type: 'info',
-          message: 'Nenhum documento afetado encontrado para atualizar.',
+          message: translate('tui_docs_update_none_affected', language),
         });
         return;
       }
@@ -361,8 +395,11 @@ export function useDocsScreen({
 
         const successMessage =
           total > 1
-            ? `✓ ${total} documentações atualizadas com sucesso em ${formatted}!`
-            : `✓ Documentação "${docsToUpdate[0]?.docName.trim().replace(/\.md$/i, '')}.md" atualizada com sucesso em ${formatted}!`;
+            ? translate('tui_docs_update_batch_success', language, { count: total, elapsed: formatted })
+            : translate('tui_docs_update_single_success', language, {
+                name: `${docsToUpdate[0]?.docName.trim().replace(/\.md$/i, '')}.md`,
+                elapsed: formatted,
+              });
 
         setFeedback({
           type: 'success',
@@ -376,11 +413,11 @@ export function useDocsScreen({
         const msg = err instanceof Error ? err.message : String(err);
         setFeedback({
           type: 'error',
-          message: `Falha ao atualizar documentação: ${msg}`,
+          message: translate('tui_docs_update_failed', language, { error: msg }),
         });
       }
     },
-    [container, onConfirmAutoUpdate, handleCloseUpdateModal, loadDocs]
+    [container, onConfirmAutoUpdate, handleCloseUpdateModal, loadDocs, language]
   );
 
   const handleUpdateDoc = useCallback(
@@ -409,8 +446,10 @@ export function useDocsScreen({
     batchInfo,
     feedback,
     setFeedback,
+    language,
     isCreateModalOpen,
     isUpdateModalOpen,
+    isViewModalOpen,
     availableSpecs,
     loadDocs,
     handleCreateDoc,
@@ -421,6 +460,8 @@ export function useDocsScreen({
     handleCloseCreateModal,
     handleOpenUpdateModal,
     handleCloseUpdateModal,
+    handleOpenViewModal,
+    handleCloseViewModal,
   };
 }
 

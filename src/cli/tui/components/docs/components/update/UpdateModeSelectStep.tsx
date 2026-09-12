@@ -1,5 +1,7 @@
 import React, { memo } from 'react';
 import { Box, Text } from 'ink';
+import { translate } from '../../../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../../../config/types.js';
 
 export type UpdateMode = 'direct' | 'auto';
 
@@ -8,6 +10,7 @@ export interface UpdateModeSelectStepProps {
   selectedDocName?: string;
   selectedDoc?: string;
   width?: string | number;
+  language?: SupportedLanguage;
 }
 
 /**
@@ -19,6 +22,7 @@ export const UpdateModeSelectStep: React.FC<UpdateModeSelectStepProps> = memo(({
   selectedDocName,
   selectedDoc,
   width = '100%',
+  language = 'en',
 }) => {
   const docName = selectedDocName ?? selectedDoc ?? '';
   const formattedDoc = docName ? (docName.endsWith('.md') ? docName : `${docName}.md`) : '';
@@ -34,18 +38,18 @@ export const UpdateModeSelectStep: React.FC<UpdateModeSelectStepProps> = memo(({
             {isDirect ? '(•)' : '( )'}
           </Text>
           <Text bold={isDirect} color={isDirect ? 'cyan' : 'white'}>
-            1. Atualizar documento selecionado diretamente
+            {translate('tui_docs_mode_direct_title', language)}
           </Text>
         </Box>
         <Box paddingLeft={4} flexDirection="column">
           {formattedDoc ? (
             <Box gap={1}>
-              <Text color="gray">Documento alvo:</Text>
+              <Text color="gray">{translate('tui_docs_mode_direct_target', language)}</Text>
               <Text bold color="cyan">{formattedDoc}</Text>
             </Box>
           ) : null}
           <Text color="gray">
-            A IA inspecionará o documento e o código à luz de uma especificação selecionada.
+            {translate('tui_docs_mode_direct_desc', language)}
           </Text>
         </Box>
       </Box>
@@ -57,12 +61,12 @@ export const UpdateModeSelectStep: React.FC<UpdateModeSelectStepProps> = memo(({
             {isAuto ? '(•)' : '( )'}
           </Text>
           <Text bold={isAuto} color={isAuto ? 'cyan' : 'white'}>
-            2. Detectar automaticamente via Git e Escopo do Manifest
+            {translate('tui_docs_mode_auto_title', language)}
           </Text>
         </Box>
         <Box paddingLeft={4} flexDirection="column">
           <Text color="gray">
-            Analisa as alterações recentes no Git (git diff) e atualiza os documentos cujo escopo foi afetado.
+            {translate('tui_docs_mode_auto_desc', language)}
           </Text>
         </Box>
       </Box>
@@ -76,8 +80,8 @@ export const UpdateModeSelectStep: React.FC<UpdateModeSelectStepProps> = memo(({
         width="100%"
       >
         <Text>
-          <Text dimColor>[↑/↓ ou j/k] Navegar · [Enter] Avançar · </Text>
-          <Text bold color="red">[Esc] Cancelar</Text>
+          <Text dimColor>{translate('tui_docs_mode_shortcuts', language)}</Text>
+          <Text bold color="red">{translate('tui_docs_mode_cancel', language)}</Text>
         </Text>
       </Box>
     </Box>
