@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RunDashboard } from '../../../src/cli/tui/components/run/RunDashboard.js';
 import { createAppContainer } from '../../../src/infrastructure/container.js';
 import { ExecutionStateRepository } from '../../../src/infrastructure/repositories/ExecutionStateRepository.js';
@@ -100,9 +100,9 @@ describe('RunDashboard - integração com ExecutionProvider', () => {
     expect(lastFrame() ?? '').toContain('TASK-002 │ Implement core business logic');
 
     stdin.write('c');
-    await flushAsync(50);
-
-    expect(lastFrame() ?? '').toContain('Task TASK-002 marked as completed');
+    await vi.waitFor(() => {
+      expect(lastFrame() ?? '').toContain('Task TASK-002 marked as completed');
+    });
     expect(executionStateRepository.load('core-engine')?.tasks['TASK-002']?.status)
       .toBe('completed');
   });

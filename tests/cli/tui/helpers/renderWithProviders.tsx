@@ -8,6 +8,8 @@ import { AppContainer, createAppContainer, AppContainerDependencies } from '../.
 import { InMemoryWorkspaceGateway } from '../../../helpers/in-memory-workspace.js';
 import { InMemoryAgentRunner } from '../../../helpers/in-memory-agent-runner.js';
 import { TaskScheduler } from '../../../../src/scheduler/TaskScheduler.js';
+import { PATHS } from '../../../../src/infrastructure/paths.js';
+import { WorkspaceGateway } from '../../../../src/infrastructure/workspace.js';
 export { flushAsync } from './flushAsync.js';
 
 
@@ -22,6 +24,39 @@ export interface RenderWithProvidersOptions {
   flushIntervalMs?: number;
 }
 
+export function setupInitializedWorkspace(
+  gw: WorkspaceGateway,
+  configOverrides?: {
+    environment?: string;
+    plannerAgent?: string;
+    executorAgent?: string;
+  },
+): void {
+  gw.mkdir('.codeforge');
+  gw.writeFile(
+    PATHS.metadata,
+    JSON.stringify(
+      { initialized: true, version: '1.0', initializedAt: new Date().toISOString() },
+      null,
+      2,
+    ),
+  );
+  const environment = configOverrides?.environment ?? 'local';
+  const plannerAgent = configOverrides?.plannerAgent ?? 'default';
+  const executorAgent = configOverrides?.executorAgent ?? 'default';
+
+  gw.writeFile(
+    PATHS.config,
+    [
+      'version: "1.0"',
+      `environment: ${environment}`,
+      `plannerAgent: ${plannerAgent}`,
+      `executorAgent: ${executorAgent}`,
+      'language: pt',
+    ].join('\n'),
+  );
+}
+
 export function createMockContainer(overrides?: Partial<AppContainerDependencies>): AppContainer {
   const gw = new InMemoryWorkspaceGateway();
   const runner = new InMemoryAgentRunner();
@@ -29,6 +64,14 @@ export function createMockContainer(overrides?: Partial<AppContainerDependencies
     runnerProvider: () => runner,
     ...overrides,
   });
+}
+
+export function createInitializedContainer(
+  overrides?: Partial<AppContainerDependencies>,
+): AppContainer {
+  const container = createMockContainer(overrides);
+  setupInitializedWorkspace(container.gw);
+  return container;
 }
 
 export interface TestProvidersProps {
