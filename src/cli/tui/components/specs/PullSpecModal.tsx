@@ -5,7 +5,6 @@ import {
   usePullSpecModal,
   UsePullSpecModalOptions,
 } from './hooks/usePullSpecModal.js';
-import { PullProviderSelector } from './components/PullProviderSelector.js';
 import { PullItemList } from './components/PullItemList.js';
 import { PullManualForm } from './components/PullManualForm.js';
 
@@ -15,6 +14,7 @@ export interface PullSpecModalProps extends UsePullSpecModalOptions {
 
 /**
  * Clean orchestrator component for pulling specifications from remote providers.
+ * Provider is read from config (not user-selectable) — matching CLI behavior.
  * Delegates data fetching, navigation, and input handling to usePullSpecModal.
  */
 export const PullSpecModal: React.FC<PullSpecModalProps> = ({
@@ -48,11 +48,11 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
       borderColor="blue"
     >
       <Box flexDirection="column" width="100%">
-        <PullProviderSelector
-          providers={modal.providers}
-          selectedIndex={modal.providerIndex}
-          isFocused={modal.activeField === 'provider'}
-        />
+        {/* Provider info (read-only from config) */}
+        <Box marginBottom={0}>
+          <Text bold>Source: </Text>
+          <Text color="cyan" bold>{modal.selectedProvider}</Text>
+        </Box>
 
         <PullItemList
           items={modal.items}
@@ -95,9 +95,9 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
           justifyContent="space-between"
           width="100%"
         >
-          <Text dimColor>[Tab] Next field · [Enter] Pull</Text>
+          <Text dimColor>[↑/↓] Select · [Enter] Pull · [m] Manual · [Tab] Name</Text>
           <Text bold color="red">
-            [Esc] Cancel / Voltar
+            [Esc] Cancel
           </Text>
         </Box>
       </Box>

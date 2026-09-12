@@ -53,7 +53,7 @@ export const PullManualForm: React.FC<PullManualFormProps> = ({
       <Box justifyContent="space-between" width="100%" marginBottom={0}>
         <Box gap={1} flexShrink={1}>
           <Text bold color={activeField === 'name' ? 'cyan' : 'white'}>
-            3. Custom Filename (optional):
+            Custom Filename (optional):
           </Text>
           <Text color="blue" bold>
             {'> '}

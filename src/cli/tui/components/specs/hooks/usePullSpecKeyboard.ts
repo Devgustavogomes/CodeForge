@@ -1,6 +1,5 @@
 import { useInput } from 'ink';
 import {
-  PULL_SPEC_PROVIDERS,
   PullSpecFocusedField,
 } from './types.js';
 import { SpecReference } from '../../../../../domain/spec-source.js';
@@ -10,8 +9,6 @@ export interface UsePullSpecKeyboardOptions {
   isLoading: boolean;
   activeField: PullSpecFocusedField;
   setActiveField: React.Dispatch<React.SetStateAction<PullSpecFocusedField>>;
-  providerIndex: number;
-  setProviderIndex: React.Dispatch<React.SetStateAction<number>>;
   items: SpecReference[];
   selectedItemIndex: number;
   setSelectedItemIndex: React.Dispatch<React.SetStateAction<number>>;
@@ -26,14 +23,13 @@ export interface UsePullSpecKeyboardOptions {
 
 /**
  * Encapsulates keyboard navigation and shortcuts for the PullSpecModal.
+ * Only 2 focusable fields: 'id' and 'name' (provider removed).
  */
 export function usePullSpecKeyboard({
   isOpen,
   isLoading,
   activeField,
   setActiveField,
-  providerIndex: _providerIndex,
-  setProviderIndex,
   items,
   selectedItemIndex,
   setSelectedItemIndex,
@@ -55,27 +51,15 @@ export function usePullSpecKeyboard({
         return;
       }
 
-      // 2. Tab: switch between fields
+      // 2. Tab: switch between 'id' and 'name' fields only
       if (key.tab) {
         setErrorMessage(null);
-        if (key.shift) {
-          if (activeField === 'name') setActiveField('id');
-          else if (activeField === 'id') setActiveField('provider');
-          else setActiveField('name');
-        } else {
-          if (activeField === 'provider') setActiveField('id');
-          else if (activeField === 'id') setActiveField('name');
-          else setActiveField('provider');
-        }
+        setActiveField((prev) => (prev === 'id' ? 'name' : 'id'));
         return;
       }
 
-      // 3. Enter: advance or submit
+      // 3. Enter: submit
       if (key.return || input === '\r' || input === '\n') {
-        if (activeField === 'provider') {
-          setActiveField('id');
-          return;
-        }
         if (activeField === 'id') {
           const currentId =
             !isManualInput &&
@@ -93,29 +77,13 @@ export function usePullSpecKeyboard({
         return;
       }
 
-      // 4. Provider selection navigation
-      if (activeField === 'provider') {
-        if (key.leftArrow || key.upArrow) {
-          setProviderIndex(
-            (prev) => (prev - 1 + PULL_SPEC_PROVIDERS.length) % PULL_SPEC_PROVIDERS.length,
-          );
-          return;
-        }
-        if (key.rightArrow || key.downArrow || input === ' ') {
-          setProviderIndex((prev) => (prev + 1) % PULL_SPEC_PROVIDERS.length);
-          return;
-        }
-      }
-
-      // 5. Spec ID list mode navigation
+      // 4. Spec ID list mode navigation
       if (activeField === 'id' && items.length > 0 && !isManualInput) {
         if (key.upArrow || input === 'k') {
           if (selectedItemIndex > 0) {
             const nextIdx = selectedItemIndex - 1;
             setSelectedItemIndex(nextIdx);
             setSpecId(items[nextIdx].id);
-          } else {
-            setActiveField('provider');
           }
           return;
         }
@@ -129,8 +97,6 @@ export function usePullSpecKeyboard({
             setSelectedItemIndex(items.length);
             setIsManualInput(true);
             setSpecId('');
-          } else {
-            setActiveField('name');
           }
           return;
         }
@@ -162,15 +128,13 @@ export function usePullSpecKeyboard({
         return;
       }
 
-      // 6. Spec ID manual mode navigation between fields
+      // 5. Spec ID manual mode navigation between fields
       if (activeField === 'id' && (isManualInput || items.length === 0)) {
         if (key.upArrow) {
           if (items.length > 0 && specId === '') {
             setIsManualInput(false);
             setSelectedItemIndex(items.length - 1);
             setSpecId(items[items.length - 1].id);
-          } else {
-            setActiveField('provider');
           }
           return;
         }
@@ -181,7 +145,7 @@ export function usePullSpecKeyboard({
         }
       }
 
-      // 7. Custom Name mode field navigation
+      // 6. Custom Name mode field navigation
       if (activeField === 'name') {
         if (key.upArrow) {
           setActiveField('id');

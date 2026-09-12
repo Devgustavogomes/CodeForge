@@ -13,8 +13,6 @@ import {
 import { useTextInput } from '../../../hooks/useTextInput.js';
 import { usePullSpecKeyboard } from './usePullSpecKeyboard.js';
 import {
-  PULL_SPEC_PROVIDERS,
-  PullSpecProvider,
   PullSpecFocusedField,
   UsePullSpecModalOptions,
   UsePullSpecModalReturn,
@@ -25,6 +23,9 @@ export * from './types.js';
 /**
  * Headless hook that manages state, remote data querying, text input editing,
  * and use case submission for PullSpecModal.
+ *
+ * The provider is read from config.yaml (specSource.provider) and is NOT
+ * user-selectable within the modal — matching CLI behavior.
  */
 export function usePullSpecModal({
   isOpen = true,
@@ -43,15 +44,9 @@ export function usePullSpecModal({
     return appContainer.configService.loadConfig();
   }, [appContainer]);
 
-  const configuredProvider =
+  // Provider is fixed from config — no user selection
+  const selectedProvider =
     defaultProvider || config?.specSource?.provider || 'github';
-
-  const [providerIndex, setProviderIndex] = useState(() => {
-    const idx = PULL_SPEC_PROVIDERS.indexOf(
-      configuredProvider as PullSpecProvider,
-    );
-    return idx >= 0 ? idx : 0;
-  });
 
   const [items, setItems] = useState<SpecReference[]>([]);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
@@ -60,8 +55,6 @@ export function usePullSpecModal({
   const [activeField, setActiveField] = useState<PullSpecFocusedField>('id');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  const selectedProvider = PULL_SPEC_PROVIDERS[providerIndex];
 
   // Headless customName input
   const customNameInput = useTextInput({
@@ -82,21 +75,20 @@ export function usePullSpecModal({
   const specId = specIdInput.value;
   const customName = customNameInput.value;
 
-  // Remote fetch whenever modal opens or provider changes
+  // Remote fetch whenever modal opens (provider comes from config)
   useEffect(() => {
     if (!isOpen) return;
     let isCancelled = false;
     setIsFetchingItems(true);
     setErrorMessage(null);
 
-    const provider = PULL_SPEC_PROVIDERS[providerIndex];
     const specSourceConfig: SpecSourceConfig = {
       ...(config?.specSource ?? {}),
-      provider,
+      provider: selectedProvider,
     };
 
     try {
-      const source = SpecSourceFactory.create(provider, specSourceConfig);
+      const source = SpecSourceFactory.create(selectedProvider, specSourceConfig);
       source
         .list({ limit: 10 })
         .then((list) => {
@@ -131,7 +123,7 @@ export function usePullSpecModal({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, providerIndex, config]);
+  }, [isOpen, selectedProvider, config]);
 
   const setTextInputActive = nav?.setTextInputActive;
 
@@ -181,13 +173,12 @@ export function usePullSpecModal({
     setErrorMessage(null);
 
     try {
-      const provider = PULL_SPEC_PROVIDERS[providerIndex];
       const specSourceConfig: SpecSourceConfig = {
         ...(config?.specSource ?? {}),
-        provider,
+        provider: selectedProvider,
       };
 
-      const specSource = SpecSourceFactory.create(provider, specSourceConfig);
+      const specSource = SpecSourceFactory.create(selectedProvider, specSourceConfig);
       const useCase =
         pullSpecUseCase ?? new PullSpecUseCase(appContainer.gw, specSource);
 
@@ -229,7 +220,7 @@ export function usePullSpecModal({
     isManualInput,
     items,
     selectedItemIndex,
-    providerIndex,
+    selectedProvider,
     config,
     appContainer,
     pullSpecUseCase,
@@ -244,8 +235,6 @@ export function usePullSpecModal({
     isLoading,
     activeField,
     setActiveField,
-    providerIndex,
-    setProviderIndex,
     items,
     selectedItemIndex,
     setSelectedItemIndex,
@@ -259,10 +248,7 @@ export function usePullSpecModal({
   });
 
   return {
-    providerIndex,
-    setProviderIndex,
     selectedProvider,
-    providers: PULL_SPEC_PROVIDERS,
     activeField,
     setActiveField,
     items,

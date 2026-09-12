@@ -4,7 +4,7 @@ import { SpecReference } from '../../../../../domain/spec-source.js';
 
 export const PULL_SPEC_PROVIDERS = ['github', 'linear', 'clickup', 'filesystem'] as const;
 export type PullSpecProvider = (typeof PULL_SPEC_PROVIDERS)[number];
-export type PullSpecFocusedField = 'provider' | 'id' | 'name';
+export type PullSpecFocusedField = 'id' | 'name';
 
 export interface UsePullSpecModalOptions {
   isOpen?: boolean;
@@ -16,10 +16,7 @@ export interface UsePullSpecModalOptions {
 }
 
 export interface UsePullSpecModalReturn {
-  providerIndex: number;
-  setProviderIndex: React.Dispatch<React.SetStateAction<number>>;
-  selectedProvider: PullSpecProvider;
-  providers: readonly PullSpecProvider[];
+  selectedProvider: string;
   activeField: PullSpecFocusedField;
   setActiveField: React.Dispatch<React.SetStateAction<PullSpecFocusedField>>;
   items: SpecReference[];

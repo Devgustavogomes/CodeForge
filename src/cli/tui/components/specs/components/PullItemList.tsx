@@ -42,7 +42,7 @@ export const PullItemList: React.FC<PullItemListProps> = ({
       <Box justifyContent="space-between" width="100%">
         <Box gap={1} flexShrink={1}>
           <Text bold color={isFocused ? 'cyan' : 'white'}>
-            2. Spec ID / Issue Number / URL:
+            Spec ID / Issue Number / URL:
           </Text>
           {isFetchingItems && (
             <Text color="yellow">Querying {selectedProvider}...</Text>
