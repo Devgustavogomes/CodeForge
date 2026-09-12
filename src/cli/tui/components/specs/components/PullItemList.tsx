@@ -45,7 +45,7 @@ export const PullItemList: React.FC<PullItemListProps> = ({
             2. Spec ID / Issue Number / URL:
           </Text>
           {isFetchingItems && (
-            <Text color="yellow">⏳ Querying {selectedProvider}...</Text>
+            <Text color="yellow">Querying {selectedProvider}...</Text>
           )}
         </Box>
         {isFocused && items.length > 0 && !isManualInput && (
@@ -63,7 +63,7 @@ export const PullItemList: React.FC<PullItemListProps> = ({
               <Box key={item.id} justifyContent="space-between" width="100%">
                 <Box gap={1} flexShrink={1}>
                   <Text color={isSelected ? 'cyan' : 'gray'} bold={isSelected}>
-                    {isSelected ? '❯ ●' : '  ○'}
+                    {isSelected ? '> ●' : '  ○'}
                   </Text>
                   <Text
                     bold={isSelected}
@@ -88,7 +88,7 @@ export const PullItemList: React.FC<PullItemListProps> = ({
                 color={isFocused && isManualInput ? 'cyan' : 'gray'}
                 bold={isFocused && isManualInput}
               >
-                {isFocused && isManualInput ? '❯ ●' : '  ○'}
+                {isFocused && isManualInput ? '> ●' : '  ○'}
               </Text>
               <Text
                 color={isFocused && isManualInput ? 'cyan' : 'gray'}

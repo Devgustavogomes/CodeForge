@@ -82,7 +82,7 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
         {modal.isLoading && (
           <Box marginBottom={0}>
             <Text color="yellow">
-              ⏳ Fetching specification from {modal.selectedProvider}...
+              Fetching specification from {modal.selectedProvider}...
             </Text>
           </Box>
         )}

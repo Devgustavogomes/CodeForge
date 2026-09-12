@@ -48,7 +48,7 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
           color={selectedIndex === 0 ? 'cyan' : 'gray'}
           bold={selectedIndex === 0}
         >
-          {selectedIndex === 0 ? '❯ ●' : '  ○'}
+          {selectedIndex === 0 ? '> ●' : '  ○'}
         </Text>
         <Text
           bold={selectedIndex === 0}
@@ -84,7 +84,7 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
           <Box key={`${cmd.name}-${idx}`} flexDirection="column" marginY={0}>
             <Box gap={1} alignItems="center">
               <Text color={isSelected ? 'cyan' : 'gray'} bold={isSelected}>
-                {isSelected ? '❯ ●' : '  ○'}
+                {isSelected ? '> ●' : '  ○'}
               </Text>
               <Text color={isSelected ? 'cyan' : 'gray'}>
                 {idx + 1}.

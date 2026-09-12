@@ -71,7 +71,7 @@ export const SpecList: React.FC<SpecListProps> = memo(({
               <Box key={spec.name} justifyContent="space-between" width="100%">
                 <Box gap={1} flexShrink={1}>
                   <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
-                    {isSelected ? '❯' : ' '}
+                    {isSelected ? '>' : ' '}
                   </Text>
                   <Box width={14}>
                     <Text bold={isSelected} color={isSelected ? 'cyan' : 'white'} wrap="truncate-end">

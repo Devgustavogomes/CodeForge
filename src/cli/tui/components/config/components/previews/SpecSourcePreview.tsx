@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
 import { SpecSourceFactory } from '../../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
 import type { ConfigPreviewProps } from '../ConfigPreview.js';
@@ -27,7 +27,7 @@ export const SpecSourcePreview: React.FC<ConfigPreviewProps> = ({
           return (
             <Box key={p} gap={1}>
               <Text color={isCurrent ? 'cyan' : 'gray'} bold={isCurrent}>
-                {isCurrent ? '❯ ●' : '  ○'}
+                {isCurrent ? '> ●' : '  ○'}
               </Text>
               <Text color={isCurrent ? 'cyan' : 'white'} bold={isCurrent}>
                 {p}

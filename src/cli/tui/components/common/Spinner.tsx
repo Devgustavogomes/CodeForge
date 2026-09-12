@@ -1,7 +1,10 @@
 import React, { useState, useEffect, memo } from 'react';
 import { Text } from 'ink';
 
-export const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
+export const SPINNER_FRAMES: readonly string[] =
+  process.platform === 'win32'
+    ? ['-', '\\', '|', '/']
+    : ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 export interface SpinnerProps {
   color?: string;

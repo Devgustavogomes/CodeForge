@@ -1,7 +1,10 @@
 export class AgentProgressUI {
   private interval: NodeJS.Timeout | null = null;
   private startTime: number = 0;
-  private frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  private frames =
+    process.platform === "win32"
+      ? ["-", "\\", "|", "/"]
+      : ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
   private currentFrame = 0;
 
   constructor(
@@ -38,8 +41,8 @@ export class AgentProgressUI {
     const lines = [
       "",
       `  \x1b[1m\x1b[36m╭─────────────────────────────────────────╮\x1b[0m`,
-      `  \x1b[1m\x1b[36m│\x1b[0m  🤖 Agent:  \x1b[33m${this.model.padEnd(25)}\x1b[0m \x1b[1m\x1b[36m│\x1b[0m`,
-      `  \x1b[1m\x1b[36m│\x1b[0m  ⏱️  Time:   \x1b[90m${timeStr.padEnd(25)}\x1b[0m \x1b[1m\x1b[36m│\x1b[0m`,
+      `  \x1b[1m\x1b[36m│\x1b[0m  Agent:   \x1b[33m${this.model.padEnd(25)}\x1b[0m \x1b[1m\x1b[36m│\x1b[0m`,
+      `  \x1b[1m\x1b[36m│\x1b[0m  Time:    \x1b[90m${timeStr.padEnd(25)}\x1b[0m \x1b[1m\x1b[36m│\x1b[0m`,
       `  \x1b[1m\x1b[36m│\x1b[0m  \x1b[36m${icon}\x1b[0m  Status: \x1b[1m${this.taskName.padEnd(25)}\x1b[0m \x1b[1m\x1b[36m│\x1b[0m`,
       `  \x1b[1m\x1b[36m╰─────────────────────────────────────────╯\x1b[0m`,
     ];
@@ -70,8 +73,8 @@ export class AgentProgressUI {
     const lines = [
       "",
       `  \x1b[1m${color}╭─────────────────────────────────────────╮\x1b[0m`,
-      `  \x1b[1m${color}│\x1b[0m  🤖 Agent:  \x1b[33m${this.model.padEnd(25)}\x1b[0m \x1b[1m${color}│\x1b[0m`,
-      `  \x1b[1m${color}│\x1b[0m  ⏱️  Time:   \x1b[90m${timeStr.padEnd(25)}\x1b[0m \x1b[1m${color}│\x1b[0m`,
+      `  \x1b[1m${color}│\x1b[0m  Agent:   \x1b[33m${this.model.padEnd(25)}\x1b[0m \x1b[1m${color}│\x1b[0m`,
+      `  \x1b[1m${color}│\x1b[0m  Time:    \x1b[90m${timeStr.padEnd(25)}\x1b[0m \x1b[1m${color}│\x1b[0m`,
       `  \x1b[1m${color}│\x1b[0m  ${icon}  Status: \x1b[1m${finalMessage.substring(0, 25).padEnd(25)}\x1b[0m \x1b[1m${color}│\x1b[0m`,
       `  \x1b[1m${color}╰─────────────────────────────────────────╯\x1b[0m`,
     ];

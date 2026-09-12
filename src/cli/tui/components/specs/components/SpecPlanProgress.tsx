@@ -41,7 +41,7 @@ export const SpecPlanProgress: React.FC<SpecPlanProgressProps> = memo(({
       >
         <Box marginBottom={0}>
           <Text bold color="yellow">
-            ⚡ Gerando Plano de Execução [{specName || 'spec'}]
+            Gerando Plano de Execução [{specName || 'spec'}]
           </Text>
         </Box>
         <Box justifyContent="space-between" width="100%">
@@ -52,7 +52,7 @@ export const SpecPlanProgress: React.FC<SpecPlanProgressProps> = memo(({
           <TimerView
             startTime={startTime}
             isRunning={true}
-            prefix="⏱ Decorrido: "
+            prefix="Decorrido: "
             color="yellow"
           />
         </Box>

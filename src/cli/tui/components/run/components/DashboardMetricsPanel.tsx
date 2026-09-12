@@ -54,7 +54,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
               ✓ Execution Completed Successfully
             </Text>
             <Text color="green" bold>
-              ⏱ Total Time:{" "}
+              Total Time:{" "}
               <TimerView
                 startTime={startedAt}
                 isRunning={false}
@@ -101,7 +101,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
               ✗ Execution Finished with Failures
             </Text>
             <Text color="red" bold>
-              ⏱ Total Time:{" "}
+              Total Time:{" "}
               <TimerView
                 startTime={startedAt}
                 isRunning={false}
@@ -119,7 +119,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
               ✗ {failedCount} failure{failedCount === 1 ? "" : "s"}
             </Text>
             <Text color="gray">│</Text>
-            <Text dimColor>⏳ {pendingCount} remaining</Text>
+            <Text dimColor>{pendingCount} remaining</Text>
           </Box>
 
           <Box gap={2} marginTop={0} flexWrap="wrap">
@@ -155,12 +155,12 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
         <Box justifyContent="space-between" width="100%">
           <Box gap={1}>
             <Text bold color="cyan">
-              ⚡ {isRunning ? "Running" : "Spec"} [{specName}]
+              {isRunning ? "Running" : "Spec"} [{specName}]
             </Text>
           </Box>
           <Box gap={1}>
             <Text color="cyan">
-              ⏱ Time:{" "}
+              Time:{" "}
               <TimerView
                 startTime={startedAt}
                 isRunning={isRunning}
@@ -176,7 +176,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
             {isRunning ? (
               <Spinner color="yellow" />
             ) : (
-              <Text color="yellow">⠋</Text>
+              <Text color="yellow">-</Text>
             )}
             <Text color="yellow" bold>
               Parallel: {runningCount}
@@ -191,7 +191,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
             ✗ Failed: {failedCount}
           </Text>
           <Text color="gray">│</Text>
-          <Text dimColor>⏳ Remaining: {pendingCount}</Text>
+          <Text dimColor>Remaining: {pendingCount}</Text>
         </Box>
 
         <Box marginTop={0} justifyContent="space-between" width="100%">

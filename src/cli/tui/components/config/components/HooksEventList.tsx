@@ -53,7 +53,7 @@ export const HooksEventList: React.FC<HooksEventListProps> = ({
           return (
             <Box key={event} flexDirection="row" gap={1} alignItems="center">
               <Text color={isSelected ? 'cyan' : 'gray'} bold={isSelected}>
-                {isSelected ? '❯ ●' : '  ○'}
+                {isSelected ? '> ●' : '  ○'}
               </Text>
               <Box width={16}>
                 <Text bold={isSelected} color={isSelected ? 'cyan' : 'white'}>

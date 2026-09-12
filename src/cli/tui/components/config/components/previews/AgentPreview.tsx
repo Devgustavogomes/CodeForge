@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
 import type { ConfigPreviewProps } from '../ConfigPreview.js';
 
@@ -18,7 +18,7 @@ export const AgentPreview: React.FC<ConfigPreviewProps> = ({
         <Text bold color="cyan">
           {title}
         </Text>
-        {isLoadingAgents && <Text color="yellow">⏳</Text>}
+        {isLoadingAgents && <Text color="yellow">...</Text>}
       </Box>
       <Box flexDirection="column" marginY={0}>
         {currentAgentOptions.slice(0, 6).map((opt) => {
@@ -26,7 +26,7 @@ export const AgentPreview: React.FC<ConfigPreviewProps> = ({
           return (
             <Box key={opt} gap={1}>
               <Text color={isCurrent ? 'cyan' : 'gray'} bold={isCurrent}>
-                {isCurrent ? '❯ ●' : '  ○'}
+                {isCurrent ? '> ●' : '  ○'}
               </Text>
               <Text color={isCurrent ? 'cyan' : 'white'} bold={isCurrent} wrap="truncate-end">
                 {opt}
