@@ -190,23 +190,38 @@ describe('useUpdateDocModal hook', () => {
       updateDocUseCase: { getAffectedDocs: mockGetAffectedDocs },
     } as unknown as AppContainer;
 
-    const hook = renderHook({
+    const hookPt = renderHook({
       options: {
         container,
         initialStep: 'auto',
         initialSpec: 'tui',
+        language: 'pt',
         onConfirmAuto,
       },
     });
 
     await flushAsync();
 
-    expect(hook.current.isNoGit).toBe(true);
-    expect(hook.current.hasAffectedDocs).toBe(false);
-    expect(hook.current.edgeCaseMessage).toBe('Repositório Git não encontrado.');
+    expect(hookPt.current.isNoGit).toBe(true);
+    expect(hookPt.current.hasAffectedDocs).toBe(false);
+    expect(hookPt.current.edgeCaseMessage).toBe('Repositório Git não encontrado.');
+
+    const hookEn = renderHook({
+      options: {
+        container,
+        initialStep: 'auto',
+        initialSpec: 'tui',
+        language: 'en',
+        onConfirmAuto,
+      },
+    });
+
+    await flushAsync();
+
+    expect(hookEn.current.edgeCaseMessage).toBe('Git repository not found.');
 
     // Confirmação deve ser bloqueada
-    await hook.current.handleConfirm();
+    await hookPt.current.handleConfirm();
     await flushAsync();
     expect(onConfirmAuto).not.toHaveBeenCalled();
   });

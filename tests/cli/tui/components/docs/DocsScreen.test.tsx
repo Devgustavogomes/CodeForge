@@ -28,9 +28,9 @@ describe('DocsScreen component', () => {
     },
   ];
 
-  it('renders documentation list with tracking status and metadata', () => {
+  it('renders documentation list with tracking status and metadata in English', () => {
     const { lastFrame } = render(
-      <DocsScreen initialDocs={mockDocs} isInteractive={false} />
+      <DocsScreen initialDocs={mockDocs} isInteractive={false} language="en" />
     );
     const output = lastFrame() ?? '';
 
@@ -43,6 +43,23 @@ describe('DocsScreen component', () => {
     expect(output).toContain('src/cli/tui/**');
   });
 
+  it('renders documentation list with tracking status and metadata in Portuguese', () => {
+    const { lastFrame } = render(
+      <DocsScreen initialDocs={mockDocs} isInteractive={false} language="pt" />
+    );
+    const output = lastFrame() ?? '';
+
+    expect(output).toContain('Docs (2)');
+    expect(output).toContain('architecture.md');
+    expect(output).toContain('[RASTREADO]');
+    expect(output).toContain('api-reference.md');
+    expect(output).toContain('[NÃO RASTREADO]');
+    expect(output).toContain('Detalhes do Documento: architecture.md');
+    expect(output).toContain('src/cli/tui/**');
+    expect(output).toContain('Criado: 2026-09-06');
+    expect(output).toContain('[Enter] Ver · [u] Atualizar · [c] Criar');
+  });
+
   it('opens create modal with "c" and triggers onCreateDoc on submit', async () => {
     const onCreateDoc = vi.fn().mockResolvedValue(undefined);
     const { lastFrame, stdin } = renderWithProviders(
@@ -50,6 +67,7 @@ describe('DocsScreen component', () => {
         initialDocs={mockDocs}
         onCreateDoc={onCreateDoc}
         isInteractive={true}
+        language="en"
       />
     );
 
@@ -80,6 +98,7 @@ describe('DocsScreen component', () => {
         initialDocs={mockDocs}
         onUpdateDoc={onUpdateDoc}
         isInteractive={true}
+        language="pt"
       />
     );
 
@@ -118,6 +137,7 @@ describe('DocsScreen component', () => {
         initialDocs={mockDocs}
         onCreateDoc={onCreateDoc}
         isInteractive={true}
+        language="pt"
       />
     );
 
@@ -142,5 +162,34 @@ describe('DocsScreen component', () => {
 
     output = lastFrame() ?? '';
     expect(output).toContain('✓ Documentação "deployment" criada com sucesso em');
+  });
+
+  it('opens expanded markdown doc viewer modal when pressing Enter and closes on Esc', async () => {
+    const onViewDoc = vi.fn();
+    const { lastFrame, stdin } = renderWithProviders(
+      <DocsScreen
+        initialDocs={mockDocs}
+        isInteractive={true}
+        language="pt"
+        onViewDoc={onViewDoc}
+      />
+    );
+
+    // Press Enter to view architecture.md
+    stdin.write('\r');
+    await flushAsync();
+
+    let output = lastFrame() ?? '';
+    expect(output).toContain('Visualizar Documentação: architecture.md');
+    expect(output).toContain('.codeforge/docs/architecture.md');
+    expect(onViewDoc).toHaveBeenCalledWith(mockDocs[0]);
+
+    // Press q to exit view modal
+    stdin.write('q');
+    await flushAsync();
+
+    output = lastFrame() ?? '';
+    expect(output).not.toContain('Visualizar Documentação: architecture.md');
+    expect(output).toContain('Docs (2)');
   });
 });
