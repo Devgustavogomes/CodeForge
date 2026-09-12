@@ -3,6 +3,7 @@ import { Box, Text, useApp, useInput } from 'ink';
 import { ContainerProvider } from './context/ContainerContext.js';
 import { NavigationProvider, useNavigation, TabId } from './context/NavigationContext.js';
 import { ExecutionProvider, useExecution } from './context/ExecutionContext.js';
+import { PlanningProvider, usePlanning } from './context/PlanningContext.js';
 import { Header } from './components/common/Header.js';
 import { TabBar } from './components/common/TabBar.js';
 import { StatusBar } from './components/common/StatusBar.js';
@@ -60,8 +61,14 @@ const AppContent: React.FC<{
 }> = ({ container, onExit, enableAlternateScreen }) => {
   const nav = useNavigation();
   const exec = useExecution();
+  const { statusNotification, clearStatusNotification } = usePlanning();
   const { exit } = useApp();
   const { rows } = useTerminalDimensions();
+
+  // Clear active notifications when switching tabs
+  useEffect(() => {
+    clearStatusNotification();
+  }, [nav.activeTab, clearStatusNotification]);
 
   // Manage full-screen alternative screen buffer switching and terminal cleanup
   useEffect(() => {
@@ -166,6 +173,7 @@ const AppContent: React.FC<{
       <StatusBar
         activeTab={nav.activeTab}
         borderStyle="none"
+        status={statusNotification || undefined}
         hints={
           nav.activeTab === 'run' && exec.tasks.length === 0
             ? ['↑/↓: Navigate Specs', 'Enter: Start Run', 'c: Create Spec', '2: Specs Tab']
@@ -222,11 +230,13 @@ export const App: React.FC<AppProps> = ({
     <ContainerProvider container={appContainer}>
       <NavigationProvider initialTab={initialTab}>
         <ExecutionProvider container={appContainer} initialSpec={initialSpec} autoStart={autoStart}>
-          <AppContent
-            container={appContainer}
-            onExit={onExit}
-            enableAlternateScreen={enableAlternateScreen}
-          />
+          <PlanningProvider container={appContainer}>
+            <AppContent
+              container={appContainer}
+              onExit={onExit}
+              enableAlternateScreen={enableAlternateScreen}
+            />
+          </PlanningProvider>
         </ExecutionProvider>
       </NavigationProvider>
     </ContainerProvider>

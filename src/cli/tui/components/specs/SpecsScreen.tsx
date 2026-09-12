@@ -17,6 +17,7 @@ export interface SpecsScreenProps {
   container?: AppContainer;
   initialSpecs?: SpecItemWithStats[];
   onOpenRun?: (specName: string) => void;
+  onOpenTasks?: (specName: string) => void;
   isInteractive?: boolean;
 }
 
@@ -24,6 +25,7 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
   container: propContainer,
   initialSpecs,
   onOpenRun,
+  onOpenTasks,
   isInteractive = true,
 }) => {
   const { breakpoint } = useTerminalDimensions();
@@ -40,12 +42,14 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     planEndTime,
     planResult,
     validationErrors,
+    generatingSpecName,
     navigateUp,
     navigateDown,
     openCreateModal,
     openPullModal,
     closeModal,
     handleOpenInRun,
+    handleOpenInTasks,
     handleValidatePlan,
     handleGeneratePlan,
     handleModalSuccess,
@@ -54,6 +58,7 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     container: propContainer,
     initialSpecs,
     onOpenRun,
+    onOpenTasks,
   });
 
   useSpecsHotkeys({
@@ -65,6 +70,11 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     onOpenRun: () => {
       if (selectedSpec) {
         handleOpenInRun(selectedSpec.name);
+      }
+    },
+    onOpenTasks: () => {
+      if (selectedSpec) {
+        handleOpenInTasks(selectedSpec.name);
       }
     },
     onGeneratePlan: () => {
@@ -101,6 +111,18 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
 
   const isSideBySide = breakpoint !== 'minimal';
 
+  const isSelectedSpecGenerating = Boolean(
+    selectedSpec &&
+    isGeneratingPlan &&
+    (!generatingSpecName || generatingSpecName === selectedSpec.name)
+  );
+  const isSelectedSpecPersisted = Boolean(
+    selectedSpec &&
+    planResult &&
+    (!generatingSpecName || generatingSpecName === selectedSpec.name)
+  );
+  const showPlanProgress = isSelectedSpecGenerating || isSelectedSpecPersisted;
+
   return (
     <Box flexDirection="column" width="100%" flexGrow={1}>
       <Box flexDirection={isSideBySide ? 'row' : 'column'} width="100%" flexGrow={1}>
@@ -118,10 +140,10 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
         >
           <SpecPlanProgress
             specName={selectedSpec?.name}
-            isGenerating={isGeneratingPlan}
-            startTime={planStartTime}
-            endTime={planEndTime}
-            result={planResult}
+            isGenerating={showPlanProgress ? isGeneratingPlan : false}
+            startTime={showPlanProgress ? planStartTime : null}
+            endTime={showPlanProgress ? planEndTime : null}
+            result={showPlanProgress ? planResult : null}
           />
         </SpecDetails>
       </Box>

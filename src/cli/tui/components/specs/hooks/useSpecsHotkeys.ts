@@ -7,6 +7,7 @@ export interface UseSpecsHotkeysProps {
   onNavigateUp: () => void;
   onNavigateDown: () => void;
   onOpenRun: () => void;
+  onOpenTasks?: () => void;
   onGeneratePlan: () => void;
   onValidatePlan?: () => void;
   onOpenCreateModal: () => void;
@@ -20,6 +21,7 @@ export function useSpecsHotkeys({
   onNavigateUp,
   onNavigateDown,
   onOpenRun,
+  onOpenTasks,
   onGeneratePlan,
   onValidatePlan,
   onOpenCreateModal,
@@ -47,15 +49,21 @@ export function useSpecsHotkeys({
         return;
       }
 
-      // 'P' -> Open PullSpecModal
-      if (input === 'P') {
+      // 'p' / 'P' -> Open PullSpecModal
+      if (input === 'p' || input === 'P') {
         onOpenPullModal();
         return;
       }
 
-      // 'p' / 'g' -> Generate plan
-      if (input === 'p' || input === 'g' || input === 'G') {
+      // 'g' / 'G' -> Generate plan
+      if (input === 'g' || input === 'G') {
         onGeneratePlan();
+        return;
+      }
+
+      // 't' / 'T' -> Open in Tasks
+      if (input === 't' || input === 'T') {
+        onOpenTasks?.();
         return;
       }
 

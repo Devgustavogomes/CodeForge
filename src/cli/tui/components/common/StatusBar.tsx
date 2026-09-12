@@ -14,7 +14,7 @@ export interface StatusBarProps {
 
 const DEFAULT_HINTS: Record<TabId, string> = {
   run: '↑/↓: Navigate  │  Enter: Run/Resume  │  Tab: View  │  r: Retry  │  c: Complete  │  x/X: Reset  │  w: Wrap',
-  specs: '↑/↓: Navigate  │  Enter: Open Run  │  c: Create  │  p: Pull  │  g: Plan  │  v: Validate',
+  specs: '↑/↓: Navigate  │  Enter: Run  │  t: Tasks  │  g: Plan  │  p: Pull  │  c: Create  │  v: Validate',
   tasks: '↑/↓: Navigate  │  c: Complete  │  x: Reset  │  e: Expand  │  /: Search Spec  │  v: View',
   docs: 'c: Create  │  u: Update  │  Enter: View',
   config: '↑/↓: Navigate  │  Enter: Edit',

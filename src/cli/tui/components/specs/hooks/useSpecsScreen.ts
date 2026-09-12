@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, useContext, useRef } from 'react';
 import { NavigationContext } from '../../../context/NavigationContext.js';
 import { ExecutionContext } from '../../../context/ExecutionContext.js';
 import { ContainerContext } from '../../../context/ContainerContext.js';
+import { PlanningContext } from '../../../context/PlanningContext.js';
 import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
 import { ValidationResult } from '../../../../../application/use-cases/ValidatePlanUseCase.js';
 import { PATHS } from '../../../../../infrastructure/paths.js';
@@ -15,12 +16,14 @@ export interface UseSpecsScreenOptions {
   container?: AppContainer;
   initialSpecs?: SpecItemWithStats[];
   onOpenRun?: (specName: string) => void;
+  onOpenTasks?: (specName: string) => void;
 }
 
 export function useSpecsScreen({
   container: propContainer,
   initialSpecs,
   onOpenRun,
+  onOpenTasks,
 }: UseSpecsScreenOptions = {}) {
   const contextContainer = useContext(ContainerContext);
   const container = useMemo(
@@ -30,6 +33,9 @@ export function useSpecsScreen({
 
   const nav = useContext(NavigationContext);
   const exec = useContext(ExecutionContext);
+  const planning = useContext(PlanningContext);
+  const planningRef = useRef(planning);
+  planningRef.current = planning;
 
   const [specs, setSpecs] = useState<SpecItemWithStats[]>(() => initialSpecs ?? []);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -39,11 +45,13 @@ export function useSpecsScreen({
     message: string;
   } | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [planStartTime, setPlanStartTime] = useState<number | null>(null);
-  const [planEndTime, setPlanEndTime] = useState<number | null>(null);
-  const [planResult, setPlanResult] = useState<PlanGenerationResult | null>(null);
-  const [validationErrors, setValidationErrors] = useState<string[] | null>(null);
+
+  // Local fallback states when PlanningContext is not available
+  const [localIsGeneratingPlan, setLocalIsGeneratingPlan] = useState(false);
+  const [localPlanStartTime, setLocalPlanStartTime] = useState<number | null>(null);
+  const [localPlanEndTime, setLocalPlanEndTime] = useState<number | null>(null);
+  const [localPlanResult, setLocalPlanResult] = useState<PlanGenerationResult | null>(null);
+  const [localValidationErrors, setLocalValidationErrors] = useState<string[] | null>(null);
 
   const loadSpecs = useCallback(() => {
     const listUseCase = container.listSpecsUseCase;
@@ -86,18 +94,41 @@ export function useSpecsScreen({
 
   const selectedSpec = specs[selectedIndex] ?? null;
 
+  const isCurrentSpecGenerating = Boolean(
+    planning?.isGenerating && planning.generatingSpecName === selectedSpec?.name
+  );
+  const isCurrentSpecResult = Boolean(
+    planning?.result && planning.generatingSpecName === selectedSpec?.name
+  );
+
+  const isGeneratingPlan = planning ? isCurrentSpecGenerating : localIsGeneratingPlan;
+  const planStartTime = planning
+    ? (isCurrentSpecGenerating || isCurrentSpecResult ? planning.startTime : null)
+    : localPlanStartTime;
+  const planEndTime = planning
+    ? (isCurrentSpecResult ? planning.endTime : null)
+    : localPlanEndTime;
+  const planResult = planning
+    ? (isCurrentSpecResult ? planning.result : null)
+    : localPlanResult;
+  const validationErrors =
+    localValidationErrors ??
+    (planning && planning.generatingSpecName === selectedSpec?.name
+      ? planning.validationErrors
+      : null);
+
   const navigateUp = useCallback(() => {
     setSelectedIndex((prev) => (prev > 0 ? prev - 1 : Math.max(0, specs.length - 1)));
     setActionFeedback(null);
-    setValidationErrors(null);
-    setPlanResult(null);
+    setLocalValidationErrors(null);
+    setLocalPlanResult(null);
   }, [specs.length]);
 
   const navigateDown = useCallback(() => {
     setSelectedIndex((prev) => (prev < specs.length - 1 ? prev + 1 : 0));
     setActionFeedback(null);
-    setValidationErrors(null);
-    setPlanResult(null);
+    setLocalValidationErrors(null);
+    setLocalPlanResult(null);
   }, [specs.length]);
 
   const handleOpenInRun = useCallback(
@@ -114,12 +145,26 @@ export function useSpecsScreen({
     [nav, exec, onOpenRun, selectedSpec?.name]
   );
 
+  const handleOpenInTasks = useCallback(
+    (specName?: string) => {
+      const target = specName ?? selectedSpec?.name;
+      if (!target) return;
+      exec?.setActiveSpec(target);
+      if (onOpenTasks) {
+        onOpenTasks(target);
+      } else {
+        nav?.setActiveTab('tasks');
+      }
+    },
+    [nav, exec, onOpenTasks, selectedSpec?.name]
+  );
+
   const handleValidatePlan = useCallback(() => {
     if (!selectedSpec) return;
     setIsValidating(true);
     setActionFeedback(null);
-    setValidationErrors(null);
-    setPlanResult(null);
+    setLocalValidationErrors(null);
+    setLocalPlanResult(null);
 
     try {
       const useCase = container.validatePlanUseCase;
@@ -130,13 +175,13 @@ export function useSpecsScreen({
           type: 'success',
           message: `Plan for "${selectedSpec.name}" is valid! (${selectedSpec.taskCount} tasks verified)`,
         });
-        setValidationErrors(null);
+        setLocalValidationErrors(null);
       } else if (result.kind === 'invalid') {
         setActionFeedback({
           type: 'error',
           message: `Plan for "${selectedSpec.name}" has ${result.errors.length} validation errors.`,
         });
-        setValidationErrors(result.errors);
+        setLocalValidationErrors(result.errors);
       } else if (result.kind === 'spec-not-found') {
         setActionFeedback({
           type: 'error',
@@ -158,13 +203,55 @@ export function useSpecsScreen({
 
   const handleGeneratePlan = useCallback(async () => {
     if (!selectedSpec) return;
-    const start = Date.now();
-    setPlanStartTime(start);
-    setPlanEndTime(null);
-    setIsGeneratingPlan(true);
-    setPlanResult(null);
-    setValidationErrors(null);
+
+    if (planning?.isGenerating) {
+      setActionFeedback({
+        type: 'info',
+        message: `Já existe um plano sendo gerado para "${planning.generatingSpecName}". Aguarde a conclusão.`,
+      });
+      return;
+    }
+
     setActionFeedback(null);
+    setLocalValidationErrors(null);
+    setLocalPlanResult(null);
+
+    if (planning) {
+      try {
+        await planning.generatePlan(selectedSpec.name);
+        loadSpecs();
+
+        const latestResult = planningRef.current?.result;
+        if (latestResult && latestResult.kind !== 'valid') {
+          setActionFeedback({
+            type: 'error',
+            message:
+              latestResult.message ||
+              (latestResult.kind === 'invalid'
+                ? 'Generated plan has validation errors.'
+                : `Plan generation failed: ${latestResult.kind}`),
+          });
+        } else {
+          setActionFeedback({
+            type: 'success',
+            message: `Plan generated and validated successfully for "${selectedSpec.name}"!`,
+          });
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setActionFeedback({
+          type: 'error',
+          message: `Plan generation failed: ${msg}`,
+        });
+      }
+      return;
+    }
+
+    // Fallback if PlanningContext is not mounted
+    const start = Date.now();
+    setLocalPlanStartTime(start);
+    setLocalPlanEndTime(null);
+    setLocalIsGeneratingPlan(true);
 
     try {
       const config = container.configService?.loadConfig
@@ -174,14 +261,14 @@ export function useSpecsScreen({
       const useCase = container.generatePlanUseCase;
       const result = await useCase.execute(selectedSpec.name, model);
       const end = Date.now();
-      setPlanEndTime(end);
+      setLocalPlanEndTime(end);
 
       loadSpecs();
 
       const taskCount = getSpecTaskCount(container.gw, selectedSpec.name);
 
       if (result.kind === 'valid') {
-        setPlanResult({
+        setLocalPlanResult({
           kind: 'valid',
           taskCount: taskCount || selectedSpec.taskCount || 0,
         });
@@ -190,17 +277,17 @@ export function useSpecsScreen({
           message: `Plan generated and validated successfully for "${selectedSpec.name}"!`,
         });
       } else if (result.kind === 'invalid') {
-        setPlanResult({
+        setLocalPlanResult({
           kind: 'invalid',
           errors: result.errors,
         });
-        setValidationErrors(result.errors);
+        setLocalValidationErrors(result.errors);
         setActionFeedback({
           type: 'error',
           message: `Generated plan has validation errors.`,
         });
       } else {
-        setPlanResult({
+        setLocalPlanResult({
           kind: result.kind,
           message: `Plan generation failed: ${result.kind}`,
         });
@@ -211,17 +298,17 @@ export function useSpecsScreen({
       }
     } catch (err: unknown) {
       const end = Date.now();
-      setPlanEndTime(end);
+      setLocalPlanEndTime(end);
       const msg = err instanceof Error ? err.message : String(err);
-      setPlanResult({
+      setLocalPlanResult({
         kind: 'error',
         message: msg,
       });
       setActionFeedback({ type: 'error', message: `Plan generation failed: ${msg}` });
     } finally {
-      setIsGeneratingPlan(false);
+      setLocalIsGeneratingPlan(false);
     }
-  }, [selectedSpec, container, loadSpecs]);
+  }, [selectedSpec, planning, container, loadSpecs]);
 
   const openCreateModal = useCallback(() => setActiveModal('create'), []);
   const openPullModal = useCallback(() => setActiveModal('pull'), []);
@@ -254,6 +341,7 @@ export function useSpecsScreen({
     planEndTime,
     planResult,
     validationErrors,
+    generatingSpecName: planning?.generatingSpecName ?? null,
     loadSpecs,
     navigateUp,
     navigateDown,
@@ -262,6 +350,7 @@ export function useSpecsScreen({
     openPullModal,
     closeModal,
     handleOpenInRun,
+    handleOpenInTasks,
     handleValidatePlan,
     handleGeneratePlan,
     handleModalSuccess,
