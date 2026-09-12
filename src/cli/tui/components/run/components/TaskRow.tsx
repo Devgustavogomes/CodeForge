@@ -10,10 +10,10 @@ export const STATUS_CONFIG: Record<
   TaskStatus,
   { icon: string; color: string; label: string }
 > = {
-  pending: { icon: '●', color: 'gray', label: 'Pending' },
-  running: { icon: '▶', color: 'cyan', label: 'Running' },
-  completed: { icon: '✓', color: 'green', label: 'Completed' },
-  failed: { icon: '✗', color: 'red', label: 'Failed' },
+  pending: { icon: theme.status.pending.icon, color: theme.status.pending.color, label: 'Pending' },
+  running: { icon: theme.status.running.icon, color: theme.status.running.color, label: 'Running' },
+  completed: { icon: theme.status.completed.icon, color: theme.status.completed.color, label: 'Completed' },
+  failed: { icon: theme.status.failed.icon, color: theme.status.failed.color, label: 'Failed' },
 };
 
 export interface TaskRowProps {
@@ -51,14 +51,14 @@ export const TaskRow: React.FC<TaskRowProps> = React.memo(({
     <Box justifyContent="space-between" width="100%">
       <Box gap={1} flexShrink={1}>
         {/* Modern vertical bar pointer when selected */}
-        <Text color={isSelected ? (isFocused ? 'cyan' : 'white') : undefined} bold={isSelected}>
+        <Text color={isSelected ? (isFocused ? theme.colors.primary : theme.colors.text) : undefined} bold={isSelected}>
           {isSelected ? theme.symbols.pointer : ' '}
         </Text>
 
         {/* Status Icon or Spinner */}
         <Box flexShrink={0}>
           {isRunning ? (
-            <Spinner color="cyan" />
+            <Spinner color={theme.colors.primary} />
           ) : (
             <Text color={statusCfg.color}>
               {statusCfg.icon}
@@ -68,7 +68,7 @@ export const TaskRow: React.FC<TaskRowProps> = React.memo(({
 
         {/* Task ID */}
         <Box flexShrink={0}>
-          <Text bold={isSelected} color={isSelected ? 'white' : 'gray'}>
+          <Text bold={isSelected} color={isSelected ? theme.colors.text : theme.colors.muted}>
             {task.id}
           </Text>
         </Box>
@@ -76,7 +76,7 @@ export const TaskRow: React.FC<TaskRowProps> = React.memo(({
         {/* Title (truncated if too long) */}
         <Text
           wrap="truncate-end"
-          color={isSelected ? (isFocused ? 'cyan' : 'white') : 'white'}
+          color={isSelected ? (isFocused ? theme.colors.primary : theme.colors.text) : theme.colors.text}
           bold={isSelected}
         >
           {task.title}

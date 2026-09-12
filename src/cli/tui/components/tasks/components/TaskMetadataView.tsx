@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import { theme } from '../../../theme.js';
 import { TaskScreenItem, STATUS_ICONS } from './TaskTree.js';
 
 export interface TaskMetadataViewProps {
@@ -27,17 +28,17 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
       flexDirection="column"
       width={isSideBySide ? '55%' : '100%'}
       borderStyle="round"
-      borderColor="cyan"
+      borderColor={theme.colors.borderSubtle}
       paddingX={1}
     >
       <Box justifyContent="space-between" marginBottom={1}>
         <Box gap={1} flexShrink={1}>
-          <Text bold color="cyan">
+          <Text bold color={theme.colors.primary}>
             Task: {selectedTask ? selectedTask.id : 'None'}
           </Text>
           {selectedTask && (
             <Text
-              color={STATUS_ICONS[selectedTask.status]?.color ?? 'gray'}
+              color={STATUS_ICONS[selectedTask.status]?.color ?? theme.colors.muted}
               bold
             >
               {STATUS_ICONS[selectedTask.status]?.label ?? selectedTask.status}
@@ -45,8 +46,8 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
           )}
         </Box>
         <Box gap={1} flexShrink={0}>
-          <Text dimColor>[e] {isExpanded ? 'Collapse' : 'Expand'}</Text>
-          <Text dimColor>[v] {viewJson ? 'Formatted' : 'JSON'}</Text>
+          <Text color={theme.colors.muted}>[e] {isExpanded ? 'Collapse' : 'Expand'}</Text>
+          <Text color={theme.colors.muted}>[v] {viewJson ? 'Formatted' : 'JSON'}</Text>
         </Box>
       </Box>
 
@@ -55,9 +56,24 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
           marginY={1}
           paddingX={1}
           borderStyle="single"
-          borderColor={feedback.type === 'success' ? 'green' : 'red'}
+          borderColor={
+            feedback.type === 'success'
+              ? theme.colors.success
+              : feedback.type === 'error'
+                ? theme.colors.error
+                : theme.colors.warning
+          }
         >
-          <Text color={feedback.type === 'success' ? 'green' : 'red'} bold>
+          <Text
+            color={
+              feedback.type === 'success'
+                ? theme.colors.success
+                : feedback.type === 'error'
+                  ? theme.colors.error
+                  : theme.colors.warning
+            }
+            bold
+          >
             {feedback.message}
           </Text>
         </Box>
@@ -66,7 +82,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
       {selectedTask ? (
         viewJson ? (
           <Box flexDirection="column">
-            <Text color="gray">
+            <Text color={theme.colors.muted}>
               {JSON.stringify(selectedTask, null, 2)}
             </Text>
           </Box>
@@ -74,7 +90,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
           <Box flexDirection="column">
             <Box marginBottom={0}>
               <Text bold>Title: </Text>
-              <Text color="white" wrap={isExpanded ? 'wrap' : 'truncate-end'}>
+              <Text color={theme.colors.text} wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                 {selectedTask.title}
               </Text>
             </Box>
@@ -82,7 +98,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
             {selectedTask.objective && (
               <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>
                 <Text bold>Objective: </Text>
-                <Text dimColor wrap={isExpanded ? 'wrap' : 'truncate-end'}>
+                <Text color={theme.colors.muted} wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                   {selectedTask.objective}
                 </Text>
               </Box>
@@ -90,7 +106,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
 
             <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>
               <Text bold>Deps: </Text>
-              <Text dimColor wrap={isExpanded ? 'wrap' : 'truncate-end'}>
+              <Text color={theme.colors.muted} wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                 {selectedTask.dependencies.length > 0
                   ? selectedTask.dependencies.join(', ')
                   : 'None (Root)'}
@@ -100,7 +116,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
             {selectedTask.files && selectedTask.files.length > 0 && (
               <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>
                 <Text bold>Files: </Text>
-                <Text dimColor wrap={isExpanded ? 'wrap' : 'truncate-end'}>
+                <Text color={theme.colors.muted} wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                   {selectedTask.files.join(', ')}
                 </Text>
               </Box>
@@ -109,7 +125,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
             {selectedTask.context && (
               <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>
                 <Text bold>Context: </Text>
-                <Text dimColor wrap={isExpanded ? 'wrap' : 'truncate-end'}>
+                <Text color={theme.colors.muted} wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                   {selectedTask.context}
                 </Text>
               </Box>
@@ -118,7 +134,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
             {isExpanded && selectedTask.constraints && selectedTask.constraints.length > 0 && (
               <Box marginBottom={0} flexDirection="column">
                 <Text bold>Constraints: </Text>
-                <Text dimColor wrap="wrap">
+                <Text color={theme.colors.muted} wrap="wrap">
                   {selectedTask.constraints.join(', ')}
                 </Text>
               </Box>
@@ -127,7 +143,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
             {isExpanded && selectedTask.acceptanceCriteria && selectedTask.acceptanceCriteria.length > 0 && (
               <Box marginBottom={0} flexDirection="column">
                 <Text bold>Acceptance: </Text>
-                <Text dimColor wrap="wrap">
+                <Text color={theme.colors.muted} wrap="wrap">
                   {selectedTask.acceptanceCriteria.join(', ')}
                 </Text>
               </Box>
@@ -135,7 +151,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
 
             {selectedTask.errors && selectedTask.errors.length > 0 && (
               <Box marginBottom={0} flexDirection="column">
-                <Text color="red" bold wrap={isExpanded ? 'wrap' : 'truncate-end'}>
+                <Text color={theme.colors.error} bold wrap={isExpanded ? 'wrap' : 'truncate-end'}>
                   ✗ Error: {selectedTask.errors[0]}
                 </Text>
               </Box>
@@ -144,11 +160,11 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
             <Box
               marginTop={1}
               borderStyle="single"
-              borderColor="gray"
+              borderColor={theme.colors.borderSubtle}
               paddingX={1}
               justifyContent="space-between"
             >
-              <Text dimColor>
+              <Text color={theme.colors.muted}>
                 [c] Complete · [x] Reset · [e] {isExpanded ? 'Collapse' : 'Expand All'}
               </Text>
             </Box>
@@ -156,7 +172,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
         )
       ) : (
         <Box paddingY={2} justifyContent="center">
-          <Text dimColor>
+          <Text color={theme.colors.muted}>
             Select a task to inspect details and dependency graph.
           </Text>
         </Box>

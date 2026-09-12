@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Box, Text } from 'ink';
 import { useTerminalDimensions } from '../../../hooks/useTerminalDimensions.js';
+import { theme } from '../../../theme.js';
 import { renderProgressBar } from './DashboardMetricsPanel.js';
 
 export interface RunLayoutMinimalProps {
@@ -31,18 +32,22 @@ export const RunLayoutMinimal: React.FC<RunLayoutMinimalProps> = memo(({
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor="yellow"
+      borderColor={theme.colors.warning}
       paddingX={1}
       width="100%"
       overflow="hidden"
     >
       <Box justifyContent="space-between">
-        <Text bold color="yellow">
+        <Text bold color={theme.colors.warning}>
           Run [Minimal]
         </Text>
         <Text
           color={
-            failedCount > 0 ? 'red' : runningCount > 0 ? 'cyan' : 'green'
+            failedCount > 0
+              ? theme.colors.error
+              : runningCount > 0
+                ? theme.colors.primary
+                : theme.colors.success
           }
         >
           [{effectiveStatus.toUpperCase()}]
@@ -50,13 +55,13 @@ export const RunLayoutMinimal: React.FC<RunLayoutMinimalProps> = memo(({
       </Box>
 
       <Box marginY={1}>
-        <Text bold color="cyan">
+        <Text bold color={theme.colors.primary}>
           {progressBar}
         </Text>
       </Box>
 
       <Box flexDirection="column">
-        <Text color="yellow" bold>
+        <Text color={theme.colors.warning} bold>
           ⚠️ Window too small ({columns}x{rows})
         </Text>
         <Text dimColor>

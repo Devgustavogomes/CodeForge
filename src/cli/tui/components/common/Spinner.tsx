@@ -1,5 +1,6 @@
 import React, { useState, useEffect, memo } from 'react';
 import { Text } from 'ink';
+import { theme } from '../../theme.js';
 
 export const SPINNER_FRAMES: readonly string[] =
   process.platform === 'win32'
@@ -186,7 +187,7 @@ export function useSharedSpinnerFrame(interval = 80): number {
 }
 
 export const Spinner: React.FC<SpinnerProps> = memo(({
-  color = 'cyan',
+  color = theme.colors.primary,
   interval = 80,
   label,
 }) => {
@@ -203,4 +204,3 @@ export const Spinner: React.FC<SpinnerProps> = memo(({
 Spinner.displayName = 'Spinner';
 
 export default Spinner;
-

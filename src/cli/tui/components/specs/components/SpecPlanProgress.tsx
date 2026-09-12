@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Box, Text } from 'ink';
 import { Spinner } from '../../common/Spinner.js';
 import { TimerView } from '../../common/TimerView.js';
+import { theme } from '../../../theme.js';
 
 export interface PlanGenerationResult {
   kind: 'valid' | 'invalid' | 'failed' | 'not-initialized' | 'spec-not-found' | 'tasks-dir-not-found' | 'error' | string;
@@ -34,26 +35,26 @@ export const SpecPlanProgress: React.FC<SpecPlanProgressProps> = memo(({
       <Box
         flexDirection="column"
         borderStyle="round"
-        borderColor="yellow"
+        borderColor={theme.colors.warning}
         paddingX={1}
         marginY={1}
         width="100%"
       >
         <Box marginBottom={0}>
-          <Text bold color="yellow">
+          <Text bold color={theme.colors.warning}>
             Gerando Plano de Execução [{specName || 'spec'}]
           </Text>
         </Box>
         <Box justifyContent="space-between" width="100%">
           <Box gap={1}>
-            <Spinner color="yellow" />
+            <Spinner color={theme.colors.warning} />
             <Text>Planejando com agente de IA...</Text>
           </Box>
           <TimerView
             startTime={startTime}
             isRunning={true}
             prefix="Decorrido: "
-            color="yellow"
+            color={theme.colors.warning}
           />
         </Box>
       </Box>
@@ -66,13 +67,13 @@ export const SpecPlanProgress: React.FC<SpecPlanProgressProps> = memo(({
       <Box
         flexDirection="column"
         borderStyle="round"
-        borderColor="green"
+        borderColor={theme.colors.success}
         paddingX={1}
         marginY={1}
         width="100%"
       >
         <Box marginBottom={0}>
-          <Text bold color="green">
+          <Text bold color={theme.colors.success}>
             ✓ Plano Gerado com Sucesso
           </Text>
         </Box>
@@ -103,30 +104,30 @@ export const SpecPlanProgress: React.FC<SpecPlanProgressProps> = memo(({
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor="red"
+      borderColor={theme.colors.error}
       paddingX={1}
       marginY={1}
       width="100%"
     >
       <Box marginBottom={0}>
-        <Text bold color="red">
+        <Text bold color={theme.colors.error}>
           ✗ Falha no Planejamento
         </Text>
       </Box>
       {message && (
         <Box marginY={0}>
-          <Text color="red" bold wrap="truncate-end">
+          <Text color={theme.colors.error} bold wrap="truncate-end">
             {message}
           </Text>
         </Box>
       )}
       {errors.length > 0 && (
         <Box flexDirection="column" marginY={0}>
-          <Text color="red" bold>
+          <Text color={theme.colors.error} bold>
             Erros ({errors.length}):
           </Text>
           {errors.slice(0, 3).map((err, i) => (
-            <Text key={i} color="red" dimColor wrap="truncate-end">
+            <Text key={i} color={theme.colors.error} dimColor wrap="truncate-end">
               • {err}
             </Text>
           ))}

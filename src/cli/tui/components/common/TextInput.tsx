@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import { theme } from '../../theme.js';
 
 export interface TextInputProps {
   value: string;
@@ -19,7 +20,7 @@ export const TextInput: React.FC<TextInputProps> = ({
   value,
   placeholder = '',
   isFocused = false,
-  cursorColor = 'cyan',
+  cursorColor = theme.colors.primary,
   showCharCount = false,
   width,
 }) => {
@@ -29,7 +30,7 @@ export const TextInput: React.FC<TextInputProps> = ({
     <Box width={width} justifyContent={showCharCount ? 'space-between' : undefined}>
       <Box flexShrink={1}>
         {hasValue ? (
-          <Text color="white" bold={isFocused} wrap="truncate-end">
+          <Text color={theme.colors.text} bold={isFocused} wrap="truncate-end">
             {value}
             {isFocused && <Text color={cursorColor}>█</Text>}
           </Text>

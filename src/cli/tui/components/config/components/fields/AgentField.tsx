@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { Box, Text } from 'ink';
 import type { ConfigFieldProps } from '../ConfigField.js';
+import { theme } from '../../../../theme.js';
 
 export const AgentField: React.FC<ConfigFieldProps> = ({
   fieldKey,
@@ -17,32 +18,32 @@ export const AgentField: React.FC<ConfigFieldProps> = ({
   return (
     <Box gap={1} flexWrap="nowrap">
       <Box gap={1} flexShrink={1}>
-        <Text bold color={isActive ? 'cyan' : 'white'}>
+        <Text bold color={isActive ? theme.colors.primary : theme.colors.text}>
           {label}
         </Text>
         {isEditing && isActive ? (
           <Box gap={1}>
-            <Text color="blue" bold>
+            <Text color={theme.colors.primary} bold>
               {'> '}
             </Text>
             {editValue.length > 0 ? (
-              <Text color="white" bold>
+              <Text color={theme.colors.text} bold>
                 {editValue}█
               </Text>
             ) : (
               <Box gap={1}>
-                <Text color="cyan">█</Text>
-                <Text dimColor>({agentValue})</Text>
+                <Text color={theme.colors.primary}>█</Text>
+                <Text color={theme.colors.muted}>({agentValue})</Text>
               </Box>
             )}
           </Box>
         ) : (
           <Box gap={1}>
-            <Text color="cyan" bold>
+            <Text color={theme.colors.primary} bold>
               &lt; [ {agentValue} ] &gt;
             </Text>
             {currentAgentOptions.length > 1 && (
-              <Text dimColor>
+              <Text color={theme.colors.muted}>
                 (
                 {Math.max(
                   1,
@@ -55,7 +56,7 @@ export const AgentField: React.FC<ConfigFieldProps> = ({
         )}
       </Box>
       {isActive && !isEditing && (
-        <Text dimColor>[e]</Text>
+        <Text color={theme.colors.muted}>[e]</Text>
       )}
     </Box>
   );

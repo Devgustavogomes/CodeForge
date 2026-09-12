@@ -4,6 +4,7 @@ import { Spinner } from '../../common/Spinner.js';
 import { TimerView } from '../../common/TimerView.js';
 import { translate } from '../../../../ui/i18n.js';
 import { SupportedLanguage } from '../../../../../config/types.js';
+import { theme } from '../../../theme.js';
 
 export interface BatchInfo {
   current: number;
@@ -53,14 +54,14 @@ export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
     return (
       <Box
         borderStyle="round"
-        borderColor="cyan"
+        borderColor={theme.colors.primary}
         flexDirection="column"
         paddingX={1}
         width="100%"
         marginBottom={1}
       >
         <Box marginBottom={0}>
-          <Text bold color="cyan">
+          <Text bold color={theme.colors.primary}>
             {translate('tui_docs_progress_title', language, {
               action: actionLabel,
               doc: displayDoc,
@@ -69,8 +70,8 @@ export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
         </Box>
         <Box justifyContent="space-between" width="100%">
           <Box gap={1}>
-            <Spinner color="cyan" />
-            <Text color="yellow">
+            <Spinner color={theme.colors.primary} />
+            <Text color={theme.colors.warning}>
               {translate('tui_docs_progress_generating', language)}
             </Text>
           </Box>
@@ -78,7 +79,7 @@ export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
             startTime={startTime}
             isRunning={true}
             prefix={translate('tui_docs_progress_elapsed', language)}
-            color="cyan"
+            color={theme.colors.primary}
           />
         </Box>
       </Box>
@@ -88,7 +89,11 @@ export const DocProgressBanner: React.FC<DocProgressBannerProps> = memo(({
   if (feedback) {
     const isSuccess = feedback.type === 'success';
     const isError = feedback.type === 'error';
-    const borderColor = isSuccess ? 'green' : isError ? 'red' : 'yellow';
+    const borderColor = isSuccess
+      ? theme.colors.success
+      : isError
+        ? theme.colors.error
+        : theme.colors.warning;
 
     return (
       <Box

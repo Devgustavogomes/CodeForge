@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { TextInput } from '../../common/TextInput.js';
+import { theme } from '../../../theme.js';
 
 export interface PullManualFormProps {
   specId: string;
@@ -38,31 +39,31 @@ export const PullManualForm: React.FC<PullManualFormProps> = ({
     <Box flexDirection="column" width="100%" marginBottom={0}>
       {showIdInput && (
         <Box gap={1} paddingLeft={1} marginTop={0}>
-          <Text color="blue" bold>
+          <Text color={theme.colors.primary} bold>
             {'> '}
           </Text>
           <TextInput
             value={specId}
             placeholder={getProviderIdPlaceholder(selectedProvider)}
             isFocused={activeField === 'id'}
-            cursorColor="cyan"
+            cursorColor={theme.colors.primary}
           />
         </Box>
       )}
 
       <Box justifyContent="space-between" width="100%" marginBottom={0}>
         <Box gap={1} flexShrink={1}>
-          <Text bold color={activeField === 'name' ? 'cyan' : 'white'}>
+          <Text bold color={activeField === 'name' ? theme.colors.primary : theme.colors.text}>
             Custom Filename (optional):
           </Text>
-          <Text color="blue" bold>
+          <Text color={theme.colors.primary} bold>
             {'> '}
           </Text>
           <TextInput
             value={customName}
             placeholder="Leave empty to derive from title or ID"
             isFocused={activeField === 'name'}
-            cursorColor="cyan"
+            cursorColor={theme.colors.primary}
           />
         </Box>
       </Box>

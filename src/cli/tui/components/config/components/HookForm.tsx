@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { HookEvent, HookType } from '../../../../../domain/hook.js';
 import { TextInput } from '../../common/TextInput.js';
+import { theme } from '../../../theme.js';
 
 export type HookFormField = 'run' | 'type' | 'name' | 'save';
 
@@ -66,10 +67,10 @@ export const HookForm: React.FC<HookFormProps> = ({
     <Box flexDirection="column" width="100%">
       {/* Cabeçalho */}
       <Box flexDirection="column" marginBottom={1}>
-        <Text bold color="cyan">
+        <Text bold color={theme.colors.primary}>
           {isEditing ? 'Editar Hook' : 'Adicionar Novo Hook'} — {event}
         </Text>
-        <Text dimColor>
+        <Text color={theme.colors.muted}>
           Configure os parâmetros do comando e o modo de execução.
         </Text>
       </Box>
@@ -79,32 +80,32 @@ export const HookForm: React.FC<HookFormProps> = ({
         <Box gap={1} alignItems="center">
           <Text
             bold
-            color={currentActiveField === 'run' ? 'cyan' : 'white'}
+            color={currentActiveField === 'run' ? theme.colors.primary : theme.colors.text}
           >
             Comando (run) *:
           </Text>
           {currentActiveField === 'run' ? (
             <Box gap={1}>
-              <Text color="blue" bold>
+              <Text color={theme.colors.primary} bold>
                 {'> '}
               </Text>
               <TextInput
                 value={currentRun}
                 placeholder="ex: npm run lint, pytest tests/unit"
                 isFocused={true}
-                cursorColor="cyan"
+                cursorColor={theme.colors.primary}
               />
             </Box>
           ) : (
             <Text
-              color={currentRun ? 'white' : 'gray'}
+              color={currentRun ? theme.colors.text : theme.colors.muted}
               wrap="truncate-end"
             >
               {currentRun || '(vazio - obrigatório: ex: npm test)'}
             </Text>
           )}
         </Box>
-        <Text dimColor>
+        <Text color={theme.colors.muted}>
           Linha de comando shell executada no evento.
         </Text>
       </Box>
@@ -114,30 +115,30 @@ export const HookForm: React.FC<HookFormProps> = ({
         <Box gap={1} alignItems="center">
           <Text
             bold
-            color={currentActiveField === 'type' ? 'cyan' : 'white'}
+            color={currentActiveField === 'type' ? theme.colors.primary : theme.colors.text}
           >
             Tipo (type):
           </Text>
           <Box gap={2} alignItems="center">
             <Text
-              color={currentType === 'gate' ? 'yellow' : 'gray'}
+              color={currentType === 'gate' ? theme.colors.warning : theme.colors.muted}
               bold={currentType === 'gate'}
             >
               {currentType === 'gate' ? '● [GATE]' : '○ GATE'}
             </Text>
             <Text
-              color={currentType === 'notify' ? 'green' : 'gray'}
+              color={currentType === 'notify' ? theme.colors.success : theme.colors.muted}
               bold={currentType === 'notify'}
             >
               {currentType === 'notify' ? '● [NOTIFY]' : '○ NOTIFY'}
             </Text>
           </Box>
           {currentActiveField === 'type' && (
-            <Text dimColor>[Space ou ←/→] Alternar tipo</Text>
+            <Text color={theme.colors.muted}>[Space ou ←/→] Alternar tipo</Text>
           )}
         </Box>
         <Box marginY={0}>
-          <Text dimColor>
+          <Text color={theme.colors.muted}>
             {currentType === 'gate'
               ? 'gate: Falha no comando interrompe e veta a tarefa'
               : 'notify: Informa o resultado nos logs sem interromper'}
@@ -150,32 +151,32 @@ export const HookForm: React.FC<HookFormProps> = ({
         <Box gap={1} alignItems="center">
           <Text
             bold
-            color={currentActiveField === 'name' ? 'cyan' : 'white'}
+            color={currentActiveField === 'name' ? theme.colors.primary : theme.colors.text}
           >
             Nome (name):
           </Text>
           {currentActiveField === 'name' ? (
             <Box gap={1}>
-              <Text color="blue" bold>
+              <Text color={theme.colors.primary} bold>
                 {'> '}
               </Text>
               <TextInput
                 value={currentName}
                 placeholder={`(opcional: derivado automaticamente como "${autoNamePlaceholder}" se vazio)`}
                 isFocused={true}
-                cursorColor="cyan"
+                cursorColor={theme.colors.primary}
               />
             </Box>
           ) : (
             <Text
-              color={currentName ? 'white' : 'gray'}
+              color={currentName ? theme.colors.text : theme.colors.muted}
               wrap="truncate-end"
             >
               {currentName || `(auto: ${autoNamePlaceholder})`}
             </Text>
           )}
         </Box>
-        <Text dimColor>
+        <Text color={theme.colors.muted}>
           Identificador amigável para exibição nos logs e relatórios.
         </Text>
       </Box>
@@ -184,13 +185,13 @@ export const HookForm: React.FC<HookFormProps> = ({
       <Box marginBottom={1}>
         <Box
           borderStyle="round"
-          borderColor={currentActiveField === 'save' ? 'cyan' : 'gray'}
+          borderColor={currentActiveField === 'save' ? theme.colors.borderActive : theme.colors.borderSubtle}
           paddingX={2}
           alignSelf="flex-start"
         >
           <Text
             bold={currentActiveField === 'save'}
-            color={currentActiveField === 'save' ? 'cyan' : 'gray'}
+            color={currentActiveField === 'save' ? theme.colors.primary : theme.colors.muted}
           >
             [ Salvar Hook ]
           </Text>
@@ -200,7 +201,7 @@ export const HookForm: React.FC<HookFormProps> = ({
       {/* Mensagem de Erro */}
       {errorMessage && (
         <Box marginBottom={1}>
-          <Text color="red" bold>
+          <Text color={theme.colors.error} bold>
             ✗ {errorMessage}
           </Text>
         </Box>
@@ -210,15 +211,15 @@ export const HookForm: React.FC<HookFormProps> = ({
       <Box
         marginTop={0}
         borderStyle="single"
-        borderColor="gray"
+        borderColor={theme.colors.borderSubtle}
         paddingX={1}
         justifyContent="space-between"
         width="100%"
       >
-        <Text dimColor>[Tab / Shift+Tab ou ↑/↓] Alternar campo</Text>
-        <Text dimColor>[Space ou ←/→] Alternar tipo</Text>
-        <Text dimColor>[Enter] Salvar</Text>
-        <Text dimColor>[Esc] Cancelar</Text>
+        <Text color={theme.colors.muted}>[Tab / Shift+Tab ou ↑/↓] Alternar campo</Text>
+        <Text color={theme.colors.muted}>[Space ou ←/→] Alternar tipo</Text>
+        <Text color={theme.colors.muted}>[Enter] Salvar</Text>
+        <Text color={theme.colors.muted}>[Esc] Cancelar</Text>
       </Box>
     </Box>
   );

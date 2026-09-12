@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import { DocsManifestEntry } from '../../../../../domain/doc.js';
 import { translate } from '../../../../ui/i18n.js';
 import { SupportedLanguage } from '../../../../../config/types.js';
+import { theme } from '../../../theme.js';
 
 export interface DocItemInfo extends DocsManifestEntry {
   name: string;
@@ -42,14 +43,14 @@ export const DocsList: React.FC<DocsListProps> = memo(({
       flexDirection="column"
       width={width}
       borderStyle="round"
-      borderColor="cyan"
+      borderColor={theme.colors.primary}
       paddingX={1}
     >
       <Box justifyContent="space-between" marginBottom={0}>
-        <Text bold color="cyan">
+        <Text bold color={theme.colors.primary}>
           {translate('tui_docs_list_title', language, { count: docs.length })}
         </Text>
-        <Text dimColor wrap="truncate-end">{translate('tui_docs_list_shortcuts', language)}</Text>
+        <Text color={theme.colors.muted} wrap="truncate-end">{translate('tui_docs_list_shortcuts', language)}</Text>
       </Box>
 
       {docs.length === 0 ? (
@@ -59,8 +60,8 @@ export const DocsList: React.FC<DocsListProps> = memo(({
           flexDirection="column"
           alignItems="center"
         >
-          <Text dimColor>{translate('tui_docs_no_docs', language)}</Text>
-          <Text dimColor>{translate('tui_docs_press_c', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_no_docs', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_press_c', language)}</Text>
         </Box>
       ) : (
         <Box flexDirection="column">
@@ -72,19 +73,19 @@ export const DocsList: React.FC<DocsListProps> = memo(({
             return (
               <Box key={doc.name} justifyContent="space-between" width="100%">
                 <Box gap={1} flexShrink={1}>
-                  <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+                  <Text color={isSelected ? theme.colors.primary : theme.colors.muted} bold={isSelected}>
                     {isSelected ? '>' : ' '}
                   </Text>
                   <Text
                     bold={isSelected}
-                    color={isSelected ? 'cyan' : 'white'}
+                    color={isSelected ? theme.colors.primary : theme.colors.text}
                     wrap="truncate-end"
                   >
                     {doc.name}.md
                   </Text>
                 </Box>
                 <Box flexShrink={0}>
-                  <Text color={doc.inManifest ? 'green' : 'gray'}>
+                  <Text color={doc.inManifest ? theme.colors.success : theme.colors.muted}>
                     {badgeText}
                   </Text>
                 </Box>

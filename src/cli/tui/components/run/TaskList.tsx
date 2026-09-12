@@ -4,6 +4,7 @@ import { TaskItem, useExecution } from '../../context/ExecutionContext.js';
 import { TaskRow, areTaskRowPropsEqual, TaskRowProps, STATUS_CONFIG } from './components/TaskRow.js';
 import { TaskRowDuration, TaskRowDurationProps } from './components/TaskRowDuration.js';
 import { formatDuration } from '../../utils/formatters.js';
+import { theme } from '../../theme.js';
 
 export {
   TaskRow,
@@ -185,7 +186,7 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
     return filteredTasks.slice(start, start + maxHeight);
   }, [filteredTasks, maxHeight, selectedTaskId]);
 
-  const effectiveBorderColor = borderColor ?? (isFocused ? 'cyan' : 'gray');
+  const effectiveBorderColor = borderColor ?? (isFocused ? theme.colors.borderActive : theme.colors.borderSubtle);
   const isNoneBorder = borderStyle === 'none';
 
   return (
@@ -200,13 +201,13 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
       {/* Header */}
       <Box justifyContent="space-between" width="100%" marginBottom={0}>
         <Box flexShrink={0}>
-          <Text bold color={isFocused ? 'cyan' : 'gray'}>
+          <Text bold color={isFocused ? theme.colors.primary : theme.colors.muted}>
             {isFocused ? '● ' : '  '}Tasks ({tasks.length})
           </Text>
         </Box>
         <Box flexShrink={1} paddingLeft={1}>
           {isFocused ? (
-            <Text dimColor color="cyan" wrap="truncate-end">[Tab] Logs</Text>
+            <Text dimColor color={theme.colors.primary} wrap="truncate-end">[Tab] Logs</Text>
           ) : (
             <Text dimColor wrap="truncate-end">[Tab] Focus</Text>
           )}
@@ -217,25 +218,25 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
       {showFilterBadges && (
         <Box gap={1} marginY={0} flexWrap="wrap">
           <Text
-            color={currentFilter === 'all' ? 'cyan' : 'gray'}
+            color={currentFilter === 'all' ? theme.colors.primary : theme.colors.muted}
             bold={currentFilter === 'all'}
           >
             [All: {counts.total}]
           </Text>
           <Text
-            color={currentFilter === 'running' ? 'cyan' : 'gray'}
+            color={currentFilter === 'running' ? theme.colors.primary : theme.colors.muted}
             bold={currentFilter === 'running'}
           >
             [▶ Running: {counts.running}]
           </Text>
           <Text
-            color={currentFilter === 'failed' ? 'red' : 'gray'}
+            color={currentFilter === 'failed' ? theme.colors.error : theme.colors.muted}
             bold={currentFilter === 'failed'}
           >
             [✗ Failed: {counts.failed}]
           </Text>
           <Text
-            color={currentFilter === 'completed' ? 'green' : 'gray'}
+            color={currentFilter === 'completed' ? theme.colors.success : theme.colors.muted}
             bold={currentFilter === 'completed'}
           >
             [✓ Done: {counts.completed}]

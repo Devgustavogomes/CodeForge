@@ -4,6 +4,7 @@ import { Modal } from '../common/Modal.js';
 import { TextInput } from '../common/TextInput.js';
 import { useTextInput } from '../../hooks/useTextInput.js';
 import { useNavigation } from '../../context/NavigationContext.js';
+import { theme } from '../../theme.js';
 import {
   CreateSpecUseCase,
   CreateSpecResult,
@@ -115,7 +116,7 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       width={width}
-      borderColor="blue"
+      borderColor={theme.colors.primary}
     >
       <Box flexDirection="column" width="100%">
         <Box marginBottom={0}>
@@ -126,17 +127,17 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
 
         <Box justifyContent="space-between" width="100%" marginBottom={0}>
           <Box gap={1} flexShrink={1}>
-            <Text bold color="cyan">
+            <Text bold color={theme.colors.primary}>
               Title:{' '}
             </Text>
-            <Text color="blue" bold>
+            <Text color={theme.colors.primary} bold>
               {'> '}
             </Text>
             <TextInput
               value={title}
               placeholder="e.g. user-authentication, payments-service"
               isFocused={true}
-              cursorColor="cyan"
+              cursorColor={theme.colors.primary}
             />
           </Box>
           <Box flexShrink={0}>
@@ -146,7 +147,7 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
 
         {errorMessage && (
           <Box marginBottom={0}>
-            <Text color="red" bold wrap="truncate-end">
+            <Text color={theme.colors.error} bold wrap="truncate-end">
               ✗ {errorMessage}
             </Text>
           </Box>
@@ -155,13 +156,13 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
         <Box
           marginTop={1}
           borderStyle="single"
-          borderColor="gray"
+          borderColor={theme.colors.borderSubtle}
           paddingX={1}
           justifyContent="space-between"
           width="100%"
         >
           <Text dimColor>[Enter] Create</Text>
-          <Text bold color="red">
+          <Text bold color={theme.colors.error}>
             [Esc] Cancel / Voltar
           </Text>
         </Box>

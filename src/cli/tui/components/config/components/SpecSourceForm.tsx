@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
 import { TextInput } from '../../common/TextInput.js';
+import { theme } from '../../../theme.js';
 
 export type SpecSourceFormField = 'provider' | 'project' | 'team' | 'apiKey' | 'save';
 
@@ -98,7 +99,7 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
         <Box gap={1} alignItems="center" flexWrap="wrap">
           <Text
             bold
-            color={currentActiveField === 'provider' ? 'cyan' : 'white'}
+            color={currentActiveField === 'provider' ? theme.colors.primary : theme.colors.text}
           >
             1. Provedor:
           </Text>
@@ -108,7 +109,7 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
               return (
                 <Text
                   key={p}
-                  color={isSelected ? 'cyan' : 'gray'}
+                  color={isSelected ? theme.colors.primary : theme.colors.muted}
                   bold={isSelected}
                 >
                   {isSelected ? `● [${p}]` : `○ ${p}`}
@@ -117,7 +118,7 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
             })}
           </Box>
         </Box>
-        <Text dimColor wrap="truncate-end">
+        <Text color={theme.colors.muted} wrap="truncate-end">
           {meta.description}
         </Text>
       </Box>
@@ -127,32 +128,32 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
         <Box gap={1} alignItems="center" flexWrap="wrap">
           <Text
             bold
-            color={currentActiveField === 'project' ? 'cyan' : 'white'}
+            color={currentActiveField === 'project' ? theme.colors.primary : theme.colors.text}
           >
             2. Projeto / Repo (project):
           </Text>
           {currentActiveField === 'project' ? (
             <Box gap={1}>
-              <Text color="blue" bold>
+              <Text color={theme.colors.primary} bold>
                 {'> '}
               </Text>
               <TextInput
                 value={project}
                 placeholder={meta.projectPlaceholder}
                 isFocused={true}
-                cursorColor="cyan"
+                cursorColor={theme.colors.primary}
               />
             </Box>
           ) : (
             <Text
-              color={project ? 'white' : 'gray'}
+              color={project ? theme.colors.text : theme.colors.muted}
               wrap="truncate-end"
             >
               {project || meta.projectPlaceholder}
             </Text>
           )}
         </Box>
-        <Text dimColor>
+        <Text color={theme.colors.muted}>
           GitHub: &apos;owner/repo&apos; | ClickUp: List ID.
         </Text>
       </Box>
@@ -162,32 +163,32 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
         <Box gap={1} alignItems="center" flexWrap="wrap">
           <Text
             bold
-            color={currentActiveField === 'team' ? 'cyan' : 'white'}
+            color={currentActiveField === 'team' ? theme.colors.primary : theme.colors.text}
           >
             3. Time / Workspace (team):
           </Text>
           {currentActiveField === 'team' ? (
             <Box gap={1}>
-              <Text color="blue" bold>
+              <Text color={theme.colors.primary} bold>
                 {'> '}
               </Text>
               <TextInput
                 value={team}
                 placeholder={meta.teamPlaceholder}
                 isFocused={true}
-                cursorColor="cyan"
+                cursorColor={theme.colors.primary}
               />
             </Box>
           ) : (
             <Text
-              color={team ? 'white' : 'gray'}
+              color={team ? theme.colors.text : theme.colors.muted}
               wrap="truncate-end"
             >
               {team || meta.teamPlaceholder}
             </Text>
           )}
         </Box>
-        <Text dimColor>
+        <Text color={theme.colors.muted}>
           Linear: Sigla ou ID do Time | ClickUp: Team ID.
         </Text>
       </Box>
@@ -197,32 +198,32 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
         <Box gap={1} alignItems="center" flexWrap="wrap">
           <Text
             bold
-            color={currentActiveField === 'apiKey' ? 'cyan' : 'white'}
+            color={currentActiveField === 'apiKey' ? theme.colors.primary : theme.colors.text}
           >
             4. Chave de API (apiKey):
           </Text>
           {currentActiveField === 'apiKey' ? (
             <Box gap={1}>
-              <Text color="blue" bold>
+              <Text color={theme.colors.primary} bold>
                 {'> '}
               </Text>
               <TextInput
                 value={apiKey}
                 placeholder={meta.apiKeyPlaceholder}
                 isFocused={true}
-                cursorColor="cyan"
+                cursorColor={theme.colors.primary}
               />
             </Box>
           ) : (
             <Text
-              color={apiKey ? 'white' : 'gray'}
+              color={apiKey ? theme.colors.text : theme.colors.muted}
               wrap="truncate-end"
             >
               {apiKey ? (apiKey.startsWith('$') ? apiKey : '••••••••') : meta.apiKeyPlaceholder}
             </Text>
           )}
         </Box>
-        <Text dimColor wrap="truncate-end">
+        <Text color={theme.colors.muted} wrap="truncate-end">
           {SpecSourceFactory.getDefaultApiKey(provider)
             ? `Padrão: ${SpecSourceFactory.getDefaultApiKey(provider)} (altere apenas se desejar). Carrega de .codeforge/.env ou .env da raiz.`
             : 'Recomendado usar $VAR para carregar de .codeforge/.env ou .env da raiz.'}
@@ -233,13 +234,13 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
       <Box marginBottom={1}>
         <Box
           borderStyle="round"
-          borderColor={currentActiveField === 'save' ? 'cyan' : 'gray'}
+          borderColor={currentActiveField === 'save' ? theme.colors.borderActive : theme.colors.borderSubtle}
           paddingX={2}
           alignSelf="flex-start"
         >
           <Text
             bold={currentActiveField === 'save'}
-            color={currentActiveField === 'save' ? 'cyan' : 'gray'}
+            color={currentActiveField === 'save' ? theme.colors.primary : theme.colors.muted}
           >
             [ Salvar Spec Source ]
           </Text>
@@ -249,7 +250,7 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
       {/* Mensagem de Erro */}
       {errorMessage && (
         <Box marginBottom={1}>
-          <Text color="red" bold>
+          <Text color={theme.colors.error} bold>
             ✗ {errorMessage}
           </Text>
         </Box>
@@ -259,15 +260,15 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
       <Box
         marginTop={0}
         borderStyle="single"
-        borderColor="gray"
+        borderColor={theme.colors.borderSubtle}
         paddingX={1}
         justifyContent="space-between"
         width="100%"
       >
-        <Text dimColor>[Tab / Shift+Tab ou ↑/↓] Alternar campo</Text>
-        <Text dimColor>[Space ou ←/→] Alternar provedor</Text>
-        <Text dimColor>[Enter] Salvar</Text>
-        <Text dimColor>[Esc] Cancelar</Text>
+        <Text color={theme.colors.muted}>[Tab / Shift+Tab ou ↑/↓] Alternar campo</Text>
+        <Text color={theme.colors.muted}>[Space ou ←/→] Alternar provedor</Text>
+        <Text color={theme.colors.muted}>[Enter] Salvar</Text>
+        <Text color={theme.colors.muted}>[Esc] Cancelar</Text>
       </Box>
     </Box>
   );

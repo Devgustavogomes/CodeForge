@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import { AffectedDoc } from '../../../../../../domain/doc.js';
 import { translate } from '../../../../../ui/i18n.js';
 import { SupportedLanguage } from '../../../../../../config/types.js';
+import { theme } from '../../../../theme.js';
 
 export type AutoUpdateStatus =
   | 'idle'
@@ -67,58 +68,58 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
     <Box flexDirection="column" width={width} gap={1}>
       {/* Spec de Referência Associada */}
       <Box flexDirection="row" gap={1}>
-        <Text bold color="white">{translate('tui_docs_auto_ref_spec', language)}</Text>
-        <Text bold color="cyan">{referenceSpec}</Text>
+        <Text bold color={theme.colors.text}>{translate('tui_docs_auto_ref_spec', language)}</Text>
+        <Text bold color={theme.colors.primary}>{referenceSpec}</Text>
       </Box>
 
       {/* Alerta de Loading */}
       {isLoading && (
         <Box marginY={1}>
-          <Text color="yellow">{translate('tui_docs_auto_loading', language)}</Text>
+          <Text color={theme.colors.warning}>{translate('tui_docs_auto_loading', language)}</Text>
         </Box>
       )}
 
       {/* Alertas de Casos de Borda */}
       {isNoGit && (
-        <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
-          <Text bold color="yellow">{translate('tui_docs_auto_no_git_title', language)}</Text>
-          <Text color="gray">{translate('tui_docs_auto_no_git_desc', language)}</Text>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.warning} paddingX={1} marginY={1}>
+          <Text bold color={theme.colors.warning}>{translate('tui_docs_auto_no_git_title', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_auto_no_git_desc', language)}</Text>
         </Box>
       )}
 
       {isNoChangedFiles && (
-        <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
-          <Text bold color="yellow">{translate('tui_docs_auto_no_changes_title', language)}</Text>
-          <Text color="gray">{translate('tui_docs_auto_no_changes_desc', language)}</Text>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.warning} paddingX={1} marginY={1}>
+          <Text bold color={theme.colors.warning}>{translate('tui_docs_auto_no_changes_title', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_auto_no_changes_desc', language)}</Text>
         </Box>
       )}
 
       {isNoAffectedDocs && (
-        <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
-          <Text bold color="yellow">{translate('tui_docs_auto_no_affected_title', language)}</Text>
-          <Text color="gray">{translate('tui_docs_auto_no_affected_desc', language)}</Text>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.warning} paddingX={1} marginY={1}>
+          <Text bold color={theme.colors.warning}>{translate('tui_docs_auto_no_affected_title', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_auto_no_affected_desc', language)}</Text>
         </Box>
       )}
 
       {/* Alerta de Erro */}
       {isError && (
-        <Box flexDirection="column" borderStyle="round" borderColor="red" paddingX={1} marginY={1}>
-          <Text bold color="red">{translate('tui_docs_auto_error_title', language)}</Text>
-          <Text color="gray">{error || translate('tui_docs_auto_error_default', language)}</Text>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.error} paddingX={1} marginY={1}>
+          <Text bold color={theme.colors.error}>{translate('tui_docs_auto_error_title', language)}</Text>
+          <Text color={theme.colors.muted}>{error || translate('tui_docs_auto_error_default', language)}</Text>
         </Box>
       )}
 
       {/* Listagem de Documentos Afetados */}
       {hasAffectedDocs && (
         <Box flexDirection="column" gap={0}>
-          <Text color="gray">{translate('tui_docs_auto_affected_heading', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_auto_affected_heading', language)}</Text>
 
           {/* Opção em Lote */}
           <Box gap={1} marginTop={1}>
-            <Text color={isAllSelected ? 'cyan' : 'gray'} bold={isAllSelected}>
+            <Text color={isAllSelected ? theme.colors.primary : theme.colors.muted} bold={isAllSelected}>
               {isAllSelected ? '●' : '○'}
             </Text>
-            <Text bold={isAllSelected} color={isAllSelected ? 'cyan' : 'white'}>
+            <Text bold={isAllSelected} color={isAllSelected ? theme.colors.primary : theme.colors.text}>
               {translate('tui_docs_auto_all_option', language, { count: affectedDocs.length })}
             </Text>
           </Box>
@@ -136,13 +137,13 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
 
             return (
               <Box key={doc.docName} gap={1}>
-                <Text color={isDocSelected ? 'cyan' : 'gray'} bold={isDocSelected}>
+                <Text color={isDocSelected ? theme.colors.primary : theme.colors.muted} bold={isDocSelected}>
                   {isDocSelected ? '●' : '○'}
                 </Text>
-                <Text bold={isDocSelected} color={isDocSelected ? 'cyan' : 'white'}>
+                <Text bold={isDocSelected} color={isDocSelected ? theme.colors.primary : theme.colors.text}>
                   {doc.docName}
                 </Text>
-                <Text color={isDocSelected ? 'cyan' : 'gray'}>
+                <Text color={isDocSelected ? theme.colors.primary : theme.colors.muted}>
                   ({countText})
                 </Text>
               </Box>
@@ -155,18 +156,18 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
       <Box
         marginTop={1}
         borderStyle="single"
-        borderColor="gray"
+        borderColor={theme.colors.borderSubtle}
         paddingX={1}
         width="100%"
       >
         <Text>
           {canUpdate ? (
             <>
-              <Text dimColor>{translate('tui_docs_auto_shortcuts_update', language)}</Text>
-              <Text bold color="red">{translate('tui_docs_auto_shortcuts_back', language)}</Text>
+              <Text color={theme.colors.muted}>{translate('tui_docs_auto_shortcuts_update', language)}</Text>
+              <Text bold color={theme.colors.error}>{translate('tui_docs_auto_shortcuts_back', language)}</Text>
             </>
           ) : (
-            <Text bold color="red">{translate('tui_docs_auto_shortcuts_back', language)}</Text>
+            <Text bold color={theme.colors.error}>{translate('tui_docs_auto_shortcuts_back', language)}</Text>
           )}
         </Text>
       </Box>

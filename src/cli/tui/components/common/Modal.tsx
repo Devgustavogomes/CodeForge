@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text, useInput } from 'ink';
+import { theme } from '../../theme.js';
 
 export interface ModalProps {
   title?: string;
@@ -23,7 +24,7 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   children,
   width = 60,
-  borderColor = 'cyan',
+  borderColor = theme.colors.primary,
 }) => {
   useInput(
     (input, key) => {
@@ -55,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
           <Text bold color={borderColor}>
             ● {title}
           </Text>
-          <Text bold color="red">[Esc] Close / Voltar</Text>
+          <Text color={theme.colors.error}>[Esc] Close / Voltar</Text>
         </Box>
       )}
       <Box flexDirection="column" width="100%">

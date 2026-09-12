@@ -7,6 +7,7 @@ import { AgentPreview } from './previews/AgentPreview.js';
 import { EnvironmentPreview } from './previews/EnvironmentPreview.js';
 import { SpecSourcePreview } from './previews/SpecSourcePreview.js';
 import { GenericPreview } from './previews/GenericPreview.js';
+import { theme } from '../../../theme.js';
 
 export interface ConfigPreviewProps {
   isSideBySide: boolean;
@@ -28,27 +29,27 @@ export const PREVIEW_COMPONENTS: Partial<Record<ConfigFieldKey, React.FC<ConfigP
 
 export const ConfigPreviewShortcuts: React.FC<{ activeField: ConfigFieldKey }> = ({ activeField }) => {
   return (
-    <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1} flexDirection="column">
-      <Text bold color="white">Navigation Shortcuts:</Text>
+    <Box marginTop={1} borderStyle="single" borderColor={theme.colors.borderSubtle} paddingX={1} flexDirection="column">
+      <Text bold color={theme.colors.text}>Navigation Shortcuts:</Text>
       {activeField === 'hooks' ? (
         <>
-          <Text dimColor>[Enter] Abrir Gerenciador de Hooks</Text>
-          <Text dimColor>[↑/↓] or [Tab] Select Field</Text>
-          <Text dimColor>[s] Quick Save to File</Text>
+          <Text color={theme.colors.muted}>[Enter] Abrir Gerenciador de Hooks</Text>
+          <Text color={theme.colors.muted}>[↑/↓] or [Tab] Select Field</Text>
+          <Text color={theme.colors.muted}>[s] Quick Save to File</Text>
         </>
       ) : activeField === 'specSource' ? (
         <>
-          <Text dimColor>[Enter] Configurar Spec Source</Text>
-          <Text dimColor>[↑/↓] or [Tab] Select Field</Text>
-          <Text dimColor>[s] Quick Save to File</Text>
+          <Text color={theme.colors.muted}>[Enter] Configurar Spec Source</Text>
+          <Text color={theme.colors.muted}>[↑/↓] or [Tab] Select Field</Text>
+          <Text color={theme.colors.muted}>[s] Quick Save to File</Text>
         </>
       ) : (
         <>
-          <Text dimColor>[↑/↓] or [Tab] Select Field</Text>
-          <Text dimColor>[Space/←/→] Cycle Option</Text>
-          <Text dimColor>[e] Custom Edit</Text>
-          <Text dimColor>[s] Quick Save to File</Text>
-          <Text dimColor>[Esc] Cancel Edit</Text>
+          <Text color={theme.colors.muted}>[↑/↓] or [Tab] Select Field</Text>
+          <Text color={theme.colors.muted}>[Space/←/→] Cycle Option</Text>
+          <Text color={theme.colors.muted}>[e] Custom Edit</Text>
+          <Text color={theme.colors.muted}>[s] Quick Save to File</Text>
+          <Text color={theme.colors.muted}>[Esc] Cancel Edit</Text>
         </>
       )}
     </Box>
@@ -64,7 +65,7 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = (props) => {
       flexDirection="column"
       width={isSideBySide ? '45%' : '100%'}
       borderStyle="round"
-      borderColor="gray"
+      borderColor={theme.colors.borderSubtle}
       paddingX={1}
     >
       <PreviewComponent {...props} />
@@ -72,4 +73,3 @@ export const ConfigPreview: React.FC<ConfigPreviewProps> = (props) => {
     </Box>
   );
 };
-

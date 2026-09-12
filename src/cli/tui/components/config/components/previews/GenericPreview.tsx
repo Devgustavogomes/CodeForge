@@ -1,23 +1,24 @@
 ﻿import React from 'react';
 import { Box, Text } from 'ink';
 import type { ConfigPreviewProps } from '../ConfigPreview.js';
+import { theme } from '../../../../theme.js';
 
 export const GenericPreview: React.FC<ConfigPreviewProps> = ({ config }) => {
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="cyan">Configuration Preview</Text>
-      <Text dimColor>Language: {config.language}</Text>
-      <Text dimColor>Runner: {config.environment}</Text>
-      <Text dimColor>Planner Model: {config.plannerAgent}</Text>
-      <Text dimColor>Executor Model: {config.executorAgent}</Text>
-      <Text dimColor>
+      <Text bold color={theme.colors.primary}>Configuration Preview</Text>
+      <Text color={theme.colors.muted}>Language: {config.language}</Text>
+      <Text color={theme.colors.muted}>Runner: {config.environment}</Text>
+      <Text color={theme.colors.muted}>Planner Model: {config.plannerAgent}</Text>
+      <Text color={theme.colors.muted}>Executor Model: {config.executorAgent}</Text>
+      <Text color={theme.colors.muted}>
         Hooks:{' '}
         {Object.values(config.hooks || {}).filter(
           (v) => Array.isArray(v) && v.length > 0,
         ).length}{' '}
         active
       </Text>
-      <Text dimColor>Spec Source: {config.specSource?.provider || 'filesystem'}</Text>
+      <Text color={theme.colors.muted}>Spec Source: {config.specSource?.provider || 'filesystem'}</Text>
     </Box>
   );
 };

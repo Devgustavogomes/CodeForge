@@ -2,11 +2,12 @@
 import { Box, Text } from 'ink';
 import { HOOK_EVENTS } from '../../../../../../domain/hook.js';
 import type { ConfigPreviewProps } from '../ConfigPreview.js';
+import { theme } from '../../../../theme.js';
 
 export const HooksPreview: React.FC<ConfigPreviewProps> = ({ config }) => {
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="cyan">
+      <Text bold color={theme.colors.primary}>
         Hooks Summary
       </Text>
       <Box flexDirection="column" marginY={0}>
@@ -19,16 +20,16 @@ export const HooksPreview: React.FC<ConfigPreviewProps> = ({ config }) => {
           ).join('/');
           return (
             <Box key={event}>
-              <Text color="white">
+              <Text color={theme.colors.text}>
                 {event}: {list.length} {list.length === 1 ? 'hook' : 'hooks'} [{types}]
               </Text>
             </Box>
           );
         })}
-        <Text dimColor>outros: 0</Text>
+        <Text color={theme.colors.muted}>outros: 0</Text>
       </Box>
       <Box marginTop={1}>
-        <Text color="cyan" bold>
+        <Text color={theme.colors.primary} bold>
           [Enter] Abrir Gerenciador de Hooks
         </Text>
       </Box>

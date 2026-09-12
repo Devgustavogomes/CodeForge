@@ -5,6 +5,7 @@ import { MarkdownView } from '../common/MarkdownView.js';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { translate } from '../../../ui/i18n.js';
 import { SupportedLanguage } from '../../../../config/types.js';
+import { theme } from '../../theme.js';
 
 export interface ViewDocModalProps {
   doc: DocItemInfo | null;
@@ -108,7 +109,7 @@ export const ViewDocModal: React.FC<ViewDocModalProps> = ({
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor="cyan"
+      borderColor={theme.colors.primary}
       paddingX={2}
       paddingY={0}
       width={width}
@@ -116,21 +117,21 @@ export const ViewDocModal: React.FC<ViewDocModalProps> = ({
       {/* Header Bar */}
       <Box justifyContent="space-between" width="100%" marginBottom={0}>
         <Box gap={1} flexShrink={1}>
-          <Text bold color="cyan">
+          <Text bold color={theme.colors.primary}>
             {translate('tui_docs_view_title', language, { name: docName })}
           </Text>
-          <Text color={doc.inManifest ? 'green' : 'gray'}>{badgeText}</Text>
+          <Text color={doc.inManifest ? theme.colors.success : theme.colors.muted}>{badgeText}</Text>
         </Box>
-        <Text bold color="red">[Esc / q] {translate('tui_modal_close_hint', language)}</Text>
+        <Text bold color={theme.colors.error}>[Esc / q] {translate('tui_modal_close_hint', language)}</Text>
       </Box>
 
       {/* Meta Bar */}
       <Box justifyContent="space-between" width="100%" marginBottom={1}>
-        <Text dimColor wrap="truncate-end">
+        <Text color={theme.colors.muted} wrap="truncate-end">
           {doc.path}
         </Text>
         {totalLines > 0 && (
-          <Text dimColor>
+          <Text color={theme.colors.muted}>
             {lineRangeStart}-{lineRangeEnd} / {totalLines} lines
           </Text>
         )}
@@ -140,14 +141,14 @@ export const ViewDocModal: React.FC<ViewDocModalProps> = ({
       <Box
         flexDirection="column"
         borderStyle="single"
-        borderColor="gray"
+        borderColor={theme.colors.borderSubtle}
         paddingX={1}
         paddingY={0}
         minHeight={Math.min(maxVisibleLines, Math.max(3, totalLines))}
       >
         {!content ? (
           <Box paddingY={2} justifyContent="center">
-            <Text dimColor>
+            <Text color={theme.colors.muted}>
               {translate('tui_docs_view_empty', language)}
             </Text>
           </Box>
@@ -162,11 +163,11 @@ export const ViewDocModal: React.FC<ViewDocModalProps> = ({
 
       {/* Footer Navigation Bar */}
       <Box justifyContent="space-between" width="100%" marginTop={1}>
-        <Text dimColor>
+        <Text color={theme.colors.muted}>
           {translate('tui_docs_view_shortcuts', language)}
         </Text>
         {maxScroll > 0 && (
-          <Text color="cyan">
+          <Text color={theme.colors.primary}>
             {scrollOffset === 0
               ? '[TOP]'
               : scrollOffset >= maxScroll

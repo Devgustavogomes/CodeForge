@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Box, Text } from 'ink';
+import { theme } from '../../theme.js';
 
 export interface MarkdownViewProps {
   content: string;
@@ -22,14 +23,14 @@ function renderInline(text: string, keyPrefix: string, truncate = false): React.
     const key = `${keyPrefix}-${index}`;
     if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
       return (
-        <Text key={key} bold color="white" wrap={wrapProp}>
+        <Text key={key} bold color={theme.colors.text} wrap={wrapProp}>
           {part.slice(2, -2)}
         </Text>
       );
     }
     if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
       return (
-        <Text key={key} color="yellow" wrap={wrapProp}>
+        <Text key={key} color={theme.colors.warning} wrap={wrapProp}>
           {part.slice(1, -1)}
         </Text>
       );
@@ -76,7 +77,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
           const lang = trimmed.slice(3).trim();
           return (
             <Box key={`line-${lineIndex}`} marginY={0}>
-              <Text dimColor color="cyan" wrap={wrapProp}>
+              <Text dimColor color={theme.colors.accent} wrap={wrapProp}>
                 {insideCodeBlock ? `┌──[ code${lang ? `: ${lang}` : ''} ]` : '└──[ end ]'}
               </Text>
             </Box>
@@ -88,7 +89,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
           return (
             <Box key={`line-${lineIndex}`} paddingLeft={1}>
               <Text dimColor wrap={wrapProp}>│ </Text>
-              <Text color="cyan" wrap={wrapProp}>{line}</Text>
+              <Text color={theme.colors.accent} wrap={wrapProp}>{line}</Text>
             </Box>
           );
         }
@@ -106,7 +107,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
         if (/^[-*_]{3,}$/.test(trimmed)) {
           return (
             <Box key={`line-${lineIndex}`} marginY={0}>
-              <Text dimColor color="gray" wrap={wrapProp}>
+              <Text dimColor color={theme.colors.borderSubtle} wrap={wrapProp}>
                 ──────────────────────────────────────────────────
               </Text>
             </Box>
@@ -117,7 +118,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
         if (trimmed.startsWith('# ')) {
           return (
             <Box key={`line-${lineIndex}`} marginTop={lineIndex > 0 ? 1 : 0} marginBottom={0}>
-              <Text bold color="cyan" wrap={wrapProp}>
+              <Text bold color={theme.colors.primary} wrap={wrapProp}>
                 # {trimmed.slice(2)}
               </Text>
             </Box>
@@ -126,7 +127,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
         if (trimmed.startsWith('## ')) {
           return (
             <Box key={`line-${lineIndex}`} marginTop={lineIndex > 0 ? 1 : 0} marginBottom={0}>
-              <Text bold color="white" wrap={wrapProp}>
+              <Text bold color={theme.colors.text} wrap={wrapProp}>
                 ## {trimmed.slice(3)}
               </Text>
             </Box>
@@ -135,7 +136,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
         if (trimmed.startsWith('### ')) {
           return (
             <Box key={`line-${lineIndex}`} marginTop={0} marginBottom={0}>
-              <Text bold color="yellow" wrap={wrapProp}>
+              <Text bold color={theme.colors.warning} wrap={wrapProp}>
                 ### {trimmed.slice(4)}
               </Text>
             </Box>
@@ -144,7 +145,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
         if (trimmed.startsWith('#### ')) {
           return (
             <Box key={`line-${lineIndex}`} marginTop={0} marginBottom={0}>
-              <Text bold color="blue" wrap={wrapProp}>
+              <Text bold color={theme.colors.accent} wrap={wrapProp}>
                 #### {trimmed.slice(5)}
               </Text>
             </Box>
@@ -156,8 +157,8 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
           const quoteText = trimmed.replace(/^>\s?/, '');
           return (
             <Box key={`line-${lineIndex}`} paddingLeft={1}>
-              <Text color="gray" wrap={wrapProp}>│ </Text>
-              <Text italic color="gray" wrap={wrapProp}>
+              <Text color={theme.colors.borderSubtle} wrap={wrapProp}>│ </Text>
+              <Text italic color={theme.colors.muted} wrap={wrapProp}>
                 {renderInline(quoteText, `quote-${lineIndex}`, truncate)}
               </Text>
             </Box>
@@ -169,7 +170,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
           const listText = trimmed.replace(/^[-*+]\s+/, '');
           return (
             <Box key={`line-${lineIndex}`} paddingLeft={1}>
-              <Text color="cyan" wrap={wrapProp}>• </Text>
+              <Text color={theme.colors.accent} wrap={wrapProp}>• </Text>
               <Text wrap={wrapProp}>{renderInline(listText, `ul-${lineIndex}`, truncate)}</Text>
             </Box>
           );
@@ -182,7 +183,7 @@ export const MarkdownView: React.FC<MarkdownViewProps> = memo(({
           const listText = orderedMatch[2] ?? '';
           return (
             <Box key={`line-${lineIndex}`} paddingLeft={1}>
-              <Text color="cyan" wrap={wrapProp}>{num}. </Text>
+              <Text color={theme.colors.accent} wrap={wrapProp}>{num}. </Text>
               <Text wrap={wrapProp}>{renderInline(listText, `ol-${lineIndex}`, truncate)}</Text>
             </Box>
           );

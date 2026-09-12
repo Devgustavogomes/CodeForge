@@ -18,6 +18,7 @@ import { ConfigScreen } from './components/config/ConfigScreen.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
 import { useTerminalDimensions } from './hooks/useTerminalDimensions.js';
 import { AppContainer, createAppContainer } from '../../infrastructure/container.js';
+import { theme } from './theme.js';
 
 export interface AppProps {
   container?: AppContainer;
@@ -47,7 +48,7 @@ const QuitConfirmContent: React.FC<{
     <Box flexDirection="column" gap={1}>
       <Text color="white">Are you sure you want to quit CodeForge?</Text>
       <Box justifyContent="space-between" marginTop={1}>
-        <Text bold color="red">[y / Enter] Quit</Text>
+        <Text bold color={theme.colors.error}>[y / Enter] Quit</Text>
         <Text dimColor>[n / Esc] Cancel</Text>
       </Box>
     </Box>
@@ -124,7 +125,7 @@ const AppContent: React.FC<{
       <Box
         flexDirection="column"
         borderStyle="round"
-        borderColor="cyan"
+        borderColor={theme.colors.borderSubtle}
         paddingX={1}
         width="100%"
       >
@@ -186,7 +187,7 @@ const AppContent: React.FC<{
           title="Exit CodeForge"
           isOpen={true}
           onClose={nav.closeModal}
-          borderColor="red"
+          borderColor={theme.colors.error}
           width={50}
         >
           <QuitConfirmContent onConfirm={handleQuit} onCancel={nav.closeModal} />
@@ -198,7 +199,7 @@ const AppContent: React.FC<{
           title={String(nav.modal.type).replace(/_/g, ' ').toUpperCase()}
           isOpen={true}
           onClose={nav.closeModal}
-          borderColor="cyan"
+          borderColor={theme.colors.primary}
           width={54}
         >
           <Box flexDirection="column" paddingY={1}>

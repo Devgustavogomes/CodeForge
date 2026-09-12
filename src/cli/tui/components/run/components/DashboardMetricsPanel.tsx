@@ -6,7 +6,7 @@ import {
 } from "../../../context/ExecutionContext.js";
 import { TimerView } from "../../common/TimerView.js";
 import { Spinner } from "../../common/Spinner.js";
-import { renderProgressBar } from "../../../theme.js";
+import { renderProgressBar, theme } from "../../../theme.js";
 
 export { renderProgressBar };
 
@@ -50,10 +50,10 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           width="100%"
         >
           <Box justifyContent="space-between" width="100%">
-            <Text bold color="green">
+            <Text bold color={theme.colors.success}>
               ✓ Execution Completed Successfully
             </Text>
-            <Text color="green" bold>
+            <Text color={theme.colors.success} bold>
               Total Time:{" "}
               <TimerView
                 startTime={startedAt}
@@ -64,22 +64,22 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           </Box>
 
           <Box gap={2} marginY={0}>
-            <Text color="green" bold>
+            <Text color={theme.colors.success} bold>
               ✓ {completedCount}/{totalCount} tasks completed
             </Text>
-            <Text color="gray">│</Text>
-            <Text color="green">{failedCount} failures</Text>
+            <Text color={theme.colors.borderSubtle}>│</Text>
+            <Text color={theme.colors.success}>{failedCount} failures</Text>
           </Box>
 
           <Box gap={2} marginTop={0} flexWrap="wrap">
-            <Text bold color="cyan">
+            <Text bold color={theme.colors.primary}>
               [s] Choose another spec
             </Text>
-            <Text color="gray">│</Text>
-            <Text bold color="yellow">
+            <Text color={theme.colors.borderSubtle}>│</Text>
+            <Text bold color={theme.colors.warning}>
               [X] Reset all & Re-run
             </Text>
-            <Text color="gray">│</Text>
+            <Text color={theme.colors.borderSubtle}>│</Text>
             <Text dimColor>[Tab] Inspect logs</Text>
           </Box>
         </Box>
@@ -97,10 +97,10 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           width="100%"
         >
           <Box justifyContent="space-between" width="100%">
-            <Text bold color="red">
+            <Text bold color={theme.colors.error}>
               ✗ Execution Finished with Failures
             </Text>
-            <Text color="red" bold>
+            <Text color={theme.colors.error} bold>
               Total Time:{" "}
               <TimerView
                 startTime={startedAt}
@@ -111,30 +111,30 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           </Box>
 
           <Box gap={2} marginY={0} flexWrap="wrap">
-            <Text color="green" bold>
+            <Text color={theme.colors.success} bold>
               ✓ {completedCount} completed
             </Text>
-            <Text color="gray">│</Text>
-            <Text color="red" bold>
+            <Text color={theme.colors.borderSubtle}>│</Text>
+            <Text color={theme.colors.error} bold>
               ✗ {failedCount} failure{failedCount === 1 ? "" : "s"}
             </Text>
-            <Text color="gray">│</Text>
+            <Text color={theme.colors.borderSubtle}>│</Text>
             <Text dimColor>{pendingCount} remaining</Text>
           </Box>
 
           <Box gap={2} marginTop={0} flexWrap="wrap">
-            <Text bold color="red">
+            <Text bold color={theme.colors.error}>
               [R] Retry all failed
             </Text>
-            <Text color="gray">│</Text>
-            <Text bold color="green">
+            <Text color={theme.colors.borderSubtle}>│</Text>
+            <Text bold color={theme.colors.success}>
               [Enter] Resume
             </Text>
-            <Text color="gray">│</Text>
-            <Text bold color="yellow">
+            <Text color={theme.colors.borderSubtle}>│</Text>
+            <Text bold color={theme.colors.warning}>
               [r] Retry selected
             </Text>
-            <Text color="gray">│</Text>
+            <Text color={theme.colors.borderSubtle}>│</Text>
             <Text dimColor>[s] Specs</Text>
           </Box>
         </Box>
@@ -143,6 +143,14 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
 
     // Live Metrics Panel during run / idle
     const progressBar = renderProgressBar(completedCount, totalCount, 18);
+    const progressBarCloseIndex = progressBar.indexOf("]");
+    const progressBarBody = progressBar.slice(1, progressBarCloseIndex);
+    const firstEmptyIndex = progressBarBody.indexOf(theme.symbols.barEmpty);
+    const progressBarFilled =
+      firstEmptyIndex === -1 ? progressBarBody : progressBarBody.slice(0, firstEmptyIndex);
+    const progressBarEmpty =
+      firstEmptyIndex === -1 ? "" : progressBarBody.slice(firstEmptyIndex);
+    const progressBarLabel = progressBar.slice(progressBarCloseIndex + 1);
 
     return (
       <Box
@@ -154,12 +162,12 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
       >
         <Box justifyContent="space-between" width="100%">
           <Box gap={1}>
-            <Text bold color="cyan">
+            <Text bold color={theme.colors.primary}>
               {isRunning ? "Running" : "Spec"} [{specName}]
             </Text>
           </Box>
           <Box gap={1}>
-            <Text color="cyan">
+            <Text color={theme.colors.primary}>
               Time:{" "}
               <TimerView
                 startTime={startedAt}
@@ -167,39 +175,42 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
                 endTime={completedAt}
               />
             </Text>
-            {isRunning && <Spinner color="cyan" />}
+            {isRunning && <Spinner color={theme.colors.primary} />}
           </Box>
         </Box>
 
         <Box gap={2} marginY={0} flexWrap="wrap">
           <Box gap={1}>
             {isRunning ? (
-              <Spinner color="yellow" />
+              <Spinner color={theme.colors.warning} />
             ) : (
-              <Text color="yellow">-</Text>
+              <Text color={theme.colors.warning}>-</Text>
             )}
-            <Text color="yellow" bold>
+            <Text color={theme.colors.warning} bold>
               Parallel: {runningCount}
             </Text>
           </Box>
-          <Text color="gray">│</Text>
-          <Text color="green" bold>
+          <Text color={theme.colors.borderSubtle}>│</Text>
+          <Text color={theme.colors.success} bold>
             ✓ Completed: {completedCount}
           </Text>
-          <Text color="gray">│</Text>
-          <Text color="red" bold>
+          <Text color={theme.colors.borderSubtle}>│</Text>
+          <Text color={theme.colors.error} bold>
             ✗ Failed: {failedCount}
           </Text>
-          <Text color="gray">│</Text>
+          <Text color={theme.colors.borderSubtle}>│</Text>
           <Text dimColor>Remaining: {pendingCount}</Text>
         </Box>
 
         <Box marginTop={0} justifyContent="space-between" width="100%">
-          <Text bold color="cyan">
-            {progressBar}
+          <Text bold color={theme.colors.primary}>
+            [
+            <Text color={theme.colors.primary}>{progressBarFilled}</Text>
+            <Text color={theme.colors.bgEmpty}>{progressBarEmpty}</Text>
+            ]{progressBarLabel}
           </Text>
           {!isRunning && pendingCount > 0 && (
-            <Text bold color="green">
+            <Text bold color={theme.colors.success}>
               [Enter / Space] Start Run
             </Text>
           )}

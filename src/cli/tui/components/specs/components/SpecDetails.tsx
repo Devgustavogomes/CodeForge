@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Box, Text } from 'ink';
+import { theme } from '../../../theme.js';
 import { SpecItemWithStats, STATUS_BADGE_MAP } from './SpecList.js';
 
 export interface SpecDetailsProps {
@@ -24,11 +25,11 @@ export const SpecDetails: React.FC<SpecDetailsProps> = memo(({
       flexDirection="column"
       width={isSideBySide ? '55%' : '100%'}
       borderStyle="round"
-      borderColor="cyan"
+      borderColor={theme.colors.primary}
       paddingX={1}
     >
       <Box marginBottom={0}>
-        <Text bold color="cyan">
+        <Text bold color={theme.colors.primary}>
           Spec Details & Actions
         </Text>
       </Box>
@@ -38,7 +39,7 @@ export const SpecDetails: React.FC<SpecDetailsProps> = memo(({
           <Box justifyContent="space-between">
             <Box gap={1}>
               <Text bold>Name: </Text>
-              <Text bold color="cyan">
+              <Text bold color={theme.colors.primary}>
                 {spec.name}
               </Text>
             </Box>
@@ -71,19 +72,19 @@ export const SpecDetails: React.FC<SpecDetailsProps> = memo(({
               borderStyle="single"
               borderColor={
                 actionFeedback.type === 'success'
-                  ? 'green'
+                  ? theme.colors.success
                   : actionFeedback.type === 'error'
-                  ? 'red'
-                  : 'yellow'
+                  ? theme.colors.error
+                  : theme.colors.warning
               }
             >
               <Text
                 color={
                   actionFeedback.type === 'success'
-                    ? 'green'
+                    ? theme.colors.success
                     : actionFeedback.type === 'error'
-                    ? 'red'
-                    : 'yellow'
+                    ? theme.colors.error
+                    : theme.colors.warning
                 }
                 bold
                 wrap="truncate-end"
@@ -96,11 +97,11 @@ export const SpecDetails: React.FC<SpecDetailsProps> = memo(({
           {/* Validation errors */}
           {validationErrors && validationErrors.length > 0 && (
             <Box flexDirection="column" marginY={0}>
-              <Text color="red" bold>
+              <Text color={theme.colors.error} bold>
                 Errors ({validationErrors.length}):
               </Text>
               {validationErrors.slice(0, 2).map((err, i) => (
-                <Text key={i} color="red" dimColor wrap="truncate-end">
+                <Text key={i} color={theme.colors.error} dimColor wrap="truncate-end">
                   • {err}
                 </Text>
               ))}
@@ -113,7 +114,7 @@ export const SpecDetails: React.FC<SpecDetailsProps> = memo(({
           {/* Status indicators */}
           {isValidating && (
             <Box marginY={0}>
-              <Text color="yellow">🔍 Validating plan dependency DAG...</Text>
+              <Text color={theme.colors.warning}>🔍 Validating plan dependency DAG...</Text>
             </Box>
           )}
 

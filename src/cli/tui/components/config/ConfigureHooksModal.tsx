@@ -8,6 +8,7 @@ import { useConfigureHooksModal } from './hooks/useConfigureHooksModal.js';
 import { CodeForgeConfig } from '../../../../config/types.js';
 import { ConfigService } from '../../../../config/ConfigService.js';
 import { HookMap } from '../../../../domain/hook.js';
+import { theme } from '../../theme.js';
 
 export interface ConfigureHooksModalProps {
   isOpen?: boolean;
@@ -86,7 +87,7 @@ export const ConfigureHooksModal: React.FC<ConfigureHooksModalProps> = ({
       title={modalTitle}
       isOpen={isOpen}
       width={responsiveWidth}
-      borderColor="cyan"
+      borderColor={theme.colors.primary}
     >
       <Box flexDirection="column" width="100%">
         {/* Nível 1: Lista de Eventos */}
@@ -132,17 +133,17 @@ export const ConfigureHooksModal: React.FC<ConfigureHooksModalProps> = ({
           <Box
             marginTop={1}
             borderStyle="single"
-            borderColor={feedbackMessage.startsWith('✔') ? 'green' : 'red'}
+            borderColor={feedbackMessage.startsWith('✔') ? theme.colors.success : theme.colors.error}
             paddingX={1}
             justifyContent="space-between"
           >
             <Text
-              color={feedbackMessage.startsWith('✔') ? 'green' : 'red'}
+              color={feedbackMessage.startsWith('✔') ? theme.colors.success : theme.colors.error}
               bold
             >
               {feedbackMessage}
             </Text>
-            <Text dimColor>[Auto-Save]</Text>
+            <Text color={theme.colors.muted}>[Auto-Save]</Text>
           </Box>
         )}
       </Box>

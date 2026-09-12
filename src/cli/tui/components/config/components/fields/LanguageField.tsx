@@ -2,6 +2,7 @@
 import { Box, Text } from 'ink';
 import { SupportedLanguage } from '../../../../../../config/types.js';
 import type { ConfigFieldProps } from '../ConfigField.js';
+import { theme } from '../../../../theme.js';
 
 export const LANGUAGES: SupportedLanguage[] = ['en', 'pt', 'es'];
 
@@ -12,7 +13,7 @@ export const LanguageField: React.FC<ConfigFieldProps> = ({
   return (
     <Box width="100%">
       <Box gap={1}>
-        <Text bold color={isActive ? 'cyan' : 'white'}>
+        <Text bold color={isActive ? theme.colors.primary : theme.colors.text}>
           1. Language (i18n):
         </Text>
         <Box gap={1}>
@@ -21,7 +22,7 @@ export const LanguageField: React.FC<ConfigFieldProps> = ({
             return (
               <Text
                 key={lang}
-                color={isSelected ? 'cyan' : 'gray'}
+                color={isSelected ? theme.colors.primary : theme.colors.muted}
                 bold={isSelected}
               >
                 {isSelected ? `● [${lang}]` : `○ ${lang}`}

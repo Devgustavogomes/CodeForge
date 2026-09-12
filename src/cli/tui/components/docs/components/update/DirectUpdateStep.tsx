@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Box, Text } from 'ink';
 import { translate } from '../../../../../ui/i18n.js';
 import { SupportedLanguage } from '../../../../../../config/types.js';
+import { theme } from '../../../../theme.js';
 
 export interface DirectUpdateStepProps {
   docName?: string;
@@ -36,38 +37,38 @@ export const DirectUpdateStep: React.FC<DirectUpdateStepProps> = memo(({
     <Box flexDirection="column" width={width} gap={1}>
       {/* Documento Alvo */}
       <Box flexDirection="row" gap={1}>
-        <Text bold color="white">{translate('tui_docs_direct_target_doc', language)}</Text>
-        <Text bold color="cyan">{formattedDoc}</Text>
+        <Text bold color={theme.colors.text}>{translate('tui_docs_direct_target_doc', language)}</Text>
+        <Text bold color={theme.colors.primary}>{formattedDoc}</Text>
       </Box>
 
       {/* Seletor Horizontal de Especificações */}
       <Box flexDirection="row" gap={1} flexWrap="wrap">
-        <Text bold color="white">{translate('tui_docs_direct_ref_spec', language)}</Text>
+        <Text bold color={theme.colors.text}>{translate('tui_docs_direct_ref_spec', language)}</Text>
         {availableSpecs.length > 0 ? (
           <Box>
-            <Text color="gray">[</Text>
+            <Text color={theme.colors.borderSubtle}>[</Text>
             {availableSpecs.map((spec, idx) => {
               const isSelected = spec === effectiveSelectedSpec;
               const marker = isSelected ? '●' : '○';
               return (
                 <React.Fragment key={spec}>
                   {idx > 0 && <Text>  </Text>}
-                  <Text bold={isSelected} color={isSelected ? 'cyan' : 'gray'}>
+                  <Text bold={isSelected} color={isSelected ? theme.colors.primary : theme.colors.muted}>
                     {marker} {spec}
                   </Text>
                 </React.Fragment>
               );
             })}
-            <Text color="gray">]</Text>
+            <Text color={theme.colors.borderSubtle}>]</Text>
           </Box>
         ) : (
-          <Text dimColor>{translate('tui_docs_direct_no_specs', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_direct_no_specs', language)}</Text>
         )}
       </Box>
 
       {/* Descrição informativa */}
       <Box>
-        <Text color="gray">
+        <Text color={theme.colors.muted}>
           {translate('tui_docs_direct_desc', language)}
         </Text>
       </Box>
@@ -75,12 +76,12 @@ export const DirectUpdateStep: React.FC<DirectUpdateStepProps> = memo(({
       {/* Feedback de loading ou erro */}
       {isLoading && (
         <Box>
-          <Text color="yellow">{translate('tui_docs_direct_loading', language)}</Text>
+          <Text color={theme.colors.warning}>{translate('tui_docs_direct_loading', language)}</Text>
         </Box>
       )}
       {error && (
         <Box>
-          <Text color="red" bold>✗ {error}</Text>
+          <Text color={theme.colors.error} bold>✗ {error}</Text>
         </Box>
       )}
 
@@ -88,13 +89,13 @@ export const DirectUpdateStep: React.FC<DirectUpdateStepProps> = memo(({
       <Box
         marginTop={1}
         borderStyle="single"
-        borderColor="gray"
+        borderColor={theme.colors.borderSubtle}
         paddingX={1}
         width="100%"
       >
         <Text>
-          <Text dimColor>{translate('tui_docs_direct_shortcuts', language)}</Text>
-          <Text bold color="red">{translate('tui_docs_direct_back', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_direct_shortcuts', language)}</Text>
+          <Text bold color={theme.colors.error}>{translate('tui_docs_direct_back', language)}</Text>
         </Text>
       </Box>
     </Box>

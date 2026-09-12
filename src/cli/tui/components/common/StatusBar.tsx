@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { TabId, useNavigation } from '../../context/NavigationContext.js';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
+import { theme } from '../../theme.js';
 
 export interface StatusBarProps {
   activeTab?: TabId;
@@ -61,7 +62,9 @@ export const StatusBar: React.FC<StatusBarProps> = React.memo(({
     hintText = DEFAULT_HINTS[currentTab] ?? '';
   }
 
-  const effectiveBorderColor = borderColor ?? (error ? 'red' : 'gray');
+  const effectiveBorderColor = error
+    ? theme.colors.error
+    : borderColor ?? theme.colors.borderSubtle;
   const isNoneBorder = borderStyle === 'none';
 
   return (
@@ -82,11 +85,11 @@ export const StatusBar: React.FC<StatusBarProps> = React.memo(({
 
       <Box flexShrink={0} paddingLeft={1}>
         {error ? (
-          <Text color="red" bold>
+          <Text color={theme.colors.error} bold>
             ✗ {error}
           </Text>
         ) : status ? (
-          <Text color="green">
+          <Text color={theme.colors.success}>
             ● {status}
           </Text>
         ) : null}

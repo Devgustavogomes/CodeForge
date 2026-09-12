@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import { theme } from '../../../theme.js';
 
 export interface PullProviderSelectorProps {
   providers: readonly string[];
@@ -19,7 +20,7 @@ export const PullProviderSelector: React.FC<PullProviderSelectorProps> = ({
   return (
     <Box justifyContent="space-between" width="100%" marginBottom={0}>
       <Box gap={1} flexShrink={1}>
-        <Text bold color={isFocused ? 'cyan' : 'white'}>
+        <Text bold color={isFocused ? theme.colors.primary : theme.colors.text}>
           1. Source Provider:
         </Text>
         <Box gap={1}>
@@ -28,7 +29,7 @@ export const PullProviderSelector: React.FC<PullProviderSelectorProps> = ({
             return (
               <Text
                 key={p}
-                color={isCurrent ? 'cyan' : 'gray'}
+                color={isCurrent ? theme.colors.primary : theme.colors.muted}
                 bold={isCurrent}
               >
                 {isCurrent ? `● [${p}]` : `○ ${p}`}

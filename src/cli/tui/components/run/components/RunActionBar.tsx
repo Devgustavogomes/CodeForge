@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Box, Text } from 'ink';
 import { ExecutionStatus } from '../../../context/ExecutionContext.js';
+import { theme } from '../../../theme.js';
 import { DashboardPanel } from '../hooks/useRunDashboard.js';
 
 export interface RunActionFeedback {
@@ -17,10 +18,10 @@ export interface RunActionBarProps {
   actionFeedback?: RunActionFeedback | string | null;
 }
 
-const feedbackColor = (type?: RunActionFeedback['type']): 'yellow' | 'green' | 'red' => {
-  if (type === 'success') return 'green';
-  if (type === 'error') return 'red';
-  return 'yellow';
+const feedbackColor = (type?: RunActionFeedback['type']) => {
+  if (type === 'success') return theme.colors.success;
+  if (type === 'error') return theme.colors.error;
+  return theme.colors.warning;
 };
 
 /** Barra puramente visual das acoes contextuais da tela Run. */

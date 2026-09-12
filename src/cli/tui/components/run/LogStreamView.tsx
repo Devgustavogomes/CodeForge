@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useExecution } from '../../context/ExecutionContext.js';
+import { theme } from '../../theme.js';
 
 export interface LogStreamViewProps {
   taskId?: string | null;
@@ -152,7 +153,7 @@ const LogStreamViewPresenter: React.FC<LogStreamViewProps> = React.memo(({
     );
   }, [logs, effectiveScrollStartIndex, maxVisibleLines]);
 
-  const effectiveBorderColor = borderColor ?? (isFocused ? 'cyan' : 'gray');
+  const effectiveBorderColor = borderColor ?? (isFocused ? theme.colors.borderActive : theme.colors.borderSubtle);
   const totalLines = logs.length;
   const startLine = totalLines > 0 ? effectiveScrollStartIndex + 1 : 0;
   const endLine = Math.min(totalLines, effectiveScrollStartIndex + maxVisibleLines);
@@ -179,21 +180,21 @@ const LogStreamViewPresenter: React.FC<LogStreamViewProps> = React.memo(({
       {/* Header bar */}
       <Box justifyContent="space-between" width="100%" marginBottom={0} flexShrink={0}>
         <Box gap={1} flexShrink={0}>
-          <Text bold color={isFocused ? 'cyan' : 'gray'}>
+          <Text bold color={isFocused ? theme.colors.primary : theme.colors.muted}>
             {isFocused ? '● ' : '  '}{displayTitle}
           </Text>
           <Text dimColor>({totalLines} lines)</Text>
         </Box>
 
         <Box gap={1} flexShrink={1}>
-          <Text dimColor color={isWrapEnabled ? 'white' : 'gray'} wrap="truncate-end">
+          <Text dimColor color={isWrapEnabled ? theme.colors.text : theme.colors.muted} wrap="truncate-end">
             [Wrap: {isWrapEnabled ? 'ON' : 'OFF'}]
           </Text>
-          <Text color="gray">│</Text>
+          <Text color={theme.colors.borderSubtle}>│</Text>
           {isAutoScrollEnabled ? (
-            <Text color="green" wrap="truncate-end">[Auto-scroll: ON]</Text>
+            <Text color={theme.colors.success} wrap="truncate-end">[Auto-scroll: ON]</Text>
           ) : (
-            <Text color="yellow" wrap="truncate-end">
+            <Text color={theme.colors.warning} wrap="truncate-end">
               [PAUSED: {startLine}-{endLine}/{totalLines}]
             </Text>
           )}
@@ -203,7 +204,7 @@ const LogStreamViewPresenter: React.FC<LogStreamViewProps> = React.memo(({
       {/* Scroll indicator: Lines above */}
       {linesAbove > 0 && (
         <Box justifyContent="center" width="100%" flexShrink={0}>
-          <Text dimColor color="yellow" wrap="truncate-end">
+          <Text dimColor color={theme.colors.warning} wrap="truncate-end">
             ▲ {linesAbove} line{linesAbove === 1 ? '' : 's'} above (press 'g' for top)
           </Text>
         </Box>
@@ -223,14 +224,14 @@ const LogStreamViewPresenter: React.FC<LogStreamViewProps> = React.memo(({
 
             const trimmed = line.trimStart();
             if (/^(\[ERROR\]|error:|fatal:|stderr:|Exception)/i.test(trimmed)) {
-              color = 'red';
+              color = theme.colors.error;
               bold = true;
             } else if (/^(\[WARN\]|\[WARNING\]|warning:)/i.test(trimmed)) {
-              color = 'yellow';
+              color = theme.colors.warning;
             } else if (/^(\[INFO\]|info:)/i.test(trimmed)) {
-              color = 'cyan';
+              color = theme.colors.accent;
             } else if (/^(\[SUCCESS\]|success:|✓)/i.test(trimmed)) {
-              color = 'green';
+              color = theme.colors.success;
               bold = true;
             } else if (/^(\d{4}-\d{2}-\d{2}|\[\d{2}:\d{2}:\d{2}\])/.test(trimmed)) {
               dimColor = true;
@@ -254,7 +255,7 @@ const LogStreamViewPresenter: React.FC<LogStreamViewProps> = React.memo(({
       {/* Scroll indicator: Lines below */}
       {linesBelow > 0 && !isAutoScrollEnabled && (
         <Box justifyContent="center" width="100%" flexShrink={0}>
-          <Text dimColor color="yellow" wrap="truncate-end">
+          <Text dimColor color={theme.colors.warning} wrap="truncate-end">
             ▼ {linesBelow} line{linesBelow === 1 ? '' : 's'} below (press 'G' to resume)
           </Text>
         </Box>

@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { SpecInfo } from '../../../../../application/use-cases/ListSpecsUseCase.js';
+import { theme } from '../../../theme.js';
 
 export interface SpecItemWithStats extends SpecInfo {
   taskCount: number;
@@ -8,10 +9,10 @@ export interface SpecItemWithStats extends SpecInfo {
 }
 
 export const STATUS_BADGE_MAP: Record<string, { label: string; color: string }> = {
-  not_started: { label: '[NOT STARTED]', color: 'gray' },
-  planned: { label: '[PLANNED]', color: 'blue' },
-  in_progress: { label: '[IN PROGRESS]', color: 'yellow' },
-  completed: { label: '[COMPLETED]', color: 'green' },
+  not_started: { label: '[NOT STARTED]', color: theme.colors.muted },
+  planned: { label: '[PLANNED]', color: theme.colors.primary },
+  in_progress: { label: '[IN PROGRESS]', color: theme.colors.warning },
+  completed: { label: '[COMPLETED]', color: theme.colors.success },
 };
 
 export interface SpecListProps {
@@ -43,11 +44,11 @@ export const SpecList: React.FC<SpecListProps> = memo(({
       flexDirection="column"
       width={isSideBySide ? '45%' : '100%'}
       borderStyle="round"
-      borderColor="blue"
+      borderColor={theme.colors.primary}
       paddingX={1}
     >
       <Box justifyContent="space-between" marginBottom={0}>
-        <Text bold color="blue">
+        <Text bold color={theme.colors.primary}>
           Specifications ({specs.length})
         </Text>
         <Text dimColor>[c] Create · [P] Pull</Text>
@@ -64,17 +65,17 @@ export const SpecList: React.FC<SpecListProps> = memo(({
             const isSelected = selectedSpec?.name === spec.name;
             const badge = STATUS_BADGE_MAP[spec.status] ?? {
               label: `[${spec.status.toUpperCase()}]`,
-              color: 'gray',
+              color: theme.colors.muted,
             };
 
             return (
               <Box key={spec.name} justifyContent="space-between" width="100%">
                 <Box gap={1} flexShrink={1}>
-                  <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+                  <Text color={isSelected ? theme.colors.primary : undefined} bold={isSelected}>
                     {isSelected ? '>' : ' '}
                   </Text>
                   <Box width={14}>
-                    <Text bold={isSelected} color={isSelected ? 'cyan' : 'white'} wrap="truncate-end">
+                    <Text bold={isSelected} color={isSelected ? theme.colors.primary : theme.colors.text} wrap="truncate-end">
                       {spec.name}
                     </Text>
                   </Box>

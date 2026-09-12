@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import { theme } from '../../../theme.js';
 
 export interface ConfigFeedbackProps {
   feedback: {
@@ -12,7 +13,7 @@ export interface ConfigFeedbackProps {
 export const UnsavedChangesNotice: React.FC<{ isDirty?: boolean }> = ({ isDirty }) => {
   if (!isDirty) return null;
   return (
-    <Text color="yellow" bold>
+    <Text color={theme.colors.warning} bold>
       ● Unsaved Changes
     </Text>
   );
@@ -21,10 +22,10 @@ export const UnsavedChangesNotice: React.FC<{ isDirty?: boolean }> = ({ isDirty 
 export const ConfigFeedback: React.FC<ConfigFeedbackProps> = ({ feedback, isDirty }) => {
   const color =
     feedback?.type === 'success'
-      ? 'green'
+      ? theme.colors.success
       : feedback?.type === 'error'
-        ? 'red'
-        : 'yellow';
+        ? theme.colors.error
+        : theme.colors.warning;
 
   return (
     <Box flexDirection="column" width="100%">

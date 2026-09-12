@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { TaskItem, useExecution } from "../../context/ExecutionContext.js";
+import { theme } from "../../theme.js";
 import { formatDuration, STATUS_CONFIG } from "./TaskList.js";
 
 export interface TaskDetailsProps {
@@ -56,21 +57,21 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
     const effectiveBorderColor =
       borderColor ??
       (task?.status === "failed"
-        ? "red"
+        ? theme.colors.error
         : task?.status === "running"
-          ? "cyan"
-          : "gray");
+          ? theme.colors.borderActive
+          : theme.colors.borderSubtle);
 
     if (!task) {
       return (
         <Box
           flexDirection="column"
           borderStyle={borderStyle === "none" ? undefined : borderStyle}
-          borderColor={borderStyle === "none" ? undefined : "gray"}
+          borderColor={borderStyle === "none" ? undefined : theme.colors.borderSubtle}
           paddingX={borderStyle === "none" ? 0 : 1}
           width="100%"
         >
-          <Text bold color="gray">
+          <Text bold color={theme.colors.muted}>
             Task Details
           </Text>
           <Box paddingY={0}>
@@ -102,11 +103,11 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
         >
           <Box justifyContent="space-between" width="100%">
             <Box gap={1} flexShrink={1}>
-              <Text bold color="cyan">
+              <Text bold color={theme.colors.primary}>
                 {task.id}
               </Text>
-              <Text color="gray">│</Text>
-              <Text bold color="white" wrap="truncate-end">
+              <Text color={theme.colors.borderSubtle}>│</Text>
+              <Text bold color={theme.colors.text} wrap="truncate-end">
                 {task.title}
               </Text>
             </Box>
@@ -114,7 +115,7 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
               <Text color={statusCfg.color} bold>
                 [{task.status.toUpperCase()}]
               </Text>
-              <Text color="gray">│</Text>
+              <Text color={theme.colors.borderSubtle}>│</Text>
               <Text dimColor>{duration}</Text>
             </Box>
           </Box>
@@ -122,7 +123,7 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
           {Boolean(task.objective) && (
             <Box marginTop={0}>
               <Text dimColor wrap="wrap">
-                <Text color="gray">Objective: </Text>
+                <Text color={theme.colors.muted}>Objective: </Text>
                 {task.objective}
               </Text>
             </Box>
@@ -130,7 +131,7 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
 
           {latestError && (
             <Box marginTop={0} width="100%" overflow="hidden">
-              <Text color="red" wrap="truncate-end">
+              <Text color={theme.colors.error} wrap="truncate-end">
                 <Text bold>
                   ✗ {errors.length > 1 ? `${errors.length} errors` : "Error"}{" "}
                 </Text>
@@ -143,7 +144,7 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
           {errors.length === 0 && files.length > 0 && (
             <Box marginTop={0}>
               <Text dimColor wrap="truncate-end">
-                <Text color="gray">Files ({files.length}): </Text>
+                <Text color={theme.colors.muted}>Files ({files.length}): </Text>
                 {displayedFiles.join(", ")}
                 {remainingFilesCount > 0 ? ` (+${remainingFilesCount})` : ""}
               </Text>
@@ -167,11 +168,11 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
         {/* Title & Status Badge */}
         <Box justifyContent="space-between" width="100%">
           <Box gap={1} flexShrink={1}>
-            <Text bold color="cyan">
+            <Text bold color={theme.colors.primary}>
               {task.id}
             </Text>
-            <Text color="gray">│</Text>
-            <Text bold color="white" wrap="wrap">
+            <Text color={theme.colors.borderSubtle}>│</Text>
+            <Text bold color={theme.colors.text} wrap="wrap">
               {task.title}
             </Text>
           </Box>
@@ -187,14 +188,14 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
           <Box
             flexDirection="column"
             borderStyle="round"
-            borderColor="gray"
+            borderColor={theme.colors.borderSubtle}
             paddingX={1}
             marginY={0}
           >
-            <Text bold color="yellow">
+            <Text bold color={theme.colors.accent}>
               Objective:
             </Text>
-            <Text color="white" wrap="wrap">
+            <Text color={theme.colors.text} wrap="wrap">
               {task.objective}
             </Text>
           </Box>
@@ -203,19 +204,19 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
         {/* Dependencies & Timing Diagnostics */}
         <Box justifyContent="space-between" width="100%">
           <Box gap={1} flexShrink={1}>
-            <Text bold color="blue">
+            <Text bold color={theme.colors.accent}>
               Deps:
             </Text>
-            <Text color="gray" wrap="wrap">
+            <Text color={theme.colors.muted} wrap="wrap">
               {dependencies.length > 0 ? dependencies.join(", ") : "None"}
             </Text>
           </Box>
 
           <Box gap={1} flexShrink={0} paddingLeft={1}>
-            <Text bold color="gray">
+            <Text bold color={theme.colors.muted}>
               Duration:
             </Text>
-            <Text color="white">{duration}</Text>
+            <Text color={theme.colors.text}>{duration}</Text>
             {task.startedAt && (
               <Text dimColor>
                 ({new Date(task.startedAt).toLocaleTimeString()})
@@ -227,7 +228,7 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
         {/* Files */}
         {files.length > 0 && (
           <Box flexDirection="column">
-            <Text bold color="magenta">
+            <Text bold color={theme.colors.accent}>
               Files ({files.length}):
             </Text>
             {displayedFiles.map((file, idx) => (
@@ -249,16 +250,16 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
           <Box
             flexDirection="column"
             borderStyle="round"
-            borderColor="red"
-            backgroundColor="red"
+            borderColor={theme.colors.error}
+            backgroundColor={theme.colors.error}
             paddingX={1}
             marginTop={0}
           >
-            <Text bold color="white">
+            <Text bold color={theme.colors.text}>
               ✗ Error Diagnostic:
             </Text>
             {errors.slice(-maxErrorLines).map((err, idx) => (
-              <Text key={idx} color="white" wrap="wrap">
+              <Text key={idx} color={theme.colors.text} wrap="wrap">
                 {err}
               </Text>
             ))}

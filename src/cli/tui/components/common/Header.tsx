@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { useExecution } from '../../context/ExecutionContext.js';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
+import { theme } from '../../theme.js';
 
 export interface HeaderProps {
   title?: string;
@@ -29,11 +30,11 @@ export function areHeaderPropsEqual(prev: HeaderProps, next: HeaderProps): boole
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
-  title = '</> CodeForge',
+  title = '⚒ CodeForge',
   activeSpec: propActiveSpec,
   breadcrumb,
   shortcuts,
-  borderColor = 'cyan',
+  borderColor = theme.colors.borderSubtle,
   borderStyle = 'round',
 }) => {
   const exec = useExecution();
@@ -54,12 +55,12 @@ export const Header: React.FC<HeaderProps> = React.memo(({
       width="100%"
     >
       <Box gap={1}>
-        <Text bold color="cyan">
+        <Text bold color={theme.colors.primary}>
           {title}
         </Text>
         {breakpoint !== 'minimal' && (
           <>
-            <Text color="gray">│</Text>
+            <Text color={theme.colors.borderSubtle}>│</Text>
             <Text color="white">{displayBreadcrumb}</Text>
           </>
         )}

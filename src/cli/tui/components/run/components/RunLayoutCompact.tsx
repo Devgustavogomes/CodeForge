@@ -1,6 +1,7 @@
 import React, { memo } from "react";
 import { Box, Text } from "ink";
 import { useTerminalDimensions } from "../../../hooks/useTerminalDimensions.js";
+import { theme } from "../../../theme.js";
 import {
   TaskItem,
   ExecutionStatus,
@@ -89,14 +90,14 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
           <Box gap={1}>
             <Text
               bold={focusedPanel === "tasks"}
-              color={focusedPanel === "tasks" ? "cyan" : "gray"}
+              color={focusedPanel === "tasks" ? theme.colors.primary : theme.colors.muted}
             >
               [Tasks]
             </Text>
-            <Text color="gray">│</Text>
+            <Text color={theme.colors.borderSubtle}>│</Text>
             <Text
               bold={focusedPanel === "logs"}
-              color={focusedPanel === "logs" ? "cyan" : "gray"}
+              color={focusedPanel === "logs" ? theme.colors.primary : theme.colors.muted}
             >
               [Logs & Details]
             </Text>

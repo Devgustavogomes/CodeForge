@@ -16,6 +16,7 @@ import { ConfigureHooksModal } from './ConfigureHooksModal.js';
 import { ConfigureSpecSourceModal } from './ConfigureSpecSourceModal.js';
 import { useConfigScreen } from './hooks/useConfigScreen.js';
 import { useConfigHotkeys } from './hooks/useConfigHotkeys.js';
+import { theme } from '../../theme.js';
 
 export type { ConfigFieldKey };
 export { FIELD_ORDER, LANGUAGES };
@@ -103,13 +104,13 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
           flexDirection="column"
           width={isSideBySide ? '55%' : '100%'}
           borderStyle="round"
-          borderColor="white"
+          borderColor={theme.colors.borderSubtle}
           paddingX={1}
           paddingY={1}
         >
           <Box justifyContent="space-between" marginBottom={1}>
-            <Text bold color="white">CodeForge Configuration Editor</Text>
-            {isDirty && <Text color="yellow" bold>● Unsaved Changes</Text>}
+            <Text bold color={theme.colors.text}>CodeForge Configuration Editor</Text>
+            {isDirty && <Text color={theme.colors.warning} bold>● Unsaved Changes</Text>}
           </Box>
 
           <ConfigFeedback feedback={feedback} />

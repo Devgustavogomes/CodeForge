@@ -6,6 +6,7 @@ import { useConfigureSpecSourceModal } from './hooks/useConfigureSpecSourceModal
 import { CodeForgeConfig } from '../../../../config/types.js';
 import { ConfigService } from '../../../../config/ConfigService.js';
 import { SpecSourceConfig } from '../../../../domain/spec-source.js';
+import { theme } from '../../theme.js';
 
 export interface ConfigureSpecSourceModalProps {
   isOpen?: boolean;
@@ -61,7 +62,7 @@ export const ConfigureSpecSourceModal: React.FC<ConfigureSpecSourceModalProps> =
       title="Configuração de Spec Source"
       isOpen={isOpen}
       width={width}
-      borderColor="cyan"
+      borderColor={theme.colors.primary}
     >
       <Box flexDirection="column" width="100%">
         <SpecSourceForm
@@ -85,17 +86,17 @@ export const ConfigureSpecSourceModal: React.FC<ConfigureSpecSourceModalProps> =
           <Box
             marginTop={1}
             borderStyle="single"
-            borderColor={feedbackMessage.startsWith('✔') ? 'green' : 'red'}
+            borderColor={feedbackMessage.startsWith('✔') ? theme.colors.success : theme.colors.error}
             paddingX={1}
             justifyContent="space-between"
           >
             <Text
-              color={feedbackMessage.startsWith('✔') ? 'green' : 'red'}
+              color={feedbackMessage.startsWith('✔') ? theme.colors.success : theme.colors.error}
               bold
             >
               {feedbackMessage}
             </Text>
-            <Text dimColor>[Auto-Save]</Text>
+            <Text color={theme.colors.muted}>[Auto-Save]</Text>
           </Box>
         )}
       </Box>

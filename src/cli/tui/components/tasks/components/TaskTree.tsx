@@ -10,10 +10,26 @@ export const STATUS_ICONS: Record<
   TaskStatus,
   { icon: string; color: string; label: string }
 > = {
-  pending: { icon: '○', color: 'gray', label: '[PENDING]' },
-  running: { icon: '▶', color: 'cyan', label: '[RUNNING]' },
-  completed: { icon: '√', color: 'green', label: '[COMPLETED]' },
-  failed: { icon: '×', color: 'red', label: '[FAILED]' },
+  pending: {
+    icon: theme.status.pending.icon,
+    color: theme.status.pending.color,
+    label: '[PENDING]',
+  },
+  running: {
+    icon: theme.status.running.icon,
+    color: theme.status.running.color,
+    label: '[RUNNING]',
+  },
+  completed: {
+    icon: theme.status.completed.icon,
+    color: theme.status.completed.color,
+    label: '[COMPLETED]',
+  },
+  failed: {
+    icon: theme.status.failed.icon,
+    color: theme.status.failed.color,
+    label: '[FAILED]',
+  },
 };
 
 export interface TaskTreeProps {
@@ -50,32 +66,32 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
       flexDirection="column"
       width={isSideBySide ? '45%' : '100%'}
       borderStyle="round"
-      borderColor="yellow"
+      borderColor={theme.colors.borderSubtle}
       paddingX={1}
     >
       <Box justifyContent="space-between" marginBottom={1}>
         <Box gap={1} flexShrink={1}>
-          <Text bold color="yellow">
+          <Text bold color={theme.colors.primary}>
             Tasks ({tasks.length})
           </Text>
           {specs.length > 0 ? (
             <Box gap={1} flexShrink={1}>
-              <Text color="yellow" bold>
+              <Text color={theme.colors.accent} bold>
                 ● [{currentSpec}]
               </Text>
               {specs.length > 1 && (
-                <Text dimColor>
+                <Text color={theme.colors.muted}>
                   ({selectedSpecIndex + 1}/{specs.length})
                 </Text>
               )}
             </Box>
           ) : (
-            <Text dimColor>• No Spec</Text>
+            <Text color={theme.colors.muted}>• No Spec</Text>
           )}
         </Box>
         <Box flexShrink={0} gap={1}>
-          <Text dimColor>[/] Search</Text>
-          <Text dimColor>[←/→]</Text>
+          <Text color={theme.colors.muted}>[/] Search</Text>
+          <Text color={theme.colors.muted}>[←/→]</Text>
         </Box>
       </Box>
 
@@ -85,24 +101,24 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
           marginBottom={1}
           paddingX={1}
           borderStyle="single"
-          borderColor="yellow"
+          borderColor={theme.colors.borderActive}
           flexDirection="column"
         >
           <Box gap={1}>
-            <Text bold color="yellow">Search:</Text>
-            <Text color="white" bold>
+            <Text bold color={theme.colors.primary}>Search:</Text>
+            <Text color={theme.colors.text} bold>
               {specSearchQuery}█
             </Text>
           </Box>
           <Box justifyContent="flex-end">
-            <Text dimColor>[Enter] Done  [Esc] Clear</Text>
+            <Text color={theme.colors.muted}>[Enter] Done  [Esc] Clear</Text>
           </Box>
         </Box>
       )}
 
       {tasks.length === 0 ? (
         <Box paddingY={2} justifyContent="center">
-          <Text dimColor>No tasks found for spec "{currentSpec}".</Text>
+          <Text color={theme.colors.muted}>No tasks found for spec "{currentSpec}".</Text>
         </Box>
       ) : (
         <Box flexDirection="column">
@@ -119,7 +135,7 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
                 <Box gap={1} flexShrink={1}>
                   {/* Selector indicator */}
                   <Box flexShrink={0}>
-                    <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+                    <Text color={isSelected ? theme.colors.primary : undefined} bold={isSelected}>
                       {isSelected ? theme.symbols.pointer : ' '}
                     </Text>
                   </Box>
@@ -136,7 +152,7 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
 
                   {/* Title */}
                   <Text
-                    color={isSelected ? 'cyan' : 'white'}
+                    color={isSelected ? theme.colors.primary : theme.colors.text}
                     wrap="truncate-end"
                   >
                     {task.title}

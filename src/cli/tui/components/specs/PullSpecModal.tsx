@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { Modal } from '../common/Modal.js';
+import { theme } from '../../theme.js';
 import {
   usePullSpecModal,
   UsePullSpecModalOptions,
@@ -45,13 +46,13 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
       isOpen={isOpen}
       onClose={modal.handleClose}
       width={width}
-      borderColor="blue"
+      borderColor={theme.colors.primary}
     >
       <Box flexDirection="column" width="100%">
         {/* Provider info (read-only from config) */}
         <Box marginBottom={0}>
           <Text bold>Source: </Text>
-          <Text color="cyan" bold>{modal.selectedProvider}</Text>
+          <Text color={theme.colors.primary} bold>{modal.selectedProvider}</Text>
         </Box>
 
         <PullItemList
@@ -73,7 +74,7 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
 
         {modal.errorMessage && (
           <Box marginBottom={0}>
-            <Text color="red" bold wrap="truncate-end">
+            <Text color={theme.colors.error} bold wrap="truncate-end">
               ✗ {modal.errorMessage}
             </Text>
           </Box>
@@ -81,7 +82,7 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
 
         {modal.isLoading && (
           <Box marginBottom={0}>
-            <Text color="yellow">
+            <Text color={theme.colors.warning}>
               Fetching specification from {modal.selectedProvider}...
             </Text>
           </Box>
@@ -90,13 +91,13 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
         <Box
           marginTop={1}
           borderStyle="single"
-          borderColor="gray"
+          borderColor={theme.colors.borderSubtle}
           paddingX={1}
           justifyContent="space-between"
           width="100%"
         >
           <Text dimColor>[↑/↓] Select · [Enter] Pull · [m] Manual · [Tab] Name</Text>
-          <Text bold color="red">
+          <Text bold color={theme.colors.error}>
             [Esc] Cancel
           </Text>
         </Box>

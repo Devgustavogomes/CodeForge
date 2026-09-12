@@ -6,6 +6,7 @@ import { useTextInput } from '../../hooks/useTextInput.js';
 import { useNavigation } from '../../context/NavigationContext.js';
 import { translate } from '../../../ui/i18n.js';
 import { SupportedLanguage } from '../../../../config/types.js';
+import { theme } from '../../theme.js';
 
 export interface CreateDocModalProps {
   isOpen?: boolean;
@@ -200,30 +201,30 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
   const effectiveSpec = isSpecCustom || availableSpecs.length === 0 ? specInput.value : docSpec;
 
   return (
-    <Modal title={translate('tui_modal_create_doc', language)} isOpen={true} onClose={handleClose} borderColor="cyan" width={width}>
+    <Modal title={translate('tui_modal_create_doc', language)} isOpen={true} onClose={handleClose} borderColor={theme.colors.primary} width={width}>
       <Box flexDirection="column" width="100%">
         <Box justifyContent="space-between" width="100%" marginBottom={0}>
           <Box gap={1} flexShrink={1}>
-            <Text bold color={activeField === 'name' ? 'cyan' : 'white'}>{translate('tui_docs_create_name_label', language)}</Text>
-            <Text color="cyan" bold>{'> '}</Text>
+            <Text bold color={activeField === 'name' ? theme.colors.primary : theme.colors.text}>{translate('tui_docs_create_name_label', language)}</Text>
+            <Text color={theme.colors.primary} bold>{'> '}</Text>
             <TextInput
               value={docName}
               placeholder={translate('tui_docs_create_name_placeholder', language)}
               isFocused={activeField === 'name'}
-              cursorColor="cyan"
+              cursorColor={theme.colors.primary}
             />
           </Box>
         </Box>
 
         <Box justifyContent="space-between" width="100%" marginBottom={0}>
           <Box gap={1} flexShrink={1}>
-            <Text bold color={activeField === 'spec' ? 'cyan' : 'white'}>{translate('tui_docs_create_spec_label', language)}</Text>
+            <Text bold color={activeField === 'spec' ? theme.colors.primary : theme.colors.text}>{translate('tui_docs_create_spec_label', language)}</Text>
             {availableSpecs.length > 0 && !isSpecCustom ? (
               <Box gap={1}>
                 {availableSpecs.map((sp) => {
                   const isSelected = docSpec === sp;
                   return (
-                    <Text key={sp} color={isSelected ? 'cyan' : 'gray'} bold={isSelected}>
+                    <Text key={sp} color={isSelected ? theme.colors.primary : theme.colors.muted} bold={isSelected}>
                       {isSelected ? `● [${sp}]` : `○ ${sp}`}
                     </Text>
                   );
@@ -231,35 +232,35 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
               </Box>
             ) : (
               <Box gap={1}>
-                <Text color="cyan" bold>{'> '}</Text>
+                <Text color={theme.colors.primary} bold>{'> '}</Text>
                 <TextInput
                   value={effectiveSpec}
                   placeholder={translate('tui_docs_create_spec_placeholder', language)}
                   isFocused={activeField === 'spec'}
-                  cursorColor="cyan"
+                  cursorColor={theme.colors.primary}
                 />
               </Box>
             )}
           </Box>
           {activeField === 'spec' && availableSpecs.length > 0 && !isSpecCustom && (
-            <Text dimColor>{translate('tui_docs_create_spec_hint', language)}</Text>
+            <Text color={theme.colors.muted}>{translate('tui_docs_create_spec_hint', language)}</Text>
           )}
         </Box>
 
         {displayError && (
           <Box marginBottom={0}>
-            <Text color="red" bold wrap="truncate-end">✗ {displayError}</Text>
+            <Text color={theme.colors.error} bold wrap="truncate-end">✗ {displayError}</Text>
           </Box>
         )}
         {isCreating && (
           <Box marginBottom={0}>
-            <Text color="yellow">{translate('tui_docs_create_generating_notice', language)}</Text>
+            <Text color={theme.colors.warning}>{translate('tui_docs_create_generating_notice', language)}</Text>
           </Box>
         )}
 
-        <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1} justifyContent="space-between" width="100%">
-          <Text dimColor>{translate('tui_docs_create_shortcuts', language)}</Text>
-          <Text bold color="red">{translate('tui_docs_create_cancel_hint', language)}</Text>
+        <Box marginTop={1} borderStyle="single" borderColor={theme.colors.borderSubtle} paddingX={1} justifyContent="space-between" width="100%">
+          <Text color={theme.colors.muted}>{translate('tui_docs_create_shortcuts', language)}</Text>
+          <Text bold color={theme.colors.error}>{translate('tui_docs_create_cancel_hint', language)}</Text>
         </Box>
       </Box>
     </Modal>

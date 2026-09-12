@@ -5,6 +5,7 @@ import { MarkdownView } from '../../common/MarkdownView.js';
 import { useTerminalDimensions } from '../../../hooks/useTerminalDimensions.js';
 import { translate } from '../../../../ui/i18n.js';
 import { SupportedLanguage } from '../../../../../config/types.js';
+import { theme } from '../../../theme.js';
 
 export interface DocViewerProps {
   selectedDoc: DocItemInfo | null;
@@ -47,11 +48,11 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
       flexDirection="column"
       width={width}
       borderStyle="round"
-      borderColor="cyan"
+      borderColor={theme.colors.primary}
       paddingX={1}
     >
       <Box marginBottom={0}>
-        <Text bold color="cyan">
+        <Text bold color={theme.colors.primary}>
           {translate('tui_docs_details_title', language, { name: docTitle })}
         </Text>
       </Box>
@@ -60,19 +61,19 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
         <Box flexDirection="column">
           <Box marginBottom={0}>
             <Text bold>{translate('tui_docs_label_name', language)} </Text>
-            <Text color="cyan" bold wrap="truncate-end">
+            <Text color={theme.colors.primary} bold wrap="truncate-end">
               {selectedDoc.name}
             </Text>
           </Box>
           <Box marginBottom={0}>
             <Text bold>{translate('tui_docs_label_path', language)} </Text>
-            <Text dimColor wrap="truncate-end">
+            <Text color={theme.colors.muted} wrap="truncate-end">
               {selectedDoc.path}
             </Text>
           </Box>
           <Box marginBottom={0}>
             <Text bold>{translate('tui_docs_label_status', language)} </Text>
-            <Text color={selectedDoc.inManifest ? 'green' : 'yellow'}>
+            <Text color={selectedDoc.inManifest ? theme.colors.success : theme.colors.warning}>
               {translate(
                 selectedDoc.inManifest ? 'tui_badge_tracked' : 'tui_badge_untracked',
                 language
@@ -81,7 +82,7 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
             {formattedDate && (
               <Box marginLeft={2}>
                 <Text bold>{translate('tui_docs_label_created', language)} </Text>
-                <Text dimColor wrap="truncate-end">
+                <Text color={theme.colors.muted} wrap="truncate-end">
                   {formattedDate}
                 </Text>
               </Box>
@@ -90,7 +91,7 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
 
           <Box marginBottom={0}>
             <Text bold>{translate('tui_docs_label_specs', language)} </Text>
-            <Text dimColor wrap="truncate-end">
+            <Text color={theme.colors.muted} wrap="truncate-end">
               {selectedDoc.specs.length === 0
                 ? translate('tui_docs_none_linked', language)
                 : selectedDoc.specs.join(', ')}
@@ -99,7 +100,7 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
 
           <Box marginBottom={0}>
             <Text bold>{translate('tui_docs_label_scope', language)} </Text>
-            <Text color="cyan" wrap="truncate-end">
+            <Text color={theme.colors.primary} wrap="truncate-end">
               {selectedDoc.scope.length === 0
                 ? translate('tui_docs_all_changes', language)
                 : selectedDoc.scope.join(', ')}
@@ -107,8 +108,8 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
           </Box>
 
           {filteredPreview && rows >= 16 && (
-            <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-              <Text bold color="blue">{translate('tui_docs_label_preview', language)}</Text>
+            <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor={theme.colors.borderSubtle} paddingX={1}>
+              <Text bold color={theme.colors.primary}>{translate('tui_docs_label_preview', language)}</Text>
               <MarkdownView content={filteredPreview} maxLines={maxPreviewLines} truncate={true} />
             </Box>
           )}
@@ -116,18 +117,18 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
           <Box
             marginTop={filteredPreview && rows >= 16 ? 1 : 0}
             borderStyle="single"
-            borderColor="gray"
+            borderColor={theme.colors.borderSubtle}
             paddingX={1}
             justifyContent="center"
           >
-            <Text dimColor wrap="truncate-end">
+            <Text color={theme.colors.muted} wrap="truncate-end">
               {translate('tui_docs_viewer_shortcuts', language)}
             </Text>
           </Box>
         </Box>
       ) : (
         <Box paddingY={2} justifyContent="center">
-          <Text dimColor>
+          <Text color={theme.colors.muted}>
             {translate('tui_docs_viewer_empty', language)}
           </Text>
         </Box>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { SpecReference } from '../../../../../domain/spec-source.js';
+import { theme } from '../../../theme.js';
 
 export interface PullItemListProps {
   items: SpecReference[];
@@ -41,11 +42,11 @@ export const PullItemList: React.FC<PullItemListProps> = ({
     <Box flexDirection="column" width="100%" marginBottom={0}>
       <Box justifyContent="space-between" width="100%">
         <Box gap={1} flexShrink={1}>
-          <Text bold color={isFocused ? 'cyan' : 'white'}>
+          <Text bold color={isFocused ? theme.colors.primary : theme.colors.text}>
             Spec ID / Issue Number / URL:
           </Text>
           {isFetchingItems && (
-            <Text color="yellow">Querying {selectedProvider}...</Text>
+            <Text color={theme.colors.warning}>Querying {selectedProvider}...</Text>
           )}
         </Box>
         {isFocused && items.length > 0 && !isManualInput && (
@@ -62,19 +63,19 @@ export const PullItemList: React.FC<PullItemListProps> = ({
             return (
               <Box key={item.id} justifyContent="space-between" width="100%">
                 <Box gap={1} flexShrink={1}>
-                  <Text color={isSelected ? 'cyan' : 'gray'} bold={isSelected}>
+                  <Text color={isSelected ? theme.colors.primary : theme.colors.muted} bold={isSelected}>
                     {isSelected ? '> ●' : '  ○'}
                   </Text>
                   <Text
                     bold={isSelected}
-                    color={isSelected ? 'cyan' : 'white'}
+                    color={isSelected ? theme.colors.primary : theme.colors.text}
                     wrap="truncate-end"
                   >
                     #{item.id} {item.title}
                   </Text>
                 </Box>
                 {item.status && (
-                  <Text color={item.status === 'open' ? 'green' : 'gray'}>
+                  <Text color={item.status === 'open' ? theme.colors.success : theme.colors.muted}>
                     [{item.status}]
                   </Text>
                 )}
@@ -85,13 +86,13 @@ export const PullItemList: React.FC<PullItemListProps> = ({
           <Box justifyContent="space-between" width="100%">
             <Box gap={1} flexShrink={1}>
               <Text
-                color={isFocused && isManualInput ? 'cyan' : 'gray'}
+                color={isFocused && isManualInput ? theme.colors.primary : theme.colors.muted}
                 bold={isFocused && isManualInput}
               >
                 {isFocused && isManualInput ? '> ●' : '  ○'}
               </Text>
               <Text
-                color={isFocused && isManualInput ? 'cyan' : 'gray'}
+                color={isFocused && isManualInput ? theme.colors.primary : theme.colors.muted}
                 bold={isFocused && isManualInput}
               >
                 [Manual ID / URL Input]

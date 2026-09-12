@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { HookEvent, HookDefinition } from '../../../../../domain/hook.js';
 import { EVENT_DESCRIPTIONS } from './HooksEventList.js';
+import { theme } from '../../../theme.js';
 
 export interface HooksCommandListProps {
   event: HookEvent;
@@ -33,10 +34,10 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
     <Box flexDirection="column" width="100%">
       {/* Cabeçalho */}
       <Box flexDirection="column" marginBottom={1}>
-        <Text bold color="cyan">
+        <Text bold color={theme.colors.primary}>
           Hooks do Evento: {event}
         </Text>
-        <Text dimColor>
+        <Text color={theme.colors.muted}>
           {EVENT_DESCRIPTIONS[event] ||
             'Gerencie os comandos executados para este evento.'}
         </Text>
@@ -45,14 +46,14 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
       {/* Primeiro item selecionável: [+ Adicionar Novo Comando] */}
       <Box gap={1} alignItems="center" marginBottom={0}>
         <Text
-          color={selectedIndex === 0 ? 'cyan' : 'gray'}
+          color={selectedIndex === 0 ? theme.colors.primary : theme.colors.muted}
           bold={selectedIndex === 0}
         >
           {selectedIndex === 0 ? '> ●' : '  ○'}
         </Text>
         <Text
           bold={selectedIndex === 0}
-          color={selectedIndex === 0 ? 'cyan' : 'green'}
+          color={selectedIndex === 0 ? theme.colors.primary : theme.colors.success}
         >
           [+ Adicionar Novo Comando]
         </Text>
@@ -61,7 +62,7 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
       {/* Mensagem caso não haja comandos existentes */}
       {commands.length === 0 && (
         <Box paddingLeft={4} marginY={0}>
-          <Text dimColor>(Nenhum comando configurado para este evento)</Text>
+          <Text color={theme.colors.muted}>(Nenhum comando configurado para este evento)</Text>
         </Box>
       )}
 
@@ -83,28 +84,28 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
         return (
           <Box key={`${cmd.name}-${idx}`} flexDirection="column" marginY={0}>
             <Box gap={1} alignItems="center">
-              <Text color={isSelected ? 'cyan' : 'gray'} bold={isSelected}>
+              <Text color={isSelected ? theme.colors.primary : theme.colors.muted} bold={isSelected}>
                 {isSelected ? '> ●' : '  ○'}
               </Text>
-              <Text color={isSelected ? 'cyan' : 'gray'}>
+              <Text color={isSelected ? theme.colors.primary : theme.colors.muted}>
                 {idx + 1}.
               </Text>
               <Box width={8}>
-                <Text color={isGate ? 'yellow' : 'green'} bold>
+                <Text color={isGate ? theme.colors.warning : theme.colors.success} bold>
                   {isGate ? '[GATE]' : '[NOTIFY]'}
                 </Text>
               </Box>
               <Box minWidth={14} flexShrink={0}>
                 <Text
                   bold
-                  color={isSelected ? 'cyan' : 'white'}
+                  color={isSelected ? theme.colors.primary : theme.colors.text}
                   wrap="truncate-end"
                 >
                   {cmd.name}
                 </Text>
               </Box>
               <Box flexShrink={1}>
-                <Text dimColor wrap="truncate-end">
+                <Text color={theme.colors.muted} wrap="truncate-end">
                   {cmd.run}
                 </Text>
               </Box>
@@ -112,7 +113,7 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
 
             {isThisItemDeleting && (
               <Box paddingLeft={4} marginY={0}>
-                <Text color="red" bold>
+                <Text color={theme.colors.error} bold>
                   Excluir este comando? [y/N]
                 </Text>
               </Box>
@@ -124,7 +125,7 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
       {/* Confirmação genérica se deleteConfirmIndex ativo mas não renderizado acima */}
       {isAnyConfirming && !confirmRendered && (
         <Box paddingLeft={4} marginY={0}>
-          <Text color="red" bold>
+          <Text color={theme.colors.error} bold>
             Excluir este comando? [y/N]
           </Text>
         </Box>
@@ -134,16 +135,16 @@ export const HooksCommandList: React.FC<HooksCommandListProps> = ({
       <Box
         marginTop={1}
         borderStyle="single"
-        borderColor="gray"
+        borderColor={theme.colors.borderSubtle}
         paddingX={1}
         justifyContent="space-between"
         width="100%"
       >
-        <Text dimColor>[↑/↓] Navegar</Text>
-        <Text dimColor>[Enter] Selecionar/Editar</Text>
-        <Text dimColor>[e] Editar</Text>
-        <Text dimColor>[d] Excluir</Text>
-        <Text dimColor>[Esc ou ←] Voltar</Text>
+        <Text color={theme.colors.muted}>[↑/↓] Navegar</Text>
+        <Text color={theme.colors.muted}>[Enter] Selecionar/Editar</Text>
+        <Text color={theme.colors.muted}>[e] Editar</Text>
+        <Text color={theme.colors.muted}>[d] Excluir</Text>
+        <Text color={theme.colors.muted}>[Esc ou ←] Voltar</Text>
       </Box>
     </Box>
   );

@@ -15,12 +15,13 @@ describe('App - Smoke Tests do Layout e Navegação Global', () => {
     );
     const output = lastFrame() ?? '';
 
-    expect(output).toContain('CodeForge');
+    expect(output).toContain('\u2692 CodeForge');
     expect(output).toContain('[1] Run');
     expect(output).toContain('[2] Specs');
     expect(output).toContain('[3] Tasks');
     expect(output).toContain('[4] Docs');
     expect(output).toContain('[5] Config');
+    expect(output).toContain(String.fromCodePoint(0x2500).repeat(9));
   });
 
   it('alterna abas quando as teclas numéricas 1-5 são acionadas', async () => {

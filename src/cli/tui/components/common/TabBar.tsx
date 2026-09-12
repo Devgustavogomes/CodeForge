@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { TabId, TABS, useNavigation } from '../../context/NavigationContext.js';
+import { theme } from '../../theme.js';
 
 export interface TabBarProps {
   activeTab?: TabId;
@@ -26,7 +27,7 @@ export function areTabBarPropsEqual(prev: TabBarProps, next: TabBarProps): boole
 export const TabBar: React.FC<TabBarProps> = React.memo(({
   activeTab: propActiveTab,
   onTabChange: propOnTabChange,
-  borderColor = 'gray',
+  borderColor = theme.colors.borderSubtle,
   borderStyle = 'round',
 }) => {
   const nav = useNavigation();
@@ -41,18 +42,18 @@ export const TabBar: React.FC<TabBarProps> = React.memo(({
       paddingX={isNoneBorder ? 0 : 1}
       gap={1}
       width="100%"
+      minHeight={isNoneBorder ? 2 : undefined}
     >
       {TABS.map((tab) => {
         const isActive = tab.id === currentTab;
         return (
-          <Box key={tab.id}>
-            {isActive ? (
-              <Text color="#000000" backgroundColor="cyan">
-                {` [${tab.numberKey}] ${tab.label} `}
-              </Text>
-            ) : (
-              <Text dimColor color="gray">
-                {` [${tab.numberKey}] ${tab.label} `}
+          <Box key={tab.id} flexDirection="column">
+            <Text bold={isActive} color={isActive ? theme.colors.primary : theme.colors.muted}>
+              {` [${tab.numberKey}] ${tab.label} `}
+            </Text>
+            {isActive && (
+              <Text color={theme.colors.primary}>
+                {'─'.repeat(tab.label.length + tab.numberKey.length + 5)}
               </Text>
             )}
           </Box>

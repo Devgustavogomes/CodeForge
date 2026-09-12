@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { HOOK_EVENTS, HookEvent, HookMap } from '../../../../../domain/hook.js';
+import { theme } from '../../../theme.js';
 
 export const EVENT_DESCRIPTIONS: Record<HookEvent, string> = {
   'run.started': 'Executado antes do início de uma rodada de tarefas',
@@ -32,10 +33,10 @@ export const HooksEventList: React.FC<HooksEventListProps> = ({
     <Box flexDirection="column" width="100%">
       {/* Cabeçalho */}
       <Box flexDirection="column" marginBottom={1}>
-        <Text bold color="cyan">
+        <Text bold color={theme.colors.primary}>
           Configuração de Hooks - Selecione o Evento
         </Text>
-        <Text dimColor>
+        <Text color={theme.colors.muted}>
           Selecione um evento de ciclo de vida para gerenciar seus comandos associados.
         </Text>
       </Box>
@@ -48,15 +49,15 @@ export const HooksEventList: React.FC<HooksEventListProps> = ({
           const count = eventHooks.length;
           const badgeText =
             count > 0 ? `[${count} hook${count === 1 ? '' : 's'}]` : '[nenhum]';
-          const badgeColor = count > 0 ? 'cyan' : 'gray';
+          const badgeColor = count > 0 ? theme.colors.primary : theme.colors.muted;
 
           return (
             <Box key={event} flexDirection="row" gap={1} alignItems="center">
-              <Text color={isSelected ? 'cyan' : 'gray'} bold={isSelected}>
+              <Text color={isSelected ? theme.colors.primary : theme.colors.muted} bold={isSelected}>
                 {isSelected ? '> ●' : '  ○'}
               </Text>
               <Box width={16}>
-                <Text bold={isSelected} color={isSelected ? 'cyan' : 'white'}>
+                <Text bold={isSelected} color={isSelected ? theme.colors.primary : theme.colors.text}>
                   {event}
                 </Text>
               </Box>
@@ -67,8 +68,7 @@ export const HooksEventList: React.FC<HooksEventListProps> = ({
               </Box>
               <Box flexShrink={1}>
                 <Text
-                  color={isSelected ? 'white' : 'gray'}
-                  dimColor={!isSelected}
+                  color={isSelected ? theme.colors.text : theme.colors.muted}
                   wrap="truncate-end"
                 >
                   {EVENT_DESCRIPTIONS[event]}
@@ -83,14 +83,14 @@ export const HooksEventList: React.FC<HooksEventListProps> = ({
       <Box
         marginTop={1}
         borderStyle="single"
-        borderColor="gray"
+        borderColor={theme.colors.borderSubtle}
         paddingX={1}
         justifyContent="space-between"
         width="100%"
       >
-        <Text dimColor>[↑/↓ ou k/j] Navegar</Text>
-        <Text dimColor>[Enter ou →] Selecionar</Text>
-        <Text dimColor>[Esc/q] Voltar</Text>
+        <Text color={theme.colors.muted}>[↑/↓ ou k/j] Navegar</Text>
+        <Text color={theme.colors.muted}>[Enter ou →] Selecionar</Text>
+        <Text color={theme.colors.muted}>[Esc/q] Voltar</Text>
       </Box>
     </Box>
   );

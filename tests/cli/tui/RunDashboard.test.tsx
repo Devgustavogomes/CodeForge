@@ -41,9 +41,10 @@ describe('RunDashboard - integração com ExecutionProvider', () => {
     const { lastFrame } = renderWithProviders(<RunDashboard isInteractive={false} />);
     const output = lastFrame() ?? '';
 
-    expect(output).toContain('Welcome to CodeForge');
+    expect(output).toContain('⚒ CodeForge');
     expect(output).toContain('No specifications found');
-    expect(output).toContain('[c] Create new spec');
+    expect(output).toContain('[c] Create');
+    expect(output).toContain('[p] Pull');
   });
 
   it('obtém métricas, tarefas e barra contextual do provider', () => {

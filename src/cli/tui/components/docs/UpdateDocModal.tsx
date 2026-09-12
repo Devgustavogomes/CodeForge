@@ -18,6 +18,7 @@ import { AffectedDoc } from '../../../../domain/doc.js';
 import { DocItemInfo } from './components/DocsList.js';
 import { translate } from '../../../ui/i18n.js';
 import { SupportedLanguage } from '../../../../config/types.js';
+import { theme } from '../../theme.js';
 
 export type { UpdateMode, UpdateStep, AutoTarget, UpdateConfirmPayload };
 
@@ -217,7 +218,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
       title={modalTitle}
       isOpen={isOpen}
       width={width}
-      borderColor="cyan"
+      borderColor={theme.colors.primary}
     >
       {step === 'mode-select' && (
         <UpdateModeSelectStep
