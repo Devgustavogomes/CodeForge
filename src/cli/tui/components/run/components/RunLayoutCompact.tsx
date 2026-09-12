@@ -22,8 +22,10 @@ export interface RunLayoutCompactProps {
   completedAt?: string;
   terminalRows?: number;
   topMetricsPanel?: React.ReactNode;
+  actionBar?: React.ReactNode;
   logs?: Record<string, string[]>;
   taskLogs?: string[];
+  onCompleteTask?: () => void;
 }
 
 export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
@@ -38,12 +40,18 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
     completedAt,
     terminalRows: propTerminalRows,
     topMetricsPanel,
+    actionBar,
     logs,
     taskLogs: propTaskLogs,
+    onCompleteTask,
   }) => {
     const terminalDims = useTerminalDimensions();
     const rows = propTerminalRows ?? terminalDims.rows ?? 24;
     const availableRows = Math.max(12, rows - 5);
+    // A barra de tarefas pode ocupar duas linhas, além de uma terceira para
+    // feedback. A reserva evita que os painéis avancem sobre o rodapé.
+    const actionBarRows = actionBar ? 3 : 0;
+    const panelRows = Math.max(8, availableRows - actionBarRows);
 
     const effectiveTaskLogs =
       propTaskLogs !== undefined
@@ -108,8 +116,9 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
               tasks={tasks}
               selectedTaskId={selectedTaskId}
               isFocused={true}
-              maxHeight={Math.max(6, availableRows - 6)}
+              maxHeight={Math.max(6, panelRows - 6)}
               borderStyle="round"
+              onCompleteTask={onCompleteTask}
             />
           </Box>
         ) : (
@@ -132,10 +141,15 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
               taskId={selectedTaskId}
               logs={effectiveTaskLogs}
               isFocused={true}
-              maxVisibleLines={Math.max(4, availableRows - 9)}
+              maxVisibleLines={Math.max(4, panelRows - 9)}
               defaultWrap={false}
               borderStyle="round"
             />
+          </Box>
+        )}
+        {actionBar && (
+          <Box width="100%" flexShrink={0} overflow="hidden">
+            {actionBar}
           </Box>
         )}
       </Box>

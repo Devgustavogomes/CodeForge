@@ -26,6 +26,7 @@ export interface TaskListProps {
   showFilterBadges?: boolean;
   filter?: TaskFilter;
   onFilterChange?: (filter: TaskFilter) => void;
+  onCompleteTask?: () => void;
   borderColor?: string;
   borderStyle?: 'round' | 'single' | 'none';
 }
@@ -40,6 +41,7 @@ export function areTaskListPropsEqual(prev: TaskListProps, next: TaskListProps):
   if (prev.borderStyle !== next.borderStyle) return false;
   if (prev.onSelectTask !== next.onSelectTask) return false;
   if (prev.onFilterChange !== next.onFilterChange) return false;
+  if (prev.onCompleteTask !== next.onCompleteTask) return false;
   if (prev.tasks === next.tasks) return true;
   if (!prev.tasks || !next.tasks) return false;
   if (prev.tasks.length !== next.tasks.length) return false;
@@ -68,6 +70,7 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
   showFilterBadges = true,
   filter: propFilter,
   onFilterChange,
+  onCompleteTask,
   borderColor,
   borderStyle = 'round',
 }) => {
@@ -110,7 +113,18 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
   // Keyboard navigation: ↑/↓ and j/k, plus 'f' to cycle filter if focused
   useInput(
     (input, key) => {
-      if (!isFocused || filteredTasks.length === 0) return;
+      if (!isFocused) return;
+
+      // Keep filtering available on empty results so the user can cycle back.
+      if (input === 'f') {
+        const filters: TaskFilter[] = ['all', 'running', 'failed', 'completed', 'pending'];
+        const currentIdx = filters.indexOf(currentFilter);
+        const nextFilter = filters[(currentIdx + 1) % filters.length]!;
+        setFilter(nextFilter);
+        return;
+      }
+
+      if (filteredTasks.length === 0) return;
 
       const currentIndex = filteredTasks.findIndex((t) => t.id === selectedTaskId);
 
@@ -137,12 +151,9 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
         return;
       }
 
-      // Filter cycling with 'f'
-      if (input === 'f') {
-        const filters: TaskFilter[] = ['all', 'running', 'failed', 'completed', 'pending'];
-        const currentIdx = filters.indexOf(currentFilter);
-        const nextFilter = filters[(currentIdx + 1) % filters.length]!;
-        setFilter(nextFilter);
+      if (input === 'c' && selectedTaskId) {
+        onCompleteTask?.();
+        return;
       }
     },
     { isActive: isFocused }

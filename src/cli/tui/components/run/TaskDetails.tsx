@@ -12,6 +12,16 @@ export interface TaskDetailsProps {
   maxErrorLines?: number;
 }
 
+/**
+ * Error entries often contain an entire command output or stack trace. The run
+ * dashboard only has room for a diagnostic summary, so keep it on one line and
+ * leave the complete output in the log panel below.
+ */
+export function formatErrorSummary(error: string): string {
+  const summary = error.replace(/\s+/g, " ").trim();
+  return summary || "Unknown error";
+}
+
 export function areTaskDetailsPropsEqual(
   prev: TaskDetailsProps,
   next: TaskDetailsProps,
@@ -29,7 +39,8 @@ export function areTaskDetailsPropsEqual(
     prev.task.title === next.task.title &&
     prev.task.startedAt === next.task.startedAt &&
     prev.task.completedAt === next.task.completedAt &&
-    (prev.task.errors?.length ?? 0) === (next.task.errors?.length ?? 0)
+    (prev.task.errors?.length ?? 0) === (next.task.errors?.length ?? 0) &&
+    prev.task.errors?.at(-1) === next.task.errors?.at(-1)
   );
 }
 
@@ -74,6 +85,7 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
     const files = task.files ?? [];
     const dependencies = task.dependencies ?? [];
     const errors = task.errors ?? [];
+    const latestError = errors.at(-1);
 
     const displayedFiles = files.slice(0, maxFilesShown);
     const remainingFilesCount = files.length - displayedFiles.length;
@@ -116,16 +128,15 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
             </Box>
           )}
 
-          {errors.length > 0 && (
-            <Box flexDirection="column" marginTop={0}>
-              <Text color="red" bold>
-                ✗ Error Diagnostic:
-              </Text>
-              {errors.slice(-maxErrorLines).map((err, idx) => (
-                <Text key={idx} color="red" wrap="wrap">
-                  {err}
+          {latestError && (
+            <Box marginTop={0} width="100%" overflow="hidden">
+              <Text color="red" wrap="truncate-end">
+                <Text bold>
+                  ✗ {errors.length > 1 ? `${errors.length} errors` : "Error"}{" "}
                 </Text>
-              ))}
+                <Text dimColor>(see logs): </Text>
+                {formatErrorSummary(latestError)}
+              </Text>
             </Box>
           )}
 

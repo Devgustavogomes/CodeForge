@@ -1,132 +1,97 @@
 import { useInput } from 'ink';
-import { useNavigation } from '../../../context/NavigationContext.js';
-import { TaskItem, ExecutionStatus } from '../../../context/ExecutionContext.js';
 import { DashboardPanel } from './useRunDashboard.js';
 
-export interface UseRunHotkeysOptions {
+/** Atalhos globais do dashboard Run, desacoplados de contextos. */
+export interface UseRunHotkeysProps {
   isInteractive?: boolean;
+  isModalOpen?: boolean;
+  isTextInputActive?: boolean;
   focusedPanel: DashboardPanel;
-  setFocusedPanel: (panel: DashboardPanel | ((prev: DashboardPanel) => DashboardPanel)) => void;
-  effectiveStatus: ExecutionStatus | string;
-  effectiveSpecName: string;
-  tasks: TaskItem[];
-  selectedTaskId?: string | null;
-  startRun?: (specName?: string) => void | Promise<void>;
-  retryTask?: (taskId: string) => void | Promise<void>;
-  retryAllFailed?: () => void | Promise<void>;
-  completeTask?: (taskId: string) => void | Promise<void>;
-  resetTask?: (taskId: string) => void | Promise<void>;
-  resetAllTasks?: () => void | Promise<void>;
-  onSelectSpec?: () => void;
-  setActiveSpec?: (specName: string | null) => void;
+  selectedTaskId: string | null;
+  selectedTaskStatus: string | null;
+  effectiveStatus: string;
+  onTogglePanel: () => void;
+  onStartRun: () => void;
+  onRetryTask: () => void;
+  onRetryAllFailed: () => void;
+  onCompleteTask: () => void;
+  onResetTask: () => void;
+  onResetAllTasks: () => void;
+  onSelectSpec: () => void;
+  onFocusLogs: () => void;
+  onFocusTasks: () => void;
 }
 
 export function useRunHotkeys({
   isInteractive = true,
+  isModalOpen = false,
+  isTextInputActive = false,
   focusedPanel,
-  setFocusedPanel,
-  effectiveStatus,
-  effectiveSpecName,
-  tasks,
   selectedTaskId,
-  startRun,
-  retryTask,
-  retryAllFailed,
-  completeTask,
-  resetTask,
-  resetAllTasks,
+  selectedTaskStatus,
+  effectiveStatus,
+  onTogglePanel,
+  onStartRun,
+  onRetryTask,
+  onRetryAllFailed,
+  onCompleteTask,
+  onResetTask,
+  onResetAllTasks,
   onSelectSpec,
-  setActiveSpec,
-}: UseRunHotkeysOptions) {
-  const nav = useNavigation();
-
+  onFocusLogs,
+  onFocusTasks,
+}: UseRunHotkeysProps): void {
   useInput(
     (input, key) => {
-      // Toggle focus between TaskList and LogStreamView on Tab
+      if (!isInteractive || isModalOpen || isTextInputActive) return;
+
       if (key.tab || input === '\t') {
-        setFocusedPanel((prev) => (prev === 'tasks' ? 'logs' : 'tasks'));
+        onTogglePanel();
         return;
       }
 
-      // Start or resume execution with Enter or Space when idle/not running
-      if (
-        (key.return || input === ' ') &&
-        effectiveStatus !== 'running' &&
-        focusedPanel === 'tasks'
-      ) {
-        if (
-          effectiveStatus === 'idle' ||
-          effectiveStatus === 'failed' ||
-          effectiveStatus === 'deadlock' ||
-          tasks.some((t) => t.status === 'pending')
-        ) {
-          if (startRun) {
-            void startRun(effectiveSpecName);
-            return;
-          }
-        }
-      }
-
-      // If in TaskList, pressing Enter switches focus to Logs panel
-      if (key.return && focusedPanel === 'tasks') {
-        setFocusedPanel('logs');
-        return;
-      }
-
-      // If in Logs, pressing Escape returns focus to TaskList
       if (key.escape && focusedPanel === 'logs') {
-        setFocusedPanel('tasks');
+        onFocusTasks();
         return;
       }
 
-      // Switch Spec with 's' if user wants to pick another spec
+      // Navegação, filtros e scrolling pertencem aos componentes filhos.
+      if (focusedPanel !== 'tasks') return;
+
+      if (key.return || input === '\r' || input === '\n') {
+        if (effectiveStatus !== 'running') onStartRun();
+        else onFocusLogs();
+        return;
+      }
+
+      if (input === ' ') {
+        if (effectiveStatus !== 'running') onStartRun();
+        return;
+      }
+
       if (input === 's') {
-        onSelectSpec?.();
-        setActiveSpec?.(null);
+        onSelectSpec();
         return;
       }
-
-      // Reset all tasks with 'X'
       if (input === 'X') {
-        if (resetAllTasks) {
-          void resetAllTasks();
-        }
+        onResetAllTasks();
         return;
       }
-
-      // Retry selected task
       if (input === 'r') {
-        if (selectedTaskId && retryTask) {
-          void retryTask(selectedTaskId);
-        }
+        if (selectedTaskId && selectedTaskStatus === 'failed') onRetryTask();
         return;
       }
-
-      // Retry all failed tasks
       if (input === 'R') {
-        if (retryAllFailed) {
-          void retryAllFailed();
-        }
+        onRetryAllFailed();
         return;
       }
-
-      // Complete selected task
-      if (input === 'c') {
-        if (selectedTaskId && completeTask) {
-          void completeTask(selectedTaskId);
-        }
+      if (input === 'c' && selectedTaskId) {
+        onCompleteTask();
         return;
       }
-
-      // Reset selected task
-      if (input === 'x') {
-        if (selectedTaskId && resetTask) {
-          void resetTask(selectedTaskId);
-        }
-        return;
-      }
+      if (input === 'x' && selectedTaskId) onResetTask();
     },
-    { isActive: isInteractive && !nav.isTextInputActive && !nav.modal },
+    { isActive: isInteractive && !isModalOpen && !isTextInputActive },
   );
 }
 

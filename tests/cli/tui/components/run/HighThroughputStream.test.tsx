@@ -87,7 +87,7 @@ describe('High-Throughput Stream Integration', () => {
     let execContext: ExecutionContextValue | null = null;
     const ContextCapture: React.FC = () => {
       execContext = useExecution();
-      return <RunDashboard breakpoint="wide" isInteractive={true} />;
+      return <RunDashboard isInteractive={true} />;
     };
 
     const { frames, unmount } = renderWithProviders(<ContextCapture />, {
@@ -180,7 +180,7 @@ describe('High-Throughput Stream Integration', () => {
     let execContext: ExecutionContextValue | null = null;
     const ContextCapture: React.FC = () => {
       execContext = useExecution();
-      return <RunDashboard breakpoint="wide" isInteractive={false} />;
+      return <RunDashboard isInteractive={false} />;
     };
 
     const { lastFrame, unmount } = renderWithProviders(<ContextCapture />, {

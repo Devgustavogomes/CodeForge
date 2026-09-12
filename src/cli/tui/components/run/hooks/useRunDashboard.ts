@@ -1,118 +1,167 @@
-import { useState, useMemo } from 'react';
-import { TaskItem, ExecutionStatus, useExecution } from '../../../context/ExecutionContext.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useExecution } from '../../../context/ExecutionContext.js';
 
 export type DashboardPanel = 'tasks' | 'logs';
 
-export interface UseRunDashboardOptions {
-  tasks?: TaskItem[];
-  selectedTaskId?: string | null;
-  selectedTask?: TaskItem | null;
-  onStartRun?: (specName?: string) => void;
-  onRetryTask?: (taskId: string) => void;
-  onRetryAllFailed?: () => void;
-  onCompleteTask?: (taskId: string) => void;
-  onResetTask?: (taskId: string) => void;
-  onResetAllTasks?: () => void;
-  defaultFocusedPanel?: DashboardPanel;
-  specName?: string;
-  schedulerStatus?: ExecutionStatus | string;
-  startedAt?: string;
-  completedAt?: string;
-  onSelectSpec?: () => void;
-  logs?: Record<string, string[]>;
-  taskLogs?: string[];
-}
+const ACTION_FEEDBACK_DURATION_MS = 3500;
 
-export function useRunDashboard(options: UseRunDashboardOptions = {}) {
+/** Centraliza o estado processado e as ações da tela Run. */
+export function useRunDashboard() {
   const exec = useExecution();
-  const [focusedPanel, setFocusedPanel] = useState<DashboardPanel>(
-    options.defaultFocusedPanel ?? 'tasks',
+  const [focusedPanel, setFocusedPanel] = useState<DashboardPanel>('tasks');
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearFeedbackTimer = useCallback(() => {
+    if (feedbackTimerRef.current) {
+      clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = null;
+    }
+  }, []);
+  const publishFeedback = useCallback((message: string) => {
+    clearFeedbackTimer();
+    setActionFeedback(message);
+    feedbackTimerRef.current = setTimeout(() => {
+      feedbackTimerRef.current = null;
+      setActionFeedback(null);
+    }, ACTION_FEEDBACK_DURATION_MS);
+  }, [clearFeedbackTimer]);
+  const beginAction = useCallback(() => {
+    clearFeedbackTimer();
+    setActionFeedback(null);
+  }, [clearFeedbackTimer]);
+  useEffect(() => clearFeedbackTimer, [clearFeedbackTimer]);
+
+  const selectedTask = useMemo(
+    () => exec.tasks.find((task) => task.id === exec.selectedTaskId) ?? null,
+    [exec.tasks, exec.selectedTaskId],
   );
-
-  const tasks = options.tasks ?? exec.tasks;
-  const selectedTaskId =
-    options.selectedTaskId !== undefined ? options.selectedTaskId : exec.selectedTaskId;
-  const selectedTask =
-    options.selectedTask !== undefined
-      ? options.selectedTask
-      : selectedTaskId
-        ? tasks.find((t) => t.id === selectedTaskId) || null
-        : exec.selectedTask;
-
-  const startRun = options.onStartRun ?? exec.startRun;
-  const retryTask = options.onRetryTask ?? exec.retryTask;
-  const retryAllFailed = options.onRetryAllFailed ?? exec.retryAllFailed;
-  const completeTask = options.onCompleteTask ?? exec.completeTask;
-  const resetTask = options.onResetTask ?? exec.resetTask;
-  const resetAllTasks = options.onResetAllTasks ?? exec.resetAllTasks;
-
-  const effectiveSpecName = options.specName ?? exec.activeSpec ?? 'current-spec';
-  const effectiveStatus = options.schedulerStatus ?? exec.schedulerStatus;
-
-  const derivedStartedAt =
-    options.startedAt ?? exec.startedAt ?? tasks.find((t) => t.startedAt)?.startedAt;
-
-  const derivedCompletedAt =
-    options.completedAt ??
-    exec.completedAt ??
-    (tasks.length > 0 && tasks.every((t) => t.status === 'completed' || t.status === 'failed')
-      ? tasks
-          .filter((t) => t.completedAt)
-          .sort(
-            (a, b) =>
-              new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime(),
-          )[0]?.completedAt
-      : undefined);
+  const selectedTaskStatus = selectedTask?.status ?? null;
+  const selectedTaskLogs = useMemo(
+    () => (exec.selectedTaskId ? exec.getTaskLogs(exec.selectedTaskId) : undefined),
+    [exec.getTaskLogs, exec.selectedTaskId],
+  );
 
   const completedCount = useMemo(
-    () => tasks.filter((t) => t.status === 'completed').length,
-    [tasks],
+    () => exec.tasks.filter((task) => task.status === 'completed').length,
+    [exec.tasks],
   );
   const failedCount = useMemo(
-    () => tasks.filter((t) => t.status === 'failed').length,
-    [tasks],
+    () => exec.tasks.filter((task) => task.status === 'failed').length,
+    [exec.tasks],
   );
   const runningCount = useMemo(
-    () => tasks.filter((t) => t.status === 'running').length,
-    [tasks],
+    () => exec.tasks.filter((task) => task.status === 'running').length,
+    [exec.tasks],
   );
   const pendingCount = useMemo(
-    () => tasks.filter((t) => t.status === 'pending').length,
-    [tasks],
+    () => exec.tasks.filter((task) => task.status === 'pending').length,
+    [exec.tasks],
   );
-  const totalCount = tasks.length;
+  const hasFailedTasks = failedCount > 0;
+  const hasPendingTasks = pendingCount > 0;
+  const derivedStartedAt = exec.startedAt ?? exec.tasks.find((task) => task.startedAt)?.startedAt;
+  const derivedCompletedAt = useMemo(() => {
+    if (exec.completedAt) return exec.completedAt;
+    if (exec.tasks.length === 0 || !exec.tasks.every((task) => task.status === 'completed' || task.status === 'failed')) return undefined;
+    return exec.tasks.filter((task) => task.completedAt).sort(
+      (a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime(),
+    )[0]?.completedAt;
+  }, [exec.completedAt, exec.tasks]);
 
-  const selectedTaskLogs =
-    options.taskLogs !== undefined
-      ? options.taskLogs
-      : (selectedTaskId ? (options.logs?.[selectedTaskId] ?? exec.getTaskLogs(selectedTaskId)) : undefined);
-
+  const onTogglePanel = useCallback(() => setFocusedPanel((panel) => panel === 'tasks' ? 'logs' : 'tasks'), []);
+  const onFocusTasks = useCallback(() => setFocusedPanel('tasks'), []);
+  const onFocusLogs = useCallback(() => setFocusedPanel('logs'), []);
+  const onStartRun = useCallback(async () => {
+    if (!exec.activeSpec) return;
+    beginAction();
+    try { await exec.startRun(exec.activeSpec); } catch { /* sem feedback falso */ }
+  }, [beginAction, exec]);
+  const onRetryTask = useCallback(async () => {
+    if (!exec.activeSpec || !selectedTask || selectedTask.status !== 'failed') return;
+    beginAction();
+    try {
+      await exec.retryTask(selectedTask.id, exec.activeSpec);
+      await exec.startRun(exec.activeSpec);
+      publishFeedback(`✓ Task ${selectedTask.id} retried — scheduler resuming`);
+    } catch { /* sem feedback falso */ }
+  }, [beginAction, exec, publishFeedback, selectedTask]);
+  const onRetryAllFailed = useCallback(async () => {
+    if (!exec.activeSpec) return;
+    const failures = exec.tasks.filter((task) => task.status === 'failed').length;
+    beginAction();
+    if (failures === 0) {
+      publishFeedback('Nenhuma task falhou');
+      return;
+    }
+    try {
+      await exec.retryAllFailed();
+      await exec.startRun(exec.activeSpec);
+      publishFeedback(`✓ ${failures} failed tasks retried — scheduler resuming`);
+    } catch { /* sem feedback falso */ }
+  }, [beginAction, exec, publishFeedback]);
+  const onResetAllTasks = useCallback(async () => {
+    if (!exec.activeSpec) return;
+    beginAction();
+    try {
+      await exec.resetAllTasks(exec.activeSpec);
+      await exec.startRun(exec.activeSpec);
+      publishFeedback('✓ All tasks reset — restarting execution');
+    } catch { /* sem feedback falso */ }
+  }, [beginAction, exec, publishFeedback]);
+  const onResetTask = useCallback(async () => {
+    if (!exec.activeSpec || !selectedTask) return;
+    beginAction();
+    try {
+      await exec.resetTask(selectedTask.id, exec.activeSpec);
+      publishFeedback(`✓ Task ${selectedTask.id} reset to pending`);
+    } catch { /* sem feedback falso */ }
+  }, [beginAction, exec, publishFeedback, selectedTask]);
+  const onCompleteTask = useCallback(async () => {
+    if (!exec.activeSpec || !selectedTask || selectedTask.status === 'completed') return;
+    beginAction();
+    try {
+      await exec.completeTask(selectedTask.id, exec.activeSpec);
+      publishFeedback(`✓ Task ${selectedTask.id} marked as completed`);
+    } catch { /* sem feedback falso */ }
+  }, [beginAction, exec, publishFeedback, selectedTask]);
+  const onSelectSpec = useCallback(() => {
+    beginAction();
+    exec.setActiveSpec(null);
+  }, [beginAction, exec]);
   return {
     focusedPanel,
     setFocusedPanel,
-    tasks,
-    selectedTaskId,
+    actionFeedback,
+    tasks: exec.tasks,
+    selectedTaskId: exec.selectedTaskId,
     selectedTask,
-    logs: options.logs ?? exec.logs,
+    selectedTaskStatus,
+    logs: exec.logs,
     taskLogs: selectedTaskLogs,
     completedCount,
     failedCount,
     runningCount,
     pendingCount,
-    totalCount,
-    effectiveSpecName,
-    effectiveStatus,
+    totalCount: exec.tasks.length,
+    hasFailedTasks,
+    hasPendingTasks,
+    effectiveSpecName: exec.activeSpec ?? '',
+    effectiveStatus: exec.schedulerStatus,
     derivedStartedAt,
     derivedCompletedAt,
-    startRun,
-    retryTask,
-    retryAllFailed,
-    completeTask,
-    resetTask,
-    resetAllTasks,
     selectTask: exec.selectTask,
     setActiveSpec: exec.setActiveSpec,
-    onSelectSpec: options.onSelectSpec,
+    onTogglePanel,
+    onFocusTasks,
+    onFocusLogs,
+    onStartRun,
+    onRetryTask,
+    onRetryAllFailed,
+    onCompleteTask,
+    onResetTask,
+    onResetAllTasks,
+    onSelectSpec,
   };
 }
 

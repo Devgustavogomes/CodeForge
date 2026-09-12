@@ -1,8 +1,8 @@
 import React, { memo } from 'react';
-import { useTerminalDimensions, Breakpoint } from '../../hooks/useTerminalDimensions.js';
-import { TaskItem, ExecutionStatus } from '../../context/ExecutionContext.js';
+import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { useRunDashboard, DashboardPanel } from './hooks/useRunDashboard.js';
 import { useRunHotkeys } from './hooks/useRunHotkeys.js';
+import { useNavigation } from '../../context/NavigationContext.js';
 import { SpecPicker } from './components/SpecPicker.js';
 import {
   DashboardMetricsPanel,
@@ -12,52 +12,31 @@ import {
 import { RunLayoutMinimal } from './components/RunLayoutMinimal.js';
 import { RunLayoutCompact } from './components/RunLayoutCompact.js';
 import { RunLayoutWide } from './components/RunLayoutWide.js';
+import { RunActionBar } from './components/RunActionBar.js';
 
 export type { DashboardPanel, DashboardMetricsPanelProps };
 export { renderProgressBar, DashboardMetricsPanel, SpecPicker };
 
 export interface RunDashboardProps {
-  breakpoint?: Breakpoint;
-  tasks?: TaskItem[];
-  selectedTaskId?: string | null;
-  selectedTask?: TaskItem | null;
-  onStartRun?: (specName?: string) => void;
-  onRetryTask?: (taskId: string) => void;
-  onRetryAllFailed?: () => void;
-  onCompleteTask?: (taskId: string) => void;
-  onResetTask?: (taskId: string) => void;
-  onResetAllTasks?: () => void;
   isInteractive?: boolean;
-  defaultFocusedPanel?: DashboardPanel;
-  specName?: string;
-  schedulerStatus?: ExecutionStatus | string;
-  startedAt?: string;
-  completedAt?: string;
-  onSelectSpec?: () => void;
-  logs?: Record<string, string[]>;
-  taskLogs?: string[];
 }
 
-export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
-  const {
-    breakpoint: propBreakpoint,
-    isInteractive = true,
-    onSelectSpec,
-  } = props;
+export const RunDashboard: React.FC<RunDashboardProps> = memo(({ isInteractive = true }) => {
+  const navigation = useNavigation();
   const terminalDims = useTerminalDimensions();
-  const effectiveBreakpoint = propBreakpoint ?? terminalDims.breakpoint;
-
-  const dashboardState = useRunDashboard(props);
+  const dashboardState = useRunDashboard();
   const {
     tasks,
     selectedTaskId,
     selectedTask,
     focusedPanel,
+    actionFeedback,
     logs,
     taskLogs,
     completedCount,
     failedCount,
     runningCount,
+    pendingCount,
     totalCount,
     effectiveSpecName,
     effectiveStatus,
@@ -67,14 +46,29 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
 
   useRunHotkeys({
     isInteractive: isInteractive && tasks.length > 0,
-    ...dashboardState,
+    isModalOpen: Boolean(navigation.modal),
+    isTextInputActive: navigation.isTextInputActive,
+    focusedPanel,
+    selectedTaskId,
+    selectedTaskStatus: dashboardState.selectedTaskStatus,
+    effectiveStatus,
+    onTogglePanel: dashboardState.onTogglePanel,
+    onStartRun: dashboardState.onStartRun,
+    onRetryTask: dashboardState.onRetryTask,
+    onRetryAllFailed: dashboardState.onRetryAllFailed,
+    onCompleteTask: dashboardState.onCompleteTask,
+    onResetTask: dashboardState.onResetTask,
+    onResetAllTasks: dashboardState.onResetAllTasks,
+    onSelectSpec: dashboardState.onSelectSpec,
+    onFocusLogs: dashboardState.onFocusLogs,
+    onFocusTasks: dashboardState.onFocusTasks,
   });
 
   if (tasks.length === 0) {
-    return <SpecPicker isInteractive={isInteractive} onSelectSpec={onSelectSpec} />;
+    return <SpecPicker isInteractive={isInteractive} />;
   }
 
-  if (effectiveBreakpoint === 'minimal') {
+  if (terminalDims.breakpoint === 'minimal') {
     return (
       <RunLayoutMinimal
         completedCount={completedCount}
@@ -98,10 +92,24 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
     />
   );
 
-  if (effectiveBreakpoint === 'compact') {
+  const actionBar = (
+    <RunActionBar
+      focusedPanel={focusedPanel}
+      selectedTaskStatus={selectedTask?.status ?? null}
+      effectiveStatus={effectiveStatus}
+      hasFailedTasks={failedCount > 0}
+      hasPendingTasks={pendingCount > 0}
+      actionFeedback={
+        actionFeedback ? { type: 'info', message: actionFeedback } : null
+      }
+    />
+  );
+
+  if (terminalDims.breakpoint === 'compact') {
     return (
       <RunLayoutCompact
         topMetricsPanel={topMetricsPanel}
+        actionBar={actionBar}
         focusedPanel={focusedPanel}
         tasks={tasks}
         selectedTaskId={selectedTaskId}
@@ -109,6 +117,7 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
         terminalRows={terminalDims.rows}
         logs={logs}
         taskLogs={taskLogs}
+        onCompleteTask={dashboardState.onCompleteTask}
       />
     );
   }
@@ -116,6 +125,7 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
   return (
     <RunLayoutWide
       topMetricsPanel={topMetricsPanel}
+      actionBar={actionBar}
       focusedPanel={focusedPanel}
       tasks={tasks}
       selectedTaskId={selectedTaskId}
@@ -123,6 +133,7 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
       terminalRows={terminalDims.rows}
       logs={logs}
       taskLogs={taskLogs}
+      onCompleteTask={dashboardState.onCompleteTask}
     />
   );
 });

@@ -22,8 +22,10 @@ export interface RunLayoutWideProps {
   completedAt?: string;
   terminalRows?: number;
   topMetricsPanel?: React.ReactNode;
+  actionBar?: React.ReactNode;
   logs?: Record<string, string[]>;
   taskLogs?: string[];
+  onCompleteTask?: () => void;
 }
 
 export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
@@ -38,15 +40,22 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
     completedAt,
     terminalRows: propTerminalRows,
     topMetricsPanel,
+    actionBar,
     logs,
     taskLogs: propTaskLogs,
+    onCompleteTask,
   }) => {
     const terminalDims = useTerminalDimensions();
     const rows = propTerminalRows ?? terminalDims.rows ?? 24;
 
     const availableRows = Math.max(12, rows - 5);
-    const taskListMaxHeight = Math.max(4, availableRows - 3);
-    const logMaxLines = Math.max(4, availableRows - 7);
+    // A barra de tarefas usa duas linhas e pode receber uma terceira de
+    // feedback. Reservamos esse máximo para que a área de logs não ultrapasse
+    // o rodapé em terminais baixos.
+    const actionBarRows = actionBar ? 3 : 0;
+    const panelRows = Math.max(8, availableRows - actionBarRows);
+    const taskListMaxHeight = Math.max(4, panelRows - 3);
+    const logMaxLines = Math.max(4, panelRows - 7);
 
     const effectiveTaskLogs =
       propTaskLogs !== undefined
@@ -89,6 +98,7 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
               maxHeight={taskListMaxHeight}
               showFilterBadges={false}
               borderStyle="round"
+              onCompleteTask={onCompleteTask}
             />
           </Box>
 
@@ -118,6 +128,11 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
             />
           </Box>
         </Box>
+        {actionBar && (
+          <Box width="100%" flexShrink={0} overflow="hidden">
+            {actionBar}
+          </Box>
+        )}
       </Box>
     );
   },
