@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { ContainerProvider } from './context/ContainerContext.js';
 import { NavigationProvider, useNavigation, TabId } from './context/NavigationContext.js';
@@ -15,9 +15,11 @@ import { PullSpecModal } from './components/specs/PullSpecModal.js';
 import { TasksScreen } from './components/tasks/TasksScreen.js';
 import { DocsScreen } from './components/docs/DocsScreen.js';
 import { ConfigScreen } from './components/config/ConfigScreen.js';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard.js';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
 import { useTerminalDimensions } from './hooks/useTerminalDimensions.js';
 import { AppContainer, createAppContainer } from '../../infrastructure/container.js';
+import { PATHS } from '../../infrastructure/paths.js';
 import { theme } from './theme.js';
 
 export interface AppProps {
@@ -55,16 +57,63 @@ const QuitConfirmContent: React.FC<{
   );
 };
 
+export function isWorkspaceInitialized(appContainer?: AppContainer): boolean {
+  if (!appContainer) return false;
+  try {
+    const gw = appContainer.workspaceGateway ?? appContainer.gw;
+    if (!gw || !gw.exists(PATHS.metadata)) {
+      return false;
+    }
+    const rawMetadata = gw.readFile(PATHS.metadata);
+    const parsedMetadata = JSON.parse(rawMetadata);
+    if (!parsedMetadata || parsedMetadata.initialized !== true) {
+      return false;
+    }
+
+    const config = appContainer.configService?.loadConfig();
+    if (!config) {
+      return false;
+    }
+
+    const hasEnvironment =
+      typeof config.environment === 'string' && config.environment.trim().length > 0;
+    const hasPlanner =
+      typeof config.plannerAgent === 'string' && config.plannerAgent.trim().length > 0;
+    const hasExecutor =
+      typeof config.executorAgent === 'string' && config.executorAgent.trim().length > 0;
+
+    return hasEnvironment && hasPlanner && hasExecutor;
+  } catch {
+    return false;
+  }
+}
+
 const AppContent: React.FC<{
   container?: AppContainer;
   onExit?: () => void;
   enableAlternateScreen?: boolean;
-}> = ({ container, onExit, enableAlternateScreen }) => {
+  initialTab?: TabId;
+}> = ({ container, onExit, enableAlternateScreen, initialTab }) => {
   const nav = useNavigation();
   const exec = useExecution();
   const { statusNotification, clearStatusNotification } = usePlanning();
   const { exit } = useApp();
   const { rows } = useTerminalDimensions();
+
+  const isInitialized = useMemo(() => isWorkspaceInitialized(container), [container]);
+  const [isOnboardingActive, setIsOnboardingActive] = useState(!isInitialized);
+
+  const handleQuit = useCallback(() => {
+    if (onExit) {
+      onExit();
+    }
+    exit();
+  }, [onExit, exit]);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setIsOnboardingActive(false);
+    nav.setActiveTab(initialTab === 'run' ? 'run' : 'specs');
+  }, [initialTab, nav]);
 
   // Clear active notifications when switching tabs
   useEffect(() => {
@@ -86,13 +135,6 @@ const AppContent: React.FC<{
     }
   }, [enableAlternateScreen]);
 
-  const handleQuit = useCallback(() => {
-    if (onExit) {
-      onExit();
-    }
-    exit();
-  }, [onExit, exit]);
-
   // Clean signal handling on unmount / interruption
   useEffect(() => {
     const handleSignal = () => {
@@ -110,7 +152,25 @@ const AppContent: React.FC<{
   useKeyboardShortcuts({
     onQuit: handleQuit,
     enableArrowNav: false,
+    isActive: !isOnboardingActive,
   });
+
+  if (isOnboardingActive && container) {
+    return (
+      <Box
+        flexDirection="column"
+        width="100%"
+        height={rows > 2 ? rows - 1 : undefined}
+        overflow="hidden"
+      >
+        <OnboardingWizard
+          container={container}
+          onComplete={handleOnboardingComplete}
+          onExit={handleQuit}
+        />
+      </Box>
+    );
+  }
 
   const isInteractive = nav.modal === null;
 
@@ -236,6 +296,7 @@ export const App: React.FC<AppProps> = ({
               container={appContainer}
               onExit={onExit}
               enableAlternateScreen={enableAlternateScreen}
+              initialTab={initialTab}
             />
           </PlanningProvider>
         </ExecutionProvider>
