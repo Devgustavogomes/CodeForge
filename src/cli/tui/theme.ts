@@ -1,4 +1,14 @@
+/**
+ * TUI Theme Definition
+ *
+ * Defines the design system tokens including color palettes, status visual markers,
+ * ASCII symbols, and helper utilities for status rendering and progress bars.
+ */
 export const theme = {
+  /**
+   * Color palette used across the TUI interface.
+   * All color hex values are strictly preserved to maintain visual consistency (RNF01).
+   */
   colors: {
     primary: '#3b82f6' as const,
     accent: '#38bdf8' as const,
@@ -12,38 +22,46 @@ export const theme = {
     borderActive: '#3b82f6' as const,
     bgEmpty: '#1e293b' as const,
   },
+
+  /**
+   * Status indicators with universal ASCII markers safe for Windows terminals (RF02, RNF02).
+   */
   status: {
     running: {
       color: '#3b82f6' as const,
-      icon: '▶',
+      icon: '[>]',
       label: 'RUNNING',
     },
     completed: {
       color: '#22c55e' as const,
-      icon: '✓',
+      icon: '[v]',
       label: 'COMPLETED',
     },
     failed: {
       color: '#ef4444' as const,
-      icon: '✗',
+      icon: '[x]',
       label: 'FAILED',
     },
     pending: {
       color: '#64748b' as const,
-      icon: '○',
+      icon: '[ ]',
       label: 'PENDING',
     },
     deadlock: {
       color: '#ef4444' as const,
-      icon: '⚠',
+      icon: '[!]',
       label: 'DEADLOCK',
     },
     idle: {
       color: '#64748b' as const,
-      icon: '●',
+      icon: '[-]',
       label: 'IDLE',
     },
   },
+
+  /**
+   * Visual symbols and bar characters used for layout borders and progress indicators.
+   */
   symbols: {
     pointer: '▌',
     bullet: '•',
@@ -56,13 +74,31 @@ export const theme = {
   },
 };
 
+/**
+ * Valid keys for the theme status map.
+ */
 export type ThemeStatusKey = keyof typeof theme.status;
 
+/**
+ * Retrieves the status theme configuration for a given status string.
+ * Falls back to the pending status theme if the key is unknown.
+ *
+ * @param status - The status name to look up.
+ * @returns The status theme configuration containing color, icon, and label.
+ */
 export function getStatusTheme(status: string) {
   const key = status.toLowerCase() as ThemeStatusKey;
   return theme.status[key] ?? theme.status.pending;
 }
 
+/**
+ * Renders a visual text-based progress bar.
+ *
+ * @param completed - Number of completed items.
+ * @param total - Total number of items.
+ * @param barWidth - The character width of the progress bar (default: 20).
+ * @returns Formatted progress bar string with brackets, percentage, and ratio.
+ */
 export function renderProgressBar(
   completed: number,
   total: number,

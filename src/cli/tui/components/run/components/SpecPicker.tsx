@@ -156,7 +156,7 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
           justifyContent="center"
         >
           <Text bold color={theme.colors.primary}>
-            ⚒ CodeForge
+            CodeForge
           </Text>
           <Text color={theme.colors.muted}>No specifications found</Text>
           <Box gap={2}>

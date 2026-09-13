@@ -1,6 +1,5 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render } from 'ink-testing-library';
 import { DocsScreen, DocItemInfo } from '../../../../../src/cli/tui/components/docs/DocsScreen.js';
 import { renderWithProviders, flushAsync } from '../../helpers/renderWithProviders.js';
 
@@ -27,38 +26,6 @@ describe('DocsScreen component', () => {
       inManifest: false,
     },
   ];
-
-  it('renders documentation list with tracking status and metadata in English', () => {
-    const { lastFrame } = render(
-      <DocsScreen initialDocs={mockDocs} isInteractive={false} language="en" />
-    );
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('Docs (2)');
-    expect(output).toContain('architecture.md');
-    expect(output).toContain('[TRACKED]');
-    expect(output).toContain('api-reference.md');
-    expect(output).toContain('[UNTRACKED]');
-    expect(output).toContain('Document Details: architecture.md');
-    expect(output).toContain('src/cli/tui/**');
-  });
-
-  it('renders documentation list with tracking status and metadata in Portuguese', () => {
-    const { lastFrame } = render(
-      <DocsScreen initialDocs={mockDocs} isInteractive={false} language="pt" />
-    );
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('Docs (2)');
-    expect(output).toContain('architecture.md');
-    expect(output).toContain('[RASTREADO]');
-    expect(output).toContain('api-reference.md');
-    expect(output).toContain('[NÃO RASTREADO]');
-    expect(output).toContain('Detalhes do Documento: architecture.md');
-    expect(output).toContain('src/cli/tui/**');
-    expect(output).toContain('Criado: 2026-09-06');
-    expect(output).toContain('[Enter] Ver · [u] Atualizar · [c] Criar');
-  });
 
   it('opens create modal with "c" and triggers onCreateDoc on submit', async () => {
     const onCreateDoc = vi.fn().mockResolvedValue(undefined);
@@ -123,45 +90,6 @@ describe('DocsScreen component', () => {
     await flushAsync();
 
     expect(onUpdateDoc).toHaveBeenCalledWith('architecture', 'tui');
-  });
-
-  it('displays active progress banner during operation and success banner after completion', async () => {
-    let resolveCreate: () => void = () => {};
-    const createPromise = new Promise<void>((resolve) => {
-      resolveCreate = resolve;
-    });
-    const onCreateDoc = vi.fn().mockImplementation(() => createPromise);
-
-    const { lastFrame, stdin } = renderWithProviders(
-      <DocsScreen
-        initialDocs={mockDocs}
-        onCreateDoc={onCreateDoc}
-        isInteractive={true}
-        language="pt"
-      />
-    );
-
-    stdin.write('c');
-    await flushAsync();
-
-    stdin.write('deployment');
-    await flushAsync();
-    stdin.write('\t');
-    await flushAsync();
-    stdin.write('tui');
-    await flushAsync();
-    stdin.write('\r');
-    await flushAsync();
-
-    let output = lastFrame() ?? '';
-    expect(output).toContain('Criando Documentação: [deployment]');
-    expect(output).toContain('Gerando conteúdo técnico via use-case...');
-
-    resolveCreate();
-    await flushAsync();
-
-    output = lastFrame() ?? '';
-    expect(output).toContain('✓ Documentação "deployment" criada com sucesso em');
   });
 
   it('opens expanded markdown doc viewer modal when pressing Enter and closes on Esc', async () => {

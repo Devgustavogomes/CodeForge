@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useContext, useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { useExecution } from '../../context/ExecutionContext.js';
+import { ContainerContext } from '../../context/ContainerContext.js';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { theme } from '../../theme.js';
+import { translate } from '../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../config/types.js';
 
 export interface HeaderProps {
   title?: string;
@@ -11,6 +14,7 @@ export interface HeaderProps {
   shortcuts?: string;
   borderColor?: string;
   borderStyle?: 'round' | 'single' | 'none';
+  language?: SupportedLanguage;
 }
 
 /**
@@ -25,23 +29,46 @@ export function areHeaderPropsEqual(prev: HeaderProps, next: HeaderProps): boole
     prev.breadcrumb === next.breadcrumb &&
     prev.shortcuts === next.shortcuts &&
     prev.borderColor === next.borderColor &&
-    prev.borderStyle === next.borderStyle
+    prev.borderStyle === next.borderStyle &&
+    prev.language === next.language
   );
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
-  title = '⚒ CodeForge',
+  title: propTitle,
   activeSpec: propActiveSpec,
   breadcrumb,
   shortcuts,
   borderColor = theme.colors.borderSubtle,
   borderStyle = 'round',
+  language: propLanguage,
 }) => {
+  const container = useContext(ContainerContext);
+  const resolvedLanguage: SupportedLanguage = useMemo(() => {
+    if (propLanguage) return propLanguage;
+    try {
+      return container?.configService?.loadConfig?.()?.language ?? 'en';
+    } catch {
+      return 'en';
+    }
+  }, [propLanguage, container]);
+
   const exec = useExecution();
   const { breakpoint } = useTerminalDimensions();
+
+  const title =
+    propTitle !== undefined
+      ? propTitle
+      : translate('tui_header_title', resolvedLanguage);
+
   const currentSpec = propActiveSpec !== undefined ? propActiveSpec : exec.activeSpec;
-  const displayBreadcrumb = breadcrumb || (currentSpec ? `Spec: ${currentSpec}` : 'No active spec');
-  const defaultShortcuts = '[q] Quit';
+  const displayBreadcrumb =
+    breadcrumb ||
+    (currentSpec
+      ? translate('tui_header_active_spec', resolvedLanguage, { spec: currentSpec })
+      : translate('tui_header_no_active_spec', resolvedLanguage));
+
+  const defaultShortcuts = translate('tui_header_shortcuts', resolvedLanguage);
   const displayShortcuts = shortcuts !== undefined ? shortcuts : defaultShortcuts;
 
   const isNoneBorder = borderStyle === 'none';

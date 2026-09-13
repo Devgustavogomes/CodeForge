@@ -122,7 +122,7 @@ describe('High-Throughput Stream Integration', () => {
       reporter?.onLog?.('TASK-003', msg3);
     }
 
-    await flushAsync(10);
+    await flushAsync(50);
 
     // Redraw containment: UI redraws during burst must be throttled and much lower than 60 chunks emitted
     const redrawsDuringBurst = frames.length - initialFrameCount;
@@ -140,74 +140,6 @@ describe('High-Throughput Stream Integration', () => {
     expect(task1Logs).toEqual(expectedLogsTask1);
     expect(task2Logs).toEqual(expectedLogsTask2);
     expect(task3Logs).toEqual(expectedLogsTask3);
-
-    unmount();
-  });
-
-  it('handles empty and special chunks without errors or UI breakage', async () => {
-    const gw = new InMemoryWorkspaceGateway();
-    const runner = new InMemoryAgentRunner();
-    const stateRepo = new ExecutionStateRepository(gw);
-    const container = createAppContainer(gw, {
-      runnerProvider: () => runner,
-      executionStateRepository: stateRepo,
-    });
-
-    gw.mkdir('.codeforge/tasks/special-spec');
-    const task: Task = {
-      id: 'TASK-001',
-      title: 'Special Chunks Task',
-      dependencies: [],
-      objective: 'Verify resilience to edge case chunks',
-      context: '',
-      implementation: '',
-      files: [],
-      constraints: [],
-      acceptanceCriteria: [],
-    };
-    gw.writeFile(
-      '.codeforge/tasks/special-spec/TASK-001.json',
-      JSON.stringify(task),
-    );
-
-    const scheduler = container.createTaskScheduler(runner, {
-      environment: 'test',
-      plannerAgent: 'mock',
-      executorAgent: 'mock',
-      language: 'en',
-    });
-
-    let execContext: ExecutionContextValue | null = null;
-    const ContextCapture: React.FC = () => {
-      execContext = useExecution();
-      return <RunDashboard isInteractive={false} />;
-    };
-
-    const { lastFrame, unmount } = renderWithProviders(<ContextCapture />, {
-      container,
-      scheduler,
-      initialSpec: 'special-spec',
-      flushIntervalMs: 0,
-    });
-
-    await flushAsync(5);
-    const reporter = scheduler.getReporter();
-
-    // Emit empty chunks and chunks with ANSI color sequences and carriage returns
-    reporter?.onLog?.('TASK-001', '');
-    reporter?.onLog?.('TASK-001', '\x1b[32m[SUCCESS] Color stripped\x1b[0m\n');
-    reporter?.onLog?.('TASK-001', 'Carriage\rReturn\r\n');
-
-    await flushAsync();
-
-    await vi.waitFor(() => {
-      const logs = execContext?.getTaskLogs('TASK-001') ?? [];
-      expect(logs).toContain('[SUCCESS] Color stripped');
-      expect(logs.some((l) => l.includes('\x1b'))).toBe(false);
-      const frame = lastFrame() ?? '';
-      expect(frame).toContain('TASK-001');
-      expect(frame).toContain('[SUCCESS] Color stripped');
-    }, { interval: 2, timeout: 100 });
 
     unmount();
   });

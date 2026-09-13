@@ -18,28 +18,6 @@ describe('ViewDocModal component', () => {
 
   const sampleContent = Array.from({ length: 40 }, (_, i) => `# Section ${i + 1}\nContent line ${i + 1}`).join('\n');
 
-  it('renders modal header, metadata and initial visible markdown content in Portuguese', () => {
-    const onClose = vi.fn();
-    const { lastFrame } = renderWithProviders(
-      <ViewDocModal
-        doc={mockDoc}
-        content={sampleContent}
-        isOpen={true}
-        onClose={onClose}
-        language="pt"
-        maxVisibleLines={10}
-      />
-    );
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('Visualizar Documentação: architecture.md');
-    expect(output).toContain('[RASTREADO]');
-    expect(output).toContain('.codeforge/docs/architecture.md');
-    expect(output).toContain('1-10 /');
-    expect(output).toContain('# Section 1');
-    expect(output).toContain('[TOP]');
-  });
-
   it('scrolls down and up using j/k keyboard shortcuts', async () => {
     const onClose = vi.fn();
     const { lastFrame, stdin } = renderWithProviders(

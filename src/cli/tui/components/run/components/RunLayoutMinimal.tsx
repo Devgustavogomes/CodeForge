@@ -62,7 +62,7 @@ export const RunLayoutMinimal: React.FC<RunLayoutMinimalProps> = memo(({
 
       <Box flexDirection="column">
         <Text color={theme.colors.warning} bold>
-          ⚠️ Window too small ({columns}x{rows})
+          [!] Window too small ({columns}x{rows})
         </Text>
         <Text dimColor>
           Please resize window to at least 60x12 for full dashboard.

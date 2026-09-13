@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'ink-testing-library';
-import { TaskList, TaskFilter } from '../../../../../src/cli/tui/components/run/TaskList.js';
+import { TaskList } from '../../../../../src/cli/tui/components/run/TaskList.js';
 import { ExecutionContext, ExecutionContextValue, TaskItem } from '../../../../../src/cli/tui/context/ExecutionContext.js';
 import { flushAsync } from '../../helpers/flushAsync.js';
 

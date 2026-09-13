@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useContext, useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { TabId, useNavigation } from '../../context/NavigationContext.js';
+import { ContainerContext } from '../../context/ContainerContext.js';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { theme } from '../../theme.js';
+import { translate, TranslationKey } from '../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../config/types.js';
 
 export interface StatusBarProps {
   activeTab?: TabId;
@@ -11,19 +14,12 @@ export interface StatusBarProps {
   error?: string | null;
   borderColor?: string;
   borderStyle?: 'round' | 'single' | 'none';
+  language?: SupportedLanguage;
 }
-
-const DEFAULT_HINTS: Record<TabId, string> = {
-  run: '↑/↓: Navigate  │  Enter: Run/Resume  │  Tab: View  │  r: Retry  │  c: Complete  │  x/X: Reset  │  w: Wrap',
-  specs: '↑/↓: Navigate  │  Enter: Run  │  t: Tasks  │  g: Plan  │  p: Pull  │  c: Create  │  v: Validate',
-  tasks: '↑/↓: Navigate  │  c: Complete  │  x: Reset  │  e: Expand  │  /: Search Spec  │  v: View',
-  docs: 'c: Create  │  u: Update  │  Enter: View',
-  config: '↑/↓: Navigate  │  Enter: Edit',
-};
 
 /**
  * StatusBar component rendering bottom bar with context-sensitive key hints
- * and current status / error messages with modern rounded borders.
+ * and current status / error messages using universal ASCII markers and rounded borders.
  */
 export function areStatusBarPropsEqual(prev: StatusBarProps, next: StatusBarProps): boolean {
   const hintsEqual =
@@ -37,7 +33,8 @@ export function areStatusBarPropsEqual(prev: StatusBarProps, next: StatusBarProp
     prev.status === next.status &&
     prev.error === next.error &&
     prev.borderColor === next.borderColor &&
-    prev.borderStyle === next.borderStyle
+    prev.borderStyle === next.borderStyle &&
+    prev.language === next.language
   );
 }
 
@@ -48,8 +45,19 @@ export const StatusBar: React.FC<StatusBarProps> = React.memo(({
   error,
   borderColor,
   borderStyle = 'round',
+  language: propLanguage,
 }) => {
   const nav = useNavigation();
+  const container = useContext(ContainerContext);
+  const resolvedLanguage: SupportedLanguage = useMemo(() => {
+    if (propLanguage) return propLanguage;
+    try {
+      return container?.configService?.loadConfig?.()?.language ?? 'en';
+    } catch {
+      return 'en';
+    }
+  }, [propLanguage, container]);
+
   const { breakpoint } = useTerminalDimensions();
   const currentTab = propActiveTab ?? nav.activeTab;
 
@@ -59,13 +67,24 @@ export const StatusBar: React.FC<StatusBarProps> = React.memo(({
   } else if (typeof hints === 'string') {
     hintText = hints;
   } else {
-    hintText = DEFAULT_HINTS[currentTab] ?? '';
+    const hintKey = `tui_status_hints_${currentTab}` as TranslationKey;
+    hintText = translate(hintKey, resolvedLanguage);
   }
 
   const effectiveBorderColor = error
     ? theme.colors.error
     : borderColor ?? theme.colors.borderSubtle;
   const isNoneBorder = borderStyle === 'none';
+
+  // Format status message with a safe universal ASCII marker
+  const formattedStatus = status
+    ? (status.startsWith('[') ? status : `[v] ${status}`)
+    : null;
+
+  // Format error message with safe ASCII [x] marker
+  const formattedError = error
+    ? (error.startsWith('[x]') ? error : `[x] ${error}`)
+    : null;
 
   return (
     <Box
@@ -79,18 +98,18 @@ export const StatusBar: React.FC<StatusBarProps> = React.memo(({
         {breakpoint !== 'minimal' ? (
           <Text dimColor wrap="truncate-end">{hintText}</Text>
         ) : (
-          <Text dimColor>[1-5] Tabs  [q] Quit</Text>
+          <Text dimColor>{translate('tui_status_minimal_hints', resolvedLanguage)}</Text>
         )}
       </Box>
 
       <Box flexShrink={0} paddingLeft={1}>
-        {error ? (
+        {formattedError ? (
           <Text color={theme.colors.error} bold>
-            ✗ {error}
+            {formattedError}
           </Text>
-        ) : status ? (
+        ) : formattedStatus ? (
           <Text color={theme.colors.success}>
-            ● {status}
+            {formattedStatus}
           </Text>
         ) : null}
       </Box>
