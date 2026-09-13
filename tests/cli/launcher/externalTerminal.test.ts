@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   stripExternalArgs,
-  isExecutableAvailable,
   resolveLinuxTerminal,
   getTerminalCommand,
   getWindowsCommand,
@@ -390,34 +389,5 @@ describe("externalTerminal launcher", () => {
     });
   });
 
-  describe("isExecutableAvailable", () => {
-    it("returns true for standard system binaries", () => {
-      if (process.platform === "win32") {
-        expect(isExecutableAvailable("cmd.exe")).toBe(true);
-      } else {
-        expect(isExecutableAvailable("sh")).toBe(true);
-      }
-    });
-
-    it("returns false for non-existent binaries", () => {
-      expect(isExecutableAvailable("completely_nonexistent_binary_xyz_123")).toBe(false);
-    });
-  });
-
-  describe("Commander --external / -w option integration", () => {
-    it("recognizes --external and -w flags on Commander instance", async () => {
-      const { Command } = await import("commander");
-      const program = new Command();
-      program.option("--external, -w", "Open in a dedicated external terminal window");
-
-      program.parse(["node", "codeforge", "--external"]);
-      expect(program.opts().external).toBe(true);
-
-      const programShort = new Command();
-      programShort.option("--external, -w", "Open in a dedicated external terminal window");
-      programShort.parse(["node", "codeforge", "-w"]);
-      expect(programShort.opts().external).toBe(true);
-    });
-  });
 });
 

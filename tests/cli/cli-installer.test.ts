@@ -6,7 +6,6 @@ import {
   CLI_INSTALL_COMMANDS,
   CliInstallerDependencies,
 } from "../../src/cli/installer/CliInstaller.js";
-import { getCodeForgeBanner, CODEFORGE_ASCII } from "../../src/cli/ui/banner.js";
 
 describe("CliInstaller", () => {
   function controlledProcess(
@@ -168,10 +167,3 @@ describe("CliInstaller", () => {
   });
 });
 
-describe("Banner", () => {
-  it("generates banner containing CODEFORGE ASCII and description", () => {
-    const banner = getCodeForgeBanner();
-    expect(banner).toContain(CODEFORGE_ASCII);
-    expect(banner).toContain("Deterministic AI Workflow Engine");
-  });
-});

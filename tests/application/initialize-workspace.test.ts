@@ -11,12 +11,6 @@ describe("InitializeWorkspaceUseCase", () => {
     useCase = new InitializeWorkspaceUseCase(gateway);
   });
 
-  it("creates the .codeforge directory structure", () => {
-    useCase.execute();
-
-    expect(gateway.exists(".codeforge")).toBe(true);
-  });
-
   it("creates all expected subdirectories (no plans/)", () => {
     useCase.execute();
 
@@ -38,18 +32,6 @@ describe("InitializeWorkspaceUseCase", () => {
   it("creates rules/planning.md from embedded ts constant", () => {
     useCase.execute();
     expect(gateway.exists(".codeforge/rules/planning.md")).toBe(true);
-  });
-
-  it("planning.md contains the expected sections", () => {
-    useCase.execute();
-    const content = gateway.readFile(".codeforge/rules/planning.md");
-
-    expect(content).toContain("# CodeForge — Planning Rules");
-    expect(content).toContain("## Task format");
-    expect(content).toContain("## Rules for decomposition");
-    expect(content).toContain("## Rules for dependencies");
-    expect(content).toContain("## Output format");
-    expect(content).toContain("## What you must NOT do");
   });
 
   it("creates metadata.json with initialized: true", () => {

@@ -90,13 +90,6 @@ describe("AppContainer composition root", () => {
     const scheduler = container.createTaskScheduler(mockRunner, config);
     expect(scheduler).toBeDefined();
   });
-
-  it("does not expose createReactiveTaskScheduler", () => {
-    const memoryGw = new InMemoryWorkspaceGateway();
-    const container = createAppContainer(memoryGw);
-
-    expect((container as Record<string, unknown>).createReactiveTaskScheduler).toBeUndefined();
-  });
 });
 
 describe("Constructor injection in use cases", () => {

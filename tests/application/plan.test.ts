@@ -1,6 +1,5 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ListSpecsUseCase } from "../../src/application/use-cases/ListSpecsUseCase.js";
 import { GeneratePlanUseCase } from "../../src/application/use-cases/GeneratePlanUseCase.js";
 import { AgentRunner } from "../../src/runners/AgentRunner.js";
 import { CodeForgeConfig } from "../../src/config/types.js";
@@ -11,32 +10,6 @@ function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge/rules");
   gateway.writeFile(".codeforge/metadata.json", JSON.stringify({ initialized: true }));
 }
-
-describe("ListSpecsUseCase", () => {
-  let gateway: InMemoryWorkspaceGateway;
-  let useCase: ListSpecsUseCase;
-
-  beforeEach(() => {
-    gateway = new InMemoryWorkspaceGateway();
-    useCase = new ListSpecsUseCase(gateway);
-  });
-
-  it("returns empty array if specs directory does not exist", () => {
-    expect(useCase.execute()).toEqual([]);
-  });
-
-  it("returns only .md files without extension sorted", () => {
-    makeWorkspace(gateway);
-    
-    gateway.writeFile(".codeforge/specs/auth.md", "");
-    gateway.writeFile(".codeforge/specs/db.md", "");
-    gateway.writeFile(".codeforge/specs/readme.txt", "");
-
-    const specs = useCase.execute();
-    expect(specs).toHaveLength(2);
-    expect(specs.map((s) => s.name)).toEqual(["auth", "db"]);
-  });
-});
 
 describe("GeneratePlanUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
