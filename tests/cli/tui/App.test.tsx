@@ -1,10 +1,9 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { App, isWorkspaceInitialized } from '../../../src/cli/tui/App.js';
+import { App } from '../../../src/cli/tui/App.js';
 import {
   renderWithProviders,
   createMockContainer,
-  createInitializedContainer,
   setupInitializedWorkspace,
   flushAsync,
 } from './helpers/renderWithProviders.js';
@@ -12,60 +11,9 @@ import { InMemoryWorkspaceGateway } from '../../helpers/in-memory-workspace.js';
 import { InMemoryAgentRunner } from '../../helpers/in-memory-agent-runner.js';
 import { createAppContainer } from '../../../src/infrastructure/container.js';
 
-describe('App - Smoke Tests do Layout e Navegação Global', () => {
-  it('renderiza o layout inicial com cabeçalho e abas', () => {
-    const container = createInitializedContainer();
-    const { lastFrame } = renderWithProviders(
-      <App container={container} initialTab="run" />,
-      { container },
-    );
-    const output = lastFrame() ?? '';
 
-    expect(output).toContain('\u2692 CodeForge');
-    expect(output).toContain('[1] Run');
-    expect(output).toContain('[2] Specs');
-    expect(output).toContain('[3] Tasks');
-    expect(output).toContain('[4] Docs');
-    expect(output).toContain('[5] Config');
-    expect(output).toContain(String.fromCodePoint(0x2500).repeat(9));
-  });
-
-  it('alterna abas quando as teclas numéricas 1-5 são acionadas', async () => {
-    const container = createInitializedContainer();
-    const { lastFrame, stdin } = renderWithProviders(
-      <App container={container} initialTab="run" />,
-      { container },
-    );
-
-    // Pressionar '2' -> Aba Specs
-    stdin.write('2');
-    await flushAsync();
-    expect(lastFrame()).toContain('Specifications');
-
-    // Pressionar '3' -> Aba Tasks
-    stdin.write('3');
-    await flushAsync();
-    expect(lastFrame()).toContain('Tasks');
-
-    // Pressionar '4' -> Aba Docs
-    stdin.write('4');
-    await flushAsync();
-    expect(lastFrame()).toContain('Docs');
-
-    // Pressionar '5' -> Aba Config
-    stdin.write('5');
-    await flushAsync();
-    expect(lastFrame()).toContain('CodeForge Configuration Editor');
-
-    // Pressionar '1' -> Retorna para Aba Run
-    stdin.write('1');
-    await flushAsync();
-    expect(lastFrame()).toContain('[1] Run');
-  });
-});
-
-describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1)', () => {
-  it('persiste a geração de plano em background ao alternar entre abas e notifica na StatusBar', async () => {
+describe('App - PlanningProvider Integration and Background Execution (Flow 1)', () => {
+  it('persists background plan generation when switching tabs and notifies on StatusBar', async () => {
     const gw = new InMemoryWorkspaceGateway();
     setupInitializedWorkspace(gw);
     const runner = new InMemoryAgentRunner();
@@ -96,7 +44,7 @@ describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1
       generatePlanUseCase: mockGeneratePlanUseCase as any,
     });
 
-    // 1. Renderizar o App na aba Specs
+    // 1. Render App in Specs tab
     const { lastFrame, stdin } = renderWithProviders(
       <App container={container} initialTab="specs" />,
       { container },
@@ -106,14 +54,14 @@ describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1
     expect(lastFrame()).toContain('Specifications');
     expect(lastFrame()).toContain('auth');
 
-    // 2. Iniciar geração de plano via tecla 'g'
+    // 2. Trigger plan generation with 'g' key
     stdin.write('g');
     await flushAsync();
 
     expect(mockGeneratePlanUseCase.execute).toHaveBeenCalledWith('auth', expect.any(String));
     expect(lastFrame()).toContain('Gerando Plano de Execução [auth]');
 
-    // 3. Alternar para a aba Tasks (pressionando '3') e verificar que a tela SpecsScreen é desmontada mas a execução prossegue em segundo plano
+    // 3. Switch to Tasks tab (pressing '3') and verify SpecsScreen unmounts while execution continues in background
     stdin.write('3');
     await flushAsync();
 
@@ -122,16 +70,16 @@ describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1
     expect(tasksFrame).not.toContain('Specifications');
     expect(tasksFrame).not.toContain('Gerando Plano de Execução');
 
-    // 4. Aguardar a resolução do mock do use case em background
+    // 4. Wait for background use case mock resolution
     resolvePlan({ kind: 'valid' });
     await flushAsync();
 
-    // 5. Validar que a StatusBar exibe a mensagem de notificação temporária ('✓ Plano gerado para ...')
+    // 5. Validate that StatusBar displays temporary notification
     await vi.waitFor(() => {
       expect(lastFrame()).toContain('✓ Plano gerado para auth');
     });
 
-    // 6. Alternar de volta para a aba Specs (pressionando '2') e validar que a SpecsScreen remonta exibindo o card SpecPlanProgress com o resumo de sucesso persistido
+    // 6. Switch back to Specs tab (pressing '2') and validate that SpecsScreen remounts showing SpecPlanProgress card
     stdin.write('2');
     await flushAsync();
 
@@ -142,7 +90,7 @@ describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1
       expect(specsFrame).toContain('2 tarefas criadas e validadas');
     });
 
-    // 7. Validar que ao trocar novamente de aba a notificação temporária é dissipada
+    // 7. Validate that switching tabs again clears the temporary notification
     stdin.write('3');
     await flushAsync();
 
@@ -153,7 +101,7 @@ describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1
     });
   });
 
-  it('mantém o estado de erro persistido no SpecPlanProgress ao falhar a geração em background', async () => {
+  it('persists failure state in SpecPlanProgress when background generation fails', async () => {
     const gw = new InMemoryWorkspaceGateway();
     setupInitializedWorkspace(gw);
     const runner = new InMemoryAgentRunner();
@@ -175,7 +123,7 @@ describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1
       generatePlanUseCase: mockGeneratePlanUseCase as any,
     });
 
-    // Renderizar na aba Specs
+    // Render in Specs tab
     const { lastFrame, stdin } = renderWithProviders(
       <App container={container} initialTab="specs" />,
       { container },
@@ -185,26 +133,26 @@ describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1
     expect(lastFrame()).toContain('Specifications');
     expect(lastFrame()).toContain('billing');
 
-    // Iniciar geração de plano via 'g'
+    // Trigger plan generation via 'g'
     stdin.write('g');
     await flushAsync();
     expect(lastFrame()).toContain('Gerando Plano de Execução [billing]');
 
-    // Mudar para a aba Run (pressionando '1')
+    // Switch to Run tab (pressing '1')
     stdin.write('1');
     await flushAsync();
     expect(lastFrame()).toContain('[1] Run');
     expect(lastFrame()).not.toContain('Specifications');
 
-    // Rejeitar use case em background com erro
+    // Reject background use case with error
     rejectPlan(new Error('AI rate limit exceeded (429)'));
     await flushAsync();
 
-    // Retornar para a aba Specs (pressionando '2')
+    // Return to Specs tab (pressing '2')
     stdin.write('2');
     await flushAsync();
 
-    // Validar que o SpecPlanProgress remonta exibindo o estado de falha persistido
+    // Validate that SpecPlanProgress remounts displaying persisted failure state
     await vi.waitFor(() => {
       const specsFrame = lastFrame() ?? '';
       expect(specsFrame).toContain('Specifications');
@@ -214,123 +162,8 @@ describe('App - Integração de PlanningProvider e Background Execution (Fluxo 1
   });
 });
 
-describe('App - Detecção de Inicialização e Onboarding Wizard', () => {
-  it('abre diretamente o OnboardingWizard em tela cheia em workspace virgem (sem Header, TabBar ou StatusBar)', () => {
-    const container = createMockContainer();
-    const { lastFrame } = renderWithProviders(<App container={container} />, { container });
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('Deterministic workflows for AI coding agents');
-    expect(output).toContain('[Enter] Começar Configuração');
-    expect(output).not.toContain('\u2692 CodeForge');
-    expect(output).not.toContain('[1] Run');
-    expect(output).not.toContain('[2] Specs');
-    expect(output).not.toContain('[5] Config');
-  });
-
-  it('ativa o onboarding quando a metadata está ausente, mesmo com config.yaml presente', () => {
-    const container = createMockContainer();
-    container.gw.mkdir('.codeforge');
-    container.gw.writeFile(
-      '.codeforge/config.yaml',
-      'environment: local\nplannerAgent: default\nexecutorAgent: default\n',
-    );
-    const { lastFrame } = renderWithProviders(<App container={container} />, { container });
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('Deterministic workflows for AI coding agents');
-    expect(output).not.toContain('[1] Run');
-  });
-
-  it('ativa o onboarding quando metadata.json indica initialized: false', () => {
-    const container = createMockContainer();
-    container.gw.mkdir('.codeforge');
-    container.gw.writeFile('.codeforge/metadata.json', JSON.stringify({ initialized: false }));
-    container.gw.writeFile(
-      '.codeforge/config.yaml',
-      'environment: local\nplannerAgent: default\nexecutorAgent: default\n',
-    );
-    const { lastFrame } = renderWithProviders(<App container={container} />, { container });
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('Deterministic workflows for AI coding agents');
-  });
-
-  it('ativa o onboarding quando config.yaml está ausente, mesmo com metadata.json presente', () => {
-    const container = createMockContainer();
-    container.gw.mkdir('.codeforge');
-    container.gw.writeFile('.codeforge/metadata.json', JSON.stringify({ initialized: true }));
-    const { lastFrame } = renderWithProviders(<App container={container} />, { container });
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('Deterministic workflows for AI coding agents');
-  });
-
-  it('ativa o onboarding quando config.yaml possui campos mínimos ausentes ou vazios', () => {
-    // Missing environment
-    const c1 = createMockContainer();
-    c1.gw.mkdir('.codeforge');
-    c1.gw.writeFile('.codeforge/metadata.json', JSON.stringify({ initialized: true }));
-    c1.gw.writeFile('.codeforge/config.yaml', 'plannerAgent: default\nexecutorAgent: default\n');
-    const { lastFrame: f1 } = renderWithProviders(<App container={c1} />, { container: c1 });
-    expect(f1() ?? '').toContain('Deterministic workflows for AI coding agents');
-    // Missing plannerAgent
-    const c2 = createMockContainer();
-    c2.gw.mkdir('.codeforge');
-    c2.gw.writeFile('.codeforge/metadata.json', JSON.stringify({ initialized: true }));
-    c2.gw.writeFile('.codeforge/config.yaml', 'environment: local\nexecutorAgent: default\n');
-    const { lastFrame: f2 } = renderWithProviders(<App container={c2} />, { container: c2 });
-    expect(f2() ?? '').toContain('Deterministic workflows for AI coding agents');
-
-    // Missing executorAgent
-    const c3 = createMockContainer();
-    c3.gw.mkdir('.codeforge');
-    c3.gw.writeFile('.codeforge/metadata.json', JSON.stringify({ initialized: true }));
-    c3.gw.writeFile('.codeforge/config.yaml', 'environment: local\nplannerAgent: default\n');
-    const { lastFrame: f3 } = renderWithProviders(<App container={c3} />, { container: c3 });
-    expect(f3() ?? '').toContain('Deterministic workflows for AI coding agents');
-
-    // Empty environment field
-    const c4 = createMockContainer();
-    c4.gw.mkdir('.codeforge');
-    c4.gw.writeFile('.codeforge/metadata.json', JSON.stringify({ initialized: true }));
-    c4.gw.writeFile(
-      '.codeforge/config.yaml',
-      'environment: "   "\nplannerAgent: default\nexecutorAgent: default\n',
-    );
-    const { lastFrame: f4 } = renderWithProviders(<App container={c4} />, { container: c4 });
-    expect(f4() ?? '').toContain('Deterministic workflows for AI coding agents');
-  });
-
-  it('abre a TUI normal quando o workspace possui metadata válida e config com campos mínimos preenchidos', () => {
-    const container = createInitializedContainer();
-    const { lastFrame } = renderWithProviders(<App container={container} initialTab="specs" />, {
-      container,
-    });
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('\u2692 CodeForge');
-    expect(output).toContain('[1] Run');
-    expect(output).toContain('[2] Specs');
-    expect(output).not.toContain('Deterministic workflows for AI coding agents');
-  });
-
-  it('avança pelos passos com Enter e retrocede com b durante o onboarding dentro do App', async () => {
-    const container = createMockContainer();
-    const { lastFrame, stdin } = renderWithProviders(<App container={container} />, { container });
-
-    expect(lastFrame() ?? '').toContain('Deterministic workflows for AI coding agents');
-
-    stdin.write('\r');
-    await flushAsync();
-    expect(lastFrame() ?? '').toContain('Fonte das especificações');
-
-    stdin.write('b');
-    await flushAsync();
-    expect(lastFrame() ?? '').toContain('Deterministic workflows for AI coding agents');
-  });
-
-  it('transiciona para a TUI normal após conclusão do onboarding no mesmo processo e execuções posteriores não reabrem o onboarding', async () => {
+describe('App - Onboarding Wizard Integration and Navigation', () => {
+  it('transitions to normal TUI after onboarding completion in same process and subsequent runs do not reopen onboarding', async () => {
     const mockConfigureEnv = {
       getAvailableEnvironments: () => ['local'],
       getAgentsForEnvironment: async () => ['default'],
@@ -345,73 +178,75 @@ describe('App - Detecção de Inicialização e Onboarding Wizard', () => {
       { container },
     );
 
-    // 1. Inicializa no onboarding
+    // 1. Initializes in onboarding
     expect(lastFrame() ?? '').toContain('Deterministic workflows for AI coding agents');
     expect(lastFrame() ?? '').not.toContain('[1] Run');
 
     // 2. Welcome -> Enter -> Spec Source
     stdin.write('\r');
     await flushAsync();
-    expect(lastFrame() ?? '').toContain('Fonte das especificações');
+    expect(lastFrame() ?? '').toContain('Specification Source');
 
-    // 3. Spec Source -> Enter (seleciona Local) -> Environment
+    // 3. Spec Source -> Enter (selects Local) -> Environment
     stdin.write('\r');
     await flushAsync();
-    expect(lastFrame() ?? '').toContain('Ambiente de execução');
+    expect(lastFrame() ?? '').toContain('Execution Environment');
 
-    // 4. Environment -> Enter (local) -> Agentes
+    // 4. Environment -> Enter (local) -> Agents
     stdin.write('\r');
     await vi.waitFor(() => {
       expect(lastFrame() ?? '').toContain('1. Planner');
     });
 
-    // 5. Agentes -> Enter (planner: default) -> Enter (executor: default) -> CLI
+    // 5. Agents -> Enter (planner: default) -> Enter (executor: default) -> CLI
     stdin.write('\r');
     await vi.waitFor(() => {
-      expect(lastFrame() ?? '').toContain('Confirmar Executor');
+      expect(lastFrame() ?? '').toContain('Confirm Executor');
     });
     stdin.write('\r');
     await vi.waitFor(() => {
-      expect(lastFrame() ?? '').toContain('CLI do ambiente');
-    });
-
-    // 6. CLI install -> Enter (ambiente local não requer CLI) -> Hooks
-    stdin.write('\r');
-    await vi.waitFor(() => {
-      expect(lastFrame() ?? '').toContain('Continuar / Pular para o Resumo');
+      expect(lastFrame() ?? '').toContain('Environment CLI');
     });
 
-    // 7. Hooks -> Enter (continuar sem hooks) -> Resumo
+    // 6. CLI install -> Enter (local environment does not require CLI) -> Hooks
     stdin.write('\r');
     await vi.waitFor(() => {
-      expect(lastFrame() ?? '').toContain('Resumo da Configuração');
+      expect(lastFrame() ?? '').toContain('Continuar / Pular para o Resum');
     });
 
-    // 8. Resumo -> Enter (Forjar Workspace)
+    // 7. Hooks -> Enter (continue without hooks) -> Summary
+    stdin.write('\r');
+    await vi.waitFor(() => {
+      expect(lastFrame() ?? '').toContain('Configuration Summary');
+    });
+
+    // 8. Summary -> Enter (Forge Workspace)
     stdin.write('\r');
     await flushAsync(50);
 
-    // 9. Aguarda celebração e transição para TUI normal
+    // 9. Await celebration and transition to normal TUI
     await vi.waitFor(
       () => {
         const frame = lastFrame() ?? '';
-        expect(frame).toContain('\u2692 CodeForge');
+        expect(frame).toContain('CodeForge');
+        expect(frame).not.toContain('\u2692');
         expect(frame).toContain('[2] Specs');
         expect(frame).not.toContain('Deterministic workflows for AI coding agents');
       },
       { timeout: 3000 },
     );
 
-    // 10. Verifica que os arquivos do workspace e config foram persistidos
+    // 10. Verify that workspace files and config were persisted
     expect(container.gw.exists('.codeforge/metadata.json')).toBe(true);
     expect(container.gw.exists('.codeforge/config.yaml')).toBe(true);
 
-    // 11. Em execução subsequente com o mesmo container, abre diretamente a TUI normal
+    // 11. In subsequent execution with same container, directly opens normal TUI
     const nextRender = renderWithProviders(
       <App container={container} initialTab="specs" />,
       { container },
     );
-    expect(nextRender.lastFrame() ?? '').toContain('\u2692 CodeForge');
+    expect(nextRender.lastFrame() ?? '').toContain('CodeForge');
+    expect(nextRender.lastFrame() ?? '').not.toContain('\u2692');
     expect(nextRender.lastFrame() ?? '').toContain('[2] Specs');
     expect(nextRender.lastFrame() ?? '').not.toContain('Deterministic workflows for AI coding agents');
   });

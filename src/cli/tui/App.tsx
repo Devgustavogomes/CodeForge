@@ -21,6 +21,8 @@ import { useTerminalDimensions } from './hooks/useTerminalDimensions.js';
 import { AppContainer, createAppContainer } from '../../infrastructure/container.js';
 import { PATHS } from '../../infrastructure/paths.js';
 import { theme } from './theme.js';
+import { translate } from '../ui/i18n.js';
+import { SupportedLanguage } from '../../config/types.js';
 
 export interface AppProps {
   container?: AppContainer;
@@ -29,12 +31,14 @@ export interface AppProps {
   autoStart?: boolean;
   onExit?: () => void;
   enableAlternateScreen?: boolean;
+  language?: SupportedLanguage;
 }
 
 const QuitConfirmContent: React.FC<{
   onConfirm: () => void;
   onCancel: () => void;
-}> = ({ onConfirm, onCancel }) => {
+  language?: SupportedLanguage;
+}> = ({ onConfirm, onCancel, language = 'en' }) => {
   useInput((input, key) => {
     if (input === 'y' || input === 'Y' || key.return) {
       onConfirm();
@@ -48,10 +52,14 @@ const QuitConfirmContent: React.FC<{
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Text color="white">Are you sure you want to quit CodeForge?</Text>
+      <Text color="white">{translate('tui_quit_confirm_message', language)}</Text>
       <Box justifyContent="space-between" marginTop={1}>
-        <Text bold color={theme.colors.error}>[y / Enter] Quit</Text>
-        <Text dimColor>[n / Esc] Cancel</Text>
+        <Text bold color={theme.colors.error}>
+          {translate('tui_quit_confirm_yes', language)}
+        </Text>
+        <Text dimColor>
+          {translate('tui_quit_confirm_no', language)}
+        </Text>
       </Box>
     </Box>
   );
@@ -93,7 +101,8 @@ const AppContent: React.FC<{
   onExit?: () => void;
   enableAlternateScreen?: boolean;
   initialTab?: TabId;
-}> = ({ container, onExit, enableAlternateScreen, initialTab }) => {
+  language?: SupportedLanguage;
+}> = ({ container, onExit, enableAlternateScreen, initialTab, language: propLanguage }) => {
   const nav = useNavigation();
   const exec = useExecution();
   const { statusNotification, clearStatusNotification } = usePlanning();
@@ -102,6 +111,21 @@ const AppContent: React.FC<{
 
   const isInitialized = useMemo(() => isWorkspaceInitialized(container), [container]);
   const [isOnboardingActive, setIsOnboardingActive] = useState(!isInitialized);
+
+  const [activeLanguage, setActiveLanguage] = useState<SupportedLanguage>(() => {
+    if (propLanguage) return propLanguage;
+    try {
+      return container?.configService?.loadConfig?.()?.language ?? 'en';
+    } catch {
+      return 'en';
+    }
+  });
+
+  useEffect(() => {
+    if (propLanguage) {
+      setActiveLanguage(propLanguage);
+    }
+  }, [propLanguage]);
 
   const handleQuit = useCallback(() => {
     if (onExit) {
@@ -112,8 +136,14 @@ const AppContent: React.FC<{
 
   const handleOnboardingComplete = useCallback(() => {
     setIsOnboardingActive(false);
+    try {
+      const lang = container?.configService?.loadConfig?.()?.language ?? 'en';
+      setActiveLanguage(lang);
+    } catch {
+      // Keep existing language
+    }
     nav.setActiveTab(initialTab === 'run' ? 'run' : 'specs');
-  }, [initialTab, nav]);
+  }, [container, initialTab, nav]);
 
   // Clear active notifications when switching tabs
   useEffect(() => {
@@ -160,8 +190,7 @@ const AppContent: React.FC<{
       <Box
         flexDirection="column"
         width="100%"
-        height={rows > 2 ? rows - 1 : undefined}
-        overflow="hidden"
+        minHeight={rows > 2 ? rows - 1 : undefined}
       >
         <OnboardingWizard
           container={container}
@@ -189,8 +218,8 @@ const AppContent: React.FC<{
         paddingX={1}
         width="100%"
       >
-        <Header activeSpec={exec.activeSpec} borderStyle="none" />
-        <TabBar activeTab={nav.activeTab} borderStyle="none" />
+        <Header activeSpec={exec.activeSpec} borderStyle="none" language={activeLanguage} />
+        <TabBar activeTab={nav.activeTab} borderStyle="none" language={activeLanguage} />
       </Box>
 
       {/* Active Tab Screen */}
@@ -235,22 +264,27 @@ const AppContent: React.FC<{
         activeTab={nav.activeTab}
         borderStyle="none"
         status={statusNotification || undefined}
+        language={activeLanguage}
         hints={
           nav.activeTab === 'run' && exec.tasks.length === 0
-            ? ['↑/↓: Navigate Specs', 'Enter: Start Run', 'c: Create Spec', '2: Specs Tab']
+            ? translate('tui_status_hints_run_empty', activeLanguage)
             : undefined
         }
       />
 
       {nav.modal?.type === 'quit_confirm' && (
         <Modal
-          title="Exit CodeForge"
+          title={translate('tui_modal_quit_confirm', activeLanguage)}
           isOpen={true}
           onClose={nav.closeModal}
           borderColor={theme.colors.error}
           width={50}
         >
-          <QuitConfirmContent onConfirm={handleQuit} onCancel={nav.closeModal} />
+          <QuitConfirmContent
+            onConfirm={handleQuit}
+            onCancel={nav.closeModal}
+            language={activeLanguage}
+          />
         </Modal>
       )}
 
@@ -284,6 +318,7 @@ export const App: React.FC<AppProps> = ({
   autoStart = false,
   onExit,
   enableAlternateScreen = false,
+  language,
 }) => {
   const appContainer = useMemo(() => container ?? createAppContainer(), [container]);
 
@@ -297,6 +332,7 @@ export const App: React.FC<AppProps> = ({
               onExit={onExit}
               enableAlternateScreen={enableAlternateScreen}
               initialTab={initialTab}
+              language={language}
             />
           </PlanningProvider>
         </ExecutionProvider>
