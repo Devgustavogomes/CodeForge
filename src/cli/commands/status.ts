@@ -1,60 +1,16 @@
-import { Command } from "commander";
 import { select } from "@inquirer/prompts";
+import { Command } from "commander";
 import { createAppContainer } from "../../infrastructure/container.js";
-import { translate } from "../ui/i18n.js";
-import { runInteractiveMenu } from "../interactive.js";
 import { ActionResult } from "../types.js";
-import { StatusResult } from "../../application/use-cases/GetSpecStatusUseCase.js";
+import { translate } from "../ui/i18n.js";
+import { formatStatusOutput } from "../ui/statusFormatter.js";
 
-export function formatPlainTextStatus(result: Extract<StatusResult, { kind: "status" }>): string {
-  const lines: string[] = [];
-  const total = result.tasks.length;
-  const completed = result.tasks.filter((t) => t.status === "completed").length;
-  const running = result.tasks.filter((t) => t.status === "running").length;
-  const failed = result.tasks.filter((t) => t.status === "failed").length;
-  const pending = result.tasks.filter((t) => t.status === "pending").length;
-  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-  lines.push(`Spec: ${result.specName} (${result.specStatus})`);
-  lines.push(`Progress: ${completed}/${total} tasks completed (${percent}%)`);
-  lines.push(`Summary: ${completed} completed, ${running} running, ${failed} failed, ${pending} pending`);
-  lines.push("");
-  lines.push("Tasks:");
-
-  for (const task of result.tasks) {
-    let icon = "○";
-    if (task.status === "completed") icon = "✓";
-    else if (task.status === "running") icon = "▶";
-    else if (task.status === "failed") icon = "✗";
-
-    let depStr = "";
-    if (task.dependencies.length > 0) {
-      depStr = ` [depends on: ${task.dependencies.join(", ")}]`;
-    }
-
-    lines.push(`  [${icon}] ${task.id}: ${task.title} (${task.status})${depStr}`);
-    if (task.errors && task.errors.length > 0) {
-      for (const err of task.errors) {
-        lines.push(`      Error: ${err}`);
-      }
-    }
-  }
-
-  return lines.join("\n");
-}
+export { formatPlainTextStatus } from "../ui/statusFormatter.js";
 
 export async function statusAction(
   spec?: string,
-  options: { once?: boolean } = {}
+  _options: { once?: boolean } = {},
 ): Promise<ActionResult> {
-  if (!options.once) {
-    await runInteractiveMenu({
-      initialTab: "run",
-      initialSpec: spec,
-    });
-    return { success: true };
-  }
-
   const container = createAppContainer();
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
@@ -74,7 +30,7 @@ export async function statusAction(
       message: translate("status_select_spec", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((s) => ({ name: s.name, value: s.name })),
+        ...specs.map((item) => ({ name: item.name, value: item.name })),
       ],
     });
 
@@ -83,8 +39,7 @@ export async function statusAction(
     }
   }
 
-  const useCase = container.getSpecStatusUseCase;
-  const result = useCase.execute(specName);
+  const result = container.getSpecStatusUseCase.execute(specName);
 
   switch (result.kind) {
     case "not-initialized":
@@ -96,13 +51,11 @@ export async function statusAction(
       process.exitCode = 1;
       return { success: false };
     case "no-execution":
-      console.log(translate("status_no_execution", lang, { spec: specName }));
+      console.log(translate("status_no_execution", lang, { spec: result.specName }));
       return { success: true };
-    case "status": {
-      const summary = formatPlainTextStatus(result);
-      console.log(summary);
+    case "status":
+      console.log(formatStatusOutput(result, { language: lang }));
       return { success: true };
-    }
   }
 }
 

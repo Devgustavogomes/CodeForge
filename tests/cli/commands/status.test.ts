@@ -1,24 +1,76 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@inquirer/prompts", () => ({
   select: vi.fn(),
 }));
 
-import { Command } from "commander";
+vi.mock("../../../src/cli/interactive.js", () => ({
+  runInteractiveMenu: vi.fn(),
+}));
+
 import { select } from "@inquirer/prompts";
-import {
-  statusAction,
-  registerStatusCommand,
-  formatPlainTextStatus,
-} from "../../../src/cli/commands/status.js";
-import * as interactiveModule from "../../../src/cli/interactive.js";
+import { Command } from "commander";
 import * as containerModule from "../../../src/infrastructure/container.js";
+import { runInteractiveMenu } from "../../../src/cli/interactive.js";
+import {
+  registerStatusCommand,
+  statusAction,
+} from "../../../src/cli/commands/status.js";
 
 describe("status CLI command", () => {
   let originalExitCode: typeof process.exitCode;
 
+  function setupContainerMock(
+    statusResult: any,
+    specs = [{ name: "spec-a", title: "Spec A" }],
+    language = "en",
+  ) {
+    const executeStatus = vi.fn().mockReturnValue(statusResult);
+    const listSpecs = vi.fn().mockReturnValue(specs);
+    const mockContainer = {
+      getSpecStatusUseCase: { execute: executeStatus },
+      listSpecsUseCase: { execute: listSpecs },
+      configService: {
+        loadConfig: vi.fn().mockReturnValue({ language, environment: "test" }),
+      },
+    };
+
+    vi.spyOn(containerModule, "createAppContainer").mockReturnValue(mockContainer as any);
+    return { executeStatus, listSpecs };
+  }
+
+  const statusResult = {
+    kind: "status",
+    specName: "todo-api",
+    specStatus: "running",
+    tasks: [
+      {
+        id: "TASK-001",
+        title: "Setup",
+        status: "completed",
+        dependencies: [],
+        startedAt: "2026-01-01T00:00:00.000Z",
+        completedAt: "2026-01-01T00:00:05.000Z",
+      },
+      {
+        id: "TASK-002",
+        title: "Routes",
+        status: "running",
+        dependencies: ["TASK-001"],
+        startedAt: "2026-01-01T00:00:05.000Z",
+      },
+      {
+        id: "TASK-003",
+        title: "Tests",
+        status: "pending",
+        dependencies: ["TASK-002"],
+      },
+    ],
+    updatedAt: "2026-01-01T00:00:15.000Z",
+  };
+
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
     originalExitCode = process.exitCode;
     process.exitCode = undefined;
   });
@@ -28,233 +80,120 @@ describe("status CLI command", () => {
     vi.restoreAllMocks();
   });
 
-  describe("without --once (TUI mode)", () => {
-    it("launches the modern Ink TUI on the 'run' tab with initialSpec set to provided spec", async () => {
-      const runInteractiveSpy = vi
-        .spyOn(interactiveModule, "runInteractiveMenu")
-        .mockResolvedValue(undefined);
+  it("prints one status snapshot by default without launching the TUI", async () => {
+    const { executeStatus } = setupContainerMock(statusResult);
+    const stdoutWrite = vi.spyOn(process.stdout, "write");
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-      const result = await statusAction("spec-a", {});
+    const result = await statusAction("todo-api");
 
-      expect(runInteractiveSpy).toHaveBeenCalledTimes(1);
-      expect(runInteractiveSpy).toHaveBeenCalledWith({
-        initialTab: "run",
-        initialSpec: "spec-a",
-      });
-      expect(result).toEqual({ success: true });
-    });
-
-    it("launches the modern Ink TUI on the 'run' tab with initialSpec undefined when no spec is provided", async () => {
-      const runInteractiveSpy = vi
-        .spyOn(interactiveModule, "runInteractiveMenu")
-        .mockResolvedValue(undefined);
-
-      const result = await statusAction(undefined, {});
-
-      expect(runInteractiveSpy).toHaveBeenCalledTimes(1);
-      expect(runInteractiveSpy).toHaveBeenCalledWith({
-        initialTab: "run",
-        initialSpec: undefined,
-      });
-      expect(result).toEqual({ success: true });
-    });
+    expect(executeStatus).toHaveBeenCalledWith("todo-api");
+    expect(consoleLog).toHaveBeenCalledTimes(1);
+    expect(consoleLog.mock.calls[0][0]).toContain("Progress: 1/3 tasks completed (33%)");
+    expect(runInteractiveMenu).not.toHaveBeenCalled();
+    expect(stdoutWrite).not.toHaveBeenCalledWith(expect.stringContaining("\x1b[?1049h"));
+    expect(result).toEqual({ success: true });
+    expect(process.exitCode).toBeUndefined();
   });
 
-  describe("with --once (plain text summary mode)", () => {
-    function setupContainerMock(statusResult: any, specsList: any[] = [{ name: "spec-a", title: "Spec A" }]) {
-      const mockUseCase = {
-        execute: vi.fn().mockReturnValue(statusResult),
-      };
+  it("keeps --once as a compatibility no-op with the same output", async () => {
+    setupContainerMock(statusResult);
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-      const mockListSpecsUseCase = {
-        execute: vi.fn().mockReturnValue(specsList),
-      };
+    const defaultResult = await statusAction("todo-api");
+    const defaultOutput = consoleLog.mock.calls[0][0];
+    consoleLog.mockClear();
 
-      const mockConfigService = {
-        loadConfig: vi.fn().mockReturnValue({
-          language: "en",
-          environment: "test",
-        }),
-      };
+    const onceResult = await statusAction("todo-api", { once: true });
 
-      const mockContainer = {
-        getSpecStatusUseCase: mockUseCase,
-        listSpecsUseCase: mockListSpecsUseCase,
-        configService: mockConfigService,
-      };
-
-      vi.spyOn(containerModule, "createAppContainer").mockReturnValue(mockContainer as any);
-
-      return { mockUseCase, mockContainer };
-    }
-
-    it("prints plain text status summary to stdout without entering alternate screen mode", async () => {
-      setupContainerMock({
-        kind: "status",
-        specName: "todo-api",
-        specStatus: "running",
-        tasks: [
-          { id: "TASK-001", title: "Setup", status: "completed", dependencies: [] },
-          { id: "TASK-002", title: "Routes", status: "running", dependencies: ["TASK-001"] },
-          { id: "TASK-003", title: "Tests", status: "pending", dependencies: ["TASK-002"] },
-        ],
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      });
-
-      const stdoutWriteSpy = vi.spyOn(process.stdout, "write");
-      const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-      const result = await statusAction("todo-api", { once: true });
-
-      // Must not switch to alternate screen buffer
-      expect(stdoutWriteSpy).not.toHaveBeenCalledWith(expect.stringContaining("\x1b[?1049h"));
-
-      // Must print status summary via console.log
-      expect(consoleLogSpy).toHaveBeenCalled();
-      const output = consoleLogSpy.mock.calls.map((c) => c.join(" ")).join("\n");
-      expect(output).toContain("todo-api");
-      expect(output).toContain("TASK-001");
-      expect(output).toContain("TASK-002");
-      expect(output).toContain("TASK-003");
-      expect(output).toContain("33%");
-      expect(result).toEqual({ success: true });
-      expect(process.exitCode).toBeUndefined();
-    });
-
-    it("handles spec-not-found error properly", async () => {
-      setupContainerMock({
-        kind: "spec-not-found",
-      });
-
-      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-      const result = await statusAction("unknown-spec", { once: true });
-
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      expect(process.exitCode).toBe(1);
-      expect(result).toEqual({ success: false });
-    });
-
-    it("handles not-initialized error properly", async () => {
-      setupContainerMock({
-        kind: "not-initialized",
-      });
-
-      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-      const result = await statusAction("spec-a", { once: true });
-
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      expect(process.exitCode).toBe(1);
-      expect(result).toEqual({ success: false });
-    });
-
-    it("handles no-execution properly", async () => {
-      setupContainerMock({
-        kind: "no-execution",
-        specName: "spec-a",
-      });
-
-      const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-      const result = await statusAction("spec-a", { once: true });
-
-      expect(consoleLogSpy).toHaveBeenCalled();
-      expect(result).toEqual({ success: true });
-      expect(process.exitCode).toBeUndefined();
-    });
-
-    it("prompts user to select spec when spec is omitted with --once", async () => {
-      setupContainerMock(
-        {
-          kind: "status",
-          specName: "selected-spec",
-          specStatus: "completed",
-          tasks: [
-            { id: "TASK-001", title: "Task 1", status: "completed", dependencies: [] },
-          ],
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        },
-        [{ name: "selected-spec", title: "Selected Spec" }]
-      );
-
-      vi.mocked(select).mockResolvedValueOnce("selected-spec" as any);
-      const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-      const result = await statusAction(undefined, { once: true });
-
-      expect(select).toHaveBeenCalled();
-      expect(consoleLogSpy).toHaveBeenCalled();
-      expect(result).toEqual({ success: true });
-    });
-
-    it("returns { back: true } when user chooses back in spec selection with --once", async () => {
-      setupContainerMock(
-        { kind: "status", specName: "dummy", specStatus: "completed", tasks: [] },
-        [{ name: "spec-a", title: "Spec A" }]
-      );
-
-      vi.mocked(select).mockResolvedValueOnce("back" as any);
-
-      const result = await statusAction(undefined, { once: true });
-
-      expect(result).toEqual({ back: true });
-    });
-
-    it("returns { success: false } when no specs exist and spec is omitted with --once", async () => {
-      setupContainerMock(
-        { kind: "status", specName: "dummy", specStatus: "completed", tasks: [] },
-        [] // empty specs
-      );
-
-      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-      const result = await statusAction(undefined, { once: true });
-
-      expect(consoleErrorSpy).toHaveBeenCalled();
-      expect(process.exitCode).toBe(1);
-      expect(result).toEqual({ success: false });
-    });
+    expect(consoleLog.mock.calls[0][0]).toBe(defaultOutput);
+    expect(defaultResult).toEqual({ success: true });
+    expect(onceResult).toEqual({ success: true });
+    expect(runInteractiveMenu).not.toHaveBeenCalled();
   });
 
-  describe("Commander command registration", () => {
-    it("registers status [spec] command with --once option", async () => {
-      const runInteractiveSpy = vi
-        .spyOn(interactiveModule, "runInteractiveMenu")
-        .mockResolvedValue(undefined);
+  it("prompts with a translated Back choice when the spec is omitted", async () => {
+    const selectedResult = { ...statusResult, specName: "selected-spec" };
+    const { executeStatus } = setupContainerMock(
+      selectedResult,
+      [{ name: "selected-spec", title: "Selected Spec" }],
+    );
+    vi.mocked(select).mockResolvedValueOnce("selected-spec" as never);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-      const program = new Command();
-      registerStatusCommand(program);
+    const result = await statusAction();
 
-      await program.parseAsync(["node", "codeforge", "status", "auth-spec"]);
-
-      expect(runInteractiveSpy).toHaveBeenCalledWith({
-        initialTab: "run",
-        initialSpec: "auth-spec",
-      });
+    expect(select).toHaveBeenCalledWith({
+      message: "Select a spec to view status:",
+      choices: [
+        { name: "<- Back", value: "back" },
+        { name: "selected-spec", value: "selected-spec" },
+      ],
     });
+    expect(executeStatus).toHaveBeenCalledWith("selected-spec");
+    expect(result).toEqual({ success: true });
   });
 
-  describe("formatPlainTextStatus", () => {
-    it("formats status output including task status icons, dependencies, and errors", () => {
-      const output = formatPlainTextStatus({
-        kind: "status",
-        specName: "feature-x",
-        specStatus: "failed",
-        tasks: [
-          { id: "TASK-001", title: "Init", status: "completed", dependencies: [] },
-          { id: "TASK-002", title: "Build", status: "failed", dependencies: ["TASK-001"], errors: ["Syntax error at line 10"] },
-          { id: "TASK-003", title: "Deploy", status: "pending", dependencies: ["TASK-002"] },
-        ],
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      });
+  it("returns Back without requesting status when Back is selected", async () => {
+    const { executeStatus } = setupContainerMock(statusResult);
+    vi.mocked(select).mockResolvedValueOnce("back" as never);
 
-      expect(output).toContain("Spec: feature-x (failed)");
-      expect(output).toContain("Progress: 1/3 tasks completed (33%)");
-      expect(output).toContain("[✓] TASK-001: Init (completed)");
-      expect(output).toContain("[✗] TASK-002: Build (failed) [depends on: TASK-001]");
-      expect(output).toContain("Error: Syntax error at line 10");
-      expect(output).toContain("[○] TASK-003: Deploy (pending) [depends on: TASK-002]");
-    });
+    const result = await statusAction();
+
+    expect(result).toEqual({ back: true });
+    expect(executeStatus).not.toHaveBeenCalled();
+    expect(runInteractiveMenu).not.toHaveBeenCalled();
+  });
+
+  it("fails when no specification is available for selection", async () => {
+    const { executeStatus } = setupContainerMock(statusResult, []);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await statusAction();
+
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("No specs found"));
+    expect(executeStatus).not.toHaveBeenCalled();
+    expect(result).toEqual({ success: false });
+    expect(process.exitCode).toBe(1);
+  });
+
+  it.each([
+    ["not-initialized", "CodeForge is not initialized"],
+    ["spec-not-found", "Spec not found: missing-spec.md"],
+  ])("maps %s to a localized failure and exit code 1", async (kind, message) => {
+    setupContainerMock({ kind });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await statusAction("missing-spec");
+
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining(message));
+    expect(result).toEqual({ success: false });
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("maps no-execution to localized successful output", async () => {
+    setupContainerMock({ kind: "no-execution", specName: "spec-a" });
+    const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    const result = await statusAction("spec-a");
+
+    expect(consoleLog).toHaveBeenCalledWith(
+      expect.stringContaining("No execution started for spec 'spec-a'"),
+    );
+    expect(result).toEqual({ success: true });
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it("registers default and --once forms as CLI snapshots", async () => {
+    const { executeStatus } = setupContainerMock(statusResult);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const program = new Command();
+    registerStatusCommand(program);
+
+    await program.parseAsync(["node", "codeforge", "status", "todo-api"]);
+    await program.parseAsync(["node", "codeforge", "status", "--once", "todo-api"]);
+
+    expect(executeStatus).toHaveBeenCalledTimes(2);
+    expect(runInteractiveMenu).not.toHaveBeenCalled();
   });
 });
