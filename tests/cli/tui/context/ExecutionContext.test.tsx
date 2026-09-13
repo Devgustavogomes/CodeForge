@@ -1,6 +1,5 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Text } from 'ink';
 import {
   useExecution,
   ExecutionContextValue,
@@ -53,10 +52,10 @@ describe('ExecutionContext', () => {
   }
 
   it('buffers log chunks per task respecting maximum capacity (maxLogLines)', async () => {
-    let contextValue: ExecutionContextValue | null = null;
+    let contextValue!: ExecutionContextValue;
     const TestConsumer = () => {
       contextValue = useExecution();
-      return <Text>Logs: {Object.keys(contextValue.logs).length}</Text>;
+      return null;
     };
 
     const { unmount } = renderWithProviders(<TestConsumer />, {
@@ -107,10 +106,10 @@ describe('ExecutionContext', () => {
       .build();
     writeTask('test-spec', task1);
 
-    let contextValue: ExecutionContextValue | null = null;
+    let contextValue!: ExecutionContextValue;
     const TestConsumer = () => {
       contextValue = useExecution();
-      return <Text>Consumer</Text>;
+      return null;
     };
 
     const { unmount } = renderWithProviders(<TestConsumer />, {
@@ -129,35 +128,38 @@ describe('ExecutionContext', () => {
     state.tasks['TASK-001'].startedAt = new Date().toISOString();
     stateRepo.save(state);
     scheduler.getReporter()?.onStart('test-spec');
-    await flushAsync(1);
-    expect(contextValue?.tasks[0].status).toBe('running');
+    await vi.waitFor(() => {
+      expect(contextValue?.tasks[0].status).toBe('running');
+    });
 
     // Task updated with error
     state.tasks['TASK-001'].status = 'failed';
     state.tasks['TASK-001'].errors = ['Syntax error'];
     stateRepo.save(state);
     scheduler.getReporter()?.onUpdate('test-spec');
-    await flushAsync(1);
-    expect(contextValue?.tasks[0].status).toBe('failed');
-    expect(contextValue?.tasks[0].errors).toEqual(['Syntax error']);
+    await vi.waitFor(() => {
+      expect(contextValue?.tasks[0].status).toBe('failed');
+      expect(contextValue?.tasks[0].errors).toEqual(['Syntax error']);
+    });
 
     // Task completed
     state.tasks['TASK-001'].status = 'completed';
     delete state.tasks['TASK-001'].errors;
     stateRepo.save(state);
     scheduler.getReporter()?.onComplete('test-spec');
-    await flushAsync(1);
-    expect(contextValue?.tasks[0].status).toBe('completed');
-    expect(contextValue?.tasks[0].errors).toBeUndefined();
+    await vi.waitFor(() => {
+      expect(contextValue?.tasks[0].status).toBe('completed');
+      expect(contextValue?.tasks[0].errors).toBeUndefined();
+    });
 
     unmount();
   });
 
   it('updates schedulerStatus in response to execution run events', async () => {
-    let contextValue: ExecutionContextValue | null = null;
+    let contextValue!: ExecutionContextValue;
     const TestConsumer = () => {
       contextValue = useExecution();
-      return <Text>Status: {contextValue.schedulerStatus}</Text>;
+      return null;
     };
 
     const { unmount } = renderWithProviders(<TestConsumer />, {

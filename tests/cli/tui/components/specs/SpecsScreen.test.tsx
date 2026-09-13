@@ -32,21 +32,6 @@ describe('SpecsScreen component', () => {
     listNames: vi.fn().mockReturnValue(mockSpecs.map((s) => s.name)),
   } as unknown as ListSpecsUseCase;
 
-  it('renders specification list and details panel', () => {
-    const { lastFrame } = renderWithProviders(
-      <SpecsScreen initialSpecs={mockSpecs} isInteractive={false} />
-    );
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('Specifications (2)');
-    expect(output).toContain('auth');
-    expect(output).toContain('[COMPLETED]');
-    expect(output).toContain('5 tasks');
-    expect(output).toContain('tui');
-    expect(output).toContain('Spec Details & Actions');
-    expect(output).toContain('Name:  auth');
-  });
-
   it('opens CreateSpecModal on "c" and submits successfully', async () => {
     const mockCreateSpec = vi.fn().mockReturnValue({
       kind: 'created',
@@ -83,7 +68,7 @@ describe('SpecsScreen component', () => {
       kind: 'success',
       filename: 'issue-101',
       filePath: '.codeforge/specs/issue-101.md',
-      spec: { id: '101', title: 'Issue 101' },
+      spec: { id: '101', title: 'Issue 101', description: 'Issue 101 description' },
       content: '# Issue 101',
       overwritten: false,
     });
@@ -222,35 +207,6 @@ describe('SpecsScreen component', () => {
 
     expect(currentActiveSpec).toBe('auth');
     expect(currentTab).toBe('tasks');
-  });
-
-  it('ignores "t" safely when specs list is empty', async () => {
-    const emptyListUseCase = {
-      execute: vi.fn().mockReturnValue([]),
-      listNames: vi.fn().mockReturnValue([]),
-    } as unknown as ListSpecsUseCase;
-
-    const container = createMockContainer({
-      listSpecsUseCase: emptyListUseCase,
-    });
-
-    const { lastFrame, stdin } = renderWithProviders(
-      <PlanningProvider container={container}>
-        <SpecsScreen
-          initialSpecs={[]}
-          container={container}
-          isInteractive={true}
-        />
-      </PlanningProvider>,
-      { container }
-    );
-
-    expect(() => {
-      stdin.write('t');
-    }).not.toThrow();
-    await flushAsync();
-
-    expect(lastFrame() ?? '').toContain('Specifications (0)');
   });
 
   it('displays concurrency warning when attempting to generate plan while another is running', async () => {

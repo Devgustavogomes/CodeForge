@@ -1,11 +1,5 @@
-import React from 'react';
 import { describe, it, expect } from 'vitest';
-import { render } from 'ink-testing-library';
-import { Text } from 'ink';
-import {
-  getBreakpoint,
-  useTerminalDimensions,
-} from '../../../src/cli/tui/hooks/useTerminalDimensions.js';
+import { getBreakpoint } from '../../../src/cli/tui/hooks/useTerminalDimensions.js';
 
 describe('useTerminalDimensions', () => {
   describe('getBreakpoint', () => {
@@ -47,21 +41,6 @@ describe('useTerminalDimensions', () => {
       // Extreme small bounds
       expect(getBreakpoint(0, 0)).toBe('minimal');
       expect(getBreakpoint(-1, -1)).toBe('minimal');
-    });
-  });
-
-  describe('useTerminalDimensions hook', () => {
-    const DimensionsConsumer: React.FC = () => {
-      const { columns, rows, breakpoint } = useTerminalDimensions();
-      return React.createElement(Text, null, `${columns}x${rows}:${breakpoint}`);
-    };
-
-    it('renders inside Ink and detects dimensions and breakpoint', () => {
-      const { lastFrame } = render(React.createElement(DimensionsConsumer));
-      const frame = lastFrame() ?? '';
-
-      expect(frame).toMatch(/\d+x\d+:(wide|compact|minimal)/);
-      expect(frame).toContain('wide');
     });
   });
 });

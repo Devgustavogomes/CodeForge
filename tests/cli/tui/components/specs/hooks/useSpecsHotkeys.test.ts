@@ -8,7 +8,7 @@ import {
 } from '../../../../../../src/cli/tui/components/specs/hooks/useSpecsHotkeys.js';
 import { flushAsync } from '../../../helpers/flushAsync.js';
 
-interface HarnessProps extends Partial<UseSpecsHotkeysProps> {}
+type HarnessProps = Partial<UseSpecsHotkeysProps>;
 
 const TestHotkeysHarness: React.FC<HarnessProps> = (props) => {
   useSpecsHotkeys({

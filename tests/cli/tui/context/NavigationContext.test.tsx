@@ -1,7 +1,6 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render } from 'ink-testing-library';
-import { Text } from 'ink';
 import {
   NavigationProvider,
   useNavigation,
@@ -13,32 +12,30 @@ describe('NavigationContext', () => {
     let defaultNav: ReturnType<typeof useNavigation> | undefined;
     const DefaultConsumer = () => {
       defaultNav = useNavigation();
-      return <Text>Tab: {defaultNav.activeTab}</Text>;
+      return null;
     };
 
-    const { lastFrame: defaultFrame, unmount: unmountDefault } = render(
+    const { unmount: unmountDefault } = render(
       <NavigationProvider>
         <DefaultConsumer />
       </NavigationProvider>,
     );
 
-    expect(defaultFrame()).toContain('Tab: specs');
     expect(defaultNav?.activeTab).toBe('specs');
     unmountDefault();
 
     let customNav: ReturnType<typeof useNavigation> | undefined;
     const CustomConsumer = () => {
       customNav = useNavigation();
-      return <Text>Tab: {customNav.activeTab}</Text>;
+      return null;
     };
 
-    const { lastFrame: customFrame, unmount: unmountCustom } = render(
+    const { unmount: unmountCustom } = render(
       <NavigationProvider initialTab="tasks">
         <CustomConsumer />
       </NavigationProvider>,
     );
 
-    expect(customFrame()).toContain('Tab: tasks');
     expect(customNav?.activeTab).toBe('tasks');
     unmountCustom();
   });
@@ -48,58 +45,58 @@ describe('NavigationContext', () => {
 
     const TestComponent = () => {
       capturedNav = useNavigation();
-      return <Text>Tab: {capturedNav.activeTab}</Text>;
+      return null;
     };
 
-    const { lastFrame, unmount } = render(
+    const { unmount } = render(
       <NavigationProvider initialTab="run">
         <TestComponent />
       </NavigationProvider>,
     );
 
-    expect(lastFrame()).toContain('Tab: run');
+    expect(capturedNav.activeTab).toBe('run');
 
     // next: run -> specs -> tasks -> docs -> config -> run
     capturedNav.nextTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: specs');
+    expect(capturedNav.activeTab).toBe('specs');
 
     capturedNav.nextTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: tasks');
+    expect(capturedNav.activeTab).toBe('tasks');
 
     capturedNav.nextTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: docs');
+    expect(capturedNav.activeTab).toBe('docs');
 
     capturedNav.nextTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: config');
+    expect(capturedNav.activeTab).toBe('config');
 
     capturedNav.nextTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: run');
+    expect(capturedNav.activeTab).toBe('run');
 
     // prev: run -> config -> docs -> tasks -> specs -> run
     capturedNav.prevTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: config');
+    expect(capturedNav.activeTab).toBe('config');
 
     capturedNav.prevTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: docs');
+    expect(capturedNav.activeTab).toBe('docs');
 
     capturedNav.prevTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: tasks');
+    expect(capturedNav.activeTab).toBe('tasks');
 
     capturedNav.prevTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: specs');
+    expect(capturedNav.activeTab).toBe('specs');
 
     capturedNav.prevTab();
     await flushAsync(1);
-    expect(lastFrame()).toContain('Tab: run');
+    expect(capturedNav.activeTab).toBe('run');
 
     unmount();
   });

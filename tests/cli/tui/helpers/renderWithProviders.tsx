@@ -44,6 +44,7 @@ export function setupInitializedWorkspace(
   const environment = configOverrides?.environment ?? 'local';
   const plannerAgent = configOverrides?.plannerAgent ?? 'default';
   const executorAgent = configOverrides?.executorAgent ?? 'default';
+  const language = configOverrides?.language ?? 'en';
 
   gw.writeFile(
     PATHS.config,
@@ -52,7 +53,7 @@ export function setupInitializedWorkspace(
       `environment: ${environment}`,
       `plannerAgent: ${plannerAgent}`,
       `executorAgent: ${executorAgent}`,
-      'language: pt',
+      `language: ${language}`,
     ].join('\n'),
   );
 }

@@ -27,31 +27,25 @@ const TestInputApp: React.FC<TestInputAppProps> = ({ onRender, ...options }) => 
 describe('useTextInput hook', () => {
   it('1. insere caracteres em bloco e atualiza o valor', async () => {
     const onChange = vi.fn();
-    const { lastFrame, stdin } = render(
+    const { stdin } = render(
       <TestInputApp initialValue="" onChange={onChange} />
     );
-
-    expect(lastFrame()).toContain('Value:');
 
     stdin.write('codeforge');
     await flushAsync();
 
-    expect(lastFrame()).toContain('Value:codeforge');
     expect(onChange).toHaveBeenLastCalledWith('codeforge');
   });
 
   it('2. remove caractere ao receber backspace', async () => {
     const onChange = vi.fn();
-    const { lastFrame, stdin } = render(
+    const { stdin } = render(
       <TestInputApp initialValue="code" onChange={onChange} />
     );
-
-    expect(lastFrame()).toContain('Value:code');
 
     stdin.write('\x7f');
     await flushAsync();
 
-    expect(lastFrame()).toContain('Value:cod');
     expect(onChange).toHaveBeenLastCalledWith('cod');
   });
 

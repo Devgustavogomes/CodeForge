@@ -29,19 +29,18 @@ describe('PlanningContext & PlanningProvider', () => {
   }
 
   it('lança erro informativo se usePlanning for utilizado fora de um PlanningProvider', () => {
-    let capturedError: Error | null = null;
+    let capturedError: unknown;
     const BadConsumer = () => {
       try {
         usePlanning();
       } catch (err) {
-        capturedError = err as Error;
+        capturedError = err;
       }
-      return <Text>Invalid</Text>;
+      return null;
     };
 
     render(<BadConsumer />);
-    expect(capturedError).not.toBeNull();
-    expect(capturedError?.message).toBe('usePlanning must be used within a PlanningProvider');
+    expect((capturedError as Error)?.message).toBe('usePlanning must be used within a PlanningProvider');
   });
 
   it('inicializa com os valores padrão corretos', () => {
