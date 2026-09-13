@@ -43,7 +43,9 @@ export async function runInteractiveMenu(options: RunInteractiveOptions = {}): P
         instance.unmount();
         cleanup();
       },
-    })
+    }),
+    // Avoid erasing the entire viewport for every log, timer, or input update.
+    { incrementalRendering: true }
   );
 
   const sigintHandler = () => {
