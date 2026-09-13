@@ -7,6 +7,10 @@ import { TaskMetadataView } from './components/TaskMetadataView.js';
 import { ViewTaskModal } from './ViewTaskModal.js';
 import { useTasksScreen } from './hooks/useTasksScreen.js';
 import { useTasksHotkeys } from './hooks/useTasksHotkeys.js';
+import { TasksActionFeedback } from './hooks/useTasksScreen.js';
+import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal.js';
+import { SupportedLanguage } from '../../../../config/types.js';
+import { translate } from '../../../ui/i18n.js';
 
 export type { TaskScreenItem };
 
@@ -16,6 +20,12 @@ export interface TasksScreenProps {
   initialTasks?: TaskScreenItem[];
   onCompleteTask?: (taskId: string) => void;
   onResetTask?: (taskId: string) => void;
+  onFeedback?: (feedback: TasksActionFeedback) => void;
+  onNotification?: (
+    message: string,
+    type?: 'success' | 'error' | 'info',
+  ) => void;
+  language?: SupportedLanguage;
   isInteractive?: boolean;
 }
 
@@ -25,6 +35,9 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
   initialTasks,
   onCompleteTask,
   onResetTask,
+  onFeedback,
+  onNotification,
+  language,
   isInteractive = true,
 }) => {
   const { breakpoint } = useTerminalDimensions();
@@ -34,13 +47,20 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
     initialTasks,
     onCompleteTask,
     onResetTask,
+    onFeedback,
+    onNotification,
+    language,
   });
 
   useTasksHotkeys({
     isInteractive,
-    isModalOpen: screenState.isViewTaskModalOpen,
+    isModalOpen:
+      screenState.isViewTaskModalOpen || screenState.isDeleteTaskModalOpen,
     isSearchingSpec: screenState.isSearchingSpec,
+    isTextInputActive: screenState.isTextInputActive,
+    hasSelectedTask: screenState.selectedTask !== null,
     onOpenTask: screenState.handleOpenViewTaskModal,
+    onOpenDeleteModal: screenState.handleOpenDeleteTaskModal,
     onNextTask: screenState.handleNextTask,
     onPrevTask: screenState.handlePrevTask,
     onNextSpec: screenState.handleNextSpec,
@@ -96,7 +116,13 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
         }
       }
     },
-    { isActive: isInteractive && screenState.isSearchingSpec && !screenState.isViewTaskModalOpen },
+    {
+      isActive:
+        isInteractive &&
+        screenState.isSearchingSpec &&
+        !screenState.isViewTaskModalOpen &&
+        !screenState.isDeleteTaskModalOpen,
+    },
   );
 
   if (screenState.isViewTaskModalOpen && screenState.selectedTask) {
@@ -107,6 +133,23 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
         currentSpec={screenState.currentSpec}
         isOpen={true}
         onClose={screenState.handleCloseViewTaskModal}
+      />
+    );
+  }
+
+  if (screenState.isDeleteTaskModalOpen && screenState.selectedTask) {
+    return (
+      <ConfirmDeleteModal
+        title={translate('tui_task_delete_title', screenState.language)}
+        body={translate('tui_task_delete_body', screenState.language)}
+        detail={translate('tui_task_delete_detail', screenState.language, {
+          taskId: screenState.selectedTask.id,
+          title: screenState.selectedTask.title,
+        })}
+        warning={translate('tui_task_delete_warning', screenState.language)}
+        onConfirm={screenState.handleConfirmDeleteTask}
+        onCancel={screenState.handleCancelDeleteTask}
+        language={screenState.language}
       />
     );
   }

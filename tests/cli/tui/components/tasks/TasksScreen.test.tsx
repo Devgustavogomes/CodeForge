@@ -5,6 +5,47 @@ import {
   TaskScreenItem,
 } from '../../../../../src/cli/tui/components/tasks/TasksScreen.js';
 import { renderWithProviders, flushAsync } from '../../helpers/renderWithProviders.js';
+import { createInitializedContainer } from '../../helpers/renderWithProviders.js';
+import { PATHS } from '../../../../../src/infrastructure/paths.js';
+import { AppContainer } from '../../../../../src/infrastructure/container.js';
+import { DeleteTaskResult } from '../../../../../src/application/use-cases/DeleteTaskUseCase.js';
+import { translate } from '../../../../../src/cli/ui/i18n.js';
+
+const DELETE_SPEC = 'delete-spec';
+
+function createTaskContainer(
+  tasks: Array<Pick<TaskScreenItem, 'id' | 'title' | 'dependencies'>>,
+): AppContainer {
+  const container = createInitializedContainer();
+  container.gw.writeFile(PATHS.specFile(DELETE_SPEC), '# Delete spec');
+
+  for (const task of tasks) {
+    container.gw.writeFile(
+      PATHS.taskFile(DELETE_SPEC, task.id),
+      JSON.stringify({
+        ...task,
+        objective: `Objective for ${task.id}`,
+        context: '',
+        implementation: '',
+        files: [],
+        constraints: [],
+        acceptanceCriteria: [],
+      }),
+    );
+  }
+
+  return container;
+}
+
+const deletableTasks = [
+  { id: 'TASK-001', title: 'Prepare deletion', dependencies: [] },
+  {
+    id: 'TASK-002',
+    title: 'Consume deleted dependency',
+    dependencies: ['TASK-001'],
+  },
+  { id: 'TASK-003', title: 'Finish deletion flow', dependencies: [] },
+];
 
 describe('TasksScreen - Smoke Tests da Tela de Gerenciamento de Tarefas', () => {
   const mockTasks: TaskScreenItem[] = [
@@ -166,5 +207,275 @@ describe('TasksScreen - Smoke Tests da Tela de Gerenciamento de Tarefas', () => 
     const output = lastFrame() ?? '';
     expect(output).not.toContain('[Esc / q] Fechar');
     expect(output).toContain('Tasks (2)');
+  });
+});
+
+const normalizeOutput = (value: string): string =>
+  value.replace(/[│╭╮╰╯─┌┐└┘]/g, ' ').replace(/\s+/g, ' ');
+
+describe('TasksScreen - task deletion', () => {
+  it('opens a localized confirmation for the selected task without deleting it', async () => {
+    const container = createTaskContainer(deletableTasks);
+    const execute = vi.spyOn(container.deleteTaskUseCase, 'execute');
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen container={container} initialSpec={DELETE_SPEC} />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('\u001B[B');
+    await flushAsync();
+    stdin.write('d');
+    await flushAsync();
+
+    const output = normalizeOutput(lastFrame() ?? '');
+    expect(output).toContain(translate('tui_task_delete_title', 'en'));
+    expect(output).toContain('TASK-002');
+    expect(output).toContain('Consume deleted dependency');
+    expect(output).toContain(translate('tui_task_delete_warning', 'en'));
+    expect(execute).not.toHaveBeenCalled();
+    expect(container.gw.exists(PATHS.taskFile(DELETE_SPEC, 'TASK-002'))).toBe(true);
+  });
+
+  it.each([
+    ['n', 'n'],
+    ['Escape', '\u001B'],
+  ])('cancels with %s without mutating tasks', async (_label, input) => {
+    const container = createTaskContainer(deletableTasks);
+    const execute = vi.spyOn(container.deleteTaskUseCase, 'execute');
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen container={container} initialSpec={DELETE_SPEC} />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('d');
+    await flushAsync();
+    stdin.write(input);
+    await flushAsync(100);
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(container.gw.exists(PATHS.taskFile(DELETE_SPEC, 'TASK-001'))).toBe(true);
+    expect(lastFrame()).toContain('Tasks (3)');
+    expect(lastFrame()).not.toContain(translate('tui_task_delete_title', 'en'));
+  });
+
+  it.each([
+    ['y', 'y'],
+    ['Enter', '\r'],
+  ])('confirms with %s and invokes DeleteTaskUseCase exactly once', async (_label, input) => {
+    const container = createTaskContainer(deletableTasks);
+    const execute = vi.spyOn(container.deleteTaskUseCase, 'execute');
+    const { stdin } = renderWithProviders(
+      <TasksScreen container={container} initialSpec={DELETE_SPEC} />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('d');
+    await flushAsync();
+    stdin.write(input);
+    await flushAsync();
+
+    expect(execute).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledWith(DELETE_SPEC, 'TASK-001');
+  });
+
+  it('reloads tasks, cleans sibling dependencies, and publishes cleanup feedback', async () => {
+    const container = createTaskContainer(deletableTasks.slice(0, 2));
+    const onFeedback = vi.fn();
+    const onNotification = vi.fn();
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen
+        container={container}
+        initialSpec={DELETE_SPEC}
+        onFeedback={onFeedback}
+        onNotification={onNotification}
+      />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('d');
+    await flushAsync();
+    stdin.write('y');
+    await flushAsync();
+
+    const successMessage = translate('tui_task_delete_success', 'en', {
+      taskId: 'TASK-001',
+      count: 1,
+    });
+    const output = normalizeOutput(lastFrame() ?? '');
+    expect(output).toContain('Tasks (1)');
+    expect(output).toContain('Task: TASK-002');
+    expect(output).toContain(successMessage);
+    expect(onFeedback).toHaveBeenCalledOnce();
+    expect(onFeedback).toHaveBeenCalledWith({
+      type: 'success',
+      message: successMessage,
+    });
+    expect(onNotification).toHaveBeenCalledOnce();
+    expect(onNotification).toHaveBeenCalledWith(successMessage, 'success');
+
+    const sibling = JSON.parse(
+      container.gw.readFile(PATHS.taskFile(DELETE_SPEC, 'TASK-002')),
+    ) as { dependencies: string[] };
+    expect(sibling.dependencies).toEqual([]);
+  });
+
+  it('repairs the selected index after deleting the final list item', async () => {
+    const container = createTaskContainer(deletableTasks);
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen container={container} initialSpec={DELETE_SPEC} />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('\u001B[B');
+    await flushAsync();
+    stdin.write('\u001B[B');
+    await flushAsync();
+    expect(lastFrame()).toContain('Task: TASK-003');
+
+    stdin.write('D');
+    await flushAsync();
+    stdin.write('\r');
+    await flushAsync();
+
+    expect(lastFrame()).toContain('Tasks (2)');
+    expect(lastFrame()).toContain('Task: TASK-002');
+  });
+
+  it('shows a valid empty state after deleting the only task', async () => {
+    const container = createTaskContainer([deletableTasks[0]]);
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen container={container} initialSpec={DELETE_SPEC} />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('d');
+    await flushAsync();
+    stdin.write('y');
+    await flushAsync();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Tasks (0)');
+    expect(output).toContain(`No tasks found for spec "${DELETE_SPEC}".`);
+    expect(output).toContain('Task: None');
+  });
+
+  it.each([
+    [
+      { kind: 'not-initialized' } as DeleteTaskResult,
+      translate('tui_delete_not_initialized', 'en'),
+    ],
+    [
+      { kind: 'spec-not-found' } as DeleteTaskResult,
+      translate('tui_task_delete_spec_not_found', 'en', { spec: DELETE_SPEC }),
+    ],
+    [
+      { kind: 'task-not-found' } as DeleteTaskResult,
+      translate('tui_task_delete_not_found', 'en', {
+        taskId: 'TASK-001',
+        spec: DELETE_SPEC,
+      }),
+    ],
+  ])('retains the list and reports the %s deletion result', async (result, message) => {
+    const container = createTaskContainer(deletableTasks);
+    vi.spyOn(container.deleteTaskUseCase, 'execute').mockReturnValue(result);
+    const onFeedback = vi.fn();
+    const onNotification = vi.fn();
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen
+        container={container}
+        initialSpec={DELETE_SPEC}
+        onFeedback={onFeedback}
+        onNotification={onNotification}
+      />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('d');
+    await flushAsync();
+    stdin.write('y');
+    await flushAsync();
+
+    const output = normalizeOutput(lastFrame() ?? '');
+    expect(output).toContain('Tasks (3)');
+    expect(output).toContain(message);
+    expect(onFeedback).toHaveBeenCalledWith({ type: 'error', message });
+    expect(onNotification).toHaveBeenCalledWith(message, 'error');
+  });
+
+  it('retains the list and reports thrown deletion errors', async () => {
+    const container = createTaskContainer(deletableTasks);
+    vi.spyOn(container.deleteTaskUseCase, 'execute').mockImplementation(() => {
+      throw new Error('permission denied');
+    });
+    const onNotification = vi.fn();
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen
+        container={container}
+        initialSpec={DELETE_SPEC}
+        onNotification={onNotification}
+      />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('d');
+    await flushAsync();
+    stdin.write('y');
+    await flushAsync();
+
+    const expectedError = translate('tui_task_delete_error', 'en', {
+      taskId: 'TASK-001',
+      error: 'permission denied',
+    });
+    const output = normalizeOutput(lastFrame() ?? '');
+    expect(output).toContain('Tasks (3)');
+    expect(output).toContain(expectedError);
+    expect(onNotification).toHaveBeenCalledWith(expectedError, 'error');
+  });
+
+  it('does not open deletion while specification search is active', async () => {
+    const container = createTaskContainer(deletableTasks);
+    const execute = vi.spyOn(container.deleteTaskUseCase, 'execute');
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen container={container} initialSpec={DELETE_SPEC} />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('/');
+    await flushAsync();
+    stdin.write('d');
+    await flushAsync();
+
+    const output = lastFrame() ?? '';
+    expect(output).toContain('Search:');
+    expect(output).not.toContain(translate('tui_task_delete_title', 'en'));
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('does not dispatch deletion while the task view modal is open', async () => {
+    const container = createTaskContainer(deletableTasks);
+    const execute = vi.spyOn(container.deleteTaskUseCase, 'execute');
+    const { lastFrame, stdin } = renderWithProviders(
+      <TasksScreen container={container} initialSpec={DELETE_SPEC} />,
+      { container, initialSpec: DELETE_SPEC },
+    );
+    await flushAsync();
+
+    stdin.write('\r');
+    await flushAsync();
+    stdin.write('d');
+    await flushAsync();
+
+    expect(lastFrame()).toContain('TASK-001: Prepare deletion');
+    expect(lastFrame()).not.toContain(translate('tui_task_delete_title', 'en'));
+    expect(execute).not.toHaveBeenCalled();
   });
 });

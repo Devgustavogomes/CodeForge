@@ -9,9 +9,11 @@ import { DocViewer } from './components/DocViewer.js';
 import { CreateDocModal } from './CreateDocModal.js';
 import { UpdateDocModal, AutoTarget } from './UpdateDocModal.js';
 import { ViewDocModal } from './ViewDocModal.js';
+import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal.js';
 import { useDocsScreen } from './hooks/useDocsScreen.js';
 import { useDocsHotkeys } from './hooks/useDocsHotkeys.js';
 import { SupportedLanguage } from '../../../../config/types.js';
+import { translate } from '../../../ui/i18n.js';
 
 export { DocItemInfo };
 
@@ -29,6 +31,7 @@ export interface DocsScreenProps {
     affectedDocs?: AffectedDoc[]
   ) => Promise<void> | void;
   onViewDoc?: (doc: DocItemInfo) => void;
+  onNotification?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const DocsScreen: React.FC<DocsScreenProps> = ({
@@ -41,10 +44,12 @@ export const DocsScreen: React.FC<DocsScreenProps> = ({
   onConfirmDirectUpdate,
   onConfirmAutoUpdate,
   onViewDoc,
+  onNotification,
 }) => {
   const { columns, rows, breakpoint } = useTerminalDimensions();
   const {
     container: resolvedContainer,
+    nav,
     docs,
     selectedIndex,
     setSelectedIndex,
@@ -62,6 +67,8 @@ export const DocsScreen: React.FC<DocsScreenProps> = ({
     isCreateModalOpen,
     isUpdateModalOpen,
     isViewModalOpen,
+    isDeleteModalOpen,
+    deleteTarget,
     availableSpecs,
     handleCreateDoc,
     handleConfirmDirectUpdate,
@@ -72,6 +79,9 @@ export const DocsScreen: React.FC<DocsScreenProps> = ({
     handleCloseUpdateModal,
     handleOpenViewModal,
     handleCloseViewModal,
+    handleOpenDeleteModal,
+    handleCancelDelete,
+    handleConfirmDelete,
   } = useDocsScreen({
     container,
     initialDocs,
@@ -80,18 +90,27 @@ export const DocsScreen: React.FC<DocsScreenProps> = ({
     onUpdateDoc,
     onConfirmDirectUpdate,
     onConfirmAutoUpdate,
+    onNotification,
   });
 
   useDocsHotkeys({
     isInteractive,
-    isModalOpen: isCreateModalOpen || isUpdateModalOpen || isViewModalOpen,
+    isModalOpen:
+      isCreateModalOpen ||
+      isUpdateModalOpen ||
+      isViewModalOpen ||
+      isDeleteModalOpen,
     isCreateModalOpen,
     isUpdateModalOpen,
+    isViewModalOpen,
+    isDeleteModalOpen,
+    isTextInputActive: nav?.isTextInputActive,
     docsCount: docs.length,
     selectedIndex,
     onSelectIndex: setSelectedIndex,
     onOpenCreateModal: handleOpenCreateModal,
     onOpenUpdateModal: handleOpenUpdateModal,
+    onOpenDeleteModal: handleOpenDeleteModal,
     onViewDoc: () => {
       handleOpenViewModal();
       if (selectedDoc) {
@@ -135,6 +154,26 @@ export const DocsScreen: React.FC<DocsScreenProps> = ({
         doc={selectedDoc}
         content={previewContent}
         onClose={handleCloseViewModal}
+        language={resolvedLanguage}
+        width="100%"
+      />
+    );
+  }
+
+  if (isDeleteModalOpen && deleteTarget) {
+    return (
+      <ConfirmDeleteModal
+        isOpen={true}
+        title={translate('tui_docs_delete_title', resolvedLanguage)}
+        body={translate('tui_docs_delete_body', resolvedLanguage)}
+        detail={translate('tui_docs_delete_detail', resolvedLanguage, {
+          doc: deleteTarget.name,
+        })}
+        warning={translate('tui_docs_delete_warning', resolvedLanguage)}
+        onCancel={handleCancelDelete}
+        onConfirm={() => {
+          void handleConfirmDelete();
+        }}
         language={resolvedLanguage}
         width="100%"
       />

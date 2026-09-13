@@ -124,7 +124,7 @@ export const SpecDetails: React.FC<SpecDetailsProps> = memo(({
           {/* Action shortcuts hint */}
           <Box marginTop={1} flexDirection="column">
             <Text dimColor>[Enter] Open in Run  │  [t] Open in Tasks  │  [g] Generate Plan</Text>
-            <Text dimColor>[v] Validate Plan    │  [c] Create         │  [p] Pull</Text>
+            <Text dimColor>[v] Validate Plan    │  [c] Create         │  [p] Pull  │  [d] Delete</Text>
           </Box>
         </Box>
       ) : (

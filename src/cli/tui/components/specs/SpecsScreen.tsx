@@ -8,7 +8,11 @@ import { SpecList, SpecItemWithStats, STATUS_BADGE_MAP } from './components/Spec
 import { SpecDetails } from './components/SpecDetails.js';
 import { SpecPlanProgress } from './components/SpecPlanProgress.js';
 import { useSpecsScreen } from './hooks/useSpecsScreen.js';
+import { SpecsActionFeedback } from './hooks/useSpecsScreen.js';
 import { useSpecsHotkeys } from './hooks/useSpecsHotkeys.js';
+import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal.js';
+import { SupportedLanguage } from '../../../../config/types.js';
+import { translate } from '../../../ui/i18n.js';
 
 export type { SpecItemWithStats };
 export { STATUS_BADGE_MAP };
@@ -18,6 +22,12 @@ export interface SpecsScreenProps {
   initialSpecs?: SpecItemWithStats[];
   onOpenRun?: (specName: string) => void;
   onOpenTasks?: (specName: string) => void;
+  onFeedback?: (feedback: SpecsActionFeedback) => void;
+  onNotification?: (
+    message: string,
+    type?: 'success' | 'error' | 'info',
+  ) => void;
+  language?: SupportedLanguage;
   isInteractive?: boolean;
 }
 
@@ -26,6 +36,9 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
   initialSpecs,
   onOpenRun,
   onOpenTasks,
+  onFeedback,
+  onNotification,
+  language: propLanguage,
   isInteractive = true,
 }) => {
   const { breakpoint } = useTerminalDimensions();
@@ -36,6 +49,7 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     selectedSpec,
     activeModal,
     actionFeedback,
+    language,
     isValidating,
     isGeneratingPlan,
     planStartTime,
@@ -48,6 +62,9 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     openCreateModal,
     openPullModal,
     closeModal,
+    openDeleteModal,
+    cancelDelete,
+    confirmDelete,
     handleOpenInRun,
     handleOpenInTasks,
     handleValidatePlan,
@@ -59,12 +76,16 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     initialSpecs,
     onOpenRun,
     onOpenTasks,
+    onFeedback,
+    onNotification,
+    language: propLanguage,
   });
 
   useSpecsHotkeys({
     isInteractive,
     isModalOpen: activeModal !== null,
     isTextInputActive,
+    hasSelectedSpec: selectedSpec !== null,
     onNavigateUp: navigateUp,
     onNavigateDown: navigateDown,
     onOpenRun: () => {
@@ -83,6 +104,7 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     onValidatePlan: handleValidatePlan,
     onOpenCreateModal: openCreateModal,
     onOpenPullModal: openPullModal,
+    onOpenDeleteModal: openDeleteModal,
   });
 
   if (activeModal === 'create') {
@@ -105,6 +127,20 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
         container={container}
         width="100%"
         onSuccess={(specName) => handleModalSuccess(specName, 'pulled')}
+      />
+    );
+  }
+
+  if (activeModal === 'delete' && selectedSpec) {
+    return (
+      <ConfirmDeleteModal
+        title={translate('tui_spec_delete_title', language)}
+        body={translate('tui_spec_delete_body', language)}
+        detail={translate('tui_spec_delete_detail', language, { spec: selectedSpec.name })}
+        warning={translate('tui_spec_delete_warning', language)}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        language={language}
       />
     );
   }

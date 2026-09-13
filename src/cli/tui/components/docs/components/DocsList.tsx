@@ -47,9 +47,11 @@ export const DocsList: React.FC<DocsListProps> = memo(({
       paddingX={1}
     >
       <Box justifyContent="space-between" marginBottom={0}>
-        <Text bold color={theme.colors.primary}>
-          {translate('tui_docs_list_title', language, { count: docs.length })}
-        </Text>
+        <Box flexShrink={0} marginRight={1}>
+          <Text bold color={theme.colors.primary}>
+            {translate('tui_docs_list_title', language, { count: docs.length })}
+          </Text>
+        </Box>
         <Text color={theme.colors.muted} wrap="truncate-end">{translate('tui_docs_list_shortcuts', language)}</Text>
       </Box>
 

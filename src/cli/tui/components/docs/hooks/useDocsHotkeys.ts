@@ -5,12 +5,15 @@ export interface UseDocsHotkeysOptions {
   isModalOpen?: boolean;
   isCreateModalOpen?: boolean;
   isUpdateModalOpen?: boolean;
+  isViewModalOpen?: boolean;
+  isDeleteModalOpen?: boolean;
   isTextInputActive?: boolean;
   docsCount: number;
   selectedIndex: number;
   onSelectIndex: (index: number) => void;
   onOpenCreateModal: () => void;
   onOpenUpdateModal?: () => void;
+  onOpenDeleteModal?: () => void;
   onUpdateDoc?: () => void;
   onViewDoc?: () => void;
   onClearFeedback?: () => void;
@@ -21,17 +24,25 @@ export function useDocsHotkeys({
   isModalOpen = false,
   isCreateModalOpen = false,
   isUpdateModalOpen = false,
+  isViewModalOpen = false,
+  isDeleteModalOpen = false,
   isTextInputActive = false,
   docsCount,
   selectedIndex,
   onSelectIndex,
   onOpenCreateModal,
   onOpenUpdateModal,
+  onOpenDeleteModal,
   onUpdateDoc,
   onViewDoc,
   onClearFeedback,
 }: UseDocsHotkeysOptions): void {
-  const modalActive = isModalOpen || isCreateModalOpen || isUpdateModalOpen;
+  const modalActive =
+    isModalOpen ||
+    isCreateModalOpen ||
+    isUpdateModalOpen ||
+    isViewModalOpen ||
+    isDeleteModalOpen;
 
   useInput(
     (input, key) => {
@@ -72,13 +83,22 @@ export function useDocsHotkeys({
         return;
       }
 
+      // 'd' -> Open Delete Doc Modal (ignored unless the selection is valid)
+      if (input === 'd' || input === 'D') {
+        const hasSelectedDoc = selectedIndex >= 0 && selectedIndex < docsCount;
+        if (hasSelectedDoc) {
+          onOpenDeleteModal?.();
+        }
+        return;
+      }
+
       // Enter -> View Doc
       if (key.return || input === '\r' || input === '\n') {
         onViewDoc?.();
         return;
       }
     },
-    { isActive: isInteractive && !modalActive }
+    { isActive: isInteractive && !modalActive && !isTextInputActive }
   );
 }
 

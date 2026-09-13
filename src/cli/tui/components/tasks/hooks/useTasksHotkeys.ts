@@ -1,12 +1,13 @@
-import { useContext } from 'react';
 import { useInput } from 'ink';
-import { NavigationContext } from '../../../context/NavigationContext.js';
 
 export interface UseTasksHotkeysProps {
   isInteractive?: boolean;
   isModalOpen?: boolean;
   isSearchingSpec?: boolean;
+  isTextInputActive?: boolean;
+  hasSelectedTask?: boolean;
   onOpenTask?: () => void;
+  onOpenDeleteModal?: () => void;
   onNextTask: () => void;
   onPrevTask: () => void;
   onNextSpec: () => void;
@@ -22,7 +23,10 @@ export function useTasksHotkeys({
   isInteractive = true,
   isModalOpen = false,
   isSearchingSpec = false,
+  isTextInputActive = false,
+  hasSelectedTask = false,
   onOpenTask,
+  onOpenDeleteModal,
   onNextTask,
   onPrevTask,
   onNextSpec,
@@ -33,11 +37,9 @@ export function useTasksHotkeys({
   onReset,
   onStartSearch,
 }: UseTasksHotkeysProps) {
-  const nav = useContext(NavigationContext);
-
   useInput(
     (input, key) => {
-      if (!isInteractive || isModalOpen || nav?.isTextInputActive || isSearchingSpec) return;
+      if (!isInteractive || isModalOpen || isTextInputActive || isSearchingSpec) return;
 
       // Start Spec Search: '/'
       if (input === '/') {
@@ -83,6 +85,12 @@ export function useTasksHotkeys({
         return;
       }
 
+      // Action 'd' / 'D': request deletion of the selected task
+      if ((input === 'd' || input === 'D') && hasSelectedTask) {
+        onOpenDeleteModal?.();
+        return;
+      }
+
       // Action 'c': Complete task
       if (input === 'c') {
         onComplete();
@@ -95,6 +103,9 @@ export function useTasksHotkeys({
         return;
       }
     },
-    { isActive: isInteractive && !isModalOpen },
+    {
+      isActive:
+        isInteractive && !isModalOpen && !isTextInputActive && !isSearchingSpec,
+    },
   );
 }

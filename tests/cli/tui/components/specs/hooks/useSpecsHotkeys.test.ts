@@ -20,6 +20,8 @@ const TestHotkeysHarness: React.FC<HarnessProps> = (props) => {
     onValidatePlan: props.onValidatePlan,
     onOpenCreateModal: props.onOpenCreateModal ?? vi.fn(),
     onOpenPullModal: props.onOpenPullModal ?? vi.fn(),
+    onOpenDeleteModal: props.onOpenDeleteModal ?? vi.fn(),
+    hasSelectedSpec: props.hasSelectedSpec ?? true,
     isInteractive: props.isInteractive,
     isModalOpen: props.isModalOpen,
     isTextInputActive: props.isTextInputActive,
@@ -37,6 +39,7 @@ interface Callbacks {
   onValidatePlan: () => void;
   onOpenCreateModal: () => void;
   onOpenPullModal: () => void;
+  onOpenDeleteModal: () => void;
 }
 
 describe('useSpecsHotkeys hook', () => {
@@ -52,7 +55,36 @@ describe('useSpecsHotkeys hook', () => {
       onValidatePlan: vi.fn(),
       onOpenCreateModal: vi.fn(),
       onOpenPullModal: vi.fn(),
+      onOpenDeleteModal: vi.fn(),
     };
+  });
+
+  describe('Specification deletion', () => {
+    it("opens delete confirmation with 'd' or 'D' when a spec is selected", async () => {
+      const { stdin } = render(React.createElement(TestHotkeysHarness, callbacks));
+
+      stdin.write('d');
+      await flushAsync();
+      stdin.write('D');
+      await flushAsync();
+
+      expect(callbacks.onOpenDeleteModal).toHaveBeenCalledTimes(2);
+    });
+
+    it('ignores delete shortcuts when no spec is selected', async () => {
+      const { stdin } = render(
+        React.createElement(TestHotkeysHarness, {
+          ...callbacks,
+          hasSelectedSpec: false,
+        })
+      );
+
+      stdin.write('d');
+      stdin.write('D');
+      await flushAsync();
+
+      expect(callbacks.onOpenDeleteModal).not.toHaveBeenCalled();
+    });
   });
 
   describe('Atalhos de importação (Pull) e geração de plano', () => {
@@ -132,6 +164,7 @@ describe('useSpecsHotkeys hook', () => {
       const { stdin } = render(React.createElement(TestHotkeysHarness, callbacks));
 
       stdin.write('v');
+      stdin.write('d');
       await flushAsync();
       expect(callbacks.onValidatePlan).toHaveBeenCalledTimes(1);
 
@@ -218,6 +251,7 @@ describe('useSpecsHotkeys hook', () => {
       expect(callbacks.onOpenTasks).not.toHaveBeenCalled();
       expect(callbacks.onOpenCreateModal).not.toHaveBeenCalled();
       expect(callbacks.onValidatePlan).not.toHaveBeenCalled();
+      expect(callbacks.onOpenDeleteModal).not.toHaveBeenCalled();
       expect(callbacks.onOpenRun).not.toHaveBeenCalled();
       expect(callbacks.onNavigateUp).not.toHaveBeenCalled();
       expect(callbacks.onNavigateDown).not.toHaveBeenCalled();
@@ -237,6 +271,7 @@ describe('useSpecsHotkeys hook', () => {
       stdin.write('t');
       stdin.write('c');
       stdin.write('v');
+      stdin.write('d');
       stdin.write('\r');
       stdin.write('k');
       stdin.write('j');
@@ -247,6 +282,7 @@ describe('useSpecsHotkeys hook', () => {
       expect(callbacks.onOpenTasks).not.toHaveBeenCalled();
       expect(callbacks.onOpenCreateModal).not.toHaveBeenCalled();
       expect(callbacks.onValidatePlan).not.toHaveBeenCalled();
+      expect(callbacks.onOpenDeleteModal).not.toHaveBeenCalled();
       expect(callbacks.onOpenRun).not.toHaveBeenCalled();
       expect(callbacks.onNavigateUp).not.toHaveBeenCalled();
       expect(callbacks.onNavigateDown).not.toHaveBeenCalled();
@@ -266,6 +302,7 @@ describe('useSpecsHotkeys hook', () => {
       stdin.write('t');
       stdin.write('c');
       stdin.write('v');
+      stdin.write('d');
       stdin.write('\r');
       stdin.write('k');
       stdin.write('j');
@@ -276,6 +313,7 @@ describe('useSpecsHotkeys hook', () => {
       expect(callbacks.onOpenTasks).not.toHaveBeenCalled();
       expect(callbacks.onOpenCreateModal).not.toHaveBeenCalled();
       expect(callbacks.onValidatePlan).not.toHaveBeenCalled();
+      expect(callbacks.onOpenDeleteModal).not.toHaveBeenCalled();
       expect(callbacks.onOpenRun).not.toHaveBeenCalled();
       expect(callbacks.onNavigateUp).not.toHaveBeenCalled();
       expect(callbacks.onNavigateDown).not.toHaveBeenCalled();

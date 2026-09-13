@@ -1,10 +1,17 @@
-import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, useContext, useRef } from 'react';
 import { NavigationContext } from '../../../context/NavigationContext.js';
 import { ContainerContext } from '../../../context/ContainerContext.js';
 import { ExecutionContext } from '../../../context/ExecutionContext.js';
 import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
 import { loadTasksFromDisk } from '../../../context/ExecutionContext/taskLoader.js';
 import { TaskScreenItem } from '../components/TaskTree.js';
+import { SupportedLanguage } from '../../../../../config/types.js';
+import { translate } from '../../../../ui/i18n.js';
+
+export interface TasksActionFeedback {
+  type: 'success' | 'error' | 'info';
+  message: string;
+}
 
 export interface UseTasksScreenOptions {
   container?: AppContainer;
@@ -12,6 +19,12 @@ export interface UseTasksScreenOptions {
   initialTasks?: TaskScreenItem[];
   onCompleteTask?: (taskId: string) => void;
   onResetTask?: (taskId: string) => void;
+  onFeedback?: (feedback: TasksActionFeedback) => void;
+  onNotification?: (
+    message: string,
+    type?: 'success' | 'error' | 'info',
+  ) => void;
+  language?: SupportedLanguage;
 }
 
 export function useTasksScreen(options?: UseTasksScreenOptions) {
@@ -23,6 +36,15 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   );
 
   const exec = useContext(ExecutionContext);
+
+  const language: SupportedLanguage = useMemo(() => {
+    if (options?.language) return options.language;
+    try {
+      return container.configService?.loadConfig?.()?.language ?? 'en';
+    } catch {
+      return 'en';
+    }
+  }, [container, options?.language]);
 
   const [specs, setSpecs] = useState<string[]>([]);
   const [selectedSpecIndex, setSelectedSpecIndex] = useState(0);
@@ -65,21 +87,26 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   const [viewJson, setViewJson] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    type: 'success' | 'error' | 'info';
-    message: string;
-  } | null>(null);
+  const [isDeleteTaskModalOpen, setIsDeleteTaskModalOpen] = useState(false);
+  const [feedback, setFeedback] = useState<TasksActionFeedback | null>(null);
+  const isDeleteConfirmingRef = useRef(false);
 
   const loadTasksForSpec = useCallback(
-    (spec: string) => {
+    (spec: string, resetSelection = true): TaskScreenItem[] => {
       if (!spec) {
         setTasks([]);
-        return;
+        setSelectedTaskIndex(0);
+        return [];
       }
       const loaded = loadTasksFromDisk(container.gw, container.stateRepo, spec);
       loaded.sort((a, b) => a.id.localeCompare(b.id));
       setTasks(loaded);
-      setSelectedTaskIndex(0);
+      setSelectedTaskIndex((currentIndex) =>
+        resetSelection
+          ? 0
+          : Math.min(currentIndex, Math.max(0, loaded.length - 1)),
+      );
+      return loaded;
     },
     [container],
   );
@@ -240,6 +267,102 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     setIsViewTaskModalOpen(false);
   }, []);
 
+  const publishDeleteFeedback = useCallback(
+    (nextFeedback: TasksActionFeedback) => {
+      setFeedback(nextFeedback);
+      options?.onFeedback?.(nextFeedback);
+      options?.onNotification?.(nextFeedback.message, nextFeedback.type);
+    },
+    [options?.onFeedback, options?.onNotification],
+  );
+
+  const handleOpenDeleteTaskModal = useCallback(() => {
+    if (!selectedTask || !currentSpec) return;
+    isDeleteConfirmingRef.current = false;
+    setFeedback(null);
+    setIsDeleteTaskModalOpen(true);
+  }, [currentSpec, selectedTask]);
+
+  const handleCancelDeleteTask = useCallback(() => {
+    isDeleteConfirmingRef.current = false;
+    setIsDeleteTaskModalOpen(false);
+  }, []);
+
+  const handleConfirmDeleteTask = useCallback(() => {
+    if (
+      !selectedTask ||
+      !currentSpec ||
+      !isDeleteTaskModalOpen ||
+      isDeleteConfirmingRef.current
+    ) {
+      return;
+    }
+
+    isDeleteConfirmingRef.current = true;
+    const taskId = selectedTask.id;
+    const specName = currentSpec;
+    setIsDeleteTaskModalOpen(false);
+
+    let result: ReturnType<typeof container.deleteTaskUseCase.execute>;
+    try {
+      result = container.deleteTaskUseCase.execute(specName, taskId);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      publishDeleteFeedback({
+        type: 'error',
+        message: translate('tui_task_delete_error', language, {
+          taskId,
+          error: message,
+        }),
+      });
+      return;
+    }
+
+    switch (result.kind) {
+      case 'deleted':
+        loadTasksForSpec(specName, false);
+        publishDeleteFeedback({
+          type: 'success',
+          message: translate('tui_task_delete_success', language, {
+            taskId: result.taskId,
+            count: result.cleanedDependenciesCount,
+          }),
+        });
+        return;
+      case 'not-initialized':
+        publishDeleteFeedback({
+          type: 'error',
+          message: translate('tui_delete_not_initialized', language),
+        });
+        return;
+      case 'spec-not-found':
+        publishDeleteFeedback({
+          type: 'error',
+          message: translate('tui_task_delete_spec_not_found', language, {
+            spec: specName,
+          }),
+        });
+        return;
+      case 'task-not-found':
+        publishDeleteFeedback({
+          type: 'error',
+          message: translate('tui_task_delete_not_found', language, {
+            taskId,
+            spec: specName,
+          }),
+        });
+        return;
+    }
+  }, [
+    container,
+    currentSpec,
+    isDeleteTaskModalOpen,
+    language,
+    loadTasksForSpec,
+    publishDeleteFeedback,
+    selectedTask,
+  ]);
+
   const handleStartSearchSpec = useCallback(() => {
     setIsSearchingSpec(true);
     nav?.setTextInputActive(true);
@@ -284,9 +407,15 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     selectedTask,
     viewJson,
     isExpanded,
+    language,
     isViewTaskModalOpen,
     handleOpenViewTaskModal,
     handleCloseViewTaskModal,
+    isDeleteTaskModalOpen,
+    handleOpenDeleteTaskModal,
+    handleCancelDeleteTask,
+    handleConfirmDeleteTask,
+    isTextInputActive: nav?.isTextInputActive ?? false,
     feedback,
     handleComplete,
     handleReset,

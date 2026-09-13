@@ -4,6 +4,7 @@ export interface UseSpecsHotkeysProps {
   isInteractive?: boolean;
   isModalOpen?: boolean;
   isTextInputActive?: boolean;
+  hasSelectedSpec?: boolean;
   onNavigateUp: () => void;
   onNavigateDown: () => void;
   onOpenRun: () => void;
@@ -12,12 +13,14 @@ export interface UseSpecsHotkeysProps {
   onValidatePlan?: () => void;
   onOpenCreateModal: () => void;
   onOpenPullModal: () => void;
+  onOpenDeleteModal: () => void;
 }
 
 export function useSpecsHotkeys({
   isInteractive = true,
   isModalOpen = false,
   isTextInputActive = false,
+  hasSelectedSpec = false,
   onNavigateUp,
   onNavigateDown,
   onOpenRun,
@@ -26,6 +29,7 @@ export function useSpecsHotkeys({
   onValidatePlan,
   onOpenCreateModal,
   onOpenPullModal,
+  onOpenDeleteModal,
 }: UseSpecsHotkeysProps): void {
   useInput(
     (input, key) => {
@@ -52,6 +56,12 @@ export function useSpecsHotkeys({
       // 'p' / 'P' -> Open PullSpecModal
       if (input === 'p' || input === 'P') {
         onOpenPullModal();
+        return;
+      }
+
+      // 'd' / 'D' -> Open delete confirmation for the selected specification
+      if ((input === 'd' || input === 'D') && hasSelectedSpec) {
+        onOpenDeleteModal();
         return;
       }
 

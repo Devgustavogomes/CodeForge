@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { ContainerProvider } from './context/ContainerContext.js';
 import { NavigationProvider, useNavigation, TabId } from './context/NavigationContext.js';
@@ -111,6 +111,11 @@ const AppContent: React.FC<{
 
   const isInitialized = useMemo(() => isWorkspaceInitialized(container), [container]);
   const [isOnboardingActive, setIsOnboardingActive] = useState(!isInitialized);
+  const [screenNotification, setScreenNotification] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+  } | null>(null);
+  const screenNotificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [activeLanguage, setActiveLanguage] = useState<SupportedLanguage>(() => {
     if (propLanguage) return propLanguage;
@@ -145,9 +150,38 @@ const AppContent: React.FC<{
     nav.setActiveTab(initialTab === 'run' ? 'run' : 'specs');
   }, [container, initialTab, nav]);
 
+  const handleScreenNotification = useCallback(
+    (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+      if (screenNotificationTimeoutRef.current) {
+        clearTimeout(screenNotificationTimeoutRef.current);
+      }
+
+      clearStatusNotification();
+      setScreenNotification({ message, type });
+      screenNotificationTimeoutRef.current = setTimeout(() => {
+        setScreenNotification(null);
+        screenNotificationTimeoutRef.current = null;
+      }, 5000);
+    },
+    [clearStatusNotification]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (screenNotificationTimeoutRef.current) {
+        clearTimeout(screenNotificationTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Clear active notifications when switching tabs
   useEffect(() => {
     clearStatusNotification();
+    setScreenNotification(null);
+    if (screenNotificationTimeoutRef.current) {
+      clearTimeout(screenNotificationTimeoutRef.current);
+      screenNotificationTimeoutRef.current = null;
+    }
   }, [nav.activeTab, clearStatusNotification]);
 
   // Manage full-screen alternative screen buffer switching and terminal cleanup
@@ -251,9 +285,28 @@ const AppContent: React.FC<{
         ) : (
           <>
             {nav.activeTab === 'run' && <RunDashboard isInteractive={isInteractive} />}
-            {nav.activeTab === 'specs' && <SpecsScreen container={container} isInteractive={isInteractive} />}
-            {nav.activeTab === 'tasks' && <TasksScreen container={container} isInteractive={isInteractive} />}
-            {nav.activeTab === 'docs' && <DocsScreen container={container} isInteractive={isInteractive} />}
+            {nav.activeTab === 'specs' && (
+              <SpecsScreen
+                container={container}
+                isInteractive={isInteractive}
+                onNotification={handleScreenNotification}
+                onFeedback={(feedback) => handleScreenNotification(feedback.message, feedback.type)}
+              />
+            )}
+            {nav.activeTab === 'tasks' && (
+              <TasksScreen
+                container={container}
+                isInteractive={isInteractive}
+                onNotification={handleScreenNotification}
+              />
+            )}
+            {nav.activeTab === 'docs' && (
+              <DocsScreen
+                container={container}
+                isInteractive={isInteractive}
+                onNotification={handleScreenNotification}
+              />
+            )}
             {nav.activeTab === 'config' && <ConfigScreen container={container} isInteractive={isInteractive} />}
           </>
         )}
@@ -263,7 +316,18 @@ const AppContent: React.FC<{
       <StatusBar
         activeTab={nav.activeTab}
         borderStyle="none"
-        status={statusNotification || undefined}
+        status={
+          screenNotification
+            ? screenNotification.type !== 'error'
+              ? screenNotification.message
+              : undefined
+            : statusNotification ?? undefined
+        }
+        error={
+          screenNotification?.type === 'error'
+            ? screenNotification.message
+            : null
+        }
         language={activeLanguage}
         hints={
           nav.activeTab === 'run' && exec.tasks.length === 0

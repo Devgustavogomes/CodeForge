@@ -4,10 +4,15 @@ import { SpecsScreen, SpecItemWithStats } from '../../../../../src/cli/tui/compo
 import { CreateSpecUseCase } from '../../../../../src/application/use-cases/CreateSpecUseCase.js';
 import { PullSpecUseCase } from '../../../../../src/application/use-cases/PullSpecUseCase.js';
 import { ListSpecsUseCase } from '../../../../../src/application/use-cases/ListSpecsUseCase.js';
+import { DeleteSpecUseCase } from '../../../../../src/application/use-cases/DeleteSpecUseCase.js';
 import { PlanningProvider } from '../../../../../src/cli/tui/context/PlanningContext.js';
 import { useNavigation } from '../../../../../src/cli/tui/context/NavigationContext.js';
 import { useExecution } from '../../../../../src/cli/tui/context/ExecutionContext.js';
 import { renderWithProviders, createMockContainer, flushAsync } from '../../helpers/renderWithProviders.js';
+import { translate } from '../../../../../src/cli/ui/i18n.js';
+
+const normalizeOutput = (value: string): string =>
+  value.replace(/[│╭╮╰╯─┌┐└┘]/g, ' ').replace(/\s+/g, ' ');
 
 describe('SpecsScreen component', () => {
   const mockSpecs: SpecItemWithStats[] = [
@@ -31,6 +36,183 @@ describe('SpecsScreen component', () => {
     execute: vi.fn().mockReturnValue(mockSpecs),
     listNames: vi.fn().mockReturnValue(mockSpecs.map((s) => s.name)),
   } as unknown as ListSpecsUseCase;
+
+  it('opens a cascade-delete confirmation with d and cancels with n without deleting', async () => {
+    const executeDelete = vi.fn();
+    const generatePlan = vi.fn();
+    const container = createMockContainer({
+      listSpecsUseCase: mockListSpecsUseCase,
+      deleteSpecUseCase: { execute: executeDelete } as unknown as DeleteSpecUseCase,
+      generatePlanUseCase: { execute: generatePlan } as any,
+    });
+
+    const { lastFrame, stdin } = renderWithProviders(
+      <SpecsScreen initialSpecs={mockSpecs} container={container} isInteractive={true} />,
+      { container }
+    );
+
+    expect(lastFrame() ?? '').toContain('[d] Delete');
+
+    stdin.write('d');
+    await flushAsync();
+
+    const modalOutput = normalizeOutput(lastFrame() ?? '');
+    expect(modalOutput).toContain(translate('tui_spec_delete_title', 'en'));
+    expect(modalOutput).toContain(translate('tui_spec_delete_detail', 'en', { spec: 'auth' }));
+    expect(modalOutput).toContain(translate('tui_spec_delete_warning', 'en'));
+    expect(executeDelete).not.toHaveBeenCalled();
+
+    // Background shortcuts stay disabled while the confirmation owns input.
+    stdin.write('g');
+    stdin.write('j');
+    await flushAsync();
+    expect(generatePlan).not.toHaveBeenCalled();
+    expect(lastFrame() ?? '').toContain('Specification: auth');
+
+    stdin.write('n');
+    await flushAsync();
+
+    expect(executeDelete).not.toHaveBeenCalled();
+    expect(lastFrame() ?? '').not.toContain(translate('tui_spec_delete_title', 'en'));
+    expect(lastFrame() ?? '').toContain('Name:  auth');
+    expect(lastFrame() ?? '').toContain('[d] Delete');
+  });
+
+  it('cancels delete confirmation with Escape', async () => {
+    const executeDelete = vi.fn();
+    const container = createMockContainer({
+      deleteSpecUseCase: { execute: executeDelete } as unknown as DeleteSpecUseCase,
+    });
+    const { lastFrame, stdin } = renderWithProviders(
+      <SpecsScreen initialSpecs={mockSpecs} container={container} isInteractive={true} />,
+      { container }
+    );
+
+    stdin.write('d');
+    await flushAsync();
+    stdin.write('\u001B');
+    await flushAsync(100);
+
+    expect(executeDelete).not.toHaveBeenCalled();
+    expect(lastFrame() ?? '').not.toContain(translate('tui_spec_delete_title', 'en'));
+  });
+
+  it.each([
+    ['y', 'y'],
+    ['Enter', '\r'],
+  ])('confirms with %s, refreshes the list, clamps selection, and publishes feedback', async (_label, key) => {
+    const refreshedSpecs = [mockSpecs[0]];
+    const listSpecsUseCase = {
+      execute: vi.fn().mockReturnValue(refreshedSpecs),
+      listNames: vi.fn().mockReturnValue(['auth']),
+    } as unknown as ListSpecsUseCase;
+    const executeDelete = vi.fn().mockReturnValue({ kind: 'deleted', specName: 'tui' });
+    const onFeedback = vi.fn();
+    const container = createMockContainer({
+      listSpecsUseCase,
+      deleteSpecUseCase: { execute: executeDelete } as unknown as DeleteSpecUseCase,
+    });
+    const { lastFrame, stdin } = renderWithProviders(
+      <SpecsScreen
+        initialSpecs={mockSpecs}
+        container={container}
+        isInteractive={true}
+        onFeedback={onFeedback}
+      />,
+      { container }
+    );
+
+    stdin.write('j');
+    await flushAsync();
+    expect(lastFrame() ?? '').toContain('Name:  tui');
+    stdin.write('d');
+    await flushAsync();
+    stdin.write(key);
+    await flushAsync();
+
+    const expectedFeedback = {
+      type: 'success',
+      message: translate('tui_spec_delete_success', 'en', { spec: 'tui' }),
+    };
+    expect(executeDelete).toHaveBeenCalledTimes(1);
+    expect(executeDelete).toHaveBeenCalledWith('tui');
+    expect((listSpecsUseCase.execute as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+    expect(lastFrame() ?? '').toContain('Name:  auth');
+    expect(lastFrame() ?? '').toContain(expectedFeedback.message);
+    expect(onFeedback).toHaveBeenCalledTimes(1);
+    expect(onFeedback).toHaveBeenCalledWith(expectedFeedback);
+  });
+
+  it('ignores d when there is no selected specification', async () => {
+    const executeDelete = vi.fn();
+    const container = createMockContainer({
+      deleteSpecUseCase: { execute: executeDelete } as unknown as DeleteSpecUseCase,
+    });
+    const { lastFrame, stdin } = renderWithProviders(
+      <SpecsScreen initialSpecs={[]} container={container} isInteractive={true} />,
+      { container }
+    );
+
+    stdin.write('d');
+    await flushAsync();
+
+    expect(executeDelete).not.toHaveBeenCalled();
+    expect(lastFrame() ?? '').not.toContain(translate('tui_spec_delete_title', 'en'));
+  });
+
+  it.each([
+    {
+      label: 'a missing spec result',
+      execute: () => ({ kind: 'spec-not-found' as const }),
+      expected: translate('tui_spec_delete_not_found', 'en', { spec: 'auth' }),
+    },
+    {
+      label: 'an uninitialized workspace result',
+      execute: () => ({ kind: 'not-initialized' as const }),
+      expected: translate('tui_delete_not_initialized', 'en'),
+    },
+    {
+      label: 'a thrown error',
+      execute: () => {
+        throw new Error('permission denied');
+      },
+      expected: translate('tui_spec_delete_error', 'en', {
+        spec: 'auth',
+        error: 'permission denied',
+      }),
+    },
+  ])('keeps the list intact and publishes localized feedback for $label', async ({ execute, expected }) => {
+    const executeDelete = vi.fn(execute);
+    const listSpecsUseCase = {
+      execute: vi.fn().mockReturnValue([]),
+      listNames: vi.fn().mockReturnValue([]),
+    } as unknown as ListSpecsUseCase;
+    const onFeedback = vi.fn();
+    const container = createMockContainer({
+      listSpecsUseCase,
+      deleteSpecUseCase: { execute: executeDelete } as unknown as DeleteSpecUseCase,
+    });
+    const { lastFrame, stdin } = renderWithProviders(
+      <SpecsScreen
+        initialSpecs={mockSpecs}
+        container={container}
+        isInteractive={true}
+        onFeedback={onFeedback}
+      />,
+      { container }
+    );
+
+    stdin.write('d');
+    await flushAsync();
+    stdin.write('y');
+    await flushAsync();
+
+    expect(executeDelete).toHaveBeenCalledTimes(1);
+    expect(listSpecsUseCase.execute).not.toHaveBeenCalled();
+    expect(lastFrame() ?? '').toContain('Name:  auth');
+    expect(lastFrame() ?? '').toContain(expected.slice(0, 42));
+    expect(onFeedback).toHaveBeenCalledWith({ type: 'error', message: expected });
+  });
 
   it('opens CreateSpecModal on "c" and submits successfully', async () => {
     const mockCreateSpec = vi.fn().mockReturnValue({

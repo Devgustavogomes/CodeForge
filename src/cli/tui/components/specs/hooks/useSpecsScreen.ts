@@ -9,14 +9,29 @@ import { PATHS } from '../../../../../infrastructure/paths.js';
 import { SpecItemWithStats } from '../components/SpecList.js';
 import { PlanGenerationResult } from '../components/SpecPlanProgress.js';
 import { getSpecTaskCount } from '../../../context/ExecutionContext/taskLoader.js';
+import { SupportedLanguage } from '../../../../../config/types.js';
+import { translate } from '../../../../ui/i18n.js';
 
 export type { SpecItemWithStats, PlanGenerationResult };
+
+export interface SpecsActionFeedback {
+  type: 'info' | 'success' | 'error';
+  message: string;
+}
+
+export type SpecsModal = 'create' | 'pull' | 'delete' | null;
 
 export interface UseSpecsScreenOptions {
   container?: AppContainer;
   initialSpecs?: SpecItemWithStats[];
   onOpenRun?: (specName: string) => void;
   onOpenTasks?: (specName: string) => void;
+  onFeedback?: (feedback: SpecsActionFeedback) => void;
+  onNotification?: (
+    message: string,
+    type?: 'success' | 'error' | 'info',
+  ) => void;
+  language?: SupportedLanguage;
 }
 
 export function useSpecsScreen({
@@ -24,12 +39,24 @@ export function useSpecsScreen({
   initialSpecs,
   onOpenRun,
   onOpenTasks,
+  onFeedback,
+  onNotification,
+  language: propLanguage,
 }: UseSpecsScreenOptions = {}) {
   const contextContainer = useContext(ContainerContext);
   const container = useMemo(
     () => propContainer ?? contextContainer ?? createAppContainer(),
     [propContainer, contextContainer]
   );
+
+  const language: SupportedLanguage = useMemo(() => {
+    if (propLanguage) return propLanguage;
+    try {
+      return container.configService?.loadConfig?.()?.language ?? 'en';
+    } catch {
+      return 'en';
+    }
+  }, [container, propLanguage]);
 
   const nav = useContext(NavigationContext);
   const exec = useContext(ExecutionContext);
@@ -39,12 +66,10 @@ export function useSpecsScreen({
 
   const [specs, setSpecs] = useState<SpecItemWithStats[]>(() => initialSpecs ?? []);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [activeModal, setActiveModal] = useState<'create' | 'pull' | null>(null);
-  const [actionFeedback, setActionFeedback] = useState<{
-    type: 'info' | 'success' | 'error';
-    message: string;
-  } | null>(null);
+  const [activeModal, setActiveModal] = useState<SpecsModal>(null);
+  const [actionFeedback, setActionFeedback] = useState<SpecsActionFeedback | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const isDeleteConfirmingRef = useRef(false);
 
   // Local fallback states when PlanningContext is not available
   const [localIsGeneratingPlan, setLocalIsGeneratingPlan] = useState(false);
@@ -53,7 +78,7 @@ export function useSpecsScreen({
   const [localPlanResult, setLocalPlanResult] = useState<PlanGenerationResult | null>(null);
   const [localValidationErrors, setLocalValidationErrors] = useState<string[] | null>(null);
 
-  const loadSpecs = useCallback(() => {
+  const loadSpecs = useCallback((): SpecItemWithStats[] => {
     const listUseCase = container.listSpecsUseCase;
     const rawSpecs = listUseCase.execute();
     const enriched: SpecItemWithStats[] = rawSpecs.map((s) => {
@@ -78,6 +103,10 @@ export function useSpecsScreen({
     });
 
     setSpecs(enriched);
+    setSelectedIndex((currentIndex) =>
+      Math.min(currentIndex, Math.max(0, enriched.length - 1))
+    );
+    return enriched;
   }, [container]);
 
   useEffect(() => {
@@ -314,6 +343,76 @@ export function useSpecsScreen({
   const openPullModal = useCallback(() => setActiveModal('pull'), []);
   const closeModal = useCallback(() => setActiveModal(null), []);
 
+  const publishDeleteFeedback = useCallback(
+    (feedback: SpecsActionFeedback) => {
+      setActionFeedback(feedback);
+      onFeedback?.(feedback);
+      onNotification?.(feedback.message, feedback.type);
+    },
+    [onFeedback, onNotification]
+  );
+
+  const openDeleteModal = useCallback(() => {
+    if (!selectedSpec) return;
+    isDeleteConfirmingRef.current = false;
+    setActionFeedback(null);
+    setActiveModal('delete');
+  }, [selectedSpec]);
+
+  const cancelDelete = useCallback(() => {
+    isDeleteConfirmingRef.current = false;
+    setActiveModal(null);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (!selectedSpec || activeModal !== 'delete' || isDeleteConfirmingRef.current) {
+      return;
+    }
+
+    isDeleteConfirmingRef.current = true;
+    const specName = selectedSpec.name;
+    setActiveModal(null);
+
+    let result: ReturnType<typeof container.deleteSpecUseCase.execute>;
+    try {
+      result = container.deleteSpecUseCase.execute(specName);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      publishDeleteFeedback({
+        type: 'error',
+        message: translate('tui_spec_delete_error', language, {
+          spec: specName,
+          error: message,
+        }),
+      });
+      return;
+    }
+
+    switch (result.kind) {
+      case 'deleted':
+        loadSpecs();
+        publishDeleteFeedback({
+          type: 'success',
+          message: translate('tui_spec_delete_success', language, {
+            spec: result.specName,
+          }),
+        });
+        return;
+      case 'spec-not-found':
+        publishDeleteFeedback({
+          type: 'error',
+          message: translate('tui_spec_delete_not_found', language, { spec: specName }),
+        });
+        return;
+      case 'not-initialized':
+        publishDeleteFeedback({
+          type: 'error',
+          message: translate('tui_delete_not_initialized', language),
+        });
+        return;
+    }
+  }, [activeModal, container, language, loadSpecs, publishDeleteFeedback, selectedSpec]);
+
   const handleModalSuccess = useCallback(
     (specName: string, action: 'created' | 'pulled') => {
       setActiveModal(null);
@@ -335,6 +434,7 @@ export function useSpecsScreen({
     selectedSpec,
     activeModal,
     actionFeedback,
+    language,
     isValidating,
     isGeneratingPlan,
     planStartTime,
@@ -349,6 +449,9 @@ export function useSpecsScreen({
     openCreateModal,
     openPullModal,
     closeModal,
+    openDeleteModal,
+    cancelDelete,
+    confirmDelete,
     handleOpenInRun,
     handleOpenInTasks,
     handleValidatePlan,

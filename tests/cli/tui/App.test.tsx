@@ -1,9 +1,10 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { App } from '../../../src/cli/tui/App.js';
+import { App, isWorkspaceInitialized } from '../../../src/cli/tui/App.js';
 import {
   renderWithProviders,
   createMockContainer,
+  createInitializedContainer,
   setupInitializedWorkspace,
   flushAsync,
 } from './helpers/renderWithProviders.js';
@@ -173,7 +174,7 @@ describe('App - Onboarding Wizard Integration and Navigation', () => {
       configureEnvironmentUseCase: mockConfigureEnv as any,
     });
 
-    const { lastFrame, stdin } = renderWithProviders(
+    const { lastFrame, stdin, unmount } = renderWithProviders(
       <App container={container} initialTab="specs" />,
       { container },
     );
@@ -240,6 +241,8 @@ describe('App - Onboarding Wizard Integration and Navigation', () => {
     expect(container.gw.exists('.codeforge/metadata.json')).toBe(true);
     expect(container.gw.exists('.codeforge/config.yaml')).toBe(true);
 
+    unmount();
+
     // 11. In subsequent execution with same container, directly opens normal TUI
     const nextRender = renderWithProviders(
       <App container={container} initialTab="specs" />,
@@ -249,5 +252,370 @@ describe('App - Onboarding Wizard Integration and Navigation', () => {
     expect(nextRender.lastFrame() ?? '').not.toContain('\u2692');
     expect(nextRender.lastFrame() ?? '').toContain('[2] Specs');
     expect(nextRender.lastFrame() ?? '').not.toContain('Deterministic workflows for AI coding agents');
+    nextRender.unmount();
+  });
+});
+
+describe('App - Shared StatusBar Deletion Feedback Integration', () => {
+  it('displays deletion feedback on shared StatusBar for specs, supports cancellation, and clears on tab switch', async () => {
+    const container = createInitializedContainer();
+    container.gw.mkdir('.codeforge/specs');
+    container.gw.writeFile('.codeforge/specs/auth.md', '# Auth Spec');
+    container.gw.writeFile('.codeforge/specs/billing.md', '# Billing Spec');
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(
+      <App container={container} initialTab="specs" />,
+      { container },
+    );
+
+    try {
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('Specifications');
+        expect(frame).toContain('auth');
+      });
+
+      // 1. Cancellation test: press 'd' to open delete modal, then 'n' to cancel
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Specification');
+      });
+
+      stdin.write('n');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).not.toContain('Delete Specification');
+        expect(frame).not.toContain("Specification 'auth' deleted");
+      });
+
+      // 2. Success test: press 'd', then 'y' to confirm
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Specification');
+      });
+
+      stdin.write('y');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain("Specification 'auth' deleted successfully.");
+        expect(frame).toContain('[v]');
+      });
+
+      // 3. Tab switch clears stale feedback
+      stdin.write('3'); // Switch to Tasks tab
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('Tasks');
+        expect(frame).not.toContain("Specification 'auth' deleted successfully.");
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  it('displays deletion failures on shared StatusBar with error presentation for specs', async () => {
+    const mockDeleteSpec = {
+      execute: vi.fn().mockImplementation(() => {
+        throw new Error('Disk write error');
+      }),
+    };
+
+    const container = createInitializedContainer({
+      deleteSpecUseCase: mockDeleteSpec as any,
+    });
+    container.gw.mkdir('.codeforge/specs');
+    container.gw.writeFile('.codeforge/specs/auth.md', '# Auth Spec');
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(
+      <App container={container} initialTab="specs" />,
+      { container },
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('auth');
+      });
+
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Specification');
+      });
+
+      stdin.write('y');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain("[x] Failed to delete specification 'auth': Disk write error");
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  it('displays deletion feedback on shared StatusBar for tasks, supports cancellation, and clears on tab switch', async () => {
+    const container = createInitializedContainer();
+    container.gw.mkdir('.codeforge/specs');
+    container.gw.writeFile('.codeforge/specs/auth.md', '# Auth Spec');
+    container.gw.mkdir('.codeforge/tasks/auth');
+    container.gw.writeFile(
+      '.codeforge/tasks/auth/TASK-001.json',
+      JSON.stringify({ id: 'TASK-001', title: 'Setup auth schema', dependencies: [] }),
+    );
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(
+      <App container={container} initialTab="tasks" />,
+      { container },
+    );
+
+    try {
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('Tasks');
+        expect(frame).toContain('TASK-001');
+      });
+
+      // 1. Cancellation test: press 'd', then 'n'
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Task');
+      });
+
+      stdin.write('n');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).not.toContain('Delete Task');
+        expect(frame).not.toContain("Task 'TASK-001' deleted");
+      });
+
+      // 2. Success test: press 'd', then 'y'
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Task');
+      });
+
+      stdin.write('y');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain("Task 'TASK-001' deleted.");
+        expect(frame).toContain('[v]');
+      });
+
+      // 3. Tab switch clears stale feedback
+      stdin.write('2'); // Switch to Specs tab
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('Specifications');
+        expect(frame).not.toContain("Task 'TASK-001' deleted.");
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  it('displays deletion failures on shared StatusBar with error presentation for tasks', async () => {
+    const mockDeleteTask = {
+      execute: vi.fn().mockImplementation(() => {
+        throw new Error('Task locked by scheduler');
+      }),
+    };
+
+    const container = createInitializedContainer({
+      deleteTaskUseCase: mockDeleteTask as any,
+    });
+    container.gw.mkdir('.codeforge/specs');
+    container.gw.writeFile('.codeforge/specs/auth.md', '# Auth Spec');
+    container.gw.mkdir('.codeforge/tasks/auth');
+    container.gw.writeFile(
+      '.codeforge/tasks/auth/TASK-001.json',
+      JSON.stringify({ id: 'TASK-001', title: 'Setup auth schema', dependencies: [] }),
+    );
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(
+      <App container={container} initialTab="tasks" />,
+      { container },
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('TASK-001');
+      });
+
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Task');
+      });
+
+      stdin.write('y');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain("[x] Failed to delete task 'TASK-001': Task locked by scheduler");
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  it('displays deletion feedback on shared StatusBar for docs, supports cancellation, and clears on tab switch', async () => {
+    const container = createInitializedContainer();
+    container.gw.mkdir('.codeforge/docs');
+    container.gw.writeFile(
+      '.codeforge/docs/manifest.json',
+      JSON.stringify({
+        version: '1.0',
+        documents: {
+          architecture: {
+            path: '.codeforge/docs/architecture.md',
+            specs: ['auth'],
+            createdAt: '2026-09-01',
+            updatedAt: '2026-09-01',
+          },
+        },
+      }),
+    );
+    container.gw.writeFile('.codeforge/docs/architecture.md', '# Architecture Document');
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(
+      <App container={container} initialTab="docs" />,
+      { container },
+    );
+
+    try {
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('Docs');
+        expect(frame).toContain('architecture');
+      });
+
+      // 1. Cancellation test: press 'd', then 'n'
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Document');
+      });
+
+      stdin.write('n');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).not.toContain('Delete Document');
+        expect(frame).not.toContain("Document 'architecture' deleted");
+      });
+
+      // 2. Success test: press 'd', then 'y'
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Document');
+      });
+
+      stdin.write('y');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain("Document 'architecture' deleted successfully.");
+        expect(frame).toContain('[v]');
+      });
+
+      // 3. Tab switch clears stale feedback
+      stdin.write('2'); // Switch to Specs tab
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('Specifications');
+        expect(frame).not.toContain("Document 'architecture' deleted successfully.");
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  it('displays deletion failures on shared StatusBar with error presentation for docs', async () => {
+    const mockDeleteDoc = {
+      execute: vi.fn().mockImplementation(() => {
+        throw new Error('Permission denied on doc file');
+      }),
+    };
+
+    const container = createInitializedContainer({
+      deleteDocUseCase: mockDeleteDoc as any,
+    });
+    container.gw.mkdir('.codeforge/docs');
+    container.gw.writeFile(
+      '.codeforge/docs/manifest.json',
+      JSON.stringify({
+        version: '1.0',
+        documents: {
+          architecture: {
+            path: '.codeforge/docs/architecture.md',
+            specs: ['auth'],
+            createdAt: '2026-09-01',
+            updatedAt: '2026-09-01',
+          },
+        },
+      }),
+    );
+    container.gw.writeFile('.codeforge/docs/architecture.md', '# Architecture Document');
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(
+      <App container={container} initialTab="docs" />,
+      { container },
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('architecture');
+      });
+
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Document');
+      });
+
+      stdin.write('y');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain("[x] Failed to delete document 'architecture': Permission denied on doc file");
+      });
+    } finally {
+      unmount();
+    }
+  });
+
+  it('replaces previous status notification when a new action produces feedback', async () => {
+    const container = createInitializedContainer();
+    container.gw.mkdir('.codeforge/specs');
+    container.gw.writeFile('.codeforge/specs/first-spec.md', '# First Spec');
+    container.gw.writeFile('.codeforge/specs/second-spec.md', '# Second Spec');
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(
+      <App container={container} initialTab="specs" />,
+      { container },
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('first-spec');
+      });
+
+      // Delete first spec
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Specification');
+      });
+      stdin.write('y');
+
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain("Specification 'first-spec' deleted successfully.");
+      });
+
+      // Delete second spec
+      stdin.write('d');
+      await vi.waitFor(() => {
+        expect(lastFrame() ?? '').toContain('Delete Specification');
+      });
+      stdin.write('y');
+
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain("Specification 'second-spec' deleted successfully.");
+        expect(frame).not.toContain("Specification 'first-spec' deleted successfully.");
+      });
+    } finally {
+      unmount();
+    }
   });
 });

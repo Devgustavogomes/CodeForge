@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, useContext, useRef } from 'react';
 import { NavigationContext } from '../../../context/NavigationContext.js';
 import { ContainerContext } from '../../../context/ContainerContext.js';
 import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
@@ -28,6 +28,7 @@ export interface UseDocsScreenOptions {
     target: AutoTarget,
     affectedDocs?: AffectedDoc[]
   ) => Promise<void> | void;
+  onNotification?: (message: string, type?: DocFeedback['type']) => void;
   language?: SupportedLanguage;
 }
 
@@ -44,6 +45,7 @@ export function useDocsScreen({
   onUpdateDoc,
   onConfirmDirectUpdate,
   onConfirmAutoUpdate,
+  onNotification,
   language: propLanguage,
 }: UseDocsScreenOptions = {}) {
   const contextContainer = useContext(ContainerContext);
@@ -68,6 +70,7 @@ export function useDocsScreen({
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DocItemInfo | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedFormatted, setElapsedFormatted] = useState<string | null>(null);
@@ -75,6 +78,7 @@ export function useDocsScreen({
   const [activeOperationDoc, setActiveOperationDoc] = useState<string | null>(null);
   const [batchInfo, setBatchInfo] = useState<BatchInfo | null>(null);
   const [feedback, setFeedback] = useState<DocFeedback | null>(null);
+  const isDeletingRef = useRef(false);
 
   const availableSpecs = useMemo(() => {
     return container.listSpecsUseCase.listNames();
@@ -124,8 +128,12 @@ export function useDocsScreen({
 
       loaded.sort((a, b) => a.name.localeCompare(b.name));
       setDocs(loaded);
+      setSelectedIndex((current) =>
+        Math.min(Math.max(0, current), Math.max(0, loaded.length - 1))
+      );
     } catch {
       setDocs([]);
+      setSelectedIndex(0);
     }
   }, [container]);
 
@@ -149,6 +157,7 @@ export function useDocsScreen({
     setIsCreateModalOpen(true);
     setIsUpdateModalOpen(false);
     setIsViewModalOpen(false);
+    setDeleteTarget(null);
     setFeedback(null);
   }, []);
 
@@ -161,6 +170,7 @@ export function useDocsScreen({
     setIsUpdateModalOpen(true);
     setIsCreateModalOpen(false);
     setIsViewModalOpen(false);
+    setDeleteTarget(null);
     setFeedback(null);
   }, [docs.length]);
 
@@ -173,12 +183,88 @@ export function useDocsScreen({
     setIsViewModalOpen(true);
     setIsCreateModalOpen(false);
     setIsUpdateModalOpen(false);
+    setDeleteTarget(null);
     setFeedback(null);
   }, [selectedDoc]);
 
   const handleCloseViewModal = useCallback(() => {
     setIsViewModalOpen(false);
   }, []);
+
+  const handleOpenDeleteModal = useCallback(() => {
+    if (!selectedDoc) return;
+    setDeleteTarget(selectedDoc);
+    setIsCreateModalOpen(false);
+    setIsUpdateModalOpen(false);
+    setIsViewModalOpen(false);
+    setFeedback(null);
+  }, [selectedDoc]);
+
+  const handleCancelDelete = useCallback(() => {
+    setDeleteTarget(null);
+  }, []);
+
+  const publishDeleteFeedback = useCallback(
+    (nextFeedback: DocFeedback) => {
+      setFeedback(nextFeedback);
+      onNotification?.(nextFeedback.message, nextFeedback.type);
+    },
+    [onNotification]
+  );
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget || isDeletingRef.current) return;
+
+    const targetName = deleteTarget.name;
+    isDeletingRef.current = true;
+
+    try {
+      const result = await Promise.resolve(
+        container.deleteDocUseCase.execute(targetName)
+      );
+
+      switch (result.kind) {
+        case 'deleted': {
+          loadDocs();
+          publishDeleteFeedback({
+            type: 'success',
+            message: translate('tui_docs_delete_success', language, {
+              doc: result.docName,
+            }),
+          });
+          break;
+        }
+        case 'not-initialized': {
+          publishDeleteFeedback({
+            type: 'error',
+            message: translate('tui_delete_not_initialized', language),
+          });
+          break;
+        }
+        case 'doc-not-found': {
+          publishDeleteFeedback({
+            type: 'error',
+            message: translate('tui_docs_delete_not_found', language, {
+              doc: targetName,
+            }),
+          });
+          break;
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      publishDeleteFeedback({
+        type: 'error',
+        message: translate('tui_docs_delete_error', language, {
+          doc: targetName,
+          error: message,
+        }),
+      });
+    } finally {
+      isDeletingRef.current = false;
+      setDeleteTarget(null);
+    }
+  }, [container, deleteTarget, language, loadDocs, publishDeleteFeedback]);
 
   const handleCreateDoc = useCallback(
     async (docName: string, specName: string) => {
@@ -450,6 +536,8 @@ export function useDocsScreen({
     isCreateModalOpen,
     isUpdateModalOpen,
     isViewModalOpen,
+    isDeleteModalOpen: deleteTarget !== null,
+    deleteTarget,
     availableSpecs,
     loadDocs,
     handleCreateDoc,
@@ -462,6 +550,9 @@ export function useDocsScreen({
     handleCloseUpdateModal,
     handleOpenViewModal,
     handleCloseViewModal,
+    handleOpenDeleteModal,
+    handleCancelDelete,
+    handleConfirmDelete,
   };
 }
 
