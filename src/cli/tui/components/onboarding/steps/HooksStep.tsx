@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { SupportedLanguage } from '../../../../../config/types.js';
 import { HookMap } from '../../../../../domain/hook.js';
+import { translate } from '../../../../ui/i18n.js';
 import { theme } from '../../../theme.js';
 import { HooksEventList } from '../../config/components/HooksEventList.js';
 import { HooksCommandList } from '../../config/components/HooksCommandList.js';
@@ -18,14 +20,15 @@ export interface HooksStepProps {
   onFormActiveChange?: (isActive: boolean) => void;
   isActive?: boolean;
   isInteractive?: boolean;
+  language?: SupportedLanguage;
 }
 
 /**
- * Configuração opcional de hooks durante o onboarding.
+ * Optional lifecycle hooks configuration during onboarding.
  *
- * Reutiliza a mesma máquina de estados e os mesmos componentes da aba Config,
- * mas opera de forma controlada: as mudanças ficam somente no estado do wizard
- * até a confirmação final do onboarding.
+ * Reuses the same state machine and components from the Config tab,
+ * but operates in a controlled manner: changes remain only in the wizard state
+ * until the final onboarding confirmation.
  */
 export const HooksStep: React.FC<HooksStepProps> = ({
   hooks,
@@ -38,6 +41,7 @@ export const HooksStep: React.FC<HooksStepProps> = ({
   onFormActiveChange,
   isActive = true,
   isInteractive,
+  language = 'en',
 }) => {
   const interactive = isInteractive ?? isActive;
   const updateHooks = onHooksChange ?? onUpdateHooks ?? onChange;
@@ -47,6 +51,7 @@ export const HooksStep: React.FC<HooksStepProps> = ({
     onFormActiveChange?.(interactive);
     return () => onFormActiveChange?.(false);
   }, [interactive, onFormActiveChange]);
+
   const hookCount = useMemo(
     () => Object.values(hooks).reduce(
       (total, definitions) => total + (definitions?.length ?? 0),
@@ -61,7 +66,7 @@ export const HooksStep: React.FC<HooksStepProps> = ({
     hooks,
     onUpdateHooks: updateHooks,
     persistenceMode: 'controlled',
-    // No nível principal, Enter pertence ao wizard; a seta direita abre o evento.
+    // At the main level, Enter belongs to the wizard; the right arrow opens the event.
     selectEventOnEnter: false,
   });
 
@@ -88,29 +93,35 @@ export const HooksStep: React.FC<HooksStepProps> = ({
       >
         <Box justifyContent="space-between">
           <Text bold color={theme.colors.primary}>
-            Hooks de ciclo de vida (opcional)
+            {translate('onboarding_hooks_title', language)}
           </Text>
           <Text color={hookCount > 0 ? theme.colors.accent : theme.colors.muted} bold>
-            {hookCount} hook{hookCount === 1 ? '' : 's'} configurado{hookCount === 1 ? '' : 's'}
+            {translate('onboarding_hooks_count', language, {
+              count: hookCount,
+              plural: hookCount === 1 ? '' : 's',
+            })}
           </Text>
         </Box>
 
         <Text color={theme.colors.text}>
-          Hooks são scripts locais executados em momentos-chave, como task.started,
-          task.completed e run.completed.
+          {translate('onboarding_hooks_description', language)}
         </Text>
         <Box gap={2}>
-          <Text color={theme.colors.warning} bold>[GATE]</Text>
-          <Text color={theme.colors.muted}>
-            pode interromper o fluxo quando o comando falha.
+          <Text color={theme.colors.warning} bold>
+            {translate('onboarding_hooks_gate_badge', language)}
           </Text>
-          <Text color={theme.colors.success} bold>[NOTIFY]</Text>
           <Text color={theme.colors.muted}>
-            apenas registra e avisa, sem interromper.
+            {translate('onboarding_hooks_gate_desc', language)}
+          </Text>
+          <Text color={theme.colors.success} bold>
+            {translate('onboarding_hooks_notify_badge', language)}
+          </Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_hooks_notify_desc', language)}
           </Text>
         </Box>
         <Text color={theme.colors.muted}>
-          Você pode continuar sem cadastrar nenhum hook e configurá-los depois na aba Config.
+          {translate('onboarding_hooks_skip_note', language)}
         </Text>
       </Box>
 

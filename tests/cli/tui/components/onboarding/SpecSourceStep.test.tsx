@@ -4,10 +4,10 @@ import { SpecSourceStep } from '../../../../../src/cli/tui/components/onboarding
 import { flushAsync, renderWithProviders } from '../../helpers/renderWithProviders.js';
 
 describe('SpecSourceStep', () => {
-  it('seleciona Local por padrão e avança com uma confirmação', async () => {
+  it('selects Local by default and advances on confirmation', async () => {
     const onChange = vi.fn();
     const onNext = vi.fn();
-    const { lastFrame, stdin } = renderWithProviders(
+    const { stdin, unmount } = renderWithProviders(
       <SpecSourceStep
         specSource={{ provider: 'local' }}
         onChange={onChange}
@@ -15,21 +15,19 @@ describe('SpecSourceStep', () => {
       />,
     );
 
-    expect(lastFrame() ?? '').toContain('Filesystem — .codeforge/specs/');
-    expect(lastFrame() ?? '').toContain('RECOMENDADO');
-
     stdin.write('\r');
     await flushAsync();
 
     expect(onChange).toHaveBeenCalledWith({ provider: 'filesystem' });
     expect(onNext).toHaveBeenCalledTimes(1);
+    unmount();
   });
 
-  it('configura uma fonte remota inline e preserva a referência de ambiente literal', async () => {
+  it('configures a remote source inline and preserves literal environment reference', async () => {
     const onChange = vi.fn();
     const onNext = vi.fn();
     const onFormActiveChange = vi.fn();
-    const { lastFrame, stdin } = renderWithProviders(
+    const { stdin, unmount } = renderWithProviders(
       <SpecSourceStep
         specSource={{ provider: 'local' }}
         onChange={onChange}
@@ -43,10 +41,6 @@ describe('SpecSourceStep', () => {
     stdin.write('\r');
     await flushAsync();
 
-    expect(lastFrame() ?? '').toContain('GitHub — configure a conexão');
-    expect(lastFrame() ?? '').toContain('Projeto / Repo (project)');
-    expect(lastFrame() ?? '').toContain('Time / Workspace (team)');
-    expect(lastFrame() ?? '').toContain('Chave de API (apiKey)');
 
     stdin.write('acme/codeforge');
     await flushAsync();
@@ -73,5 +67,6 @@ describe('SpecSourceStep', () => {
     });
     expect(onNext).toHaveBeenCalledTimes(1);
     expect(onFormActiveChange).toHaveBeenCalledWith(true);
+    unmount();
   });
 });

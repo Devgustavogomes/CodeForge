@@ -1,65 +1,70 @@
-import { Box, Text, useInput } from "ink";
-import { theme } from "../../../theme.js";
+import React from 'react';
+import { Box, Text, useInput } from 'ink';
+import { theme } from '../../../theme.js';
+import { translate } from '../../../../ui/i18n.js';
+import { SupportedLanguage } from '../../../../../config/types.js';
 
 export interface WelcomeStepProps {
   onStart: () => void;
   onExit: () => void;
   isActive?: boolean;
+  language?: SupportedLanguage;
 }
 
-/** Logo CODEFORGE ANSI Shadow com degradê vertical entre accent e primary. */
+/** CODEFORGE ANSI Shadow logo with vertical gradient between accent and primary colors. */
 const logoArt = [
   {
     color: theme.colors.accent,
-    text: "   ██████╗ ██████╗ ██████╗ ███████╗███████╗ ██████╗ ██████╗  ██████╗ ███████╗",
+    text: '   ██████╗ ██████╗ ██████╗ ███████╗███████╗ ██████╗ ██████╗  ██████╗ ███████╗',
   },
   {
     color: theme.colors.accent,
-    text: "  ██╔════╝██╔═══██╗██╔══██╗██╔════╝██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝",
+    text: '  ██╔════╝██╔═══██╗██╔══██╗██╔════╝██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝',
   },
   {
     color: theme.colors.primary,
-    text: "  ██║     ██║   ██║██║  ██║█████╗  █████╗  ██║   ██║██████╔╝██║  ███╗█████╗  ",
+    text: '  ██║     ██║   ██║██║  ██║█████╗  █████╗  ██║   ██║██████╔╝██║  ███╗█████╗  ',
   },
   {
     color: theme.colors.primary,
-    text: "  ██║     ██║   ██║██║  ██║██╔══╝  ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  ",
+    text: '  ██║     ██║   ██║██║  ██║██╔══╝  ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  ',
   },
   {
     color: theme.colors.primary,
-    text: "  ╚██████╗╚██████╔╝██████╔╝███████╗██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗",
+    text: '  ╚██████╗╚██████╔╝██████╔╝███████╗██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗',
   },
   {
     color: theme.colors.primary,
-    text: "   ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝",
+    text: '   ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝',
   },
 ] as const;
 
-/** Etapas do pipeline de desenvolvimento autônomo. */
+/** Autonomous development pipeline execution stages. */
 const pipelineSteps = [
-  { label: "Spec", isHighlight: false },
-  { label: "Plan", isHighlight: false },
-  { label: "DAG", isHighlight: false },
-  { label: "Parallel Execution", isHighlight: false },
-  { label: "Verify", isHighlight: false },
-  { label: "Docs", isHighlight: false },
-  { label: "Ship", isHighlight: true },
+  { label: 'Spec', isHighlight: false },
+  { label: 'Plan', isHighlight: false },
+  { label: 'DAG', isHighlight: false },
+  { label: 'Parallel Execution', isHighlight: false },
+  { label: 'Verify', isHighlight: false },
+  { label: 'Docs', isHighlight: false },
+  { label: 'Ship', isHighlight: true },
 ];
 
-/** Primeira tela do onboarding do CodeForge. */
+/** First screen (splash screen) of the CodeForge onboarding wizard. */
 export function WelcomeStep({
   onStart,
   onExit,
   isActive = true,
+  language = 'en',
 }: WelcomeStepProps) {
   useInput(
     (input, key) => {
-      if (key.return || input === "\r" || input === "\n") {
+      if (key.return || input === '\r' || input === '\n') {
         onStart();
         return;
       }
 
-      if (key.escape || input.toLowerCase() === "q") {
+      if (key.escape || input.toLowerCase() === 'q') {
         onExit();
       }
     },
@@ -71,11 +76,14 @@ export function WelcomeStep({
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
+      borderStyle="round"
+      borderColor={theme.colors.borderSubtle}
       width="100%"
       height="100%"
       paddingX={2}
+      paddingY={1}
     >
-      {/* Logo CodeForge */}
+      {/* CodeForge ASCII logo */}
       <Box flexDirection="column" alignItems="flex-start">
         {logoArt.map((row, index) => (
           <Text key={index} color={row.color}>
@@ -84,21 +92,14 @@ export function WelcomeStep({
         ))}
       </Box>
 
-      {/* Linha divisora sutil superior */}
-      <Box marginTop={1}>
-        <Text color={theme.colors.borderSubtle}>
-          ─────────────────────────────────────────────────────────────────────────────
-        </Text>
-      </Box>
-
       {/* Tagline */}
       <Box marginTop={1}>
         <Text bold color={theme.colors.text}>
-          Deterministic workflows for AI coding agents.
+          {translate('onboarding_welcome_tagline', language)}
         </Text>
       </Box>
 
-      {/* Pipeline de execução */}
+      {/* Execution pipeline */}
       <Box
         marginTop={1}
         flexDirection="row"
@@ -117,38 +118,24 @@ export function WelcomeStep({
               {step.label}
             </Text>
             {idx < pipelineSteps.length - 1 && (
-              <Text color={theme.colors.muted}>→</Text>
+              <Text color={theme.colors.muted}>{'->'}</Text>
             )}
           </Box>
         ))}
       </Box>
 
-      {/* Linha divisora sutil inferior */}
-      <Box marginTop={1}>
-        <Text color={theme.colors.borderSubtle}>
-          ─────────────────────────────────────────────────────────────────────────────
-        </Text>
-      </Box>
-
-      {/* Descrição resumida */}
-      <Box marginTop={1} maxWidth={96} justifyContent="center">
-        <Text color={theme.colors.muted} wrap="wrap">
-          Transforme especificações e tarefas em código funcional utilizando
-          agentes autônomos de IA dentro de um ambiente seguro e controlado.
-        </Text>
-      </Box>
-
-      {/* Ações de navegação */}
+      {/* Navigation action hints */}
       <Box marginTop={1} gap={1} justifyContent="center" flexWrap="wrap">
         <Text bold color={theme.colors.success}>
-          [Enter] Começar Configuração
+          {translate('onboarding_welcome_start', language)}
         </Text>
-        <Text color={theme.colors.borderSubtle}>|</Text>
-        <Text color={theme.colors.error}>[q/Esc] Sair</Text>
+        <Text color={theme.colors.borderSubtle}>│</Text>
+        <Text color={theme.colors.error}>
+          {translate('onboarding_welcome_exit', language)}
+        </Text>
       </Box>
     </Box>
   );
 }
 
 export default WelcomeStep;
-

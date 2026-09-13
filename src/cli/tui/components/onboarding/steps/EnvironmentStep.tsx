@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { SupportedLanguage } from '../../../../../config/types.js';
 import { AppContainer } from '../../../../../infrastructure/container.js';
+import { translate } from '../../../../ui/i18n.js';
 import { theme } from '../../../theme.js';
 
 export interface EnvironmentStepProps {
@@ -13,6 +15,7 @@ export interface EnvironmentStepProps {
   onConfirm?: (environment: string) => void;
   onNext?: () => void;
   isInteractive?: boolean;
+  language?: SupportedLanguage;
 }
 
 export interface EnvironmentInfo {
@@ -22,14 +25,17 @@ export interface EnvironmentInfo {
 }
 
 /**
- * A infraestrutura expõe somente os identificadores dos runners. O cartão evita
- * inferir capacidades específicas e descreve o contrato comum a qualquer runner.
+ * The infrastructure only exposes runner identifiers.
+ * The info card describes the common contract for any runner without inferring specific capabilities.
  */
-export function createEnvironmentInfo(environment: string): EnvironmentInfo {
+export function createEnvironmentInfo(
+  environment: string,
+  language: SupportedLanguage = 'en',
+): EnvironmentInfo {
   return {
-    description: `O runner “${environment}” executa as ações dos agentes no contexto fornecido pela infraestrutura.`,
-    requirements: `O runner “${environment}” deve estar disponível e configurado neste projeto ou sistema.`,
-    advantages: 'Centraliza a execução de comandos e mantém o fluxo dos agentes separado da interface do CodeForge.',
+    description: translate('onboarding_env_card_description', language, { environment }),
+    requirements: translate('onboarding_env_card_requirements', language, { environment }),
+    advantages: translate('onboarding_env_card_advantages', language),
   };
 }
 
@@ -47,6 +53,7 @@ export const EnvironmentStep: React.FC<EnvironmentStepProps> = ({
   onConfirm,
   onNext,
   isInteractive = true,
+  language = 'en',
 }) => {
   const currentEnvironment = selectedEnvironment ?? environment ?? '';
   const environmentResult = useMemo<{
@@ -108,37 +115,45 @@ export const EnvironmentStep: React.FC<EnvironmentStepProps> = ({
   );
 
   const selected = environments[selectedIndex];
-  const info = selected ? createEnvironmentInfo(selected) : undefined;
+  const info = selected ? createEnvironmentInfo(selected, language) : undefined;
 
   return (
     <Box flexDirection="column" width="100%" gap={1}>
       <Box flexDirection="column">
-        <Text bold color={theme.colors.primary}>Ambiente de execução</Text>
+        <Text bold color={theme.colors.primary}>
+          {translate('onboarding_env_title', language)}
+        </Text>
         <Text color={theme.colors.text}>
-          O runner define onde os agentes executarão comandos, instalarão dependências e modificarão arquivos.
+          {translate('onboarding_env_description', language)}
         </Text>
         <Text color={theme.colors.muted}>
-          O nível de isolamento e os recursos disponíveis dependem do runner selecionado.
+          {translate('onboarding_env_isolation_note', language)}
         </Text>
       </Box>
 
       {error ? (
         <Box borderStyle="round" borderColor={theme.colors.error} paddingX={1}>
-          <Text color={theme.colors.error}>Não foi possível carregar os ambientes: {error}</Text>
+          <Text color={theme.colors.error}>
+            {translate('onboarding_env_load_error', language, { error })}
+          </Text>
         </Box>
       ) : environments.length === 0 ? (
         <Box borderStyle="round" borderColor={theme.colors.warning} paddingX={1}>
-          <Text color={theme.colors.warning}>Nenhum ambiente foi disponibilizado pela infraestrutura.</Text>
+          <Text color={theme.colors.warning}>
+            {translate('onboarding_env_no_environments', language)}
+          </Text>
         </Box>
       ) : (
         <Box flexDirection="column">
-          <Text bold color={theme.colors.text}>Escolha um runner</Text>
+          <Text bold color={theme.colors.text}>
+            {translate('onboarding_env_choose_runner', language)}
+          </Text>
           {environments.map((item, index) => {
             const isSelected = index === selectedIndex;
             return (
               <Box key={`${item}-${index}`} gap={1}>
                 <Text color={isSelected ? theme.colors.primary : theme.colors.muted} bold={isSelected}>
-                  {isSelected ? '›' : ' '}
+                  {isSelected ? '[>]' : '   '}
                 </Text>
                 <Text color={isSelected ? theme.colors.primary : theme.colors.text} bold={isSelected}>
                   {item}
@@ -157,13 +172,24 @@ export const EnvironmentStep: React.FC<EnvironmentStepProps> = ({
           paddingX={1}
         >
           <Text bold color={theme.colors.accent}>{selected}</Text>
-          <Text><Text bold>Descrição: </Text>{info.description}</Text>
-          <Text><Text bold color={theme.colors.warning}>Requisitos: </Text>{info.requirements}</Text>
-          <Text><Text bold color={theme.colors.success}>Vantagens: </Text>{info.advantages}</Text>
+          <Text>
+            <Text bold>{translate('onboarding_env_label_description', language)}</Text>
+            {info.description}
+          </Text>
+          <Text>
+            <Text bold color={theme.colors.warning}>{translate('onboarding_env_label_requirements', language)}</Text>
+            {info.requirements}
+          </Text>
+          <Text>
+            <Text bold color={theme.colors.success}>{translate('onboarding_env_label_advantages', language)}</Text>
+            {info.advantages}
+          </Text>
         </Box>
       ) : null}
 
-      <Text color={theme.colors.muted}>[↑/↓] Navegar  [Enter] Confirmar ambiente</Text>
+      <Text color={theme.colors.muted}>
+        {translate('onboarding_env_nav_hint', language)}
+      </Text>
     </Box>
   );
 };

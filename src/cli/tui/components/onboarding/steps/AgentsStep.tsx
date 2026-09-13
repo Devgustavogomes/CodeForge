@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { SupportedLanguage } from '../../../../../config/types.js';
 import { AppContainer } from '../../../../../infrastructure/container.js';
+import { translate } from '../../../../ui/i18n.js';
 import { Spinner } from '../../common/Spinner.js';
 import { TextInput } from '../../common/TextInput.js';
 import { theme } from '../../../theme.js';
@@ -21,6 +23,7 @@ export interface AgentsStepProps {
   onBack?: () => void;
   onFormActiveChange?: (isActive: boolean) => void;
   isInteractive?: boolean;
+  language?: SupportedLanguage;
 }
 
 function errorMessage(error: unknown): string {
@@ -45,6 +48,7 @@ export const AgentsStep: React.FC<AgentsStepProps> = ({
   onBack,
   onFormActiveChange,
   isInteractive = true,
+  language = 'en',
 }) => {
   const [agents, setAgents] = useState<string[]>([]);
   const [resolvedEnvironment, setResolvedEnvironment] = useState<string>();
@@ -215,6 +219,11 @@ export const AgentsStep: React.FC<AgentsStepProps> = ({
 
   const renderAgentList = (role: AgentRole, selectedIndex: number) => {
     const isActive = activeRole === role;
+    const boxTitle =
+      role === 'planner'
+        ? translate('onboarding_agents_box_planner', language)
+        : translate('onboarding_agents_box_executor', language);
+
     return (
       <Box
         flexDirection="column"
@@ -224,7 +233,7 @@ export const AgentsStep: React.FC<AgentsStepProps> = ({
         paddingX={1}
       >
         <Text bold color={isActive ? theme.colors.primary : theme.colors.text}>
-          {role === 'planner' ? '1. Planner' : '2. Executor'}
+          {boxTitle}
         </Text>
         {agents.map((agent, index) => (
           <Text
@@ -232,7 +241,7 @@ export const AgentsStep: React.FC<AgentsStepProps> = ({
             color={index === selectedIndex ? theme.colors.primary : theme.colors.muted}
             bold={index === selectedIndex}
           >
-            {index === selectedIndex ? '› ' : '  '}{agent}
+            {index === selectedIndex ? '[>] ' : '    '}{agent}
           </Text>
         ))}
       </Box>
@@ -242,21 +251,42 @@ export const AgentsStep: React.FC<AgentsStepProps> = ({
   return (
     <Box flexDirection="column" width="100%" gap={1}>
       <Box flexDirection="column">
-        <Text bold color={theme.colors.primary}>Agentes de IA</Text>
-        <Text><Text bold color={theme.colors.accent}>Planner: </Text>analisa a especificação, define a arquitetura e decompõe o trabalho em tarefas atômicas.</Text>
-        <Text><Text bold color={theme.colors.success}>Executor: </Text>implementa cada tarefa, usa ferramentas, executa testes e corrige erros.</Text>
-        <Text color={theme.colors.muted}>Introspecção do runner confirmado: {environment}</Text>
+        <Text bold color={theme.colors.primary}>
+          {translate('onboarding_agents_title', language)}
+        </Text>
+        <Text>
+          <Text bold color={theme.colors.accent}>
+            {translate('onboarding_agents_role_planner', language)}:{' '}
+          </Text>
+          {translate('onboarding_agents_planner_desc', language)}
+        </Text>
+        <Text>
+          <Text bold color={theme.colors.success}>
+            {translate('onboarding_agents_role_executor', language)}:{' '}
+          </Text>
+          {translate('onboarding_agents_executor_desc', language)}
+        </Text>
+        <Text color={theme.colors.muted}>
+          {translate('onboarding_agents_introspection_status', language, { environment })}
+        </Text>
       </Box>
 
       {isLoading ? (
-        <Spinner label={`Consultando agentes disponíveis em ${environment}...`} />
+        <Spinner label={translate('onboarding_agents_loading', language, { environment })} />
       ) : error ? (
         <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.error} paddingX={1}>
-          <Text color={theme.colors.error}>Falha ao consultar os agentes: {error}</Text>
-          <Text color={theme.colors.muted}>
-            Escolhas preservadas: Planner {normalizeAgent(plannerAgent)} · Executor {normalizeAgent(executorAgent)}
+          <Text color={theme.colors.error}>
+            {translate('onboarding_agents_error', language, { error })}
           </Text>
-          <Text color={theme.colors.warning}>[r] Tentar introspecção novamente</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_agents_preserved_choices', language, {
+              planner: normalizeAgent(plannerAgent),
+              executor: normalizeAgent(executorAgent),
+            })}
+          </Text>
+          <Text color={theme.colors.warning}>
+            {translate('onboarding_agents_retry', language)}
+          </Text>
         </Box>
       ) : agents.length > 0 ? (
         <>
@@ -265,13 +295,18 @@ export const AgentsStep: React.FC<AgentsStepProps> = ({
             {renderAgentList('executor', executorIndex)}
           </Box>
           <Text color={theme.colors.muted}>
-            [↑/↓] Navegar  [Enter] Confirmar {activeRole === 'planner' ? 'Planner' : 'Executor'}
+            {translate('onboarding_agents_nav_hint', language, {
+              role: translate(
+                activeRole === 'planner' ? 'onboarding_agents_role_planner' : 'onboarding_agents_role_executor',
+                language,
+              ),
+            })}
           </Text>
         </>
       ) : (
         <Box flexDirection="column" gap={1}>
           <Text color={theme.colors.warning}>
-            O runner não informou agentes. Digite os identificadores manualmente.
+            {translate('onboarding_agents_manual_warning', language)}
           </Text>
           <Box
             flexDirection="column"
@@ -279,7 +314,9 @@ export const AgentsStep: React.FC<AgentsStepProps> = ({
             borderColor={focusedField === 'planner' ? theme.colors.borderActive : theme.colors.borderSubtle}
             paddingX={1}
           >
-            <Text bold color={focusedField === 'planner' ? theme.colors.primary : theme.colors.text}>Planner</Text>
+            <Text bold color={focusedField === 'planner' ? theme.colors.primary : theme.colors.text}>
+              {translate('onboarding_agents_role_planner', language)}
+            </Text>
             <TextInput value={manualPlanner} placeholder="default" isFocused={focusedField === 'planner'} />
           </Box>
           <Box
@@ -288,10 +325,14 @@ export const AgentsStep: React.FC<AgentsStepProps> = ({
             borderColor={focusedField === 'executor' ? theme.colors.borderActive : theme.colors.borderSubtle}
             paddingX={1}
           >
-            <Text bold color={focusedField === 'executor' ? theme.colors.primary : theme.colors.text}>Executor</Text>
+            <Text bold color={focusedField === 'executor' ? theme.colors.primary : theme.colors.text}>
+              {translate('onboarding_agents_role_executor', language)}
+            </Text>
             <TextInput value={manualExecutor} placeholder="default" isFocused={focusedField === 'executor'} />
           </Box>
-          <Text color={theme.colors.muted}>[↑/↓/Tab] Alterar campo  [Enter] Confirmar  [Esc] Voltar</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_agents_manual_nav_hint', language)}
+          </Text>
         </Box>
       )}
     </Box>

@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { SupportedLanguage } from '../../../../../config/types.js';
 import { HookMap } from '../../../../../domain/hook.js';
 import { SpecSourceConfig } from '../../../../../domain/spec-source.js';
 
@@ -30,6 +31,7 @@ export interface OnboardingState {
   cliInstallResult?: CliInstallResult;
   isInitializing: boolean;
   error?: string;
+  language: SupportedLanguage;
 }
 
 export const INITIAL_ONBOARDING_STATE: Readonly<OnboardingState> = {
@@ -41,6 +43,7 @@ export const INITIAL_ONBOARDING_STATE: Readonly<OnboardingState> = {
   hooks: {},
   isInstallingCli: false,
   isInitializing: false,
+  language: 'en',
 };
 
 type StateUpdater<T> = T | ((current: T) => T);
@@ -61,6 +64,7 @@ export interface UseOnboardingWizardReturn {
   setExecutorAgent: (executorAgent: string) => void;
   setAgents: (plannerAgent: string, executorAgent: string) => void;
   setHooks: (value: StateUpdater<HookMap>) => void;
+  setLanguage: (language: SupportedLanguage) => void;
   setIsInstallingCli: (isInstallingCli: boolean) => void;
   setCliInstallResult: (cliInstallResult?: CliInstallResult) => void;
   startCliInstallation: () => void;
@@ -72,6 +76,9 @@ export interface UseOnboardingWizardReturn {
   reset: () => void;
 }
 
+/**
+ * Normalizes initial state with default values, ensuring active language defaults to 'en'.
+ */
 function withDefaults(initialState: Partial<OnboardingState> = {}): OnboardingState {
   const requestedStep = initialState.currentStep;
   const currentStep = requestedStep && ONBOARDING_STEPS.includes(requestedStep)
@@ -91,15 +98,22 @@ function withDefaults(initialState: Partial<OnboardingState> = {}): OnboardingSt
     plannerAgent: initialState.plannerAgent || 'default',
     executorAgent: initialState.executorAgent || 'default',
     hooks: initialState.hooks ?? {},
+    language: initialState.language || 'en',
   };
 }
 
+/**
+ * Creates the initial onboarding wizard state.
+ */
 export function createInitialOnboardingState(
   initialState: Partial<OnboardingState> = {},
 ): OnboardingState {
   return withDefaults(initialState);
 }
 
+/**
+ * Custom hook managing the state and transitions of the Onboarding Wizard.
+ */
 export function useOnboardingWizard(
   initialState: Partial<OnboardingState> = {},
 ): UseOnboardingWizardReturn {
@@ -171,6 +185,10 @@ export function useOnboardingWizard(
     }));
   }, []);
 
+  const setLanguage = useCallback((language: SupportedLanguage) => {
+    updateState({ language: language || 'en' });
+  }, [updateState]);
+
   const setIsInstallingCli = useCallback((isInstallingCli: boolean) => {
     updateState({ isInstallingCli });
   }, [updateState]);
@@ -228,6 +246,7 @@ export function useOnboardingWizard(
     setExecutorAgent,
     setAgents,
     setHooks,
+    setLanguage,
     setIsInstallingCli,
     setCliInstallResult,
     startCliInstallation,

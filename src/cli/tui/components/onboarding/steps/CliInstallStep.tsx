@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { SupportedLanguage } from '../../../../../config/types.js';
 import {
   CliDetectionResult,
   CliInstaller,
 } from '../../../../installer/CliInstaller.js';
+import { translate } from '../../../../ui/i18n.js';
 import { Spinner } from '../../common/Spinner.js';
 import { theme } from '../../../theme.js';
 
@@ -31,6 +33,7 @@ export interface CliInstallStepProps {
   onFormActiveChange?: (isActive: boolean) => void;
   isInteractive?: boolean;
   service?: CliInstallService;
+  language?: SupportedLanguage;
 }
 
 type ViewState =
@@ -63,6 +66,7 @@ export const CliInstallStep: React.FC<CliInstallStepProps> = ({
   onFormActiveChange,
   isInteractive = true,
   service = DEFAULT_SERVICE,
+  language = 'en',
 }) => {
   const manualCommand = useMemo(
     () => service.getInstallCommand(environment),
@@ -90,13 +94,13 @@ export const CliInstallStep: React.FC<CliInstallStepProps> = ({
       .then((result) => {
         if (!active) return;
         if (!result.required) {
-          const status = 'Este ambiente não requer uma CLI externa.';
+          const status = translate('onboarding_cli_not_required', language);
           setView('not-required');
           publishResult({ success: true, message: status });
           return;
         }
         if (result.available) {
-          const status = '✔ CLI detectada no sistema';
+          const status = translate('onboarding_cli_detected', language);
           setView('detected');
           publishResult({ success: true, message: status });
           return;
@@ -117,7 +121,7 @@ export const CliInstallStep: React.FC<CliInstallStepProps> = ({
       active = false;
       onOperationActiveChange?.(false);
     };
-  }, [environment, manualCommand, onOperationActiveChange, publishResult, service]);
+  }, [environment, language, manualCommand, onOperationActiveChange, publishResult, service]);
 
   const install = useCallback(async () => {
     setView('installing');
@@ -129,14 +133,14 @@ export const CliInstallStep: React.FC<CliInstallStepProps> = ({
     try {
       const result = await service.installCli(environment);
       if (result.success) {
-        const status = `CLI de ${environment} instalada com sucesso.`;
+        const status = translate('onboarding_cli_installed_status', language, { environment });
         setView('installed');
         publishResult({ success: true, message: status });
         onNext?.();
         return;
       }
 
-      const message = result.error?.message || 'A instalação da CLI falhou.';
+      const message = result.error?.message || translate('onboarding_cli_default_failed_message', language);
       setFailureMessage(message);
       setView('failed');
       publishResult({ success: false, message });
@@ -149,7 +153,7 @@ export const CliInstallStep: React.FC<CliInstallStepProps> = ({
       onInstallingChange?.(false);
       onOperationActiveChange?.(false);
     }
-  }, [environment, onInstallStart, onInstallingChange, onNext, onOperationActiveChange, publishResult, service]);
+  }, [environment, language, onInstallStart, onInstallingChange, onNext, onOperationActiveChange, publishResult, service]);
 
   const isLocalInteraction = view === 'confirm' || view === 'failed';
   useEffect(() => {
@@ -168,7 +172,7 @@ export const CliInstallStep: React.FC<CliInstallStepProps> = ({
           setSelectedConfirmation((current) => current === 'yes' ? 'no' : 'yes');
           return;
         }
-        if (input.toLowerCase() === 's') setSelectedConfirmation('yes');
+        if (input.toLowerCase() === 's' || input.toLowerCase() === 'y') setSelectedConfirmation('yes');
         if (input.toLowerCase() === 'n') setSelectedConfirmation('no');
         if (isEnter) {
           if (selectedConfirmation === 'yes') {
@@ -176,7 +180,7 @@ export const CliInstallStep: React.FC<CliInstallStepProps> = ({
           } else {
             publishResult({
               success: false,
-              message: 'Instalação automática ignorada pelo usuário.',
+              message: translate('onboarding_cli_skipped_by_user', language),
             });
             onNext?.();
           }
@@ -200,49 +204,73 @@ export const CliInstallStep: React.FC<CliInstallStepProps> = ({
   return (
     <Box flexDirection="column" width="100%" gap={1}>
       <Box flexDirection="column">
-        <Text bold color={theme.colors.primary}>CLI do ambiente</Text>
+        <Text bold color={theme.colors.primary}>
+          {translate('onboarding_cli_title', language)}
+        </Text>
         <Text color={theme.colors.text}>
-          Verificando os requisitos do runner <Text bold color={theme.colors.accent}>{environment}</Text>.
+          {translate('onboarding_cli_description', language, { environment })}
         </Text>
       </Box>
 
       {view === 'detecting' ? (
-        <Spinner label="Verificando a CLI no PATH..." />
+        <Spinner label={translate('onboarding_cli_detecting', language)} />
       ) : view === 'not-required' ? (
-        <Text color={theme.colors.muted}>Este ambiente não requer uma CLI externa.</Text>
+        <Text color={theme.colors.muted}>
+          {translate('onboarding_cli_not_required', language)}
+        </Text>
       ) : view === 'detected' ? (
-        <Text bold color={theme.colors.success}>✔ CLI detectada no sistema</Text>
+        <Text bold color={theme.colors.success}>
+          {translate('onboarding_cli_detected', language)}
+        </Text>
       ) : view === 'confirm' ? (
         <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.warning} paddingX={1}>
-          <Text color={theme.colors.warning}>CLI não encontrada no PATH.</Text>
-          {detectionMessage ? <Text color={theme.colors.muted}>Detalhe: {detectionMessage}</Text> : null}
-          <Text>Deseja que o CodeForge instale a CLI do ambiente automaticamente?</Text>
+          <Text color={theme.colors.warning}>
+            {translate('onboarding_cli_not_found', language)}
+          </Text>
+          {detectionMessage ? (
+            <Text color={theme.colors.muted}>
+              {translate('onboarding_cli_detail', language, { detail: detectionMessage })}
+            </Text>
+          ) : null}
+          <Text>{translate('onboarding_cli_confirm_prompt', language)}</Text>
           <Box gap={2}>
             <Text bold={selectedConfirmation === 'yes'} color={selectedConfirmation === 'yes' ? theme.colors.primary : theme.colors.muted}>
-              {selectedConfirmation === 'yes' ? '› ' : '  '}Sim
+              {selectedConfirmation === 'yes' ? '[>] ' : '    '}{translate('onboarding_cli_confirm_yes', language)}
             </Text>
             <Text bold={selectedConfirmation === 'no'} color={selectedConfirmation === 'no' ? theme.colors.primary : theme.colors.muted}>
-              {selectedConfirmation === 'no' ? '› ' : '  '}Não
+              {selectedConfirmation === 'no' ? '[>] ' : '    '}{translate('onboarding_cli_confirm_no', language)}
             </Text>
           </Box>
-          <Text color={theme.colors.muted}>[←/→] Escolher  [Enter] Confirmar</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_cli_confirm_nav_hint', language)}
+          </Text>
         </Box>
       ) : view === 'installing' ? (
-        <Spinner color={theme.colors.warning} label={`Baixando e instalando a CLI de ${environment}...`} />
+        <Spinner color={theme.colors.warning} label={translate('onboarding_cli_installing', language, { environment })} />
       ) : view === 'installed' ? (
-        <Text bold color={theme.colors.success}>✔ CLI instalada com sucesso</Text>
+        <Text bold color={theme.colors.success}>
+          {translate('onboarding_cli_installed', language)}
+        </Text>
       ) : (
         <Box flexDirection="column" borderStyle="round" borderColor={theme.colors.error} paddingX={1}>
-          <Text bold color={theme.colors.error}>Falha ao instalar a CLI.</Text>
+          <Text bold color={theme.colors.error}>
+            {translate('onboarding_cli_failed', language)}
+          </Text>
           {failureMessage ? <Text color={theme.colors.error}>{failureMessage}</Text> : null}
-          <Text color={theme.colors.warning}>Instale manualmente com:</Text>
+          <Text color={theme.colors.warning}>
+            {translate('onboarding_cli_manual_instructions', language)}
+          </Text>
           <Text>{manualCommand}</Text>
-          <Text color={theme.colors.muted}>[r] Tentar novamente  [s] Pular e continuar assim mesmo</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_cli_failed_nav_hint', language)}
+          </Text>
         </Box>
       )}
 
       {(view === 'detected' || view === 'not-required') ? (
-        <Text color={theme.colors.muted}>[Enter] Continuar</Text>
+        <Text color={theme.colors.muted}>
+          {translate('onboarding_cli_continue', language)}
+        </Text>
       ) : null}
     </Box>
   );

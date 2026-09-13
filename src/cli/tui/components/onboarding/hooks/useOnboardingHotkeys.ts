@@ -13,6 +13,11 @@ export interface UseOnboardingHotkeysProps {
   isOperationActive?: boolean;
 }
 
+/**
+ * Global keyboard shortcuts hook for the onboarding wizard.
+ * Handles Back ([b] / [Esc]), Continue ([Enter]), and Quit ([q] / [Esc]) keys.
+ * Ensures shortcuts are blocked when form inputs or asynchronous operations are active.
+ */
 export function useOnboardingHotkeys({
   currentStep,
   onNext,
@@ -42,12 +47,19 @@ export function useOnboardingHotkeys({
         return;
       }
 
+      // Quit shortcut for subsequent wizard steps
+      if (input.toLowerCase() === 'q') {
+        onExit();
+        return;
+      }
+
+      // Back shortcut to return to the previous step
       if (isEscape || input.toLowerCase() === 'b') {
         onBack();
         return;
       }
 
-      // Passos seguintes gerenciam Enter/confirmação internamente através de seus próprios componentes
+      // Subsequent steps manage Enter / confirmation internally via their own components
       if (
         currentStep === 'spec_source' ||
         currentStep === 'environment' ||

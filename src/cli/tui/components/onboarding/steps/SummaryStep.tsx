@@ -3,11 +3,12 @@ import { Box, Text, useInput } from 'ink';
 import { AppContainer } from '../../../../../infrastructure/container.js';
 import { HookMap } from '../../../../../domain/hook.js';
 import { SpecSourceConfig } from '../../../../../domain/spec-source.js';
-import { CodeForgeConfig } from '../../../../../config/types.js';
+import { CodeForgeConfig, SupportedLanguage } from '../../../../../config/types.js';
 import { CliInstallResult, OnboardingState } from '../hooks/useOnboardingWizard.js';
 import { CliInstaller } from '../../../../installer/CliInstaller.js';
 import { Spinner } from '../../common/Spinner.js';
 import { theme } from '../../../theme.js';
+import { translate } from '../../../../ui/i18n.js';
 
 export interface SummaryStepProps {
   container: AppContainer;
@@ -20,6 +21,7 @@ export interface SummaryStepProps {
   cliInstallResult?: CliInstallResult;
   isInitializing?: boolean;
   error?: string;
+  language?: SupportedLanguage;
   onComplete?: () => void;
   onNext?: () => void;
   onBack?: () => void;
@@ -34,6 +36,9 @@ export interface SummaryStepProps {
   celebrationDurationMs?: number;
 }
 
+/**
+ * Formats the spec source configuration for display in the summary screen.
+ */
 export function formatSpecSourceDisplay(source?: SpecSourceConfig): string {
   if (!source || !source.provider) {
     return 'Local (.codeforge/specs/)';
@@ -54,64 +59,82 @@ export function formatSpecSourceDisplay(source?: SpecSourceConfig): string {
   return source.provider;
 }
 
+/**
+ * Formats the environment CLI installation status using safe ASCII markers and i18n keys.
+ */
 export function formatCliStatusDisplay(
   environment: string,
   result?: CliInstallResult,
+  language: SupportedLanguage = 'en',
 ): { text: string; color: string } {
   if (result?.message) {
+    const sanitized = result.message
+      .replace(/✔/g, '[v]')
+      .replace(/✓/g, '[v]')
+      .replace(/✗/g, '[x]');
     return {
-      text: result.message,
+      text: sanitized,
       color: result.success ? theme.colors.success : theme.colors.warning,
     };
   }
   if (result) {
     return {
-      text: result.success ? '✔ CLI detectada no sistema' : 'Instalação pendente',
+      text: result.success
+        ? translate('onboarding_summary_cli_detected', language)
+        : translate('onboarding_summary_cli_pending', language),
       color: result.success ? theme.colors.success : theme.colors.warning,
     };
   }
   const installCommand = CliInstaller.getInstallCommand(environment);
   if (!installCommand) {
     return {
-      text: 'Este ambiente não requer uma CLI externa.',
+      text: translate('onboarding_summary_cli_not_required', language),
       color: theme.colors.muted,
     };
   }
   return {
-    text: '✔ CLI detectada no sistema',
+    text: translate('onboarding_summary_cli_detected', language),
     color: theme.colors.success,
   };
 }
 
-const CELEBRATION_FRAMES = [
-  [
-    '         *         .      *       *',
-    '   .      / \\     .       .      *     .',
-    '      ---/---\\-------------------',
-    '     [ FORJA CONCLUÍDA COM SUCESSO ]',
-    '      ---\\---/-------------------',
-    '   *      \\ /        *       .         *',
-    '         *         .      *       *',
-  ],
-  [
-    '   .      *         *      .       *',
-    '       .   \\ /        .     *       .',
-    '      ---/---\\-------------------',
-    '     [ FORJA CONCLUÍDA COM SUCESSO ]',
-    '      ---\\---/-------------------',
-    '   .      / \\        .       *         .',
-    '   *      .         *      *       .',
-  ],
-  [
-    '       *        .       *        .',
-    '   *      / \\     *       .      *',
-    '      ---/---\\-------------------',
-    '     [ FORJA CONCLUÍDA COM SUCESSO ]',
-    '      ---\\---/-------------------',
-    '   .      \\ /        *       .      *',
-    '       .        *       .        *',
-  ],
-] as const;
+/**
+ * Generates ASCII celebration animation frames using the translated banner text.
+ */
+export function getCelebrationFrames(language: SupportedLanguage = 'en'): string[][] {
+  const banner = translate('onboarding_summary_celebration_banner', language);
+  return [
+    [
+      '         *         .      *       *',
+      '   .      / \\     .       .      *     .',
+      '      ---/---\\-------------------',
+      `     ${banner}`,
+      '      ---\\---/-------------------',
+      '   *      \\ /        *       .         *',
+      '         *         .      *       *',
+    ],
+    [
+      '   .      *         *      .       *',
+      '       .   \\ /        .     *       .',
+      '      ---/---\\-------------------',
+      `     ${banner}`,
+      '      ---\\---/-------------------',
+      '   .      / \\        .       *         .',
+      '   *      .         *      *       .',
+    ],
+    [
+      '       *        .       *        .',
+      '   *      / \\     *       .      *',
+      '      ---/---\\-------------------',
+      `     ${banner}`,
+      '      ---\\---/-------------------',
+      '   .      \\ /        *       .      *',
+      '       .        *       .        *',
+    ],
+  ];
+}
+
+export const CELEBRATION_FRAMES = getCelebrationFrames('en');
 
 const CELEBRATION_COLORS = [
   theme.colors.warning,
@@ -134,6 +157,7 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
   cliInstallResult,
   isInitializing: propIsInitializing,
   error: propError,
+  language,
   onComplete,
   onNext,
   onBack,
@@ -145,9 +169,10 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
   onFormActiveChange,
   isActive = true,
   isInteractive,
-  celebrationDurationMs = 1200,
+  celebrationDurationMs = process.env.NODE_ENV === 'test' ? 10 : 1200,
 }) => {
   const interactive = isInteractive ?? isActive;
+  const activeLanguage: SupportedLanguage = language ?? state?.language ?? 'en';
 
   const currentSpecSource = useMemo(
     () => specSource ?? state?.specSource ?? { provider: 'local' },
@@ -181,8 +206,13 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
   }, [currentHooks]);
 
   const cliStatus = useMemo(
-    () => formatCliStatusDisplay(currentEnvironment, currentCliResult),
-    [currentEnvironment, currentCliResult],
+    () => formatCliStatusDisplay(currentEnvironment, currentCliResult, activeLanguage),
+    [currentEnvironment, currentCliResult, activeLanguage],
+  );
+
+  const celebrationFrames = useMemo(
+    () => getCelebrationFrames(activeLanguage),
+    [activeLanguage],
   );
 
   useEffect(() => {
@@ -193,11 +223,11 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
     if (!isSuccess) return;
 
     const interval = setInterval(() => {
-      setCelebrationFrameIndex((prev) => (prev + 1) % CELEBRATION_FRAMES.length);
+      setCelebrationFrameIndex((prev) => (prev + 1) % celebrationFrames.length);
     }, 150);
 
     return () => clearInterval(interval);
-  }, [isSuccess]);
+  }, [isSuccess, celebrationFrames.length]);
 
   useEffect(() => {
     if (!isSuccess) return;
@@ -229,10 +259,10 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
     onOperationActiveChange?.(true);
 
     try {
-      // 1. Inicializar a estrutura do workspace
+      // 1. Initialize workspace structure
       await Promise.resolve(container.initializeWorkspaceUseCase.execute());
 
-      // 2. Persistir a configuração sem descartar configurações prévias não sobrescritas
+      // 2. Persist configuration without discarding previous non-overwritten settings
       const existingConfig = container.configService.loadConfig();
 
       const normalizedProvider =
@@ -252,7 +282,7 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
         executorAgent: currentExecutorAgent,
         specSource: specSourceToSave,
         hooks: currentHooks,
-        language: existingConfig?.language ?? 'pt',
+        language: language ?? state?.language ?? existingConfig?.language ?? 'en',
       };
 
       await Promise.resolve(container.configService.saveConfig(configToSave));
@@ -281,6 +311,8 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
     currentPlannerAgent,
     currentExecutorAgent,
     currentHooks,
+    language,
+    state?.language,
     onStartInitialization,
     onInitializingChange,
     onErrorChange,
@@ -338,10 +370,10 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
     <Box flexDirection="column" width="100%" gap={1}>
       <Box flexDirection="column">
         <Text bold color={theme.colors.primary}>
-          Resumo da Configuração
+          {translate('onboarding_summary_title', activeLanguage)}
         </Text>
         <Text color={theme.colors.text}>
-          Revise as escolhas do workspace antes de forjar o ambiente do CodeForge.
+          {translate('onboarding_summary_description', activeLanguage)}
         </Text>
       </Box>
 
@@ -352,44 +384,59 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
         paddingX={1}
       >
         <Box justifyContent="space-between">
-          <Text color={theme.colors.muted}>Fonte de especificações:</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_summary_spec_source', activeLanguage)}
+          </Text>
           <Text bold color={theme.colors.accent}>
             {formatSpecSourceDisplay(currentSpecSource)}
           </Text>
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color={theme.colors.muted}>Ambiente de execução:</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_summary_environment', activeLanguage)}
+          </Text>
           <Text bold color={theme.colors.accent}>
             {currentEnvironment}
           </Text>
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color={theme.colors.muted}>Planner Agent:</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_summary_planner', activeLanguage)}
+          </Text>
           <Text bold color={theme.colors.primary}>
             {currentPlannerAgent}
           </Text>
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color={theme.colors.muted}>Executor Agent:</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_summary_executor', activeLanguage)}
+          </Text>
           <Text bold color={theme.colors.primary}>
             {currentExecutorAgent}
           </Text>
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color={theme.colors.muted}>Status da CLI do ambiente:</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_summary_cli_status', activeLanguage)}
+          </Text>
           <Text bold color={cliStatus.color}>
             {cliStatus.text}
           </Text>
         </Box>
 
         <Box justifyContent="space-between">
-          <Text color={theme.colors.muted}>Quantidade total de hooks:</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_summary_total_hooks', activeLanguage)}
+          </Text>
           <Text bold color={totalHooks > 0 ? theme.colors.accent : theme.colors.text}>
-            {totalHooks} hook{totalHooks === 1 ? '' : 's'} configurado{totalHooks === 1 ? '' : 's'}
+            {translate('onboarding_summary_hooks_count', activeLanguage, {
+              count: totalHooks,
+              plural: totalHooks === 1 ? '' : 's',
+            })}
           </Text>
         </Box>
       </Box>
@@ -402,14 +449,16 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
           paddingX={1}
         >
           <Text bold color={theme.colors.error}>
-            Falha ao forjar o workspace:
+            {translate('onboarding_summary_error_title', activeLanguage)}
           </Text>
           <Text color={theme.colors.error}>{error}</Text>
           <Box marginTop={1} gap={2}>
             <Text bold color={theme.colors.warning}>
-              [Enter/r] Tentar novamente
+              {translate('onboarding_summary_error_retry', activeLanguage)}
             </Text>
-            <Text color={theme.colors.muted}>[b/Esc] Voltar</Text>
+            <Text color={theme.colors.muted}>
+              {translate('onboarding_summary_back', activeLanguage)}
+            </Text>
           </Box>
         </Box>
       )}
@@ -418,7 +467,7 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
         <Box marginTop={1}>
           <Spinner
             color={theme.colors.warning}
-            label="Forjando workspace e gravando a configuração..."
+            label={translate('onboarding_summary_initializing', activeLanguage)}
           />
         </Box>
       )}
@@ -433,7 +482,7 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
           gap={1}
         >
           <Box flexDirection="column" alignItems="center">
-            {CELEBRATION_FRAMES[celebrationFrameIndex].map((line, idx) => (
+            {celebrationFrames[celebrationFrameIndex].map((line, idx) => (
               <Text key={idx} color={CELEBRATION_COLORS[idx % CELEBRATION_COLORS.length]} bold>
                 {line}
               </Text>
@@ -442,10 +491,10 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
 
           <Box flexDirection="column" alignItems="center">
             <Text bold color={theme.colors.success}>
-              Forja inicializada com sucesso!
+              {translate('onboarding_summary_success_title', activeLanguage)}
             </Text>
             <Text color={theme.colors.muted}>
-              Entregando o controle para a interface principal...
+              {translate('onboarding_summary_success_subtitle', activeLanguage)}
             </Text>
           </Box>
         </Box>
@@ -454,9 +503,11 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
       {!isInitializing && !isSuccess && !error && (
         <Box marginTop={1} gap={2}>
           <Text bold color={theme.colors.success}>
-            [Enter] Forjar Workspace
+            {translate('onboarding_summary_action_forge', activeLanguage)}
           </Text>
-          <Text color={theme.colors.muted}>[b/Esc] Voltar</Text>
+          <Text color={theme.colors.muted}>
+            {translate('onboarding_summary_back', activeLanguage)}
+          </Text>
         </Box>
       )}
     </Box>
