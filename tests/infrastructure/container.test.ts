@@ -7,6 +7,10 @@ import { ConfigureEnvironmentUseCase } from "../../src/application/use-cases/Con
 import { ExecutionStateRepository } from "../../src/infrastructure/repositories/ExecutionStateRepository.js";
 import { ConfigService } from "../../src/config/ConfigService.js";
 import { AgentRunner } from "../../src/runners/AgentRunner.js";
+import { DeleteSpecUseCase } from "../../src/application/use-cases/DeleteSpecUseCase.js";
+import { DeleteTaskUseCase } from "../../src/application/use-cases/DeleteTaskUseCase.js";
+import { DeleteDocUseCase } from "../../src/application/use-cases/DeleteDocUseCase.js";
+import { DocsManifestRepository } from "../../src/infrastructure/repositories/DocsManifestRepository.js";
 
 describe("AppContainer composition root", () => {
   it("initializes default container when called without arguments", () => {
@@ -33,6 +37,9 @@ describe("AppContainer composition root", () => {
     expect(container.validatePlanUseCase).toBeDefined();
     expect(container.pullSpecUseCase).toBeDefined();
     expect(container.taskOperationsUseCase).toBeDefined();
+    expect(container.deleteSpecUseCase).toBeInstanceOf(DeleteSpecUseCase);
+    expect(container.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
+    expect(container.deleteDocUseCase).toBeInstanceOf(DeleteDocUseCase);
   });
 
   it("uses provided workspace gateway", () => {
@@ -71,6 +78,60 @@ describe("AppContainer composition root", () => {
     });
 
     expect(container.taskOperationsUseCase).toBe(mockTaskOps);
+  });
+
+  it("uses shared dependencies for deletion use cases", () => {
+    const memoryGw = new InMemoryWorkspaceGateway();
+    const stateRepo = new ExecutionStateRepository(memoryGw);
+    const docsRepo = new DocsManifestRepository(memoryGw);
+
+    const container = createAppContainer({
+      workspaceGateway: memoryGw,
+      executionStateRepository: stateRepo,
+      docsManifestRepository: docsRepo,
+    });
+
+    expect(container.deleteSpecUseCase).toMatchObject({
+      workspace: container.workspaceGateway,
+      docsManifestRepository: container.docsManifestRepository,
+    });
+    expect(container.deleteTaskUseCase).toMatchObject({
+      gw: container.workspaceGateway,
+      stateRepo: container.executionStateRepository,
+    });
+    expect(container.deleteDocUseCase).toMatchObject({
+      gw: container.workspaceGateway,
+      manifestRepo: container.docsManifestRepository,
+    });
+  });
+
+  it("returns deletion use-case overrides unchanged and independently", () => {
+    const memoryGw = new InMemoryWorkspaceGateway();
+    const deleteSpecUseCase = {} as DeleteSpecUseCase;
+    const deleteTaskUseCase = {} as DeleteTaskUseCase;
+    const deleteDocUseCase = {} as DeleteDocUseCase;
+
+    const specContainer = createAppContainer(memoryGw, {
+      deleteSpecUseCase,
+    });
+    const taskContainer = createAppContainer(memoryGw, {
+      deleteTaskUseCase,
+    });
+    const docContainer = createAppContainer(memoryGw, {
+      deleteDocUseCase,
+    });
+
+    expect(specContainer.deleteSpecUseCase).toBe(deleteSpecUseCase);
+    expect(specContainer.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
+    expect(specContainer.deleteDocUseCase).toBeInstanceOf(DeleteDocUseCase);
+
+    expect(taskContainer.deleteTaskUseCase).toBe(deleteTaskUseCase);
+    expect(taskContainer.deleteSpecUseCase).toBeInstanceOf(DeleteSpecUseCase);
+    expect(taskContainer.deleteDocUseCase).toBeInstanceOf(DeleteDocUseCase);
+
+    expect(docContainer.deleteDocUseCase).toBe(deleteDocUseCase);
+    expect(docContainer.deleteSpecUseCase).toBeInstanceOf(DeleteSpecUseCase);
+    expect(docContainer.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
   });
 
   it("creates TaskScheduler via helper method", () => {

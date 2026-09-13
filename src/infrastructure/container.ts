@@ -19,6 +19,9 @@ import { TaskOperationsUseCase } from "../application/use-cases/TaskOperationsUs
 import { GeneratePlanUseCase } from "../application/use-cases/GeneratePlanUseCase.js";
 import { CreateDocUseCase } from "../application/use-cases/CreateDocUseCase.js";
 import { UpdateDocUseCase } from "../application/use-cases/UpdateDocUseCase.js";
+import { DeleteSpecUseCase } from "../application/use-cases/DeleteSpecUseCase.js";
+import { DeleteTaskUseCase } from "../application/use-cases/DeleteTaskUseCase.js";
+import { DeleteDocUseCase } from "../application/use-cases/DeleteDocUseCase.js";
 import { GitGateway } from "./git/GitGateway.js";
 import { NodeGitGateway } from "./git/NodeGitGateway.js";
 import { TaskScheduler } from "../scheduler/TaskScheduler.js";
@@ -51,6 +54,9 @@ export interface AppContainerDependencies {
   generatePlanUseCase?: GeneratePlanUseCase;
   createDocUseCase?: CreateDocUseCase;
   updateDocUseCase?: UpdateDocUseCase;
+  deleteSpecUseCase?: DeleteSpecUseCase;
+  deleteTaskUseCase?: DeleteTaskUseCase;
+  deleteDocUseCase?: DeleteDocUseCase;
 }
 
 export interface AppContainer {
@@ -79,6 +85,9 @@ export interface AppContainer {
   generatePlanUseCase: GeneratePlanUseCase;
   createDocUseCase: CreateDocUseCase;
   updateDocUseCase: UpdateDocUseCase;
+  deleteSpecUseCase: DeleteSpecUseCase;
+  deleteTaskUseCase: DeleteTaskUseCase;
+  deleteDocUseCase: DeleteDocUseCase;
 
   // Helpers
   createTaskScheduler(
@@ -174,6 +183,18 @@ export function createAppContainer(
     overrides?.taskOperationsUseCase ??
     new TaskOperationsUseCase(workspaceGateway, stateRepo);
 
+  const deleteSpecUseCase =
+    overrides?.deleteSpecUseCase ??
+    new DeleteSpecUseCase(workspaceGateway, docsRepo);
+
+  const deleteTaskUseCase =
+    overrides?.deleteTaskUseCase ??
+    new DeleteTaskUseCase(workspaceGateway, stateRepo);
+
+  const deleteDocUseCase =
+    overrides?.deleteDocUseCase ??
+    new DeleteDocUseCase(workspaceGateway, docsRepo);
+
   return {
     gw: workspaceGateway,
     workspaceGateway,
@@ -196,6 +217,9 @@ export function createAppContainer(
     validatePlanUseCase,
     pullSpecUseCase,
     taskOperationsUseCase,
+    deleteSpecUseCase,
+    deleteTaskUseCase,
+    deleteDocUseCase,
 
     get generatePlanUseCase(): GeneratePlanUseCase {
       if (overrides?.generatePlanUseCase) {
