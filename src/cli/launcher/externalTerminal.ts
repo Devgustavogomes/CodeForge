@@ -22,38 +22,44 @@ export const LINUX_TERMINAL_CANDIDATES = [
   "xterm",
 ];
 
-/**
- * Strips --external and -w flags from command-line arguments to avoid infinite loops
- * when launching the external terminal.
- */
-export function stripExternalArgs(args: string[]): string[] {
-  return args.filter(
-    (arg) => arg !== "--external" && arg !== "-w" && !arg.startsWith("--external="),
-  );
-}
+export const SUBCOMMAND_FAMILIES = [
+  "run",
+  "status",
+  "spec",
+  "task",
+  "docs",
+  "plan",
+  "init",
+  "config",
+] as const;
+
+const KNOWN_SUBCOMMANDS = new Set([
+  ...SUBCOMMAND_FAMILIES,
+  "help",
+]);
 
 /**
  * Determines whether the CLI should launch in an external terminal window.
  *
- * Checks if already inside an external terminal, whether CLI options (--external or -w)
- * are present, or whether externalTerminal is enabled in configuration (ignoring help/version commands).
+ * Root interactive TUI invocation launches externally by default.
+ * -i/--inline explicitly suppresses launch, CODEFORGE_EXTERNAL_TERMINAL=1 suppresses recursive spawn,
+ * and any CLI subcommand, help flag, or version flag returns false.
  */
 export function shouldLaunchExternalTerminal(
   args: string[] = process.argv.slice(2),
   env: NodeJS.ProcessEnv = process.env,
-  isConfigEnabled: () => boolean = () => false,
 ): boolean {
   if (env.CODEFORGE_EXTERNAL_TERMINAL === "1") {
     return false;
   }
 
-  const hasExternalFlag =
-    args.includes("--external") ||
-    args.includes("-w") ||
-    args.some((arg) => arg.startsWith("--external="));
+  const hasInlineFlag =
+    args.includes("--inline") ||
+    args.includes("-i") ||
+    args.some((arg) => arg.startsWith("--inline="));
 
-  if (hasExternalFlag) {
-    return true;
+  if (hasInlineFlag) {
+    return false;
   }
 
   const isHelpOrVersion =
@@ -66,11 +72,13 @@ export function shouldLaunchExternalTerminal(
     return false;
   }
 
-  try {
-    return isConfigEnabled();
-  } catch {
+  const hasSubcommand = args.some((arg) => KNOWN_SUBCOMMANDS.has(arg));
+  if (hasSubcommand) {
     return false;
   }
+
+  // Only the root interactive TUI invocation (no subcommands/arguments) launches externally
+  return args.length === 0;
 }
 
 /**
@@ -179,11 +187,17 @@ export function getMacCommand(
   cwd: string,
   execPath: string,
   scriptPath: string,
+  isAvailable: (cmd: string) => boolean = isExecutableAvailable,
 ): ExternalTerminalCommand {
   const commandParts = [execPath, scriptPath, ...args];
   const commandStr = commandParts.map(escapeShellArg).join(" ");
   const innerScript = `cd ${escapeShellArg(cwd)} && ${commandStr}`;
-  const appleScript = `tell application "Terminal" to do script "${escapeAppleScript(innerScript)}"`;
+
+  const hasIterm =
+    isAvailable("iterm") || isAvailable("iterm2") || isAvailable("iTerm");
+  const appleScript = hasIterm
+    ? `tell application "iTerm" to create window with default profile command "${escapeAppleScript(innerScript)}"`
+    : `tell application "Terminal" to do script "${escapeAppleScript(innerScript)}"`;
 
   return {
     command: "osascript",
@@ -216,7 +230,7 @@ export function getTerminalCommand(
   }
 
   if (platform === "darwin") {
-    return getMacCommand(args, cwd, execPath, scriptPath);
+    return getMacCommand(args, cwd, execPath, scriptPath, isAvailable);
   }
 
   // linux and other unix-like operating systems
@@ -225,7 +239,6 @@ export function getTerminalCommand(
 
 /**
  * Spawns CodeForge in a detached external terminal window and unrefs the child process.
- * Strips --external and -w flags to prevent infinite recursion.
  *
  * @returns true if successfully launched, false otherwise.
  */
@@ -235,12 +248,11 @@ export function launchExternalTerminal(
   options?: LaunchExternalTerminalOptions,
 ): boolean {
   const platform = options?.platform ?? process.platform;
-  const strippedArgs = stripExternalArgs(args);
   const isAvailable = options?.isAvailable ?? isExecutableAvailable;
   const spawnFn = options?.spawnFn ?? spawn;
   const env = options?.env ?? process.env;
 
-  const terminalCmd = getTerminalCommand(platform, strippedArgs, cwd, {
+  const terminalCmd = getTerminalCommand(platform, args, cwd, {
     execPath: options?.execPath,
     scriptPath: options?.scriptPath,
     env,
@@ -275,7 +287,7 @@ export function launchExternalTerminal(
     if (platform === "win32" && terminalCmd.command === "wt.exe") {
       try {
         const fallbackCmd = getWindowsFallbackCommand(
-          strippedArgs,
+          args,
           cwd,
           options?.execPath ?? process.execPath,
           options?.scriptPath ?? process.argv[1] ?? "codeforge",

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
-  stripExternalArgs,
   resolveLinuxTerminal,
   getTerminalCommand,
   getWindowsCommand,
@@ -10,6 +9,7 @@ import {
   launchExternalTerminal,
   shouldLaunchExternalTerminal,
   LINUX_TERMINAL_CANDIDATES,
+  SUBCOMMAND_FAMILIES,
 } from "../../../src/cli/launcher/externalTerminal.js";
 
 describe("externalTerminal launcher", () => {
@@ -17,28 +17,126 @@ describe("externalTerminal launcher", () => {
     vi.restoreAllMocks();
   });
 
-  describe("stripExternalArgs", () => {
-    it("strips --external and -w flags from arguments", () => {
-      const input = ["run", "my-spec", "--external", "-w", "--other"];
-      const result = stripExternalArgs(input);
-      expect(result).toEqual(["run", "my-spec", "--other"]);
+  describe("shouldLaunchExternalTerminal", () => {
+    describe("default-root launch", () => {
+      it("returns true by default when no arguments are passed", () => {
+        expect(shouldLaunchExternalTerminal([], {})).toBe(true);
+      });
+
+      it("returns true when CODEFORGE_EXTERNAL_TERMINAL is not set in env", () => {
+        expect(
+          shouldLaunchExternalTerminal([], {
+            ...process.env,
+            CODEFORGE_EXTERNAL_TERMINAL: undefined,
+          }),
+        ).toBe(true);
+      });
     });
 
-    it("strips --external=true and --external=false", () => {
-      const input = ["status", "--external=true", "spec-a"];
-      const result = stripExternalArgs(input);
-      expect(result).toEqual(["status", "spec-a"]);
+    describe("inline flags (-i, --inline)", () => {
+      it("returns false when -i flag is passed", () => {
+        expect(shouldLaunchExternalTerminal(["-i"], {})).toBe(false);
+      });
+
+      it("returns false when --inline flag is passed", () => {
+        expect(shouldLaunchExternalTerminal(["--inline"], {})).toBe(false);
+      });
+
+      it("returns false when --inline=true is passed", () => {
+        expect(shouldLaunchExternalTerminal(["--inline=true"], {})).toBe(false);
+      });
+
+      it("returns false when multiple inline flags are passed", () => {
+        expect(shouldLaunchExternalTerminal(["-i", "--inline"], {})).toBe(false);
+      });
     });
 
-    it("returns an empty array when only external flags are passed", () => {
-      expect(stripExternalArgs(["--external"])).toEqual([]);
-      expect(stripExternalArgs(["-w"])).toEqual([]);
-      expect(stripExternalArgs(["--external", "-w"])).toEqual([]);
+    describe("recursion prevention (CODEFORGE_EXTERNAL_TERMINAL)", () => {
+      it("returns false when CODEFORGE_EXTERNAL_TERMINAL=1 is set", () => {
+        const env = { CODEFORGE_EXTERNAL_TERMINAL: "1" };
+        expect(shouldLaunchExternalTerminal([], env)).toBe(false);
+      });
+
+      it("returns false in child process regardless of arguments", () => {
+        const env = { CODEFORGE_EXTERNAL_TERMINAL: "1" };
+        expect(shouldLaunchExternalTerminal(["-i"], env)).toBe(false);
+        expect(shouldLaunchExternalTerminal(["--inline"], env)).toBe(false);
+        expect(shouldLaunchExternalTerminal(["run"], env)).toBe(false);
+        expect(shouldLaunchExternalTerminal(["status"], env)).toBe(false);
+      });
     });
 
-    it("preserves arguments when no external flags are present", () => {
-      const input = ["spec", "list", "--all"];
-      expect(stripExternalArgs(input)).toEqual(["spec", "list", "--all"]);
+    describe("registered subcommand families", () => {
+      it("returns false for each registered subcommand family with no sub-arguments", () => {
+        for (const family of SUBCOMMAND_FAMILIES) {
+          expect(shouldLaunchExternalTerminal([family], {})).toBe(false);
+        }
+      });
+
+      it("returns false for each registered subcommand family with arguments", () => {
+        expect(shouldLaunchExternalTerminal(["run", "spec-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["status", "spec-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["spec", "list"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["spec", "create", "spec-new"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["spec", "delete", "spec-del"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["task", "complete", "spec-1", "TASK-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["task", "retry", "spec-1", "TASK-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["task", "delete", "spec-1", "TASK-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["docs", "create", "spec-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["docs", "delete", "arch"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["plan", "generate", "spec-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["plan", "validate", "spec-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["init"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["config"], {})).toBe(false);
+      });
+
+      it("returns false for commander help subcommand", () => {
+        expect(shouldLaunchExternalTerminal(["help"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["help", "run"], {})).toBe(false);
+      });
+    });
+
+    describe("help and version flags", () => {
+      it("returns false when -h or --help is passed", () => {
+        expect(shouldLaunchExternalTerminal(["-h"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["--help"], {})).toBe(false);
+      });
+
+      it("returns false when -V or --version is passed", () => {
+        expect(shouldLaunchExternalTerminal(["-V"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["--version"], {})).toBe(false);
+      });
+
+      it("returns false when help flag is combined with subcommand", () => {
+        expect(shouldLaunchExternalTerminal(["run", "--help"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["spec", "-h"], {})).toBe(false);
+      });
+    });
+
+    describe("removal of legacy flags (--external, -w)", () => {
+      it("returns false when legacy --external flag is passed", () => {
+        expect(shouldLaunchExternalTerminal(["--external"], {})).toBe(false);
+      });
+
+      it("returns false when legacy -w flag is passed", () => {
+        expect(shouldLaunchExternalTerminal(["-w"], {})).toBe(false);
+      });
+
+      it("returns false when legacy --external=true is passed", () => {
+        expect(shouldLaunchExternalTerminal(["--external=true"], {})).toBe(false);
+      });
+
+      it("returns false when subcommand is passed with legacy flag", () => {
+        expect(shouldLaunchExternalTerminal(["run", "--external"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["status", "-w"], {})).toBe(false);
+      });
+    });
+
+    describe("unrecognized commands and options", () => {
+      it("returns false when unknown arguments are passed", () => {
+        expect(shouldLaunchExternalTerminal(["unknown-cmd"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["--unknown-flag"], {})).toBe(false);
+      });
     });
   });
 
@@ -87,7 +185,7 @@ describe("externalTerminal launcher", () => {
 
     it("uses wt.exe when available", () => {
       const isAvailable = vi.fn((cmd) => cmd === "wt.exe");
-      const cmd = getWindowsCommand(["run", "spec-1"], cwd, execPath, scriptPath, isAvailable);
+      const cmd = getWindowsCommand([], cwd, execPath, scriptPath, isAvailable);
 
       expect(cmd.command).toBe("wt.exe");
       expect(cmd.args).toEqual([
@@ -97,14 +195,12 @@ describe("externalTerminal launcher", () => {
         "/c",
         execPath,
         scriptPath,
-        "run",
-        "spec-1",
       ]);
     });
 
     it("falls back to cmd.exe /c start 'CodeForge' when wt.exe is not available", () => {
       const isAvailable = vi.fn(() => false);
-      const cmd = getWindowsCommand(["run", "spec-1"], cwd, execPath, scriptPath, isAvailable);
+      const cmd = getWindowsCommand([], cwd, execPath, scriptPath, isAvailable);
 
       expect(cmd.command).toBe("cmd.exe");
       expect(cmd.args).toEqual([
@@ -115,8 +211,6 @@ describe("externalTerminal launcher", () => {
         "/k",
         execPath,
         scriptPath,
-        "run",
-        "spec-1",
       ]);
     });
 
@@ -142,34 +236,34 @@ describe("externalTerminal launcher", () => {
 
     it("uses -- flag for gnome-terminal", () => {
       const isAvailable = vi.fn((cmd) => cmd === "gnome-terminal");
-      const cmd = getLinuxCommand(["status"], cwd, execPath, scriptPath, undefined, isAvailable);
+      const cmd = getLinuxCommand([], cwd, execPath, scriptPath, undefined, isAvailable);
 
       expect(cmd).not.toBeNull();
       expect(cmd!.command).toBe("gnome-terminal");
-      expect(cmd!.args).toEqual(["--", execPath, scriptPath, "status"]);
+      expect(cmd!.args).toEqual(["--", execPath, scriptPath]);
     });
 
     it("uses -e flag for x-terminal-emulator", () => {
       const isAvailable = vi.fn((cmd) => cmd === "x-terminal-emulator");
-      const cmd = getLinuxCommand(["status"], cwd, execPath, scriptPath, undefined, isAvailable);
+      const cmd = getLinuxCommand([], cwd, execPath, scriptPath, undefined, isAvailable);
 
       expect(cmd).not.toBeNull();
       expect(cmd!.command).toBe("x-terminal-emulator");
-      expect(cmd!.args).toEqual(["-e", execPath, scriptPath, "status"]);
+      expect(cmd!.args).toEqual(["-e", execPath, scriptPath]);
     });
 
     it("uses -e flag for $TERMINAL if defined and available", () => {
       const isAvailable = vi.fn((cmd) => cmd === "alacritty");
-      const cmd = getLinuxCommand(["run"], cwd, execPath, scriptPath, "alacritty", isAvailable);
+      const cmd = getLinuxCommand([], cwd, execPath, scriptPath, "alacritty", isAvailable);
 
       expect(cmd).not.toBeNull();
       expect(cmd!.command).toBe("alacritty");
-      expect(cmd!.args).toEqual(["-e", execPath, scriptPath, "run"]);
+      expect(cmd!.args).toEqual(["-e", execPath, scriptPath]);
     });
 
     it("returns null when no Linux terminal emulator is found", () => {
       const isAvailable = vi.fn(() => false);
-      const cmd = getLinuxCommand(["run"], cwd, execPath, scriptPath, undefined, isAvailable);
+      const cmd = getLinuxCommand([], cwd, execPath, scriptPath, undefined, isAvailable);
       expect(cmd).toBeNull();
     });
   });
@@ -179,20 +273,32 @@ describe("externalTerminal launcher", () => {
     const execPath = "/usr/local/bin/node";
     const scriptPath = "/Users/test/workspace/dist/cli/index.js";
 
-    it("generates osascript command executing AppleScript Terminal script", () => {
-      const cmd = getMacCommand(["run", "spec-1"], cwd, execPath, scriptPath);
+    it("generates osascript command targeting Terminal by default", () => {
+      const isAvailable = vi.fn(() => false);
+      const cmd = getMacCommand([], cwd, execPath, scriptPath, isAvailable);
 
       expect(cmd.command).toBe("osascript");
       expect(cmd.args[0]).toBe("-e");
       expect(cmd.args[1]).toContain('tell application "Terminal" to do script');
       expect(cmd.args[1]).toContain(`cd ${cwd}`);
-      expect(cmd.args[1]).toContain(`${execPath} ${scriptPath} run spec-1`);
+      expect(cmd.args[1]).toContain(`${execPath} ${scriptPath}`);
+    });
+
+    it("generates osascript command targeting iTerm when available", () => {
+      const isAvailable = vi.fn((bin) => bin === "iTerm" || bin === "iterm2");
+      const cmd = getMacCommand([], cwd, execPath, scriptPath, isAvailable);
+
+      expect(cmd.command).toBe("osascript");
+      expect(cmd.args[0]).toBe("-e");
+      expect(cmd.args[1]).toContain('tell application "iTerm" to create window with default profile command');
+      expect(cmd.args[1]).toContain(`cd ${cwd}`);
+      expect(cmd.args[1]).toContain(`${execPath} ${scriptPath}`);
     });
 
     it("safely quotes paths containing spaces in AppleScript command", () => {
       const spaceCwd = "/Users/test/my workspace";
       const spaceScript = "/Users/test/my workspace/dist/index.js";
-      const cmd = getMacCommand(["run"], spaceCwd, execPath, spaceScript);
+      const cmd = getMacCommand([], spaceCwd, execPath, spaceScript);
 
       expect(cmd.command).toBe("osascript");
       expect(cmd.args[1]).toContain(`cd \\"${spaceCwd}\\"`);
@@ -203,7 +309,7 @@ describe("externalTerminal launcher", () => {
   describe("getTerminalCommand", () => {
     it("routes win32 platform to Windows launcher", () => {
       const isAvailable = vi.fn(() => false);
-      const cmd = getTerminalCommand("win32", ["run"], "C:\\app", {
+      const cmd = getTerminalCommand("win32", [], "C:\\app", {
         execPath: "node",
         scriptPath: "index.js",
         isAvailable,
@@ -214,7 +320,7 @@ describe("externalTerminal launcher", () => {
     });
 
     it("routes darwin platform to macOS launcher", () => {
-      const cmd = getTerminalCommand("darwin", ["run"], "/app", {
+      const cmd = getTerminalCommand("darwin", [], "/app", {
         execPath: "node",
         scriptPath: "index.js",
       });
@@ -225,7 +331,7 @@ describe("externalTerminal launcher", () => {
 
     it("routes linux platform to Linux launcher", () => {
       const isAvailable = vi.fn((bin) => bin === "xterm");
-      const cmd = getTerminalCommand("linux", ["run"], "/app", {
+      const cmd = getTerminalCommand("linux", [], "/app", {
         execPath: "node",
         scriptPath: "index.js",
         isAvailable,
@@ -247,7 +353,7 @@ describe("externalTerminal launcher", () => {
 
       const isAvailable = vi.fn((cmd) => cmd === "wt.exe");
 
-      const success = launchExternalTerminal(["run", "spec-1", "--external", "-w"], "C:\\app", {
+      const success = launchExternalTerminal([], "C:\\app", {
         platform: "win32",
         execPath: "node.exe",
         scriptPath: "C:\\app\\index.js",
@@ -261,7 +367,6 @@ describe("externalTerminal launcher", () => {
 
       const [command, args, options] = spawnMock.mock.calls[0];
       expect(command).toBe("wt.exe");
-      // --external and -w must be stripped
       expect(args).toEqual([
         "-d",
         "C:\\app",
@@ -269,8 +374,6 @@ describe("externalTerminal launcher", () => {
         "/c",
         "node.exe",
         "C:\\app\\index.js",
-        "run",
-        "spec-1",
       ]);
 
       expect(options.detached).toBe(true);
@@ -287,7 +390,7 @@ describe("externalTerminal launcher", () => {
       const isAvailable = vi.fn(() => false);
       const spawnMock = vi.fn();
 
-      const success = launchExternalTerminal(["run"], "/app", {
+      const success = launchExternalTerminal([], "/app", {
         platform: "linux",
         isAvailable,
         spawnFn: spawnMock as any,
@@ -311,7 +414,7 @@ describe("externalTerminal launcher", () => {
 
       const isAvailable = vi.fn((cmd) => cmd === "wt.exe");
 
-      const success = launchExternalTerminal(["run"], "C:\\app", {
+      const success = launchExternalTerminal([], "C:\\app", {
         platform: "win32",
         execPath: "node.exe",
         scriptPath: "C:\\app\\index.js",
@@ -333,7 +436,7 @@ describe("externalTerminal launcher", () => {
 
       const isAvailable = vi.fn((cmd) => cmd === "wt.exe");
 
-      const success = launchExternalTerminal(["run"], "C:\\app", {
+      const success = launchExternalTerminal([], "C:\\app", {
         platform: "win32",
         execPath: "node.exe",
         scriptPath: "C:\\app\\index.js",
@@ -344,50 +447,4 @@ describe("externalTerminal launcher", () => {
       expect(success).toBe(false);
     });
   });
-
-  describe("shouldLaunchExternalTerminal", () => {
-    it("returns false if already inside an external terminal (CODEFORGE_EXTERNAL_TERMINAL === '1')", () => {
-      const env = { CODEFORGE_EXTERNAL_TERMINAL: "1" };
-      expect(shouldLaunchExternalTerminal(["--external"], env)).toBe(false);
-      expect(shouldLaunchExternalTerminal(["-w"], env)).toBe(false);
-      expect(shouldLaunchExternalTerminal(["run", "spec-1"], env, () => true)).toBe(false);
-    });
-
-    it("returns true if --external or -w flag is passed", () => {
-      expect(shouldLaunchExternalTerminal(["--external"], {})).toBe(true);
-      expect(shouldLaunchExternalTerminal(["-w"], {})).toBe(true);
-      expect(shouldLaunchExternalTerminal(["run", "spec", "--external"], {})).toBe(true);
-      expect(shouldLaunchExternalTerminal(["status", "--external=true"], {})).toBe(true);
-    });
-
-    it("returns false if help or version flag is passed without external flag", () => {
-      expect(shouldLaunchExternalTerminal(["-h"], {}, () => true)).toBe(false);
-      expect(shouldLaunchExternalTerminal(["--help"], {}, () => true)).toBe(false);
-      expect(shouldLaunchExternalTerminal(["-V"], {}, () => true)).toBe(false);
-      expect(shouldLaunchExternalTerminal(["--version"], {}, () => true)).toBe(false);
-    });
-
-    it("returns true if help flag is passed together with explicit external flag", () => {
-      expect(shouldLaunchExternalTerminal(["--help", "--external"], {})).toBe(true);
-      expect(shouldLaunchExternalTerminal(["-h", "-w"], {})).toBe(true);
-    });
-
-    it("returns true if config enables external terminal and no help/version flag", () => {
-      expect(shouldLaunchExternalTerminal(["run", "spec-1"], {}, () => true)).toBe(true);
-    });
-
-    it("returns false if config disables external terminal", () => {
-      expect(shouldLaunchExternalTerminal(["run", "spec-1"], {}, () => false)).toBe(false);
-    });
-
-    it("returns false if config check throws an error", () => {
-      expect(
-        shouldLaunchExternalTerminal(["run"], {}, () => {
-          throw new Error("Config read error");
-        }),
-      ).toBe(false);
-    });
-  });
-
 });
-
