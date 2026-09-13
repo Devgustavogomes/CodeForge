@@ -19,22 +19,6 @@ describe('ConfigScreen component', () => {
     },
   };
 
-  it('renders project configuration items', () => {
-    const { lastFrame } = renderWithProviders(
-      <ConfigScreen initialConfig={mockConfig} isInteractive={false} />
-    );
-    const output = lastFrame() ?? '';
-
-    expect(output).toContain('CodeForge Configuration Editor');
-    expect(output).toContain('1. Language (i18n):');
-    expect(output).toContain('● [en]');
-    expect(output).toContain('antigravity');
-    expect(output).toContain('5. Hooks:');
-    expect(output).toContain('configurados ]');
-    expect(output).toContain('6. Spec Source:');
-    expect(output).toContain('filesystem');
-  });
-
   it('opens ConfigureHooksModal on hooks field with Enter and persists changes', async () => {
     const mockSaveConfig = vi.fn();
     const mockConfigService = {

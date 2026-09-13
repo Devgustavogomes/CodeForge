@@ -42,6 +42,21 @@ export interface UseConfigureSpecSourceModalReturn {
   cycleProvider: (direction: 1 | -1) => void;
 }
 
+function isDefaultOrEnvApiKey(key: string): boolean {
+  if (!key || !key.trim()) return true;
+  const trimmed = key.trim();
+  for (const p of SpecSourceFactory.getAvailableProviders()) {
+    if (
+      trimmed === SpecSourceFactory.getDefaultApiKey(p) ||
+      trimmed === SpecSourceFactory.getDefaultEnvVar(p) ||
+      trimmed === `$${SpecSourceFactory.getDefaultEnvVar(p)}`
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function useConfigureSpecSourceModal({
   isOpen = true,
   onClose,
@@ -70,6 +85,10 @@ export function useConfigureSpecSourceModal({
       (config?.specSource?.apiKey as string | undefined) ||
       SpecSourceFactory.getDefaultApiKey(initialProvider),
   );
+  const [hasCustomApiKey, setHasCustomApiKey] = useState<boolean>(() => {
+    const initialKey = config?.specSource?.apiKey as string | undefined;
+    return Boolean(initialKey && !isDefaultOrEnvApiKey(initialKey));
+  });
 
   const [activeFormFieldIndex, setActiveFormFieldIndex] = useState<number>(0);
   const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
@@ -126,11 +145,16 @@ export function useConfigureSpecSourceModal({
     onChange: setTeam,
   });
 
+  const handleApiKeyChange = useCallback((newKey: string) => {
+    setApiKey(newKey);
+    setHasCustomApiKey(!isDefaultOrEnvApiKey(newKey));
+  }, []);
+
   const apiKeyInput = useTextInput({
     initialValue: apiKey,
     isActive: isOpen && activeFormField === 'apiKey',
     syncNavigation: false,
-    onChange: setApiKey,
+    onChange: handleApiKeyChange,
   });
 
   // Sincronizar campos quando o modal abre ou config muda
@@ -149,6 +173,7 @@ export function useConfigureSpecSourceModal({
         SpecSourceFactory.getDefaultApiKey(currentProvider);
       setApiKey(key);
       apiKeyInput.setValue(key);
+      setHasCustomApiKey(Boolean(key && !isDefaultOrEnvApiKey(key)));
 
       setActiveFormFieldIndex(0);
       setFormErrorMessage(null);
@@ -181,17 +206,17 @@ export function useConfigureSpecSourceModal({
         (safeIdx + direction + availableProviders.length) %
         availableProviders.length;
       const nextProvider = availableProviders[nextIdx];
-      const prevDefault = SpecSourceFactory.getDefaultApiKey(provider);
 
-      if (!apiKey || apiKey === prevDefault) {
+      if (!hasCustomApiKey || isDefaultOrEnvApiKey(apiKey)) {
         const nextDefault = SpecSourceFactory.getDefaultApiKey(nextProvider);
         setApiKey(nextDefault);
         apiKeyInput.setValue(nextDefault);
+        setHasCustomApiKey(false);
       }
 
       setProvider(nextProvider);
     },
-    [availableProviders, provider, apiKey, apiKeyInput],
+    [availableProviders, provider, apiKey, apiKeyInput, hasCustomApiKey],
   );
 
   // Captura de teclado do formulário para navegação entre campos e controles
