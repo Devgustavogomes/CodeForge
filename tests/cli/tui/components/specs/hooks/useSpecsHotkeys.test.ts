@@ -28,17 +28,19 @@ const TestHotkeysHarness: React.FC<HarnessProps> = (props) => {
   return React.createElement(Text, null, 'SpecsHotkeysTest');
 };
 
+interface Callbacks {
+  onNavigateUp: () => void;
+  onNavigateDown: () => void;
+  onOpenRun: () => void;
+  onOpenTasks: () => void;
+  onGeneratePlan: () => void;
+  onValidatePlan: () => void;
+  onOpenCreateModal: () => void;
+  onOpenPullModal: () => void;
+}
+
 describe('useSpecsHotkeys hook', () => {
-  let callbacks: {
-    onNavigateUp: ReturnType<typeof vi.fn>;
-    onNavigateDown: ReturnType<typeof vi.fn>;
-    onOpenRun: ReturnType<typeof vi.fn>;
-    onOpenTasks: ReturnType<typeof vi.fn>;
-    onGeneratePlan: ReturnType<typeof vi.fn>;
-    onValidatePlan: ReturnType<typeof vi.fn>;
-    onOpenCreateModal: ReturnType<typeof vi.fn>;
-    onOpenPullModal: ReturnType<typeof vi.fn>;
-  };
+  let callbacks: Callbacks;
 
   beforeEach(() => {
     callbacks = {
