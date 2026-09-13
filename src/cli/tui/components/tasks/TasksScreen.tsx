@@ -4,6 +4,7 @@ import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { AppContainer } from '../../../../infrastructure/container.js';
 import { TaskScreenItem, TaskTree } from './components/TaskTree.js';
 import { TaskMetadataView } from './components/TaskMetadataView.js';
+import { ViewTaskModal } from './ViewTaskModal.js';
 import { useTasksScreen } from './hooks/useTasksScreen.js';
 import { useTasksHotkeys } from './hooks/useTasksHotkeys.js';
 
@@ -37,6 +38,9 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
 
   useTasksHotkeys({
     isInteractive,
+    isModalOpen: screenState.isViewTaskModalOpen,
+    isSearchingSpec: screenState.isSearchingSpec,
+    onOpenTask: screenState.handleOpenViewTaskModal,
     onNextTask: screenState.handleNextTask,
     onPrevTask: screenState.handlePrevTask,
     onNextSpec: screenState.handleNextSpec,
@@ -92,8 +96,20 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
         }
       }
     },
-    { isActive: isInteractive && screenState.isSearchingSpec },
+    { isActive: isInteractive && screenState.isSearchingSpec && !screenState.isViewTaskModalOpen },
   );
+
+  if (screenState.isViewTaskModalOpen && screenState.selectedTask) {
+    return (
+      <ViewTaskModal
+        task={screenState.selectedTask}
+        specName={screenState.currentSpec}
+        currentSpec={screenState.currentSpec}
+        isOpen={true}
+        onClose={screenState.handleCloseViewTaskModal}
+      />
+    );
+  }
 
   const isSideBySide = breakpoint !== 'minimal';
 

@@ -4,6 +4,9 @@ import { NavigationContext } from '../../../context/NavigationContext.js';
 
 export interface UseTasksHotkeysProps {
   isInteractive?: boolean;
+  isModalOpen?: boolean;
+  isSearchingSpec?: boolean;
+  onOpenTask?: () => void;
   onNextTask: () => void;
   onPrevTask: () => void;
   onNextSpec: () => void;
@@ -17,6 +20,9 @@ export interface UseTasksHotkeysProps {
 
 export function useTasksHotkeys({
   isInteractive = true,
+  isModalOpen = false,
+  isSearchingSpec = false,
+  onOpenTask,
   onNextTask,
   onPrevTask,
   onNextSpec,
@@ -31,11 +37,17 @@ export function useTasksHotkeys({
 
   useInput(
     (input, key) => {
-      if (!isInteractive || nav?.isTextInputActive) return;
+      if (!isInteractive || isModalOpen || nav?.isTextInputActive || isSearchingSpec) return;
 
       // Start Spec Search: '/'
       if (input === '/') {
         onStartSearch?.();
+        return;
+      }
+
+      // Open task modal: Enter
+      if (key.return || input === '\r' || input === '\n') {
+        onOpenTask?.();
         return;
       }
 
@@ -83,6 +95,6 @@ export function useTasksHotkeys({
         return;
       }
     },
-    { isActive: isInteractive },
+    { isActive: isInteractive && !isModalOpen },
   );
 }

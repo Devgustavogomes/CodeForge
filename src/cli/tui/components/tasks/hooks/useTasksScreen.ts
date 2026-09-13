@@ -64,6 +64,7 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
   const [viewJson, setViewJson] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
@@ -229,6 +230,16 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     setIsExpanded((prev) => !prev);
   }, []);
 
+  const handleOpenViewTaskModal = useCallback(() => {
+    if (selectedTask) {
+      setIsViewTaskModalOpen(true);
+    }
+  }, [selectedTask]);
+
+  const handleCloseViewTaskModal = useCallback(() => {
+    setIsViewTaskModalOpen(false);
+  }, []);
+
   const handleStartSearchSpec = useCallback(() => {
     setIsSearchingSpec(true);
     nav?.setTextInputActive(true);
@@ -273,6 +284,9 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     selectedTask,
     viewJson,
     isExpanded,
+    isViewTaskModalOpen,
+    handleOpenViewTaskModal,
+    handleCloseViewTaskModal,
     feedback,
     handleComplete,
     handleReset,
