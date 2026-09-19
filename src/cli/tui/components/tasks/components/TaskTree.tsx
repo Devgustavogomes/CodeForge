@@ -36,12 +36,12 @@ export interface TaskTreeProps {
   tasks: TaskItem[];
   visibleTasks: TaskItem[];
   selectedTaskId: string | null;
-  specs: string[];
-  selectedSpecIndex: number;
-  currentSpec: string;
+  intents: string[];
+  selectedIntentIndex: number;
+  currentIntent: string;
   isSideBySide: boolean;
-  isSearchingSpec?: boolean;
-  specSearchQuery?: string;
+  isSearchingIntent?: boolean;
+  intentSearchQuery?: string;
   onSearchChange?: (query: string) => void;
   onSearchSubmit?: () => void;
   onSearchCancel?: () => void;
@@ -51,12 +51,12 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
   tasks,
   visibleTasks,
   selectedTaskId,
-  specs,
-  selectedSpecIndex,
-  currentSpec,
+  intents,
+  selectedIntentIndex,
+  currentIntent,
   isSideBySide,
-  isSearchingSpec = false,
-  specSearchQuery = '',
+  isSearchingIntent = false,
+  intentSearchQuery = '',
   onSearchChange: _onSearchChange,
   onSearchSubmit: _onSearchSubmit,
   onSearchCancel: _onSearchCancel,
@@ -74,19 +74,19 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
           <Text bold color={theme.colors.primary}>
             Tasks ({tasks.length})
           </Text>
-          {specs.length > 0 ? (
+          {intents.length > 0 ? (
             <Box gap={1} flexShrink={1}>
               <Text color={theme.colors.accent} bold>
-                ● [{currentSpec}]
+                ● [{currentIntent}]
               </Text>
-              {specs.length > 1 && (
+              {intents.length > 1 && (
                 <Text color={theme.colors.muted}>
-                  ({selectedSpecIndex + 1}/{specs.length})
+                  ({selectedIntentIndex + 1}/{intents.length})
                 </Text>
               )}
             </Box>
           ) : (
-            <Text color={theme.colors.muted}>• No Spec</Text>
+            <Text color={theme.colors.muted}>• No Intent</Text>
           )}
         </Box>
         <Box flexShrink={0} gap={1}>
@@ -95,8 +95,8 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
         </Box>
       </Box>
 
-      {/* Spec Search Bar */}
-      {isSearchingSpec && (
+      {/* Intent Search Bar */}
+      {isSearchingIntent && (
         <Box
           marginBottom={1}
           paddingX={1}
@@ -107,7 +107,7 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
           <Box gap={1}>
             <Text bold color={theme.colors.primary}>Search:</Text>
             <Text color={theme.colors.text} bold>
-              {specSearchQuery}█
+              {intentSearchQuery}█
             </Text>
           </Box>
           <Box justifyContent="flex-end">
@@ -118,7 +118,7 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
 
       {tasks.length === 0 ? (
         <Box paddingY={2} justifyContent="center">
-          <Text color={theme.colors.muted}>No tasks found for spec "{currentSpec}".</Text>
+          <Text color={theme.colors.muted}>No tasks found for intent "{currentIntent}".</Text>
         </Box>
       ) : (
         <Box flexDirection="column">

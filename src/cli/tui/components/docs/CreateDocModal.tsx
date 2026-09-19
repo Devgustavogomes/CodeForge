@@ -11,9 +11,9 @@ import { theme } from '../../theme.js';
 export interface CreateDocModalProps {
   isOpen?: boolean;
   onClose: () => void;
-  onSubmit: (docName: string, specName: string) => Promise<void> | void;
-  availableSpecs?: string[];
-  initialSpec?: string;
+  onSubmit: (docName: string, intentName: string) => Promise<void> | void;
+  availableIntents?: string[];
+  initialIntent?: string;
   width?: string | number;
   isCreating?: boolean;
   error?: string | null;
@@ -21,24 +21,24 @@ export interface CreateDocModalProps {
 }
 
 /**
- * Modal form for creating a new document associated with a spec.
+ * Modal form for creating a new document associated with a intent.
  * Uses useTextInput and TextInput primitives for standardized input editing.
  */
 export const CreateDocModal: React.FC<CreateDocModalProps> = ({
   isOpen = true,
   onClose,
   onSubmit,
-  availableSpecs = [],
-  initialSpec,
+  availableIntents = [],
+  initialIntent,
   width = '100%',
   isCreating = false,
   error: propError,
   language = 'en',
 }) => {
   const nav = useNavigation();
-  const [docSpec, setDocSpec] = useState(() => initialSpec ?? (availableSpecs[0] || ''));
-  const [isSpecCustom, setIsSpecCustom] = useState(false);
-  const [activeField, setActiveField] = useState<'name' | 'spec'>('name');
+  const [docIntent, setDocIntent] = useState(() => initialIntent ?? (availableIntents[0] || ''));
+  const [isIntentCustom, setIsIntentCustom] = useState(false);
+  const [activeField, setActiveField] = useState<'name' | 'intent'>('name');
   const [localError, setLocalError] = useState<string | null>(null);
   const displayError = propError ?? localError;
 
@@ -47,24 +47,24 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
     onClose();
   }, [nav, onClose]);
 
-  const handleCycleSpec = useCallback(
+  const handleCycleIntent = useCallback(
     (direction: 1 | -1 = 1) => {
-      if (availableSpecs.length === 0) return;
-      setIsSpecCustom(false);
-      const currentIdx = availableSpecs.indexOf(docSpec);
+      if (availableIntents.length === 0) return;
+      setIsIntentCustom(false);
+      const currentIdx = availableIntents.indexOf(docIntent);
       const nextIdx =
         currentIdx === -1
           ? 0
-          : (currentIdx + direction + availableSpecs.length) % availableSpecs.length;
-      setDocSpec(availableSpecs[nextIdx]);
+          : (currentIdx + direction + availableIntents.length) % availableIntents.length;
+      setDocIntent(availableIntents[nextIdx]);
       setLocalError(null);
     },
-    [availableSpecs, docSpec]
+    [availableIntents, docIntent]
   );
 
-  const handleSubmit = useCallback(async (nameVal?: string, specVal?: string) => {
+  const handleSubmit = useCallback(async (nameVal?: string, intentVal?: string) => {
     const trimmedName = (nameVal ?? nameInput.value).trim().replace(/\.md$/i, '');
-    const trimmedSpec = (specVal ?? (isSpecCustom || availableSpecs.length === 0 ? specInput.value : docSpec))
+    const trimmedIntent = (intentVal ?? (isIntentCustom || availableIntents.length === 0 ? intentInput.value : docIntent))
       .trim()
       .replace(/\.md$/i, '');
 
@@ -73,20 +73,20 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
       setActiveField('name');
       return;
     }
-    if (!trimmedSpec) {
-      setLocalError(translate('tui_docs_create_err_spec_required', language));
-      setActiveField('spec');
+    if (!trimmedIntent) {
+      setLocalError(translate('tui_docs_create_err_intent_required', language));
+      setActiveField('intent');
       return;
     }
 
     setLocalError(null);
     try {
-      await onSubmit(trimmedName, trimmedSpec);
+      await onSubmit(trimmedName, trimmedIntent);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setLocalError(msg);
     }
-  }, [availableSpecs, docSpec, isSpecCustom, onSubmit]);
+  }, [availableIntents, docIntent, isIntentCustom, onSubmit]);
 
   const nameInput = useTextInput({
     initialValue: '',
@@ -94,9 +94,9 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
     syncNavigation: activeField === 'name',
     onChange: () => setLocalError(null),
     onSubmit: (val) => {
-      const effectiveSpec = isSpecCustom || availableSpecs.length === 0 ? specInput.value : docSpec;
-      if (val.trim() && !effectiveSpec.trim()) {
-        setActiveField('spec');
+      const effectiveIntent = isIntentCustom || availableIntents.length === 0 ? intentInput.value : docIntent;
+      if (val.trim() && !effectiveIntent.trim()) {
+        setActiveField('intent');
       } else {
         void handleSubmit(val);
       }
@@ -104,15 +104,15 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
     onCancel: handleClose,
   });
 
-  const specInput = useTextInput({
-    initialValue: docSpec,
-    isActive: isOpen && activeField === 'spec' && (isSpecCustom || availableSpecs.length === 0),
-    syncNavigation: activeField === 'spec',
+  const intentInput = useTextInput({
+    initialValue: docIntent,
+    isActive: isOpen && activeField === 'intent' && (isIntentCustom || availableIntents.length === 0),
+    syncNavigation: activeField === 'intent',
     onChange: (val) => {
-      setDocSpec(val);
+      setDocIntent(val);
       setLocalError(null);
-      if (!val && availableSpecs.length > 0) {
-        setIsSpecCustom(false);
+      if (!val && availableIntents.length > 0) {
+        setIsIntentCustom(false);
       }
     },
     onSubmit: (val) => {
@@ -124,14 +124,14 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       nameInput.setValue('');
-      const defaultSpec = initialSpec ?? (availableSpecs[0] || '');
-      setDocSpec(defaultSpec);
-      specInput.setValue(defaultSpec);
-      setIsSpecCustom(false);
+      const defaultIntent = initialIntent ?? (availableIntents[0] || '');
+      setDocIntent(defaultIntent);
+      intentInput.setValue(defaultIntent);
+      setIsIntentCustom(false);
       setActiveField('name');
       setLocalError(null);
     }
-  }, [isOpen, initialSpec, availableSpecs]);
+  }, [isOpen, initialIntent, availableIntents]);
 
   useInput(
     (input, key) => {
@@ -143,7 +143,7 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
       }
 
       if (key.tab) {
-        setActiveField((prev) => (prev === 'name' ? 'spec' : 'name'));
+        setActiveField((prev) => (prev === 'name' ? 'intent' : 'name'));
         return;
       }
 
@@ -153,24 +153,24 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
       }
 
       if (key.downArrow) {
-        setActiveField('spec');
+        setActiveField('intent');
         return;
       }
 
-      // Spec selection mode when available specs exist and not custom input
-      if (activeField === 'spec' && availableSpecs.length > 0 && !isSpecCustom) {
+      // Intent selection mode when available intents exist and not custom input
+      if (activeField === 'intent' && availableIntents.length > 0 && !isIntentCustom) {
         if (key.return || input === '\r' || input === '\n') {
           void handleSubmit();
           return;
         }
 
         if (key.leftArrow) {
-          handleCycleSpec(-1);
+          handleCycleIntent(-1);
           return;
         }
 
         if (key.rightArrow || input === ' ') {
-          handleCycleSpec(1);
+          handleCycleIntent(1);
           return;
         }
 
@@ -184,9 +184,9 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
             .join('');
 
           if (printable.length > 0 && printable !== ' ') {
-            setIsSpecCustom(true);
-            setDocSpec(printable);
-            specInput.setValue(printable);
+            setIsIntentCustom(true);
+            setDocIntent(printable);
+            intentInput.setValue(printable);
             setLocalError(null);
           }
         }
@@ -198,7 +198,7 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
   if (!isOpen) return null;
 
   const docName = nameInput.value;
-  const effectiveSpec = isSpecCustom || availableSpecs.length === 0 ? specInput.value : docSpec;
+  const effectiveIntent = isIntentCustom || availableIntents.length === 0 ? intentInput.value : docIntent;
 
   return (
     <Modal title={translate('tui_modal_create_doc', language)} isOpen={true} onClose={handleClose} borderColor={theme.colors.primary} width={width}>
@@ -218,11 +218,11 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
 
         <Box justifyContent="space-between" width="100%" marginBottom={0}>
           <Box gap={1} flexShrink={1}>
-            <Text bold color={activeField === 'spec' ? theme.colors.primary : theme.colors.text}>{translate('tui_docs_create_spec_label', language)}</Text>
-            {availableSpecs.length > 0 && !isSpecCustom ? (
+            <Text bold color={activeField === 'intent' ? theme.colors.primary : theme.colors.text}>{translate('tui_docs_create_intent_label', language)}</Text>
+            {availableIntents.length > 0 && !isIntentCustom ? (
               <Box gap={1}>
-                {availableSpecs.map((sp) => {
-                  const isSelected = docSpec === sp;
+                {availableIntents.map((sp) => {
+                  const isSelected = docIntent === sp;
                   return (
                     <Text key={sp} color={isSelected ? theme.colors.primary : theme.colors.muted} bold={isSelected}>
                       {isSelected ? `● [${sp}]` : `○ ${sp}`}
@@ -234,16 +234,16 @@ export const CreateDocModal: React.FC<CreateDocModalProps> = ({
               <Box gap={1}>
                 <Text color={theme.colors.primary} bold>{'> '}</Text>
                 <TextInput
-                  value={effectiveSpec}
-                  placeholder={translate('tui_docs_create_spec_placeholder', language)}
-                  isFocused={activeField === 'spec'}
+                  value={effectiveIntent}
+                  placeholder={translate('tui_docs_create_intent_placeholder', language)}
+                  isFocused={activeField === 'intent'}
                   cursorColor={theme.colors.primary}
                 />
               </Box>
             )}
           </Box>
-          {activeField === 'spec' && availableSpecs.length > 0 && !isSpecCustom && (
-            <Text color={theme.colors.muted}>{translate('tui_docs_create_spec_hint', language)}</Text>
+          {activeField === 'intent' && availableIntents.length > 0 && !isIntentCustom && (
+            <Text color={theme.colors.muted}>{translate('tui_docs_create_intent_hint', language)}</Text>
           )}
         </Box>
 

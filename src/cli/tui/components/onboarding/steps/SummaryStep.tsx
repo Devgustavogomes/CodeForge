@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Text, useInput } from 'ink';
 import { AppContainer } from '../../../../../infrastructure/container.js';
 import { HookMap } from '../../../../../domain/hook.js';
-import { SpecSourceConfig } from '../../../../../domain/spec-source.js';
+import { IntentSourceConfig, } from '../../../../../domain/intent-source.js';
 import { CodeForgeConfig, SupportedLanguage } from '../../../../../config/types.js';
 import { CliInstallResult, OnboardingState } from '../hooks/useOnboardingWizard.js';
 import { CliInstaller } from '../../../../installer/CliInstaller.js';
@@ -13,8 +13,7 @@ import { translate } from '../../../../ui/i18n.js';
 export interface SummaryStepProps {
   container: AppContainer;
   state?: OnboardingState;
-  specSource?: SpecSourceConfig;
-  environment?: string;
+  intentSource?: IntentSourceConfig;  environment?: string;
   plannerAgent?: string;
   executorAgent?: string;
   hooks?: HookMap;
@@ -37,15 +36,15 @@ export interface SummaryStepProps {
 }
 
 /**
- * Formats the spec source configuration for display in the summary screen.
+ * Formats the intent source configuration for display in the summary screen.
  */
-export function formatSpecSourceDisplay(source?: SpecSourceConfig): string {
+export function formatIntentSourceDisplay(source?: IntentSourceConfig): string {
   if (!source || !source.provider) {
-    return 'Local (.codeforge/specs/)';
+    return 'Local (.codeforge/intents/)';
   }
   const provider = source.provider.toLowerCase();
   if (provider === 'local' || provider === 'filesystem') {
-    return 'Local (.codeforge/specs/)';
+    return 'Local (.codeforge/intents/)';
   }
   if (provider === 'github') {
     return source.project ? `GitHub (${source.project})` : 'GitHub Issues / Projects';
@@ -58,7 +57,6 @@ export function formatSpecSourceDisplay(source?: SpecSourceConfig): string {
   }
   return source.provider;
 }
-
 /**
  * Formats the environment CLI installation status using safe ASCII markers and i18n keys.
  */
@@ -149,8 +147,8 @@ const CELEBRATION_COLORS = [
 export const SummaryStep: React.FC<SummaryStepProps> = ({
   container,
   state,
-  specSource,
-  environment,
+  intentSource,
+    environment,
   plannerAgent,
   executorAgent,
   hooks,
@@ -174,9 +172,9 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
   const interactive = isInteractive ?? isActive;
   const activeLanguage: SupportedLanguage = language ?? state?.language ?? 'en';
 
-  const currentSpecSource = useMemo(
-    () => specSource ?? state?.specSource ?? { provider: 'local' },
-    [specSource, state?.specSource],
+  const currentSource = useMemo(
+    () => intentSource ?? state?.intentSource ?? { provider: 'local' },
+    [intentSource, state?.intentSource],
   );
   const currentEnvironment = environment ?? state?.environment ?? 'local';
   const currentPlannerAgent = plannerAgent ?? state?.plannerAgent ?? 'default';
@@ -266,12 +264,12 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
       const existingConfig = container.configService.loadConfig();
 
       const normalizedProvider =
-        currentSpecSource.provider.toLowerCase() === 'local'
+        currentSource.provider.toLowerCase() === 'local'
           ? 'filesystem'
-          : currentSpecSource.provider;
+          : currentSource.provider;
 
-      const specSourceToSave: SpecSourceConfig = {
-        ...currentSpecSource,
+      const intentSourceToSave: IntentSourceConfig = {
+        ...currentSource,
         provider: normalizedProvider,
       };
 
@@ -280,7 +278,7 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
         environment: currentEnvironment,
         plannerAgent: currentPlannerAgent,
         executorAgent: currentExecutorAgent,
-        specSource: specSourceToSave,
+        intentSource: intentSourceToSave,
         hooks: currentHooks,
         language: language ?? state?.language ?? existingConfig?.language ?? 'en',
       };
@@ -306,7 +304,7 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
     isInitializing,
     isSuccess,
     container,
-    currentSpecSource,
+    currentSource,
     currentEnvironment,
     currentPlannerAgent,
     currentExecutorAgent,
@@ -385,10 +383,10 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
       >
         <Box justifyContent="space-between">
           <Text color={theme.colors.muted}>
-            {translate('onboarding_summary_spec_source', activeLanguage)}
+            {translate('onboarding_summary_intent_source', activeLanguage)}
           </Text>
           <Text bold color={theme.colors.accent}>
-            {formatSpecSourceDisplay(currentSpecSource)}
+            {formatIntentSourceDisplay(currentSource)}
           </Text>
         </Box>
 
@@ -452,10 +450,11 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
             {translate('onboarding_summary_error_title', activeLanguage)}
           </Text>
           <Text color={theme.colors.error}>{error}</Text>
-          <Box marginTop={1} gap={2}>
-            <Text bold color={theme.colors.warning}>
+          <Box gap={2} marginTop={1}>
+            <Text bold color={theme.colors.primary}>
               {translate('onboarding_summary_error_retry', activeLanguage)}
             </Text>
+            <Text color={theme.colors.borderSubtle}>│</Text>
             <Text color={theme.colors.muted}>
               {translate('onboarding_summary_back', activeLanguage)}
             </Text>
@@ -464,36 +463,39 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
       )}
 
       {isInitializing && (
-        <Box marginTop={1}>
-          <Spinner
-            color={theme.colors.warning}
-            label={translate('onboarding_summary_initializing', activeLanguage)}
-          />
+        <Box
+          borderStyle="round"
+          borderColor={theme.colors.primary}
+          paddingX={1}
+          alignItems="center"
+          gap={1}
+        >
+          <Spinner color={theme.colors.primary} />
+          <Text bold color={theme.colors.primary}>
+            {translate('onboarding_summary_initializing', activeLanguage)}
+          </Text>
         </Box>
       )}
 
       {isSuccess && (
         <Box
           flexDirection="column"
+          borderStyle="round"
+          borderColor={theme.colors.success}
+          paddingX={1}
           alignItems="center"
-          justifyContent="center"
-          width="100%"
-          marginTop={1}
-          gap={1}
         >
-          <Box flexDirection="column" alignItems="center">
-            {celebrationFrames[celebrationFrameIndex].map((line, idx) => (
-              <Text key={idx} color={CELEBRATION_COLORS[idx % CELEBRATION_COLORS.length]} bold>
-                {line}
-              </Text>
-            ))}
-          </Box>
-
-          <Box flexDirection="column" alignItems="center">
-            <Text bold color={theme.colors.success}>
-              {translate('onboarding_summary_success_title', activeLanguage)}
+          {celebrationFrames[celebrationFrameIndex]?.map((line, idx) => (
+            <Text
+              key={idx}
+              color={CELEBRATION_COLORS[idx % CELEBRATION_COLORS.length]}
+              bold
+            >
+              {line}
             </Text>
-            <Text color={theme.colors.muted}>
+          ))}
+          <Box marginTop={1}>
+            <Text bold color={theme.colors.success}>
               {translate('onboarding_summary_success_subtitle', activeLanguage)}
             </Text>
           </Box>
@@ -501,12 +503,17 @@ export const SummaryStep: React.FC<SummaryStepProps> = ({
       )}
 
       {!isInitializing && !isSuccess && !error && (
-        <Box marginTop={1} gap={2}>
-          <Text bold color={theme.colors.success}>
-            {translate('onboarding_summary_action_forge', activeLanguage)}
-          </Text>
+        <Box
+          borderStyle="single"
+          borderColor={theme.colors.borderSubtle}
+          paddingX={1}
+          justifyContent="space-between"
+        >
           <Text color={theme.colors.muted}>
             {translate('onboarding_summary_back', activeLanguage)}
+          </Text>
+          <Text bold color={theme.colors.primary}>
+            {translate('onboarding_summary_action_forge', activeLanguage)}
           </Text>
         </Box>
       )}

@@ -1,9 +1,10 @@
-﻿import React from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
 import type { ConfigPreviewProps } from '../ConfigPreview.js';
 import { theme } from '../../../../theme.js';
 
 export const GenericPreview: React.FC<ConfigPreviewProps> = ({ config }) => {
+  const source = config.intentSource;
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text bold color={theme.colors.primary}>Configuration Preview</Text>
@@ -18,7 +19,8 @@ export const GenericPreview: React.FC<ConfigPreviewProps> = ({ config }) => {
         ).length}{' '}
         active
       </Text>
-      <Text color={theme.colors.muted}>Spec Source: {config.specSource?.provider || 'filesystem'}</Text>
+      <Text color={theme.colors.muted}>Intent Source: {source?.provider || 'filesystem'}</Text>
     </Box>
   );
 };
+export default GenericPreview;

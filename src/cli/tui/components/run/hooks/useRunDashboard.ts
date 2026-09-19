@@ -69,25 +69,27 @@ export function useRunDashboard() {
     )[0]?.completedAt;
   }, [exec.completedAt, exec.tasks]);
 
+  const currentIntent = exec.activeIntent ?? exec.activeIntent;
+
   const onTogglePanel = useCallback(() => setFocusedPanel((panel) => panel === 'tasks' ? 'logs' : 'tasks'), []);
   const onFocusTasks = useCallback(() => setFocusedPanel('tasks'), []);
   const onFocusLogs = useCallback(() => setFocusedPanel('logs'), []);
   const onStartRun = useCallback(async () => {
-    if (!exec.activeSpec) return;
+    if (!currentIntent) return;
     beginAction();
-    try { await exec.startRun(exec.activeSpec); } catch { /* sem feedback falso */ }
-  }, [beginAction, exec]);
+    try { await exec.startRun(currentIntent); } catch { /* sem feedback falso */ }
+  }, [beginAction, currentIntent, exec]);
   const onRetryTask = useCallback(async () => {
-    if (!exec.activeSpec || !selectedTask || selectedTask.status !== 'failed') return;
+    if (!currentIntent || !selectedTask || selectedTask.status !== 'failed') return;
     beginAction();
     try {
-      await exec.retryTask(selectedTask.id, exec.activeSpec);
-      await exec.startRun(exec.activeSpec);
+      await exec.retryTask(selectedTask.id, currentIntent);
+      await exec.startRun(currentIntent);
       publishFeedback(`✓ Task ${selectedTask.id} retried — scheduler resuming`);
     } catch { /* sem feedback falso */ }
-  }, [beginAction, exec, publishFeedback, selectedTask]);
+  }, [beginAction, currentIntent, exec, publishFeedback, selectedTask]);
   const onRetryAllFailed = useCallback(async () => {
-    if (!exec.activeSpec) return;
+    if (!currentIntent) return;
     const failures = exec.tasks.filter((task) => task.status === 'failed').length;
     beginAction();
     if (failures === 0) {
@@ -96,38 +98,40 @@ export function useRunDashboard() {
     }
     try {
       await exec.retryAllFailed();
-      await exec.startRun(exec.activeSpec);
+      await exec.startRun(currentIntent);
       publishFeedback(`✓ ${failures} failed tasks retried — scheduler resuming`);
     } catch { /* sem feedback falso */ }
-  }, [beginAction, exec, publishFeedback]);
+  }, [beginAction, currentIntent, exec, publishFeedback]);
   const onResetAllTasks = useCallback(async () => {
-    if (!exec.activeSpec) return;
+    if (!currentIntent) return;
     beginAction();
     try {
-      await exec.resetAllTasks(exec.activeSpec);
-      await exec.startRun(exec.activeSpec);
+      await exec.resetAllTasks(currentIntent);
+      await exec.startRun(currentIntent);
       publishFeedback('✓ All tasks reset — restarting execution');
     } catch { /* sem feedback falso */ }
-  }, [beginAction, exec, publishFeedback]);
+  }, [beginAction, currentIntent, exec, publishFeedback]);
   const onResetTask = useCallback(async () => {
-    if (!exec.activeSpec || !selectedTask) return;
+    if (!currentIntent || !selectedTask) return;
     beginAction();
     try {
-      await exec.resetTask(selectedTask.id, exec.activeSpec);
+      await exec.resetTask(selectedTask.id, currentIntent);
       publishFeedback(`✓ Task ${selectedTask.id} reset to pending`);
     } catch { /* sem feedback falso */ }
-  }, [beginAction, exec, publishFeedback, selectedTask]);
+  }, [beginAction, currentIntent, exec, publishFeedback, selectedTask]);
   const onCompleteTask = useCallback(async () => {
-    if (!exec.activeSpec || !selectedTask || selectedTask.status === 'completed') return;
+    if (!currentIntent || !selectedTask || selectedTask.status === 'completed') return;
     beginAction();
     try {
-      await exec.completeTask(selectedTask.id, exec.activeSpec);
+      await exec.completeTask(selectedTask.id, currentIntent);
       publishFeedback(`✓ Task ${selectedTask.id} marked as completed`);
     } catch { /* sem feedback falso */ }
-  }, [beginAction, exec, publishFeedback, selectedTask]);
-  const onSelectSpec = useCallback(() => {
+  }, [beginAction, currentIntent, exec, publishFeedback, selectedTask]);
+  const onSelectIntent = useCallback(() => {
     beginAction();
-    exec.setActiveSpec(null);
+    if (typeof exec.setActiveIntent === 'function') {
+      exec.setActiveIntent(null);
+    }
   }, [beginAction, exec]);
   return {
     focusedPanel,
@@ -137,6 +141,7 @@ export function useRunDashboard() {
     selectedTaskId: exec.selectedTaskId,
     selectedTask,
     selectedTaskStatus,
+    selectedTaskLogs,
     logs: exec.logs,
     taskLogs: selectedTaskLogs,
     completedCount,
@@ -146,23 +151,22 @@ export function useRunDashboard() {
     totalCount: exec.tasks.length,
     hasFailedTasks,
     hasPendingTasks,
-    effectiveSpecName: exec.activeSpec ?? '',
-    effectiveStatus: exec.schedulerStatus,
+    startedAt: derivedStartedAt,
+    completedAt: derivedCompletedAt,
     derivedStartedAt,
     derivedCompletedAt,
+    activeIntent: currentIntent,    currentIntent,    effectiveIntentName: currentIntent ?? '',    effectiveStatus: exec.schedulerStatus,
     selectTask: exec.selectTask,
-    setActiveSpec: exec.setActiveSpec,
-    onTogglePanel,
+    setActiveIntent: exec.setActiveIntent,    onTogglePanel,
     onFocusTasks,
     onFocusLogs,
     onStartRun,
     onRetryTask,
     onRetryAllFailed,
-    onCompleteTask,
-    onResetTask,
     onResetAllTasks,
-    onSelectSpec,
-  };
+    onResetTask,
+    onCompleteTask,
+    onSelectIntent,  };
 }
 
 export default useRunDashboard;

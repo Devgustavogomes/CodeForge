@@ -1,27 +1,25 @@
 import { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import { useInput } from 'ink';
 import { NavigationContext } from '../../../context/NavigationContext.js';
-import { SpecSourceConfig } from '../../../../../domain/spec-source.js';
-import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
+import { IntentSourceConfig } from '../../../../../domain/intent-source.js';
+import { IntentSourceFactory } from '../../../../../infrastructure/intent-sources/IntentSourceFactory.js';
 import {
-  SpecSourceFormField,
-  SPEC_SOURCE_FORM_FIELDS,
-} from '../components/SpecSourceForm.js';
+  IntentSourceFormField,
+  INTENT_SOURCE_FORM_FIELDS,
+} from '../components/IntentSourceForm.js';
 import { CodeForgeConfig } from '../../../../../config/types.js';
 import { ConfigService } from '../../../../../config/ConfigService.js';
 import { useTextInput } from '../../../hooks/useTextInput.js';
 
-export interface UseConfigureSpecSourceModalOptions {
+export interface UseConfigureIntentSourceModalOptions {
   isOpen?: boolean;
   onClose?: () => void;
   config?: CodeForgeConfig;
   configService?: ConfigService;
-  onUpdateSpecSource?: (specSource: SpecSourceConfig) => void;
-  availableProviders?: string[];
-  formFields?: SpecSourceFormField[];
+  onUpdateIntentSource?: (intentSource: IntentSourceConfig) => void;  availableProviders?: string[];
+  formFields?: IntentSourceFormField[];
 }
-
-export interface UseConfigureSpecSourceModalReturn {
+export interface UseConfigureIntentSourceModalReturn {
   provider: string;
   setProvider: (p: string | ((prev: string) => string)) => void;
   project: string;
@@ -32,24 +30,22 @@ export interface UseConfigureSpecSourceModalReturn {
   setApiKey: (k: string | ((prev: string) => string)) => void;
   activeFormFieldIndex: number;
   setActiveFormFieldIndex: (idx: number | ((prev: number) => number)) => void;
-  activeFormField: SpecSourceFormField;
+  activeFormField: IntentSourceFormField;
   formErrorMessage: string | null;
   setFormErrorMessage: (msg: string | null) => void;
   feedbackMessage: string | null;
   setFeedbackMessage: (msg: string | null) => void;
   availableProviders: string[];
-  saveSpecSource: () => boolean;
-  cycleProvider: (direction: 1 | -1) => void;
+  saveIntentSource: () => boolean;  cycleProvider: (direction: 1 | -1) => void;
 }
-
 function isDefaultOrEnvApiKey(key: string): boolean {
   if (!key || !key.trim()) return true;
   const trimmed = key.trim();
-  for (const p of SpecSourceFactory.getAvailableProviders()) {
+  for (const p of IntentSourceFactory.getAvailableProviders()) {
     if (
-      trimmed === SpecSourceFactory.getDefaultApiKey(p) ||
-      trimmed === SpecSourceFactory.getDefaultEnvVar(p) ||
-      trimmed === `$${SpecSourceFactory.getDefaultEnvVar(p)}`
+      trimmed === IntentSourceFactory.getDefaultApiKey(p) ||
+      trimmed === IntentSourceFactory.getDefaultEnvVar(p) ||
+      trimmed === `$${IntentSourceFactory.getDefaultEnvVar(p)}`
     ) {
       return true;
     }
@@ -57,36 +53,39 @@ function isDefaultOrEnvApiKey(key: string): boolean {
   return false;
 }
 
-export function useConfigureSpecSourceModal({
+export function useConfigureIntentSourceModal({
   isOpen = true,
   onClose,
   config,
   configService,
-  onUpdateSpecSource,
-  availableProviders: requestedProviders,
-  formFields = SPEC_SOURCE_FORM_FIELDS,
-}: UseConfigureSpecSourceModalOptions): UseConfigureSpecSourceModalReturn {
+  onUpdateIntentSource,
+    availableProviders: requestedProviders,
+  formFields = INTENT_SOURCE_FORM_FIELDS,
+}: UseConfigureIntentSourceModalOptions): UseConfigureIntentSourceModalReturn {
   const nav = useContext(NavigationContext);
 
   const availableProviders = useMemo(() => {
-    return requestedProviders ?? SpecSourceFactory.getAvailableProviders();
+    return requestedProviders ?? IntentSourceFactory.getAvailableProviders();
   }, [requestedProviders]);
 
-  const initialProvider = config?.specSource?.provider || 'filesystem';
+  const currentConfigIntentSource =
+    config?.intentSource;
+
+  const initialProvider = currentConfigIntentSource?.provider || 'filesystem';
   const [provider, setProvider] = useState<string>(initialProvider);
   const [project, setProject] = useState<string>(
-    () => (config?.specSource?.project as string | undefined) || '',
+    () => (currentConfigIntentSource?.project as string | undefined) || '',
   );
   const [team, setTeam] = useState<string>(
-    () => (config?.specSource?.team as string | undefined) || '',
+    () => (currentConfigIntentSource?.team as string | undefined) || '',
   );
   const [apiKey, setApiKey] = useState<string>(
     () =>
-      (config?.specSource?.apiKey as string | undefined) ||
-      SpecSourceFactory.getDefaultApiKey(initialProvider),
+      (currentConfigIntentSource?.apiKey as string | undefined) ||
+      IntentSourceFactory.getDefaultApiKey(initialProvider),
   );
   const [hasCustomApiKey, setHasCustomApiKey] = useState<boolean>(() => {
-    const initialKey = config?.specSource?.apiKey as string | undefined;
+    const initialKey = currentConfigIntentSource?.apiKey as string | undefined;
     return Boolean(initialKey && !isDefaultOrEnvApiKey(initialKey));
   });
 
@@ -94,17 +93,17 @@ export function useConfigureSpecSourceModal({
   const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
-  const activeFormField: SpecSourceFormField =
+  const activeFormField: IntentSourceFormField =
     formFields[activeFormFieldIndex] ?? formFields[0] ?? 'provider';
 
-  const saveSpecSource = useCallback((): boolean => {
+  const saveIntentSource = useCallback((): boolean => {
     const trimmedProvider = provider.trim() || 'filesystem';
     const trimmedProject = project.trim();
     const trimmedTeam = team.trim();
-    const defaultApiKey = SpecSourceFactory.getDefaultApiKey(trimmedProvider);
+    const defaultApiKey = IntentSourceFactory.getDefaultApiKey(trimmedProvider);
     const trimmedApiKey = apiKey.trim() || defaultApiKey;
 
-    const updatedSpecSource: SpecSourceConfig = {
+    const updatedIntentSource: IntentSourceConfig = {
       provider: trimmedProvider,
       ...(trimmedProject ? { project: trimmedProject } : {}),
       ...(trimmedTeam ? { team: trimmedTeam } : {}),
@@ -115,21 +114,22 @@ export function useConfigureSpecSourceModal({
       try {
         configService.saveConfig({
           ...(config || {}),
-          specSource: updatedSpecSource,
+          intentSource: updatedIntentSource,
         });
-        setFeedbackMessage('✔ Spec Source salvo com sucesso no config.yaml');
+        setFeedbackMessage('✔ Intent Source salvo com sucesso no config.yaml');
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        setFeedbackMessage(`✗ Erro ao salvar spec source: ${msg}`);
+        setFeedbackMessage(`✗ Erro ao salvar intent source: ${msg}`);
       }
     } else {
-      setFeedbackMessage('✔ Spec Source salvo com sucesso');
+      setFeedbackMessage('✔ Intent Source salvo com sucesso');
     }
 
-    onUpdateSpecSource?.(updatedSpecSource);
+    const updateCallback = onUpdateIntentSource;
+    updateCallback?.(updatedIntentSource);
     onClose?.();
     return true;
-  }, [provider, project, team, apiKey, configService, config, onUpdateSpecSource, onClose]);
+  }, [provider, project, team, apiKey, configService, config, onUpdateIntentSource, onUpdateIntentSource, onClose]);
 
   const projectInput = useTextInput({
     initialValue: project,
@@ -160,17 +160,19 @@ export function useConfigureSpecSourceModal({
   // Sincronizar campos quando o modal abre ou config muda
   useEffect(() => {
     if (isOpen) {
-      const currentProvider = config?.specSource?.provider || 'filesystem';
+      const source =
+        config?.intentSource;
+      const currentProvider = source?.provider || 'filesystem';
       setProvider(currentProvider);
-      const proj = (config?.specSource?.project as string | undefined) || '';
+      const proj = (source?.project as string | undefined) || '';
       setProject(proj);
       projectInput.setValue(proj);
-      const tm = (config?.specSource?.team as string | undefined) || '';
+      const tm = (source?.team as string | undefined) || '';
       setTeam(tm);
       teamInput.setValue(tm);
       const key =
-        (config?.specSource?.apiKey as string | undefined) ||
-        SpecSourceFactory.getDefaultApiKey(currentProvider);
+        (source?.apiKey as string | undefined) ||
+        IntentSourceFactory.getDefaultApiKey(currentProvider);
       setApiKey(key);
       apiKeyInput.setValue(key);
       setHasCustomApiKey(Boolean(key && !isDefaultOrEnvApiKey(key)));
@@ -179,7 +181,7 @@ export function useConfigureSpecSourceModal({
       setFormErrorMessage(null);
       setFeedbackMessage(null);
     }
-  }, [isOpen, config?.specSource]);
+  }, [isOpen, config?.intentSource]);
 
   // Sincronizar foco de digitação com o NavigationContext
   useEffect(() => {
@@ -208,7 +210,7 @@ export function useConfigureSpecSourceModal({
       const nextProvider = availableProviders[nextIdx];
 
       if (!hasCustomApiKey || isDefaultOrEnvApiKey(apiKey)) {
-        const nextDefault = SpecSourceFactory.getDefaultApiKey(nextProvider);
+        const nextDefault = IntentSourceFactory.getDefaultApiKey(nextProvider);
         setApiKey(nextDefault);
         apiKeyInput.setValue(nextDefault);
         setHasCustomApiKey(false);
@@ -250,7 +252,7 @@ export function useConfigureSpecSourceModal({
 
       // Submissão do formulário com Enter
       if (key.return || input === '\r' || input === '\n') {
-        saveSpecSource();
+        saveIntentSource();
         return;
       }
 
@@ -270,7 +272,7 @@ export function useConfigureSpecSourceModal({
       // Campo 5: Botão Salvar (save)
       if (activeFormField === 'save') {
         if (input === ' ') {
-          saveSpecSource();
+          saveIntentSource();
           return;
         }
         return;
@@ -296,7 +298,8 @@ export function useConfigureSpecSourceModal({
     feedbackMessage,
     setFeedbackMessage,
     availableProviders,
-    saveSpecSource,
-    cycleProvider,
+    saveIntentSource,    cycleProvider,
   };
 }
+
+export default useConfigureIntentSourceModal;

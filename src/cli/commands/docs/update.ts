@@ -8,7 +8,7 @@ import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 import { ActionResult } from "../../types.js";
 
 export async function docsUpdateAction(
-  spec?: string,
+  intent?: string,
   options?: { doc?: string }
 ): Promise<ActionResult> {
   const container = createAppContainer();
@@ -22,26 +22,27 @@ export async function docsUpdateAction(
     return { success: false };
   }
 
-  let selectedSpec = spec;
+  let selectedIntent = intent;
 
-  if (!selectedSpec) {
-    const specs = container.listSpecsUseCase.execute();
+  if (!selectedIntent) {
+    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const intents = listUseCase.execute();
 
-    if (specs.length === 0) {
-      console.error(translate("err_no_specs", lang));
+    if (intents.length === 0) {
+      console.error(translate("err_no_intents", lang));
       process.exitCode = 1;
       return { success: false };
     }
 
-    selectedSpec = await select({
-      message: translate("docs_update_select_spec", lang),
+    selectedIntent = await select({
+      message: translate("docs_update_select_intent", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((s) => ({ name: s.name, value: s.name })),
+        ...intents.map((s) => ({ name: s.name, value: s.name })),
       ],
     });
 
-    if (selectedSpec === "back") {
+    if (selectedIntent === "back") {
       return { back: true };
     }
   }
@@ -63,7 +64,7 @@ export async function docsUpdateAction(
     ui.start();
 
     try {
-      await useCase.execute(selectedSpec!, affectedDoc, isManual);
+      await useCase.execute(selectedIntent!, affectedDoc, isManual);
       ui.stop(true, translate("docs_update_ui_success", lang));
     } catch (error) {
       ui.stop(false, "Failed");
@@ -78,18 +79,17 @@ export async function docsUpdateAction(
 
   // ── Manual mode: user explicitly specified --doc <docname> ──────────────
   if (options?.doc) {
-    const result = useCase.getManualDoc(selectedSpec, options.doc);
+    const result = useCase.getManualDoc(selectedIntent, options.doc);
 
     switch (result.kind) {
       case "not-initialized":
         console.error(translate("err_not_initialized", lang));
         process.exitCode = 1;
         return { success: false };
-      case "spec-not-found":
+      case "intent-not-found":
         console.error(
-          translate("err_spec_not_found", lang, {
-            spec: selectedSpec as string,
-          }),
+          translate("err_intent_not_found", lang, {
+            intent: selectedIntent as string,          }),
         );
         process.exitCode = 1;
         return { success: false };
@@ -114,18 +114,17 @@ export async function docsUpdateAction(
 
   // ── Automatic mode: scope-based manifest matching (default) ─────────────
 
-  const result = useCase.getAffectedDocs(selectedSpec);
+  const result = useCase.getAffectedDocs(selectedIntent);
 
   switch (result.kind) {
     case "not-initialized":
       console.error(translate("err_not_initialized", lang));
       process.exitCode = 1;
       return { success: false };
-    case "spec-not-found":
+    case "intent-not-found":
       console.error(
-        translate("err_spec_not_found", lang, {
-          spec: selectedSpec as string,
-        }),
+        translate("err_intent_not_found", lang, {
+          intent: selectedIntent as string,        }),
       );
       process.exitCode = 1;
       return { success: false };
@@ -144,8 +143,7 @@ export async function docsUpdateAction(
     case "no-affected-docs":
       console.error(
         translate("docs_update_err_no_affected_docs", lang, {
-          spec: selectedSpec as string,
-        }),
+          intent: selectedIntent as string,        }),
       );
       process.exitCode = 1;
       return { success: false };
@@ -153,7 +151,7 @@ export async function docsUpdateAction(
       break; // proceed below
   }
 
-  const { affectedDocs } = result;
+  const affectedDocs = (result as Extract<typeof result, { kind: "affected-docs" }>).affectedDocs;
 
   console.log(
     translate("docs_update_affected_count", lang, {
@@ -212,15 +210,15 @@ export async function docsUpdateAction(
 
 export function registerDocsUpdateCommand(docs: Command): void {
   docs
-    .command("update [spec]")
+    .command("update [intent]")
     .description(
-      "Update documentation autonomously affected by changes from a spec execution",
+      "Update documentation autonomously affected by changes from an intent execution",
     )
     .option(
       "--doc <doc>",
       "Manually specify which doc to update (skips scope matching)",
     )
-    .action(async (spec?: string, options?: { doc?: string }) => {
-      await docsUpdateAction(spec, options);
+    .action(async (intent?: string, options?: { doc?: string }) => {
+      await docsUpdateAction(intent, options);
     });
 }

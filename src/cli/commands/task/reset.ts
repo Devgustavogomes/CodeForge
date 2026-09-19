@@ -5,7 +5,7 @@ import { translate } from "../../ui/i18n.js";
 import { createAppContainer } from "../../../infrastructure/container.js";
 import { ActionResult } from "../../types.js";
 
-export async function taskResetAction(spec?: string, taskId?: string): Promise<ActionResult> {
+export async function taskResetAction(intent?: string, taskId?: string): Promise<ActionResult> {
   const container = createAppContainer();
 
   const config = container.configService.loadConfig();
@@ -17,26 +17,27 @@ export async function taskResetAction(spec?: string, taskId?: string): Promise<A
     return { success: false };
   }
 
-  let specName = spec;
+  let intentName = intent;
 
-  if (!specName) {
-    const specs = container.listSpecsUseCase.execute();
+  if (!intentName) {
+    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const intents = listUseCase.execute();
 
-    if (specs.length === 0) {
-      console.error(translate("err_no_specs_run", lang));
+    if (intents.length === 0) {
+      console.error(translate("err_no_intents_run", lang));
       process.exitCode = 1;
       return { success: false };
     }
 
-    specName = await select({
-      message: translate("run_select_spec", lang),
+    intentName = await select({
+      message: translate("run_select_intent", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((s) => ({ name: s.name, value: s.name })),
+        ...intents.map((s) => ({ name: s.name, value: s.name })),
       ],
     });
 
-    if (specName === "back") {
+    if (intentName === "back") {
       return { back: true };
     }
   }
@@ -45,10 +46,10 @@ export async function taskResetAction(spec?: string, taskId?: string): Promise<A
   let targetTaskId = taskId;
 
   if (!targetTaskId) {
-    const tasksResult = useCase.getAvailableTasks(specName);
+    const tasksResult = useCase.getAvailableTasks(intentName);
 
-    if (tasksResult.kind === "spec-not-found" || tasksResult.kind === "no-tasks") {
-      console.error(translate("err_tasks_dir_not_found", lang, { spec: specName }));
+    if (tasksResult.kind !== "tasks") {
+      console.error(translate("err_tasks_dir_not_found", lang, { intent: intentName,}));
       process.exitCode = 1;
       return { success: false };
     }
@@ -74,44 +75,44 @@ export async function taskResetAction(spec?: string, taskId?: string): Promise<A
     }
   }
 
-  const result = useCase.resetTasks(specName, targetTaskId);
+  const result = useCase.resetTasks(intentName, targetTaskId);
 
   switch (result.kind) {
-    case "spec-not-found":
-      console.error(translate("err_spec_not_found", lang, { spec: specName }));
+    case "intent-not-found":
+      console.error(translate("err_intent_not_found", lang, { intent: intentName,}));
       process.exitCode = 1;
       return { success: false };
     case "no-execution":
-      console.log(translate("status_no_execution", lang, { spec: specName }));
+      console.log(translate("status_no_execution", lang, { intent: intentName,}));
       return { success: true };
     case "task-not-found":
-      console.error(`\n✗ Task '${result.taskId}' not found in spec '${specName}'.\n`);
+      console.error(`\n✗ Task '${result.taskId}' not found in intent '${intentName}'.\n`);
       process.exitCode = 1;
       return { success: false };
     case "reset-single":
       console.log(
         translate("reset_success_single", lang, {
           taskId: result.taskId,
-          spec: specName,
-        }),
+          intent: intentName,        }),
       );
       return { success: true };
     case "reset-all":
       console.log(
         translate("reset_success_all", lang, {
           count: result.count,
-          spec: specName,
-        }),
+          intent: intentName,        }),
       );
       return { success: true };
+    default:
+      return { success: false };
   }
 }
 
 export function registerTaskResetCommand(task: Command): void {
   task
-    .command("reset [spec] [taskId]")
+    .command("reset [intent] [taskId]")
     .description("Reset tasks to pending state without executing")
-    .action(async (spec?: string, taskId?: string) => {
-      await taskResetAction(spec, taskId);
+    .action(async (intent?: string, taskId?: string) => {
+      await taskResetAction(intent, taskId);
     });
 }

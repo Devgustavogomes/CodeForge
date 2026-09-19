@@ -3,36 +3,36 @@ import { Box, Text } from 'ink';
 import { Modal } from '../common/Modal.js';
 import { theme } from '../../theme.js';
 import {
-  usePullSpecModal,
-  UsePullSpecModalOptions,
-} from './hooks/usePullSpecModal.js';
+  usePullIntentModal,
+  UsePullIntentModalOptions,
+} from './hooks/usePullIntentModal.js';
 import { PullItemList } from './components/PullItemList.js';
 import { PullManualForm } from './components/PullManualForm.js';
 
-export interface PullSpecModalProps extends UsePullSpecModalOptions {
+export interface PullIntentModalProps extends UsePullIntentModalOptions {
   width?: number | string;
 }
 
 /**
- * Clean orchestrator component for pulling specifications from remote providers.
+ * Clean orchestrator component for pulling intents from remote providers.
  * Provider is read from config (not user-selectable) — matching CLI behavior.
- * Delegates data fetching, navigation, and input handling to usePullSpecModal.
+ * Delegates data fetching, navigation, and input handling to usePullIntentModal.
  */
-export const PullSpecModal: React.FC<PullSpecModalProps> = ({
+export const PullIntentModal: React.FC<PullIntentModalProps> = ({
   isOpen = true,
   onClose,
   onSuccess,
   container,
-  pullSpecUseCase,
-  defaultProvider,
+  pullIntentUseCase,
+    defaultProvider,
   width = '100%',
 }) => {
-  const modal = usePullSpecModal({
+  const modal = usePullIntentModal({
     isOpen,
     onClose,
     onSuccess,
     container,
-    pullSpecUseCase,
+    pullIntentUseCase: pullIntentUseCase,
     defaultProvider,
   });
 
@@ -42,7 +42,7 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
 
   return (
     <Modal
-      title="Pull Specification"
+      title="Pull Intent"
       isOpen={isOpen}
       onClose={modal.handleClose}
       width={width}
@@ -65,7 +65,7 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
         />
 
         <PullManualForm
-          specId={modal.specId}
+          intentId={modal.intentId}
           customName={modal.customName}
           activeField={modal.activeField}
           selectedProvider={modal.selectedProvider}
@@ -83,7 +83,7 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
         {modal.isLoading && (
           <Box marginBottom={0}>
             <Text color={theme.colors.warning}>
-              Fetching specification from {modal.selectedProvider}...
+              Fetching intent from {modal.selectedProvider}...
             </Text>
           </Box>
         )}
@@ -104,4 +104,4 @@ export const PullSpecModal: React.FC<PullSpecModalProps> = ({
       </Box>
     </Modal>
   );
-};
+};export default PullIntentModal;

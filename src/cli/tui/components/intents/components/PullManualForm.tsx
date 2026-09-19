@@ -4,7 +4,7 @@ import { TextInput } from '../../common/TextInput.js';
 import { theme } from '../../../theme.js';
 
 export interface PullManualFormProps {
-  specId: string;
+  intentId: string;
   customName: string;
   activeField: 'provider' | 'id' | 'name';
   selectedProvider: string;
@@ -20,16 +20,16 @@ function getProviderIdPlaceholder(provider: string): string {
     case 'clickup':
       return 'e.g. 86789abc';
     default:
-      return 'e.g. specs/feature.md';
+      return 'e.g. intents/feature.md';
   }
 }
 
 /**
- * Visual subcomponent for entering manual specification ID and custom filename.
+ * Visual subcomponent for entering manual intent ID and custom filename.
  * Utilizes the shared TextInput primitive with focused block cursor styling.
  */
 export const PullManualForm: React.FC<PullManualFormProps> = ({
-  specId,
+  intentId,
   customName,
   activeField,
   selectedProvider,
@@ -43,7 +43,7 @@ export const PullManualForm: React.FC<PullManualFormProps> = ({
             {'> '}
           </Text>
           <TextInput
-            value={specId}
+            value={intentId}
             placeholder={getProviderIdPlaceholder(selectedProvider)}
             isFocused={activeField === 'id'}
             cursorColor={theme.colors.primary}

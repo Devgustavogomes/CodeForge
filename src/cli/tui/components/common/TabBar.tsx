@@ -16,7 +16,7 @@ export interface TabBarProps {
 
 /**
  * TabBar component rendering the 5 primary tabs of CodeForge TUI:
- * [1] Run, [2] Specs, [3] Tasks, [4] Docs, [5] Config
+ * [1] Run, [2] Intents, [3] Tasks, [4] Docs, [5] Config
  * Dynamically resolves tab labels using i18n keys based on active language.
  * Displays an active highlight badge and rounded borders.
  */

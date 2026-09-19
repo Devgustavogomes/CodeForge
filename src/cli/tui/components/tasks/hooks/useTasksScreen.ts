@@ -15,7 +15,7 @@ export interface TasksActionFeedback {
 
 export interface UseTasksScreenOptions {
   container?: AppContainer;
-  initialSpec?: string;
+  initialIntent?: string;
   initialTasks?: TaskScreenItem[];
   onCompleteTask?: (taskId: string) => void;
   onResetTask?: (taskId: string) => void;
@@ -46,38 +46,38 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     }
   }, [container, options?.language]);
 
-  const [specs, setSpecs] = useState<string[]>([]);
-  const [selectedSpecIndex, setSelectedSpecIndex] = useState(0);
-  const [specSearchQuery, setSpecSearchQuery] = useState('');
-  const [isSearchingSpec, setIsSearchingSpec] = useState(false);
+  const [intents, setIntents] = useState<string[]>([]);
+  const [selectedIntentIndex, setSelectedIntentIndex] = useState(0);
+  const [intentSearchQuery, setIntentSearchQuery] = useState('');
+  const [isSearchingIntent, setIsSearchingIntent] = useState(false);
 
   useEffect(() => {
-    const specList = container.listSpecsUseCase.listNames();
-    setSpecs(specList);
-    const active = options?.initialSpec || exec?.activeSpec;
+    const intentList = container.listIntentsUseCase.listNames();
+    setIntents(intentList);
+    const active = options?.initialIntent || exec?.activeIntent;
     if (active) {
-      const idx = specList.indexOf(active);
-      if (idx >= 0) setSelectedSpecIndex(idx);
+      const idx = intentList.indexOf(active);
+      if (idx >= 0) setSelectedIntentIndex(idx);
     }
-  }, [container, options?.initialSpec, exec?.activeSpec]);
+  }, [container, options?.initialIntent, exec?.activeIntent]);
 
-  const filteredSpecs = useMemo(() => {
-    if (!specSearchQuery.trim()) return specs;
-    const q = specSearchQuery.toLowerCase();
-    return specs.filter((s) => s.toLowerCase().includes(q));
-  }, [specs, specSearchQuery]);
+  const filteredIntents = useMemo(() => {
+    if (!intentSearchQuery.trim()) return intents;
+    const q = intentSearchQuery.toLowerCase();
+    return intents.filter((s) => s.toLowerCase().includes(q));
+  }, [intents, intentSearchQuery]);
 
-  // Adjust selectedSpecIndex if bounds exceed filteredSpecs
+  // Adjust selectedIntentIndex if bounds exceed filteredIntents
   useEffect(() => {
-    if (filteredSpecs.length > 0 && selectedSpecIndex >= filteredSpecs.length) {
-      setSelectedSpecIndex(0);
+    if (filteredIntents.length > 0 && selectedIntentIndex >= filteredIntents.length) {
+      setSelectedIntentIndex(0);
     }
-  }, [filteredSpecs.length, selectedSpecIndex]);
+  }, [filteredIntents.length, selectedIntentIndex]);
 
-  const currentSpec =
-    filteredSpecs[selectedSpecIndex] ||
-    options?.initialSpec ||
-    exec?.activeSpec ||
+  const currentIntent =
+    filteredIntents[selectedIntentIndex] ||
+    options?.initialIntent ||
+    exec?.activeIntent ||
     '';
 
   const [tasks, setTasks] = useState<TaskScreenItem[]>(
@@ -91,14 +91,14 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   const [feedback, setFeedback] = useState<TasksActionFeedback | null>(null);
   const isDeleteConfirmingRef = useRef(false);
 
-  const loadTasksForSpec = useCallback(
-    (spec: string, resetSelection = true): TaskScreenItem[] => {
-      if (!spec) {
+  const loadTasksForIntent = useCallback(
+    (intent: string, resetSelection = true): TaskScreenItem[] => {
+      if (!intent) {
         setTasks([]);
         setSelectedTaskIndex(0);
         return [];
       }
-      const loaded = loadTasksFromDisk(container.gw, container.stateRepo, spec);
+      const loaded = loadTasksFromDisk(container.gw, container.stateRepo, intent);
       loaded.sort((a, b) => a.id.localeCompare(b.id));
       setTasks(loaded);
       setSelectedTaskIndex((currentIndex) =>
@@ -113,20 +113,20 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
 
   useEffect(() => {
     if (options?.initialTasks) return;
-    loadTasksForSpec(currentSpec);
-  }, [currentSpec, options?.initialTasks, loadTasksForSpec]);
+    loadTasksForIntent(currentIntent);
+  }, [currentIntent, options?.initialTasks, loadTasksForIntent]);
 
   const selectedTask = tasks[selectedTaskIndex] ?? null;
 
   const handleComplete = useCallback(async () => {
-    if (!selectedTask || !currentSpec) return;
+    if (!selectedTask || !currentIntent) return;
     try {
       if (options?.onCompleteTask) {
         options.onCompleteTask(selectedTask.id);
       }
 
       const result = container.taskOperationsUseCase.markTaskCompleted(
-        currentSpec,
+        currentIntent,
         selectedTask.id,
       );
 
@@ -134,17 +134,17 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
         if (!options?.initialTasks) {
           setFeedback({
             type: 'error',
-            message: `Task ${selectedTask.id} not found in spec ${currentSpec}.`,
+            message: `Task ${selectedTask.id} not found in intent ${currentIntent}.`,
           });
           return;
         }
       }
 
-      if (exec?.activeSpec === currentSpec) {
+      if (exec?.activeIntent === currentIntent) {
         if (exec.refreshTasks) {
-          exec.refreshTasks(currentSpec);
+          exec.refreshTasks(currentIntent);
         } else if (exec.completeTask) {
-          await exec.completeTask(selectedTask.id, currentSpec);
+          await exec.completeTask(selectedTask.id, currentIntent);
         }
       }
 
@@ -166,28 +166,28 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
         message: `Failed to complete task: ${msg}`,
       });
     }
-  }, [selectedTask, currentSpec, options, exec, container]);
+  }, [selectedTask, currentIntent, options, exec, container]);
 
   const handleReset = useCallback(async () => {
-    if (!selectedTask || !currentSpec) return;
+    if (!selectedTask || !currentIntent) return;
     try {
       if (options?.onResetTask) {
         options.onResetTask(selectedTask.id);
       }
 
       const result = container.taskOperationsUseCase.resetTasks(
-        currentSpec,
+        currentIntent,
         selectedTask.id,
       );
 
       if (result.kind !== 'reset-single' && result.kind !== 'reset-all') {
         if (!options?.initialTasks) {
           const msg =
-            result.kind === 'spec-not-found'
-              ? `Spec ${currentSpec} not found.`
+            result.kind === 'intent-not-found'
+              ? `Intent ${currentIntent} not found.`
               : result.kind === 'task-not-found'
-              ? `Task ${selectedTask.id} not found in spec ${currentSpec}.`
-              : `No execution state found for spec ${currentSpec}.`;
+              ? `Task ${selectedTask.id} not found in intent ${currentIntent}.`
+              : `No execution state found for intent ${currentIntent}.`;
           setFeedback({
             type: 'error',
             message: msg,
@@ -196,11 +196,11 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
         }
       }
 
-      if (exec?.activeSpec === currentSpec) {
+      if (exec?.activeIntent === currentIntent) {
         if (exec.refreshTasks) {
-          exec.refreshTasks(currentSpec);
+          exec.refreshTasks(currentIntent);
         } else if (exec.resetTask) {
-          await exec.resetTask(selectedTask.id, currentSpec);
+          await exec.resetTask(selectedTask.id, currentIntent);
         }
       }
 
@@ -219,7 +219,7 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
       const msg = err instanceof Error ? err.message : String(err);
       setFeedback({ type: 'error', message: `Failed to reset task: ${msg}` });
     }
-  }, [selectedTask, currentSpec, options, exec, container]);
+  }, [selectedTask, currentIntent, options, exec, container]);
 
   const handleNextTask = useCallback(() => {
     setSelectedTaskIndex((prev) =>
@@ -235,19 +235,19 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     setFeedback(null);
   }, [tasks.length]);
 
-  const handleNextSpec = useCallback(() => {
-    if (filteredSpecs.length > 0) {
-      setSelectedSpecIndex((prev) => (prev + 1) % filteredSpecs.length);
+  const handleNextIntent = useCallback(() => {
+    if (filteredIntents.length > 0) {
+      setSelectedIntentIndex((prev) => (prev + 1) % filteredIntents.length);
       setFeedback(null);
     }
-  }, [filteredSpecs.length]);
+  }, [filteredIntents.length]);
 
-  const handlePrevSpec = useCallback(() => {
-    if (filteredSpecs.length > 0) {
-      setSelectedSpecIndex((prev) => (prev - 1 + filteredSpecs.length) % filteredSpecs.length);
+  const handlePrevIntent = useCallback(() => {
+    if (filteredIntents.length > 0) {
+      setSelectedIntentIndex((prev) => (prev - 1 + filteredIntents.length) % filteredIntents.length);
       setFeedback(null);
     }
-  }, [filteredSpecs.length]);
+  }, [filteredIntents.length]);
 
   const handleToggleViewJson = useCallback(() => {
     setViewJson((prev) => !prev);
@@ -277,11 +277,11 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   );
 
   const handleOpenDeleteTaskModal = useCallback(() => {
-    if (!selectedTask || !currentSpec) return;
+    if (!selectedTask || !currentIntent) return;
     isDeleteConfirmingRef.current = false;
     setFeedback(null);
     setIsDeleteTaskModalOpen(true);
-  }, [currentSpec, selectedTask]);
+  }, [currentIntent, selectedTask]);
 
   const handleCancelDeleteTask = useCallback(() => {
     isDeleteConfirmingRef.current = false;
@@ -291,7 +291,7 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   const handleConfirmDeleteTask = useCallback(() => {
     if (
       !selectedTask ||
-      !currentSpec ||
+      !currentIntent ||
       !isDeleteTaskModalOpen ||
       isDeleteConfirmingRef.current
     ) {
@@ -300,12 +300,12 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
 
     isDeleteConfirmingRef.current = true;
     const taskId = selectedTask.id;
-    const specName = currentSpec;
+    const intentName = currentIntent;
     setIsDeleteTaskModalOpen(false);
 
     let result: ReturnType<typeof container.deleteTaskUseCase.execute>;
     try {
-      result = container.deleteTaskUseCase.execute(specName, taskId);
+      result = container.deleteTaskUseCase.execute(intentName, taskId);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       publishDeleteFeedback({
@@ -320,7 +320,7 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
 
     switch (result.kind) {
       case 'deleted':
-        loadTasksForSpec(specName, false);
+        loadTasksForIntent(intentName, false);
         publishDeleteFeedback({
           type: 'success',
           message: translate('tui_task_delete_success', language, {
@@ -335,11 +335,11 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
           message: translate('tui_delete_not_initialized', language),
         });
         return;
-      case 'spec-not-found':
+      case 'intent-not-found':
         publishDeleteFeedback({
           type: 'error',
-          message: translate('tui_task_delete_spec_not_found', language, {
-            spec: specName,
+          message: translate('tui_task_delete_intent_not_found', language, {
+            intent: intentName,
           }),
         });
         return;
@@ -348,34 +348,34 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
           type: 'error',
           message: translate('tui_task_delete_not_found', language, {
             taskId,
-            spec: specName,
+            intent: intentName,
           }),
         });
         return;
     }
   }, [
     container,
-    currentSpec,
+    currentIntent,
     isDeleteTaskModalOpen,
     language,
-    loadTasksForSpec,
+    loadTasksForIntent,
     publishDeleteFeedback,
     selectedTask,
   ]);
 
-  const handleStartSearchSpec = useCallback(() => {
-    setIsSearchingSpec(true);
+  const handleStartSearchIntent = useCallback(() => {
+    setIsSearchingIntent(true);
     nav?.setTextInputActive(true);
   }, [nav]);
 
-  const handleStopSearchSpec = useCallback(() => {
-    setIsSearchingSpec(false);
+  const handleStopSearchIntent = useCallback(() => {
+    setIsSearchingIntent(false);
     nav?.setTextInputActive(false);
   }, [nav]);
 
-  const handleClearSearchSpec = useCallback(() => {
-    setSpecSearchQuery('');
-    setIsSearchingSpec(false);
+  const handleClearSearchIntent = useCallback(() => {
+    setIntentSearchQuery('');
+    setIsSearchingIntent(false);
     nav?.setTextInputActive(false);
   }, [nav]);
 
@@ -391,16 +391,16 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
   }, [tasks, maxVisibleTasks, selectedTaskIndex]);
 
   return {
-    specs: filteredSpecs,
-    rawSpecs: specs,
-    selectedSpecIndex,
-    currentSpec,
-    specSearchQuery,
-    setSpecSearchQuery,
-    isSearchingSpec,
-    handleStartSearchSpec,
-    handleStopSearchSpec,
-    handleClearSearchSpec,
+    intents: filteredIntents,
+    rawIntents: intents,
+    selectedIntentIndex,
+    currentIntent,
+    intentSearchQuery,
+    setIntentSearchQuery,
+    isSearchingIntent,
+    handleStartSearchIntent,
+    handleStopSearchIntent,
+    handleClearSearchIntent,
     tasks,
     visibleTasks,
     selectedTaskIndex,
@@ -421,8 +421,8 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     handleReset,
     handleNextTask,
     handlePrevTask,
-    handleNextSpec,
-    handlePrevSpec,
+    handleNextIntent,
+    handlePrevIntent,
     handleToggleViewJson,
     handleToggleExpand,
     setFeedback,

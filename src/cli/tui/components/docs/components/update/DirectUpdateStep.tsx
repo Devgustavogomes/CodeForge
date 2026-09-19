@@ -7,8 +7,8 @@ import { theme } from '../../../../theme.js';
 export interface DirectUpdateStepProps {
   docName?: string;
   selectedDoc?: string;
-  availableSpecs?: string[];
-  selectedSpec?: string;
+  availableIntents?: string[];
+  selectedIntent?: string;
   width?: string | number;
   error?: string | null;
   isLoading?: boolean;
@@ -17,13 +17,13 @@ export interface DirectUpdateStepProps {
 
 /**
  * Subcomponente visual para a Etapa 2A do modal de atualização:
- * Permite a revisão do documento alvo e a seleção horizontal da spec de referência.
+ * Permite a revisão do documento alvo e a seleção horizontal da intent de referência.
  */
 export const DirectUpdateStep: React.FC<DirectUpdateStepProps> = memo(({
   docName,
   selectedDoc,
-  availableSpecs = [],
-  selectedSpec,
+  availableIntents = [],
+  selectedIntent,
   width = '100%',
   error,
   isLoading = false,
@@ -31,7 +31,7 @@ export const DirectUpdateStep: React.FC<DirectUpdateStepProps> = memo(({
 }) => {
   const targetDoc = docName ?? selectedDoc ?? 'document';
   const formattedDoc = targetDoc.endsWith('.md') ? targetDoc : `${targetDoc}.md`;
-  const effectiveSelectedSpec = selectedSpec ?? availableSpecs[0];
+  const effectiveSelectedIntent = selectedIntent ?? availableIntents[0];
 
   return (
     <Box flexDirection="column" width={width} gap={1}>
@@ -41,20 +41,20 @@ export const DirectUpdateStep: React.FC<DirectUpdateStepProps> = memo(({
         <Text bold color={theme.colors.primary}>{formattedDoc}</Text>
       </Box>
 
-      {/* Seletor Horizontal de Especificações */}
+      {/* Seletor horizontal de intenções */}
       <Box flexDirection="row" gap={1} flexWrap="wrap">
-        <Text bold color={theme.colors.text}>{translate('tui_docs_direct_ref_spec', language)}</Text>
-        {availableSpecs.length > 0 ? (
+        <Text bold color={theme.colors.text}>{translate('tui_docs_direct_ref_intent', language)}</Text>
+        {availableIntents.length > 0 ? (
           <Box>
             <Text color={theme.colors.borderSubtle}>[</Text>
-            {availableSpecs.map((spec, idx) => {
-              const isSelected = spec === effectiveSelectedSpec;
+            {availableIntents.map((intent, idx) => {
+              const isSelected = intent === effectiveSelectedIntent;
               const marker = isSelected ? '●' : '○';
               return (
-                <React.Fragment key={spec}>
+                <React.Fragment key={intent}>
                   {idx > 0 && <Text>  </Text>}
                   <Text bold={isSelected} color={isSelected ? theme.colors.primary : theme.colors.muted}>
-                    {marker} {spec}
+                    {marker} {intent}
                   </Text>
                 </React.Fragment>
               );
@@ -62,7 +62,7 @@ export const DirectUpdateStep: React.FC<DirectUpdateStepProps> = memo(({
             <Text color={theme.colors.borderSubtle}>]</Text>
           </Box>
         ) : (
-          <Text color={theme.colors.muted}>{translate('tui_docs_direct_no_specs', language)}</Text>
+          <Text color={theme.colors.muted}>{translate('tui_docs_direct_no_intents', language)}</Text>
         )}
       </Box>
 

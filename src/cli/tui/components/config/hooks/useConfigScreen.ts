@@ -1,13 +1,12 @@
-import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { ContainerContext } from '../../../context/ContainerContext.js';
-import { NavigationContext } from '../../../context/NavigationContext.js';
-import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { AppContainer } from '../../../../../infrastructure/container.js';
+import { NodeWorkspaceGateway } from '../../../../../infrastructure/workspace.js';
 import { ConfigService } from '../../../../../config/ConfigService.js';
 import { CodeForgeConfig } from '../../../../../config/types.js';
-import { HookMap } from '../../../../../domain/hook.js';
-import { SpecSourceConfig } from '../../../../../domain/spec-source.js';
-import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
 import { FIELD_ORDER, LANGUAGES } from '../components/ConfigField.js';
+import { HookMap } from '../../../../../domain/hook.js';
+import { IntentSourceConfig } from '../../../../../domain/intent-source.js';
+import { IntentSourceFactory } from '../../../../../infrastructure/intent-sources/IntentSourceFactory.js';
 
 export interface UseConfigScreenOptions {
   container?: AppContainer;
@@ -16,30 +15,39 @@ export interface UseConfigScreenOptions {
   onSave?: (config: CodeForgeConfig) => void;
 }
 
-export function useConfigScreen(options?: UseConfigScreenOptions) {
-  const contextContainer = useContext(ContainerContext);
-  const container = useMemo(
-    () => options?.container ?? contextContainer ?? createAppContainer(),
-    [options?.container, contextContainer],
-  );
+export const DEFAULT_CONFIG: CodeForgeConfig = {
+  language: 'en',
+  environment: 'local',
+  plannerAgent: 'default',
+  executorAgent: 'default',
+  hooks: {},
+  intentSource: { provider: 'filesystem' },
+};
 
-  const configService = useMemo(
-    () => options?.configService ?? container.configService,
-    [options?.configService, container],
-  );
+export function useConfigScreen(options: UseConfigScreenOptions = {}) {
+  const {
+    container = (globalThis as unknown as { __codeforge_container?: AppContainer }).__codeforge_container!,
+    configService: customConfigService,
+    initialConfig,
+    onSave,
+  } = options;
 
-  const nav = useContext(NavigationContext);
+  const configService = useMemo(() => {
+    return (
+      customConfigService ??
+      container?.configService ??
+      new ConfigService(container?.gw ?? new NodeWorkspaceGateway(process.cwd()))
+    );
+  }, [customConfigService, container]);
 
   const [config, setConfig] = useState<CodeForgeConfig>(() => {
-    if (options?.initialConfig) return options.initialConfig;
-    return (
-      configService.loadConfig() ?? {
-        environment: 'antigravity',
-        plannerAgent: 'default',
-        executorAgent: 'default',
-        language: 'en',
-      }
-    );
+    if (initialConfig) return initialConfig;
+    try {
+      const loaded = configService.loadConfig();
+      return loaded || DEFAULT_CONFIG;
+    } catch {
+      return DEFAULT_CONFIG;
+    }
   });
 
   const [focusedFieldIndex, setFocusedFieldIndex] = useState(0);
@@ -51,7 +59,7 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
   } | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isHooksModalOpen, setIsHooksModalOpen] = useState(false);
-  const [isSpecSourceModalOpen, setIsSpecSourceModalOpen] = useState(false);
+  const [isIntentSourceModalOpen, setIsIntentSourceModalOpen] = useState(false);
 
   const openHooksModal = useCallback(() => {
     setIsHooksModalOpen(true);
@@ -68,18 +76,18 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     }));
   }, []);
 
-  const openSpecSourceModal = useCallback(() => {
-    setIsSpecSourceModalOpen(true);
+  const openIntentSourceModal = useCallback(() => {
+    setIsIntentSourceModalOpen(true);
   }, []);
 
-  const closeSpecSourceModal = useCallback(() => {
-    setIsSpecSourceModalOpen(false);
+  const closeIntentSourceModal = useCallback(() => {
+    setIsIntentSourceModalOpen(false);
   }, []);
 
-  const handleUpdateSpecSource = useCallback((newSpecSource: SpecSourceConfig) => {
+  const handleUpdateIntentSource = useCallback((newIntentSource: IntentSourceConfig) => {
     setConfig((prev) => ({
       ...prev,
-      specSource: newSpecSource,
+      intentSource: newIntentSource,
     }));
   }, []);
 
@@ -87,14 +95,14 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
 
   // Dynamically load available environments from useCase
   const availableEnvironments = useMemo(() => {
-    const list = container.configureEnvironmentUseCase.getAvailableEnvironments();
+    const list = container?.configureEnvironmentUseCase?.getAvailableEnvironments?.();
     return list && list.length > 0
       ? list
       : ['antigravity', 'claude', 'codex', 'cursor'];
   }, [container]);
 
-  const availableSpecSourceProviders = useMemo(() => {
-    return SpecSourceFactory.getAvailableProviders();
+  const availableIntentSourceProviders = useMemo(() => {
+    return IntentSourceFactory.getAvailableProviders();
   }, []);
 
   const [dynamicAgents, setDynamicAgents] = useState<string[]>([]);
@@ -105,88 +113,43 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     let active = true;
     setIsLoadingAgents(true);
     try {
-      const useCase = container.configureEnvironmentUseCase;
+      const useCase = container?.configureEnvironmentUseCase;
       if (useCase) {
         useCase
           .getAgentsForEnvironment(config.environment)
-          .then((agents) => {
-            if (active) {
-              if (Array.isArray(agents) && agents.length > 0) {
-                setDynamicAgents(agents);
-              } else {
-                setDynamicAgents([]);
-              }
-              setIsLoadingAgents(false);
+          .then((agents: string[]) => {
+            if (active && agents && agents.length > 0) {
+              setDynamicAgents(agents);
             }
           })
           .catch(() => {
-            if (active) {
-              setDynamicAgents([]);
-              setIsLoadingAgents(false);
-            }
+            // Silently fallback if the agent query fails (e.g. runner not installed)
+          })
+          .finally(() => {
+            if (active) setIsLoadingAgents(false);
           });
-      }
-    } catch {
-      if (active) {
-        setDynamicAgents([]);
+      } else {
         setIsLoadingAgents(false);
       }
+    } catch {
+      setIsLoadingAgents(false);
     }
     return () => {
       active = false;
     };
   }, [container, config.environment]);
 
-  // Options for agents per environment
+  // Combined fallback + dynamic agent list
   const currentAgentOptions = useMemo(() => {
-    const set = new Set<string>(['default']);
-
-    if (dynamicAgents.length > 0) {
-      for (const agent of dynamicAgents) {
-        if (agent) set.add(agent);
-      }
-    } else {
-      if (config.environment === 'antigravity') {
-        set.add('gemini-2.5-pro');
-        set.add('gemini-2.5-flash');
-        set.add('gemini-1.5-pro');
-        set.add('gemini-1.5-flash');
-      } else if (config.environment === 'claude') {
-        set.add('claude-3-7-sonnet');
-        set.add('claude-3-5-sonnet');
-        set.add('claude-3-5-haiku');
-      } else if (config.environment === 'codex') {
-        set.add('gpt-5.6-sol');
-        set.add('gpt-5.6-terra');
-        set.add('gpt-4o');
-        set.add('o3-mini');
-      } else if (config.environment === 'cursor') {
-        set.add('composer');
-        set.add('claude-3-5-sonnet');
-      }
+    const list = ['default', ...dynamicAgents];
+    if (config.plannerAgent && !list.includes(config.plannerAgent)) {
+      list.push(config.plannerAgent);
     }
-
-    if (config.plannerAgent) {
-      set.add(config.plannerAgent);
+    if (config.executorAgent && !list.includes(config.executorAgent)) {
+      list.push(config.executorAgent);
     }
-    if (config.executorAgent) {
-      set.add(config.executorAgent);
-    }
-    return Array.from(set);
-  }, [
-    config.environment,
-    dynamicAgents,
-    config.plannerAgent,
-    config.executorAgent,
-  ]);
-
-
-  useEffect(() => {
-    nav?.setTextInputActive?.(isEditing);
-    return () => {
-      nav?.setTextInputActive?.(false);
-    };
-  }, [isEditing, nav]);
+    return Array.from(new Set(list));
+  }, [dynamicAgents, config.plannerAgent, config.executorAgent]);
 
   const handleSave = useCallback(() => {
     try {
@@ -194,85 +157,91 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
       setIsDirty(false);
       setFeedback({
         type: 'success',
-        message: 'Configuration successfully saved to config.yaml!',
+        message: 'Configuração salva com sucesso no config.yaml!',
       });
-      if (options?.onSave) {
-        options.onSave(config);
-      }
+      onSave?.(config);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setFeedback({
         type: 'error',
-        message: `Failed to save configuration: ${msg}`,
+        message: `Falha ao salvar configuração: ${msg}`,
       });
     }
-  }, [configService, config, options]);
+  }, [config, configService, onSave]);
 
   const handleCycleLanguage = useCallback(
-    (direction: 1 | -1 = 1) => {
-      const currentIdx = LANGUAGES.indexOf(config.language);
-      const nextIdx =
-        (currentIdx + direction + LANGUAGES.length) % LANGUAGES.length;
-      const nextLang = LANGUAGES[nextIdx];
+    (direction: 1 | -1) => {
+      const currentIndex = LANGUAGES.findIndex((l) => l === config.language);
+      const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+      const nextIndex =
+        (safeIndex + direction + LANGUAGES.length) % LANGUAGES.length;
+      const nextLang = LANGUAGES[nextIndex];
+
       setConfig((prev) => ({ ...prev, language: nextLang }));
       setIsDirty(true);
       setFeedback({
         type: 'info',
-        message: `Language changed to "${nextLang}". Press 's' to save.`,
+        message: `Language updated to ${nextLang}. Press 's' to save.`,
       });
     },
     [config.language],
   );
 
   const handleCycleEnvironment = useCallback(
-    (direction: 1 | -1 = 1) => {
-      const currentIdx = availableEnvironments.indexOf(config.environment);
-      const nextIdx =
-        (currentIdx + direction + availableEnvironments.length) %
+    (direction: 1 | -1) => {
+      const currentIndex = availableEnvironments.indexOf(config.environment);
+      const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+      const nextIndex =
+        (safeIndex + direction + availableEnvironments.length) %
         availableEnvironments.length;
-      const nextEnv = availableEnvironments[nextIdx];
+      const nextEnv = availableEnvironments[nextIndex];
+
       setConfig((prev) => ({ ...prev, environment: nextEnv }));
       setIsDirty(true);
       setFeedback({
         type: 'info',
-        message: `Environment changed to "${nextEnv}". Press 's' to save.`,
+        message: `Environment updated to ${nextEnv}. Press 's' to save.`,
       });
     },
     [availableEnvironments, config.environment],
   );
 
   const handleCyclePlannerAgent = useCallback(
-    (direction: 1 | -1 = 1) => {
-      const currentIdx = currentAgentOptions.indexOf(config.plannerAgent);
-      const nextIdx =
-        (currentIdx + direction + currentAgentOptions.length) %
+    (direction: 1 | -1) => {
+      const currentIndex = currentAgentOptions.indexOf(config.plannerAgent);
+      const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+      const nextIndex =
+        (safeIndex + direction + currentAgentOptions.length) %
         currentAgentOptions.length;
-      const nextAgent = currentAgentOptions[nextIdx];
+      const nextAgent = currentAgentOptions[nextIndex];
+
       setConfig((prev) => ({ ...prev, plannerAgent: nextAgent }));
       setIsDirty(true);
       setFeedback({
         type: 'info',
-        message: `Planner agent changed to "${nextAgent}". Press 's' to save.`,
+        message: `Planner agent updated to ${nextAgent}. Press 's' to save.`,
       });
     },
-    [config.plannerAgent, currentAgentOptions],
+    [currentAgentOptions, config.plannerAgent],
   );
 
   const handleCycleExecutorAgent = useCallback(
-    (direction: 1 | -1 = 1) => {
-      const currentIdx = currentAgentOptions.indexOf(config.executorAgent);
-      const nextIdx =
-        (currentIdx + direction + currentAgentOptions.length) %
+    (direction: 1 | -1) => {
+      const currentIndex = currentAgentOptions.indexOf(config.executorAgent);
+      const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+      const nextIndex =
+        (safeIndex + direction + currentAgentOptions.length) %
         currentAgentOptions.length;
-      const nextAgent = currentAgentOptions[nextIdx];
+      const nextAgent = currentAgentOptions[nextIndex];
+
       setConfig((prev) => ({ ...prev, executorAgent: nextAgent }));
       setIsDirty(true);
       setFeedback({
         type: 'info',
-        message: `Executor agent changed to "${nextAgent}". Press 's' to save.`,
+        message: `Executor agent updated to ${nextAgent}. Press 's' to save.`,
       });
     },
-    [config.executorAgent, currentAgentOptions],
+    [currentAgentOptions, config.executorAgent],
   );
 
   const startEditing = useCallback(() => {
@@ -300,8 +269,8 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
       openHooksModal();
       return;
     }
-    if (activeField === 'specSource') {
-      openSpecSourceModal();
+    if (activeField === 'intentSource') {
+      openIntentSourceModal();
       return;
     }
 
@@ -316,7 +285,7 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     handleCycleExecutorAgent,
     handleSave,
     openHooksModal,
-    openSpecSourceModal,
+    openIntentSourceModal,
   ]);
 
   const startCustomEdit = useCallback(() => {
@@ -372,12 +341,7 @@ export function useConfigScreen(options?: UseConfigScreenOptions) {
     openHooksModal,
     closeHooksModal,
     handleUpdateHooks,
-    isSpecSourceModalOpen,
-    openSpecSourceModal,
-    closeSpecSourceModal,
-    handleUpdateSpecSource,
-    availableSpecSourceProviders,
-    configService,
+    isIntentSourceModalOpen,    openIntentSourceModal,    closeIntentSourceModal,    handleUpdateIntentSource,    availableIntentSourceProviders,    configService,
     handleSave,
     handleCycleLanguage,
     handleCycleEnvironment,

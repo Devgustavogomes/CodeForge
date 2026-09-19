@@ -36,8 +36,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   children,
   scheduler: propScheduler,
   container: propContainer,
-  initialSpec,
-  autoStart = false,
+  initialIntent,
+    autoStart = false,
   maxLogLines = DEFAULT_MAX_LOG_LINES,
   flushIntervalMs = DEFAULT_LOG_FLUSH_INTERVAL_MS,
 }) => {
@@ -47,9 +47,10 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     [propContainer, contextContainer],
   );
 
-  const [activeSpec, setActiveSpecState] = useState<string | null>(initialSpec ?? null);
+  const effectiveInitial = initialIntent ?? null;
+  const [activeIntent, setActiveIntentState] = useState<string | null>(effectiveInitial);
   const [tasks, setTasksState] = useState<TaskItem[]>(() =>
-    initialSpec ? loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, initialSpec) : [],
+    effectiveInitial ? loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, effectiveInitial) : [],
   );
   const tasksRef = useRef<TaskItem[]>(tasks);
   useEffect(() => {
@@ -65,22 +66,22 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   }, []);
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => {
-    if (!initialSpec) return null;
-    const items = loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, initialSpec);
+    if (!effectiveInitial) return null;
+    const items = loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, effectiveInitial);
     return items[0]?.id ?? null;
   });
   const [schedulerStatus, setSchedulerStatus] = useState<ExecutionStatus>(() => {
-    if (initialSpec) {
-      const state = appContainer.executionStateRepository.load(initialSpec);
+    if (effectiveInitial) {
+      const state = appContainer.executionStateRepository.load(effectiveInitial);
       if (state) return state.status as ExecutionStatus;
     }
     return propScheduler ? propScheduler.getStatus() : 'idle';
   });
   const [startedAt, setStartedAt] = useState<string | undefined>(
-    () => (initialSpec ? appContainer.executionStateRepository.load(initialSpec)?.startedAt : undefined),
+    () => (effectiveInitial ? appContainer.executionStateRepository.load(effectiveInitial)?.startedAt : undefined),
   );
   const [completedAt, setCompletedAt] = useState<string | undefined>(
-    () => (initialSpec ? appContainer.executionStateRepository.load(initialSpec)?.completedAt : undefined),
+    () => (effectiveInitial ? appContainer.executionStateRepository.load(effectiveInitial)?.completedAt : undefined),
   );
   const [logs, setLogs] = useState<Record<string, string[]>>({});
 
@@ -114,8 +115,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     };
   }, [flushIntervalMs, flushLogs]);
 
-  const refreshTasks = useCallback((spec: string) => {
-    const items = loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, spec);
+  const refreshTasks = useCallback((intent: string) => {
+    const items = loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, intent);
     if (!areTasksEqual(tasksRef.current, items)) {
       tasksRef.current = items;
       setTasksState(items);
@@ -123,11 +124,11 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     setSelectedTaskId((prev) => (prev && items.some((t) => t.id === prev) ? prev : items[0]?.id ?? null));
   }, [appContainer]);
 
-  const setActiveSpec = useCallback((specName: string | null) => {
-    setActiveSpecState(specName);
-    if (specName) {
-      refreshTasks(specName);
-      const state = appContainer.executionStateRepository.load(specName);
+  const setActiveIntent = useCallback((intentName: string | null) => {
+    setActiveIntentState(intentName);
+    if (intentName) {
+      refreshTasks(intentName);
+      const state = appContainer.executionStateRepository.load(intentName);
       setSchedulerStatus((state?.status as ExecutionStatus) ?? 'idle');
       setStartedAt(state?.startedAt);
       setCompletedAt(state?.completedAt);
@@ -142,8 +143,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   }, [appContainer, refreshTasks]);
 
   useEffect(() => {
-    if (initialSpec) setActiveSpec(initialSpec);
-  }, [initialSpec, setActiveSpec]);
+    if (effectiveInitial) setActiveIntent(effectiveInitial);
+  }, [effectiveInitial, setActiveIntent]);
 
   const appendLog = useCallback((taskId: string, chunk: string) => {
     logBufferRef.current?.append(taskId, chunk);
@@ -182,31 +183,31 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   const scheduler = useMemo(() => createSchedulerInstance(appContainer, reporter, propScheduler), [propScheduler, appContainer, reporter]);
   useEffect(() => { if (scheduler) scheduler.setReporter(reporter); }, [scheduler, reporter]);
 
-  const startRun = useCallback(async (specName?: string): Promise<void> => {
-    const spec = specName || activeSpec;
-    if (!spec || !scheduler) return;
-    if (spec !== activeSpec) setActiveSpec(spec);
+  const startRun = useCallback(async (intentName?: string): Promise<void> => {
+    const intent = intentName || activeIntent;
+    if (!intent || !scheduler) return;
+    if (intent !== activeIntent) setActiveIntent(intent);
     setSchedulerStatus('running');
     try {
       const config = appContainer.configService.loadConfig();
-      const result = await scheduler.run(spec, config?.executorAgent);
+      const result = await scheduler.run(intent, config?.executorAgent);
       setSchedulerStatus(result.status as ExecutionStatus);
     } catch {
       setSchedulerStatus('failed');
     } finally {
       flushLogs();
-      refreshTasks(spec);
-      const state = appContainer.executionStateRepository.load(spec);
+      refreshTasks(intent);
+      const state = appContainer.executionStateRepository.load(intent);
       if (state) setSchedulerStatus(state.status as ExecutionStatus);
     }
-  }, [activeSpec, scheduler, setActiveSpec, refreshTasks, appContainer, flushLogs]);
+  }, [activeIntent, scheduler, setActiveIntent, refreshTasks, appContainer, flushLogs]);
 
   useEffect(() => {
-    if (autoStart && initialSpec) void startRun(initialSpec);
-  }, [autoStart, initialSpec, startRun]);
+    if (autoStart && effectiveInitial) void startRun(effectiveInitial);
+  }, [autoStart, effectiveInitial, startRun]);
 
   const { retryTask, retryAllFailed, completeTask, resetTask, resetAllTasks } = useTaskOperations(
-    activeSpec, appContainer, setTasks, refreshTasks, setSchedulerStatus,
+    activeIntent, appContainer, setTasks, refreshTasks, setSchedulerStatus,
   );
 
   const getTaskLogs = useCallback((taskId: string) => logs[taskId] || [], [logs]);
@@ -223,13 +224,13 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   const selectedTask = useMemo(() => (selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) || null : null), [tasks, selectedTaskId]);
 
   const value: ExecutionContextValue = useMemo(() => ({
-    activeSpec, tasks, selectedTaskId, selectedTask, status: schedulerStatus,
+    activeIntent,    tasks, selectedTaskId, selectedTask, status: schedulerStatus,
     schedulerStatus, logs, getTaskLogs, setSelectedTaskId, selectTask,
-    setActiveSpec, startRun, retryTask, retryAllFailed, completeTask,
+    setActiveIntent,    startRun, retryTask, retryAllFailed, completeTask,
     resetTask, resetAllTasks, refreshTasks, clearLogs, scheduler, startedAt, completedAt,
   }), [
-    activeSpec, tasks, selectedTaskId, selectedTask, schedulerStatus, logs, getTaskLogs,
-    selectTask, setActiveSpec, startRun, retryTask, retryAllFailed, completeTask,
+    activeIntent, tasks, selectedTaskId, selectedTask, schedulerStatus, logs, getTaskLogs,
+    selectTask, setActiveIntent, startRun, retryTask, retryAllFailed, completeTask,
     resetTask, resetAllTasks, refreshTasks, clearLogs, scheduler, startedAt, completedAt,
   ]);
 
@@ -243,4 +244,3 @@ export function useExecution(): ExecutionContextValue {
   }
   return context;
 }
-

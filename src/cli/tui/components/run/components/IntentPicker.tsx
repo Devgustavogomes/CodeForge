@@ -5,118 +5,121 @@ import { useExecution } from "../../../context/ExecutionContext.js";
 import { useContainer } from "../../../hooks/useContainer.js";
 import { PATHS } from "../../../../../infrastructure/paths.js";
 import { theme } from "../../../theme.js";
-import { getSpecTaskCount } from "../../../context/ExecutionContext/taskLoader.js";
+import { getIntentTaskCount } from "../../../context/ExecutionContext/taskLoader.js";
 
-export interface SpecPickerItem {
+export interface IntentPickerItem {
   name: string;
   title: string;
   status: string;
   taskCount: number;
 }
-
-export interface SpecPickerProps {
+export interface IntentPickerProps {
   isInteractive?: boolean;
-  onSelectSpec?: (specName: string) => void;
-  initialSpecs?: SpecPickerItem[];
-}
-
-interface SpecPreviewDetails {
+  onSelectIntent?: (intentName: string) => void;  initialIntents?: IntentPickerItem[];}
+interface IntentPreviewDetails {
   description?: string;
   taskTitles: string[];
 }
 
-export const SpecPicker: React.FC<SpecPickerProps> = memo(
-  ({ isInteractive = true, onSelectSpec, initialSpecs }) => {
+export const IntentPicker: React.FC<IntentPickerProps> = memo(
+  ({
+    isInteractive = true,
+    onSelectIntent,
+        initialIntents,
+      }) => {
     const nav = useNavigation();
     const exec = useExecution();
     const container = useContainer();
 
-    const [specs, setSpecs] = useState<SpecPickerItem[]>(() => {
-      if (initialSpecs) return initialSpecs;
-      const list = container.listSpecsUseCase.execute();
+    const effectiveInitial = initialIntents;
+
+    const [intents, setIntents] = useState<IntentPickerItem[]>(() => {
+      if (effectiveInitial) return effectiveInitial;
+      const list = container.listIntentsUseCase.execute();
       return list.map((s) => ({
         name: s.name,
         title: s.title,
         status: s.status,
-        taskCount: getSpecTaskCount(container.gw, s.name),
+        taskCount: getIntentTaskCount(container.gw, s.name),
       }));
     });
     const [selectedIndex, setSelectedIndex] = useState(0);
 
     useEffect(() => {
-      if (initialSpecs) return;
-      const list = container.listSpecsUseCase.execute();
+      if (effectiveInitial) return;
+      const list = container.listIntentsUseCase.execute();
       const enriched = list.map((s) => ({
         name: s.name,
         title: s.title,
         status: s.status,
-        taskCount: getSpecTaskCount(container.gw, s.name),
+        taskCount: getIntentTaskCount(container.gw, s.name),
       }));
-      setSpecs(enriched);
-    }, [container, initialSpecs]);
+      setIntents(enriched);
+    }, [container, effectiveInitial]);
 
-    const specsRef = React.useRef(specs);
-    specsRef.current = specs;
+    const intentsRef = React.useRef(intents);
+    intentsRef.current = intents;
     const selectedIndexRef = React.useRef(selectedIndex);
     selectedIndexRef.current = selectedIndex;
-    const onSelectSpecRef = React.useRef(onSelectSpec);
-    onSelectSpecRef.current = onSelectSpec;
+    const onSelectHandler = onSelectIntent;
+    const onSelectRef = React.useRef(onSelectHandler);
+    onSelectRef.current = onSelectHandler;
 
     useInput(
       (input, key) => {
-        const currentSpecs = specsRef.current;
+        const currentIntents = intentsRef.current;
         const currentIndex = selectedIndexRef.current;
 
-        if (currentSpecs.length === 0) {
-          if (input === "c") nav.openModal("create_spec");
-          if (input === "p") nav.openModal("pull_spec");
+        if (currentIntents.length === 0) {
+          if (input === "c") nav.openModal("create_intent");
+          if (input === "p") nav.openModal("pull_intent");
           return;
         }
 
         if (key.upArrow || input === "k") {
           setSelectedIndex((prev) =>
-            prev <= 0 ? currentSpecs.length - 1 : prev - 1,
+            prev <= 0 ? currentIntents.length - 1 : prev - 1,
           );
           return;
         }
 
         if (key.downArrow || input === "j") {
           setSelectedIndex((prev) =>
-            prev >= currentSpecs.length - 1 ? 0 : prev + 1,
+            prev >= currentIntents.length - 1 ? 0 : prev + 1,
           );
           return;
         }
 
         if (key.return || input === "\r" || input === "\n") {
-          const chosen = currentSpecs[currentIndex];
+          const chosen = currentIntents[currentIndex];
           if (chosen) {
-            if (onSelectSpecRef.current) {
-              onSelectSpecRef.current(chosen.name);
+            if (onSelectRef.current) {
+              onSelectRef.current(chosen.name);
             }
-            exec.setActiveSpec(chosen.name);
+            exec.setActiveIntent(chosen.name);
             void exec.startRun(chosen.name);
           }
           return;
         }
 
         if (input === "c") {
-          nav.openModal("create_spec");
+          nav.openModal("create_intent");
         }
         if (input === "p") {
-          nav.openModal("pull_spec");
+          nav.openModal("pull_intent");
         }
       },
       { isActive: isInteractive && !nav.isTextInputActive && !nav.modal },
     );
 
-    const selectedSpec = specs[selectedIndex];
+    const selectedIntent = intents[selectedIndex];
 
-    // Load preview data for the selected spec
-    const previewDetails: SpecPreviewDetails = useMemo(() => {
-      if (!selectedSpec) return { taskTitles: [] };
-      const result: SpecPreviewDetails = { taskTitles: [] };
+    // Load preview data for the selected intent
+    const previewDetails: IntentPreviewDetails = useMemo(() => {
+      if (!selectedIntent) return { taskTitles: [] };
+      const result: IntentPreviewDetails = { taskTitles: [] };
       try {
-        const tasksDir = `${PATHS.tasksDir}/${selectedSpec.name}`;
+        const tasksDir = `${PATHS.tasksDir}/${selectedIntent.name}`;
         if (container.gw.exists(tasksDir)) {
           const files = container.gw
             .listDir(tasksDir)
@@ -140,9 +143,9 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
         // ignore
       }
       return result;
-    }, [container, selectedSpec]);
+    }, [container, selectedIntent]);
 
-    if (specs.length === 0) {
+    if (intents.length === 0) {
       return (
         <Box
           flexDirection="column"
@@ -158,7 +161,7 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
           <Text bold color={theme.colors.primary}>
             CodeForge
           </Text>
-          <Text color={theme.colors.muted}>No specifications found</Text>
+          <Text color={theme.colors.muted}>No intents found</Text>
           <Box gap={2}>
             <Text bold color={theme.colors.primary}>
               [c] Create
@@ -174,8 +177,9 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
       );
     }
 
-    const cleanSelectedTitle = selectedSpec?.title
-      .replace(/^Spec:\s*/i, "")
+    const cleanSelectedTitle = selectedIntent?.title
+      .replace(/^Intent:\s*/i, "")
+      .replace(/^Intent:\s*/i, "")
       .trim();
 
     return (
@@ -186,19 +190,19 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
         paddingX={1}
         paddingY={0}
       >
-        {/* Main Split: 42% Left (Spec List), 58% Right (Spec Preview) */}
+        {/* Main Split: 42% Left (Intent List), 58% Right (Intent Preview) */}
         <Box flexDirection="row" width="100%" flexGrow={1}>
-          {/* Left Column: List of Specifications */}
+          {/* Left Column: List of Intents */}
           <Box flexDirection="column" width="42%" paddingRight={1}>
             <Box justifyContent="space-between" width="100%" marginBottom={1}>
               <Text bold color={theme.colors.primary}>
-                Select a Specification ({specs.length})
+                Select an Intent ({intents.length})
               </Text>
               <Text color={theme.colors.muted}>[↑/↓] Move</Text>
             </Box>
 
             <Box flexDirection="column" gap={0}>
-              {specs.map((s, idx) => {
+              {intents.map((s, idx) => {
                 const isSelected = idx === selectedIndex;
 
                 return (
@@ -241,22 +245,22 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
             </Text>
           </Box>
 
-          {/* Right Column: Specification Preview */}
+          {/* Right Column: Intent Preview */}
           <Box flexDirection="column" width="56%" flexGrow={1} paddingLeft={1}>
             <Box marginBottom={1}>
               <Text bold color={theme.colors.primary}>
-                Specification Preview
+                Intent Preview
               </Text>
             </Box>
 
-            {selectedSpec ? (
+            {selectedIntent ? (
               <Box flexDirection="column" gap={1}>
                 <Box gap={1}>
                   <Text bold color={theme.colors.text}>
-                    {selectedSpec.name}
+                    {selectedIntent.name}
                   </Text>
                   {cleanSelectedTitle &&
-                    cleanSelectedTitle !== selectedSpec.name && (
+                    cleanSelectedTitle !== selectedIntent.name && (
                       <Text color={theme.colors.muted}>
                         — {cleanSelectedTitle}
                       </Text>
@@ -267,7 +271,7 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
                   <Text color={theme.colors.muted}>
                     Status:{" "}
                     <Text color={theme.colors.primary}>
-                      {selectedSpec.status.toUpperCase()}
+                      {selectedIntent.status.toUpperCase()}
                     </Text>
                   </Text>
                   <Text color={theme.colors.borderSubtle}>
@@ -276,7 +280,7 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
                   <Text color={theme.colors.muted}>
                     Tasks:{" "}
                     <Text bold color={theme.colors.text}>
-                      {selectedSpec.taskCount}
+                      {selectedIntent.taskCount}
                     </Text>
                   </Text>
                 </Box>
@@ -294,12 +298,12 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
                         </Text>
                       </Box>
                     ))}
-                    {selectedSpec.taskCount >
+                    {selectedIntent.taskCount >
                       previewDetails.taskTitles.length && (
                       <Box paddingLeft={1}>
                         <Text color={theme.colors.muted}>
                           ...and{" "}
-                          {selectedSpec.taskCount -
+                          {selectedIntent.taskCount -
                             previewDetails.taskTitles.length}{" "}
                           more
                         </Text>
@@ -308,7 +312,7 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
                   </Box>
                 )}
 
-                {selectedSpec.taskCount === 0 && (
+                {selectedIntent.taskCount === 0 && (
                   <Box paddingY={1}>
                     <Text color={theme.colors.muted}>
                       No task files generated yet. Starting run will initialize
@@ -318,7 +322,7 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
                 )}
               </Box>
             ) : (
-              <Text color={theme.colors.muted}>No specification selected.</Text>
+              <Text color={theme.colors.muted}>No intent selected.</Text>
             )}
           </Box>
         </Box>
@@ -330,15 +334,15 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
           </Text>
           <Text color={theme.colors.borderSubtle}>{theme.symbols.divider}</Text>
           <Text bold color={theme.colors.primary}>
-            [c] New Spec
+            [c] New Intent
           </Text>
           <Text color={theme.colors.borderSubtle}>{theme.symbols.divider}</Text>
           <Text bold color={theme.colors.primary}>
-            [p] Pull Spec
+            [p] Pull Intent
           </Text>
           <Text color={theme.colors.borderSubtle}>{theme.symbols.divider}</Text>
           <Text bold color={theme.colors.primary}>
-            [2] Specs Tab
+            [2] Intents Tab
           </Text>
         </Box>
       </Box>
@@ -346,5 +350,4 @@ export const SpecPicker: React.FC<SpecPickerProps> = memo(
   },
 );
 
-SpecPicker.displayName = "SpecPicker";
-export default SpecPicker;
+IntentPicker.displayName = "IntentPicker";export default IntentPicker;

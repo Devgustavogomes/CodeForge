@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { SpecReference } from '../../../../../domain/spec-source.js';
+import { IntentReference } from '../../../../../domain/intent-source.js';
 import { theme } from '../../../theme.js';
 
 export interface PullItemListProps {
-  items: SpecReference[];
+  items: IntentReference[];
   selectedItemIndex: number;
   isManualInput: boolean;
   isFetchingItems: boolean;
@@ -15,7 +15,7 @@ export interface PullItemListProps {
 const MAX_VISIBLE_ITEMS = 3;
 
 /**
- * Visual subcomponent for displaying and navigating remote items (issues, specs).
+ * Visual subcomponent for displaying and navigating remote items (issues, intents).
  * Supports windowed scrolling, status indicators, and manual input fallback option.
  */
 export const PullItemList: React.FC<PullItemListProps> = ({
@@ -43,7 +43,7 @@ export const PullItemList: React.FC<PullItemListProps> = ({
       <Box justifyContent="space-between" width="100%">
         <Box gap={1} flexShrink={1}>
           <Text bold color={isFocused ? theme.colors.primary : theme.colors.text}>
-            Spec ID / Issue Number / URL:
+            Intent ID / Issue Number / URL:
           </Text>
           {isFetchingItems && (
             <Text color={theme.colors.warning}>Querying {selectedProvider}...</Text>

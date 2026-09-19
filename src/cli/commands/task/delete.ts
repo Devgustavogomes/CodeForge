@@ -13,11 +13,11 @@ function isPromptCancellation(error: unknown): boolean {
 }
 
 export async function taskDeleteAction(
-  spec?: string,
+  intent?: string,
   taskId?: string,
   options: TaskDeleteOptions = {},
 ): Promise<ActionResult> {
-  let specName = spec;
+  let intentName = intent;
   let selectedTaskId = taskId;
   let lang: "en" | "pt" | "es" = "en";
 
@@ -26,37 +26,38 @@ export async function taskDeleteAction(
     const config = container.configService.loadConfig();
     lang = config?.language || "en";
 
-    if (!specName) {
-      const specs = container.listSpecsUseCase.execute();
-      if (specs.length === 0) {
-        console.error(translate("err_no_specs", lang));
+    if (!intentName) {
+      const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+      const intents = listUseCase.execute();
+      if (intents.length === 0) {
+        console.error(translate("err_no_intents", lang));
         process.exitCode = 1;
         return { success: false };
       }
 
-      specName = await select({
-        message: translate("task_delete_select_spec", lang),
+      intentName = await select({
+        message: translate("task_delete_select_intent", lang),
         choices: [
           { name: translate("menu_back", lang), value: "back" },
-          ...specs.map((availableSpec) => ({
-            name: availableSpec.name,
-            value: availableSpec.name,
+          ...intents.map((availableIntent) => ({
+            name: availableIntent.name,
+            value: availableIntent.name,
           })),
         ],
       });
 
-      if (specName === "back") {
+      if (intentName === "back") {
         return { back: true };
       }
     }
 
     if (!selectedTaskId) {
       const tasksResult =
-        container.taskOperationsUseCase.getAvailableTasks(specName);
+        container.taskOperationsUseCase.getAvailableTasks(intentName);
 
-      if (tasksResult.kind === "spec-not-found") {
+      if (tasksResult.kind === "intent-not-found") {
         console.error(
-          translate("task_delete_spec_not_found", lang, { spec: specName }),
+          translate("task_delete_intent_not_found", lang, { intent: intentName,}),
         );
         process.exitCode = 1;
         return { success: false };
@@ -64,7 +65,7 @@ export async function taskDeleteAction(
 
       if (tasksResult.kind === "no-tasks") {
         console.error(
-          translate("task_delete_no_tasks", lang, { spec: specName }),
+          translate("task_delete_no_tasks", lang, { intent: intentName,}),
         );
         process.exitCode = 1;
         return { success: false };
@@ -92,8 +93,7 @@ export async function taskDeleteAction(
     if (!options.force) {
       const confirmed = await confirm({
         message: translate("task_delete_confirm", lang, {
-          spec: specName,
-          taskId: selectedTaskId,
+          intent: intentName,          taskId: selectedTaskId,
         }),
         default: false,
       });
@@ -105,43 +105,50 @@ export async function taskDeleteAction(
     }
 
     const result = container.deleteTaskUseCase.execute(
-      specName,
+      intentName,
       selectedTaskId,
     );
-    switch (result.kind) {
-      case "not-initialized":
-        console.error(translate("err_not_initialized", lang));
-        process.exitCode = 1;
-        return { success: false };
-      case "spec-not-found":
-        console.error(
-          translate("task_delete_spec_not_found", lang, { spec: specName }),
-        );
-        process.exitCode = 1;
-        return { success: false };
-      case "task-not-found":
-        console.error(
-          translate("task_delete_not_found", lang, {
-            spec: specName,
-            taskId: selectedTaskId,
-          }),
-        );
-        process.exitCode = 1;
-        return { success: false };
-      case "deleted":
-        console.log(
-          translate("task_delete_success", lang, {
-            spec: result.specName,
-            taskId: result.taskId,
-          }),
-        );
-        console.log(
-          translate("task_delete_cleanup_count", lang, {
-            count: result.cleanedDependenciesCount,
-          }),
-        );
-        return { success: true };
+
+    if (result.kind === "not-initialized") {
+      console.error(translate("err_not_initialized", lang));
+      process.exitCode = 1;
+      return { success: false };
     }
+
+    if (result.kind === "intent-not-found") {
+      console.error(
+        translate("task_delete_intent_not_found", lang, { intent: intentName,}),
+      );
+      process.exitCode = 1;
+      return { success: false };
+    }
+
+    if (result.kind === "task-not-found") {
+      console.error(
+        translate("task_delete_not_found", lang, {
+          intent: intentName,          taskId: selectedTaskId,
+        }),
+      );
+      process.exitCode = 1;
+      return { success: false };
+    }
+
+    if (result.kind === "deleted") {
+      const targetName = result.intentName;
+      console.log(
+        translate("task_delete_success", lang, {
+          intent: targetName,          taskId: result.taskId,
+        }),
+      );
+      console.log(
+        translate("task_delete_cleanup_count", lang, {
+          count: result.cleanedDependenciesCount,
+        }),
+      );
+      return { success: true };
+    }
+
+    return { success: false };
   } catch (error: unknown) {
     if (isPromptCancellation(error)) {
       console.log(translate("delete_cancelled", lang));
@@ -151,8 +158,7 @@ export async function taskDeleteAction(
     const message = error instanceof Error ? error.message : String(error);
     console.error(
       translate("task_delete_error", lang, {
-        spec: specName || spec || "",
-        taskId: selectedTaskId || taskId || "",
+        intent: intentName || intent || "",        taskId: selectedTaskId || taskId || "",
         error: message,
       }),
     );
@@ -163,17 +169,17 @@ export async function taskDeleteAction(
 
 export function registerTaskDeleteCommand(task: Command): void {
   task
-    .command("delete [spec] [taskId]")
+    .command("delete [intent] [taskId]")
     .alias("rm")
     .description("Delete a task and clean up references to it")
     .option("-f, --force", "Skip the deletion confirmation")
     .action(
       async (
-        spec?: string,
+        intent?: string,
         taskId?: string,
         options?: TaskDeleteOptions,
       ) => {
-        await taskDeleteAction(spec, taskId, options);
+        await taskDeleteAction(intent, taskId, options);
       },
     );
 }

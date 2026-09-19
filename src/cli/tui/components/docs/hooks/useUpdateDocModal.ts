@@ -13,22 +13,22 @@ export type UpdateStep = 'mode-select' | 'direct' | 'auto';
 export type AutoTarget = 'all' | string;
 
 export type UpdateConfirmPayload =
-  | { mode: 'direct'; docName: string; specName: string }
-  | { mode: 'auto'; specName: string; target: AutoTarget; affectedDocs: AffectedDoc[] };
+  | { mode: 'direct'; docName: string; intentName: string }
+  | { mode: 'auto'; intentName: string; target: AutoTarget; affectedDocs: AffectedDoc[] };
 
 export interface UseUpdateDocModalOptions {
   isOpen?: boolean;
   container?: AppContainer;
-  selectedDoc?: DocItemInfo | { name: string; specs?: string[]; [key: string]: unknown } | null;
-  availableSpecs?: string[];
-  initialSpec?: string;
+  selectedDoc?: DocItemInfo | { name: string; intents?: string[];[key: string]: unknown } | null;
+  availableIntents?: string[];
+  initialIntent?: string;
   initialMode?: UpdateMode;
   initialStep?: UpdateStep;
   language?: SupportedLanguage;
   onClose?: () => void;
-  onConfirmDirect?: (docName: string, specName: string) => void | Promise<void>;
+  onConfirmDirect?: (docName: string, intentName: string) => void | Promise<void>;
   onConfirmAuto?: (
-    specName: string,
+    intentName: string,
     target: AutoTarget,
     affectedDocs: AffectedDoc[]
   ) => void | Promise<void>;
@@ -44,12 +44,12 @@ export interface UseUpdateDocModalReturn {
   handleSelectMode: (mode: UpdateMode) => void;
   handleCycleMode: () => void;
 
-  selectedSpec: string;
-  setSelectedSpec: (spec: string) => void;
-  availableSpecs: string[];
-  handleCycleSpec: (direction?: 1 | -1) => void;
+  selectedIntent: string;
+  setSelectedIntent: (intent: string) => void;
+  availableIntents: string[];
+  handleCycleIntent: (direction?: 1 | -1) => void;
 
-  selectedDoc: DocItemInfo | { name: string; specs?: string[]; [key: string]: unknown } | null;
+  selectedDoc: DocItemInfo | { name: string; intents?: string[];[key: string]: unknown } | null;
   targetDocName: string;
   targetDocDisplayName: string;
 
@@ -61,7 +61,7 @@ export interface UseUpdateDocModalReturn {
   selectedAutoTarget: AutoTarget;
   selectedAffectedDoc: AffectedDoc | null;
   handleCycleAutoTarget: (direction?: 1 | -1) => void;
-  resolveAffectedDocs: (specName?: string) => DocsUpdateResult;
+  resolveAffectedDocs: (intentName?: string) => DocsUpdateResult;
 
   isNoGit: boolean;
   isNoChangedFiles: boolean;
@@ -79,32 +79,32 @@ export function cleanDocName(name?: string | null): string {
   return name.trim().replace(/\.md$/i, '');
 }
 
-export function cleanSpecName(spec?: string | null): string {
-  if (!spec) return '';
-  return spec
+export function cleanIntentName(intent?: string | null): string {
+  if (!intent) return '';
+  return intent
     .trim()
     .replace(/^.*[\\/]/, '')
     .replace(/\.md$/i, '')
     .trim();
 }
 
-export function determineInitialSpec(
-  initialSpec?: string,
-  sessionSpec?: string | null,
-  docSpecs?: string[],
+export function determineInitialIntent(
+  initialIntent?: string,
+  sessionIntent?: string | null,
+  docIntents?: string[],
   available?: string[]
 ): string {
-  if (initialSpec && initialSpec.trim()) {
-    return cleanSpecName(initialSpec);
+  if (initialIntent && initialIntent.trim()) {
+    return cleanIntentName(initialIntent);
   }
-  if (sessionSpec && sessionSpec.trim()) {
-    return cleanSpecName(sessionSpec);
+  if (sessionIntent && sessionIntent.trim()) {
+    return cleanIntentName(sessionIntent);
   }
-  if (docSpecs && docSpecs.length > 0 && docSpecs[0].trim()) {
-    return cleanSpecName(docSpecs[0]);
+  if (docIntents && docIntents.length > 0 && docIntents[0].trim()) {
+    return cleanIntentName(docIntents[0]);
   }
   if (available && available.length > 0 && available[0].trim()) {
-    return cleanSpecName(available[0]);
+    return cleanIntentName(available[0]);
   }
   return '';
 }
@@ -113,8 +113,8 @@ export function useUpdateDocModal({
   isOpen,
   container: propContainer,
   selectedDoc = null,
-  availableSpecs: propAvailableSpecs,
-  initialSpec,
+  availableIntents: propAvailableIntents,
+  initialIntent,
   initialMode = 'direct',
   initialStep = 'mode-select',
   language: propLanguage,
@@ -140,38 +140,40 @@ export function useUpdateDocModal({
     }
   }, [propLanguage, container]);
 
-  const availableSpecs = useMemo(() => {
-    let specs: string[];
-    if (propAvailableSpecs !== undefined) {
-      specs = propAvailableSpecs;
+  const availableIntents = useMemo(() => {
+    let intents: string[];
+    if (propAvailableIntents !== undefined) {
+      intents = propAvailableIntents;
     } else {
       try {
-        specs = container.listSpecsUseCase.listNames();
+        intents = container.listIntentsUseCase.listNames();
       } catch {
-        specs = [];
+        intents = [];
       }
     }
-    const cleaned = specs.map(cleanSpecName).filter(Boolean);
+    const cleaned = intents.map(cleanIntentName).filter(Boolean);
     return Array.from(new Set(cleaned));
-  }, [propAvailableSpecs, container]);
+  }, [propAvailableIntents, container]);
+
+  const selectedDocIntents = selectedDoc?.intents ?? (selectedDoc as { intents?: string[] } | null | undefined)?.intents;
 
   const [step, setStep] = useState<UpdateStep>(initialStep);
   const [mode, setMode] = useState<UpdateMode>(initialMode);
-  const [selectedSpec, setSelectedSpec] = useState<string>(() =>
-    determineInitialSpec(initialSpec, exec?.activeSpec, selectedDoc?.specs, availableSpecs)
+  const [selectedIntent, setSelectedIntent] = useState<string>(() =>
+    determineInitialIntent(initialIntent, exec?.activeIntent, selectedDocIntents, availableIntents)
   );
 
   const [affectedResult, setAffectedResult] = useState<DocsUpdateResult | null>(() => {
     if (initialStep === 'auto') {
-      const spec = determineInitialSpec(
-        initialSpec,
-        exec?.activeSpec,
-        selectedDoc?.specs,
-        availableSpecs
+      const intent = determineInitialIntent(
+        initialIntent,
+        exec?.activeIntent,
+        selectedDocIntents,
+        availableIntents
       );
-      if (spec) {
+      if (intent) {
         try {
-          return container.updateDocUseCase.getAffectedDocs(spec);
+          return container.updateDocUseCase.getAffectedDocs(intent);
         } catch {
           return { kind: 'not-initialized' };
         }
@@ -181,9 +183,9 @@ export function useUpdateDocModal({
   });
   const [autoSelectedIndex, setAutoSelectedIndex] = useState<number>(0);
 
-  const lastResolvedSpecRef = useRef<string | null>(
+  const lastResolvedIntentRef = useRef<string | null>(
     initialStep === 'auto'
-      ? determineInitialSpec(initialSpec, exec?.activeSpec, selectedDoc?.specs, availableSpecs) || null
+      ? determineInitialIntent(initialIntent, exec?.activeIntent, selectedDocIntents, availableIntents) || null
       : null
   );
 
@@ -214,8 +216,8 @@ export function useUpdateDocModal({
         return translate('tui_docs_edge_no_changed_files', language);
       case 'no-affected-docs':
         return translate('tui_docs_edge_no_affected_docs', language);
-      case 'spec-not-found':
-        return translate('tui_docs_edge_spec_not_found', language, { spec: selectedSpec });
+      case 'intent-not-found':
+        return translate('tui_docs_edge_intent_not_found', language, { intent: selectedIntent });
       case 'rules-not-found':
         return translate('tui_docs_edge_rules_not_found', language);
       case 'not-initialized':
@@ -225,7 +227,7 @@ export function useUpdateDocModal({
       default:
         return null;
     }
-  }, [affectedResult, selectedSpec, language]);
+  }, [affectedResult, selectedIntent, language]);
 
   const selectedAutoTarget: AutoTarget = useMemo(() => {
     if (autoSelectedIndex === 0 || affectedDocs.length === 0) {
@@ -243,18 +245,18 @@ export function useUpdateDocModal({
   }, [autoSelectedIndex, affectedDocs]);
 
   const resolveAffectedDocs = useCallback(
-    (specName?: string): DocsUpdateResult => {
-      const spec = specName ?? selectedSpec;
-      lastResolvedSpecRef.current = spec;
-      if (!spec) {
-        const emptyResult: DocsUpdateResult = { kind: 'spec-not-found' };
+    (intentName?: string): DocsUpdateResult => {
+      const intent = intentName ?? selectedIntent;
+      lastResolvedIntentRef.current = intent;
+      if (!intent) {
+        const emptyResult: DocsUpdateResult = { kind: 'intent-not-found' };
         setAffectedResult(emptyResult);
         setAutoSelectedIndex(0);
         return emptyResult;
       }
 
       try {
-        const result = container.updateDocUseCase.getAffectedDocs(spec);
+        const result = container.updateDocUseCase.getAffectedDocs(intent);
         setAffectedResult(result);
         if (result.kind === 'affected-docs') {
           setAutoSelectedIndex((prev) => {
@@ -272,23 +274,23 @@ export function useUpdateDocModal({
         return fallback;
       }
     },
-    [container, selectedSpec]
+    [container, selectedIntent]
   );
 
   const reset = useCallback(() => {
     setStep(initialStep);
     setMode(initialMode);
     setAutoSelectedIndex(0);
-    const initial = determineInitialSpec(
-      initialSpec,
-      exec?.activeSpec,
-      selectedDoc?.specs,
-      availableSpecs
+    const initial = determineInitialIntent(
+      initialIntent,
+      exec?.activeIntent,
+      selectedDocIntents,
+      availableIntents
     );
-    setSelectedSpec(initial);
+    setSelectedIntent(initial);
     setAffectedResult(null);
-    lastResolvedSpecRef.current = null;
-  }, [initialStep, initialMode, initialSpec, exec?.activeSpec, selectedDoc?.specs, availableSpecs]);
+    lastResolvedIntentRef.current = null;
+  }, [initialStep, initialMode, initialIntent, exec?.activeIntent, selectedDocIntents, availableIntents]);
 
   const prevIsOpenRef = useRef(isOpen);
   useEffect(() => {
@@ -299,24 +301,24 @@ export function useUpdateDocModal({
   }, [isOpen, reset]);
 
   useEffect(() => {
-    if (!selectedSpec) {
-      const resolved = determineInitialSpec(
-        initialSpec,
-        exec?.activeSpec,
-        selectedDoc?.specs,
-        availableSpecs
+    if (!selectedIntent) {
+      const resolved = determineInitialIntent(
+        initialIntent,
+        exec?.activeIntent,
+        selectedDocIntents,
+        availableIntents
       );
       if (resolved) {
-        setSelectedSpec(resolved);
+        setSelectedIntent(resolved);
       }
     }
-  }, [initialSpec, exec?.activeSpec, selectedDoc?.specs, availableSpecs, selectedSpec]);
+  }, [initialIntent, exec?.activeIntent, selectedDocIntents, availableIntents, selectedIntent]);
 
   useEffect(() => {
-    if (step === 'auto' && selectedSpec && lastResolvedSpecRef.current !== selectedSpec) {
-      resolveAffectedDocs(selectedSpec);
+    if (step === 'auto' && selectedIntent && lastResolvedIntentRef.current !== selectedIntent) {
+      resolveAffectedDocs(selectedIntent);
     }
-  }, [step, selectedSpec, resolveAffectedDocs]);
+  }, [step, selectedIntent, resolveAffectedDocs]);
 
   const handleSelectMode = useCallback((newMode: UpdateMode) => {
     setMode(newMode);
@@ -326,21 +328,21 @@ export function useUpdateDocModal({
     setMode((prev) => (prev === 'direct' ? 'auto' : 'direct'));
   }, []);
 
-  const handleCycleSpec = useCallback(
+  const handleCycleIntent = useCallback(
     (direction: 1 | -1 = 1) => {
-      if (availableSpecs.length === 0) return;
-      const currentIdx = availableSpecs.indexOf(selectedSpec);
+      if (availableIntents.length === 0) return;
+      const currentIdx = availableIntents.indexOf(selectedIntent);
       const nextIdx =
         currentIdx === -1
           ? 0
-          : (currentIdx + direction + availableSpecs.length) % availableSpecs.length;
-      const nextSpec = availableSpecs[nextIdx];
-      setSelectedSpec(nextSpec);
+          : (currentIdx + direction + availableIntents.length) % availableIntents.length;
+      const nextIntent = availableIntents[nextIdx];
+      setSelectedIntent(nextIntent);
       if (step === 'auto') {
-        resolveAffectedDocs(nextSpec);
+        resolveAffectedDocs(nextIntent);
       }
     },
-    [availableSpecs, selectedSpec, step, resolveAffectedDocs]
+    [availableIntents, selectedIntent, step, resolveAffectedDocs]
   );
 
   const handleCycleAutoTarget = useCallback(
@@ -361,18 +363,18 @@ export function useUpdateDocModal({
         setStep('direct');
       } else {
         setStep('auto');
-        resolveAffectedDocs(selectedSpec);
+        resolveAffectedDocs(selectedIntent);
         setAutoSelectedIndex(0);
       }
       return;
     }
 
     if (step === 'direct') {
-      await onConfirmDirect?.(targetDocName, selectedSpec);
+      await onConfirmDirect?.(targetDocName, selectedIntent);
       await onConfirm?.({
         mode: 'direct',
         docName: targetDocName,
-        specName: selectedSpec,
+        intentName: selectedIntent,
       });
       return;
     }
@@ -381,10 +383,10 @@ export function useUpdateDocModal({
       if (affectedResult?.kind !== 'affected-docs' || affectedDocs.length === 0) {
         return;
       }
-      await onConfirmAuto?.(selectedSpec, selectedAutoTarget, affectedDocs);
+      await onConfirmAuto?.(selectedIntent, selectedAutoTarget, affectedDocs);
       await onConfirm?.({
         mode: 'auto',
-        specName: selectedSpec,
+        intentName: selectedIntent,
         target: selectedAutoTarget,
         affectedDocs,
       });
@@ -393,7 +395,7 @@ export function useUpdateDocModal({
   }, [
     step,
     mode,
-    selectedSpec,
+    selectedIntent,
     targetDocName,
     affectedResult,
     affectedDocs,
@@ -407,7 +409,7 @@ export function useUpdateDocModal({
   const handleBack = useCallback(() => {
     if (step === 'direct' || step === 'auto') {
       setStep('mode-select');
-      lastResolvedSpecRef.current = null;
+      lastResolvedIntentRef.current = null;
     } else if (step === 'mode-select') {
       onClose?.();
     }
@@ -421,10 +423,10 @@ export function useUpdateDocModal({
     setMode,
     handleSelectMode,
     handleCycleMode,
-    selectedSpec,
-    setSelectedSpec,
-    availableSpecs,
-    handleCycleSpec,
+    selectedIntent,
+    setSelectedIntent,
+    availableIntents,
+    handleCycleIntent,
     selectedDoc,
     targetDocName,
     targetDocDisplayName,

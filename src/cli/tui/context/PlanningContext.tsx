@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import { AppContainer, createAppContainer } from '../../../infrastructure/container.js';
 import { ContainerContext } from './ContainerContext.js';
-import { getSpecTaskCount } from './ExecutionContext/taskLoader.js';
+import { getIntentTaskCount, } from './ExecutionContext/taskLoader.js';
 
 export interface PlanGenerationResult {
   kind:
@@ -18,7 +18,8 @@ export interface PlanGenerationResult {
     | 'invalid'
     | 'failed'
     | 'not-initialized'
-    | 'spec-not-found'
+    | 'intent-not-found'
+    | 'intent-not-found'
     | 'tasks-dir-not-found'
     | 'error'
     | string;
@@ -29,13 +30,12 @@ export interface PlanGenerationResult {
 
 export interface PlanningContextValue {
   isGenerating: boolean;
-  generatingSpecName: string | null;
-  startTime: number | null;
+  generatingIntentName: string | null;  startTime: number | null;
   endTime: number | null;
   result: PlanGenerationResult | null;
   validationErrors: string[] | null;
   statusNotification: string | null;
-  generatePlan: (specName: string) => Promise<void>;
+  generatePlan: (intentName: string) => Promise<void>;
   clearPlanResult: () => void;
   clearStatusNotification: () => void;
 }
@@ -58,7 +58,7 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
   );
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingSpecName, setGeneratingSpecName] = useState<string | null>(null);
+  const [generatingIntentName, setGeneratingIntentName] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
   const [result, setResult] = useState<PlanGenerationResult | null>(null);
@@ -66,7 +66,7 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
 
   const isGeneratingRef = useRef(false);
-  const generatingSpecNameRef = useRef<string | null>(null);
+  const generatingIntentNameRef = useRef<string | null>(null);
   const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
@@ -97,25 +97,25 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
     setStartTime(null);
     setEndTime(null);
     if (!isGeneratingRef.current) {
-      generatingSpecNameRef.current = null;
-      setGeneratingSpecName(null);
+      generatingIntentNameRef.current = null;
+      setGeneratingIntentName(null);
     }
   }, []);
 
   const generatePlan = useCallback(
-    async (specName: string): Promise<void> => {
+    async (intentName: string): Promise<void> => {
       if (isGeneratingRef.current) {
-        const activeSpec = generatingSpecNameRef.current ?? '';
+        const activeIntent = generatingIntentNameRef.current ?? '';
         throw new Error(
-          `Já existe um plano sendo gerado para "${activeSpec}". Aguarde a conclusão.`,
+          `Já existe um plano sendo gerado para "${activeIntent}". Aguarde a conclusão.`,
         );
       }
 
       isGeneratingRef.current = true;
-      generatingSpecNameRef.current = specName;
+      generatingIntentNameRef.current = intentName;
 
       setIsGenerating(true);
-      setGeneratingSpecName(specName);
+      setGeneratingIntentName(intentName);
       const start = Date.now();
       setStartTime(start);
       setEndTime(null);
@@ -134,7 +134,7 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
           : null;
         const model = config?.plannerAgent || 'default';
 
-        const useCaseResult = await appContainer.generatePlanUseCase.execute(specName, model);
+        const useCaseResult = await appContainer.generatePlanUseCase.execute(intentName, model);
 
         if (!isMountedRef.current) return;
 
@@ -143,14 +143,14 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
 
         if (useCaseResult.kind === 'valid') {
           const gw = appContainer.gw ?? appContainer.workspaceGateway;
-          const taskCount = gw ? getSpecTaskCount(gw, specName) : 0;
+          const taskCount = gw ? getIntentTaskCount(gw, intentName) : 0;
           setResult({
             kind: 'valid',
             taskCount,
           });
           setValidationErrors(null);
 
-          const notificationMsg = `✓ Plano gerado para ${specName}`;
+          const notificationMsg = `✓ Plano gerado para ${intentName}`;
           setStatusNotification(notificationMsg);
 
           if (notificationTimeoutRef.current) {
@@ -199,8 +199,7 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
   const value = useMemo<PlanningContextValue>(
     () => ({
       isGenerating,
-      generatingSpecName,
-      startTime,
+      generatingIntentName,      startTime,
       endTime,
       result,
       validationErrors,
@@ -211,7 +210,7 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
     }),
     [
       isGenerating,
-      generatingSpecName,
+      generatingIntentName,
       startTime,
       endTime,
       result,

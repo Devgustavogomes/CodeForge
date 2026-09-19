@@ -1,9 +1,11 @@
-import { StatusResult, TaskStatusInfo } from "../../application/use-cases/GetSpecStatusUseCase.js";
+import { IntentStatusResult, TaskStatusInfo } from "../../application/use-cases/GetIntentStatusUseCase.js";
 import { SupportedLanguage } from "../../config/types.js";
 import { TaskStatus } from "../../domain/execution.js";
 import { translate, TranslationKey } from "./i18n.js";
 
-type StatusSnapshot = Extract<StatusResult, { kind: "status" }>;
+export type { TaskStatusInfo };
+export type IntentStatusSnapshot = Extract<IntentStatusResult, { kind: "status" }>;
+export type StatusSnapshot = IntentStatusSnapshot;
 
 export interface StatusFormatterOptions {
   /** Enables ANSI styling. When omitted, terminal color support is detected. */
@@ -104,7 +106,7 @@ function taskDuration(task: TaskStatusInfo, snapshotAt: string): string {
 }
 
 function statusLabel(status: TaskStatus, language: SupportedLanguage): string {
-  return translate(STATUS_TRANSLATION[status], language);
+  return translate(STATUS_TRANSLATION[status] ?? "terminal_status_pending", language);
 }
 
 function formatTaskRow(
@@ -113,12 +115,13 @@ function formatTaskRow(
   language: SupportedLanguage,
   color: boolean,
 ): string[] {
-  const translatedStatus = statusLabel(task.status, language);
-  const marker = style(`[${STATUS_ICON[task.status]}]`, STATUS_COLOR[task.status], color);
-  const status = style(`(${translatedStatus})`, STATUS_COLOR[task.status], color);
+  const statusKey = (task.status in STATUS_ICON ? task.status : "pending") as TaskStatus;
+  const translatedStatus = statusLabel(statusKey, language);
+  const marker = style(`[${STATUS_ICON[statusKey] ?? "○"}]`, STATUS_COLOR[statusKey] ?? ANSI.gray, color);
+  const status = style(`(${translatedStatus})`, STATUS_COLOR[statusKey] ?? ANSI.gray, color);
   const details: string[] = [];
 
-  if (task.dependencies.length > 0) {
+  if (task.dependencies && task.dependencies.length > 0) {
     details.push(
       translate("terminal_status_dependencies", language, {
         dependencies: task.dependencies.join(", "),
@@ -175,24 +178,30 @@ function formatStatus(
   };
 
   for (const task of result.tasks) {
-    counts[task.status] += 1;
+    const s = task.status as TaskStatus;
+    if (s in counts) {
+      counts[s] += 1;
+    } else {
+      counts.pending += 1;
+    }
   }
 
   const total = result.tasks.length;
   const percent = total === 0 ? 0 : Math.round((counts.completed / total) * 100);
-  const specStatus = result.specStatus as TaskStatus;
-  const translatedSpecStatus = STATUS_TRANSLATION[specStatus]
-    ? statusLabel(specStatus, language)
-    : result.specStatus;
+  const intentName = result.intentName ?? "";
+  const rawStatus = (result.intentStatus ?? "pending") as TaskStatus;
+  const translatedStatus = STATUS_TRANSLATION[rawStatus]
+    ? statusLabel(rawStatus, language)
+    : String(rawStatus);
+
   const header = options.elapsed !== undefined
     ? translate("terminal_run_header", language, {
-        spec: result.specName,
-        elapsed: options.elapsed,
+        intent: intentName,        elapsed: options.elapsed,
       })
     : translate("terminal_status_header", language, {
-        spec: result.specName,
-        status: translatedSpecStatus,
+        intent: intentName,        status: translatedStatus,
       });
+
   const progress = translate("terminal_status_progress", language, {
     completed: counts.completed,
     total,
@@ -209,7 +218,7 @@ function formatStatus(
   });
 
   const lines = [
-    style(header, STATUS_COLOR[specStatus] ?? ANSI.bold, color),
+    style(header, STATUS_COLOR[rawStatus] ?? ANSI.bold, color),
     style(`${progress}${progressBar}`, ANSI.cyan, color),
     summary,
     "",

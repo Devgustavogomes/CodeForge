@@ -6,27 +6,24 @@ import { PlanningContext } from '../../../context/PlanningContext.js';
 import { AppContainer, createAppContainer } from '../../../../../infrastructure/container.js';
 import { ValidationResult } from '../../../../../application/use-cases/ValidatePlanUseCase.js';
 import { PATHS } from '../../../../../infrastructure/paths.js';
-import { SpecItemWithStats } from '../components/SpecList.js';
-import { PlanGenerationResult } from '../components/SpecPlanProgress.js';
-import { getSpecTaskCount } from '../../../context/ExecutionContext/taskLoader.js';
+import { IntentItemWithStats } from '../components/IntentList.js';
+import { PlanGenerationResult } from '../components/IntentPlanProgress.js';
+import { getIntentTaskCount } from '../../../context/ExecutionContext/taskLoader.js';
 import { SupportedLanguage } from '../../../../../config/types.js';
 import { translate } from '../../../../ui/i18n.js';
 
-export type { SpecItemWithStats, PlanGenerationResult };
-
-export interface SpecsActionFeedback {
+export type { IntentItemWithStats, PlanGenerationResult };
+export interface IntentsActionFeedback {
   type: 'info' | 'success' | 'error';
   message: string;
 }
 
-export type SpecsModal = 'create' | 'pull' | 'delete' | null;
-
-export interface UseSpecsScreenOptions {
+export type IntentsModal = 'create' | 'pull' | 'delete' | null;
+export interface UseIntentsScreenOptions {
   container?: AppContainer;
-  initialSpecs?: SpecItemWithStats[];
-  onOpenRun?: (specName: string) => void;
-  onOpenTasks?: (specName: string) => void;
-  onFeedback?: (feedback: SpecsActionFeedback) => void;
+  initialIntents?: IntentItemWithStats[];  onOpenRun?: (intentName: string) => void;
+  onOpenTasks?: (intentName: string) => void;
+  onFeedback?: (feedback: IntentsActionFeedback) => void;
   onNotification?: (
     message: string,
     type?: 'success' | 'error' | 'info',
@@ -34,15 +31,15 @@ export interface UseSpecsScreenOptions {
   language?: SupportedLanguage;
 }
 
-export function useSpecsScreen({
+export function useIntentsScreen({
   container: propContainer,
-  initialSpecs,
-  onOpenRun,
+  initialIntents,
+    onOpenRun,
   onOpenTasks,
   onFeedback,
   onNotification,
   language: propLanguage,
-}: UseSpecsScreenOptions = {}) {
+}: UseIntentsScreenOptions = {}) {
   const contextContainer = useContext(ContainerContext);
   const container = useMemo(
     () => propContainer ?? contextContainer ?? createAppContainer(),
@@ -64,10 +61,12 @@ export function useSpecsScreen({
   const planningRef = useRef(planning);
   planningRef.current = planning;
 
-  const [specs, setSpecs] = useState<SpecItemWithStats[]>(() => initialSpecs ?? []);
+  const [intents, setIntents] = useState<IntentItemWithStats[]>(
+    () => initialIntents ?? []
+  );
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [activeModal, setActiveModal] = useState<SpecsModal>(null);
-  const [actionFeedback, setActionFeedback] = useState<SpecsActionFeedback | null>(null);
+  const [activeModal, setActiveModal] = useState<IntentsModal>(null);
+  const [actionFeedback, setActionFeedback] = useState<IntentsActionFeedback | null>(null);
   const [isValidating, setIsValidating] = useState(false);
   const isDeleteConfirmingRef = useRef(false);
 
@@ -78,11 +77,11 @@ export function useSpecsScreen({
   const [localPlanResult, setLocalPlanResult] = useState<PlanGenerationResult | null>(null);
   const [localValidationErrors, setLocalValidationErrors] = useState<string[] | null>(null);
 
-  const loadSpecs = useCallback((): SpecItemWithStats[] => {
-    const listUseCase = container.listSpecsUseCase;
-    const rawSpecs = listUseCase.execute();
-    const enriched: SpecItemWithStats[] = rawSpecs.map((s) => {
-      const taskCount = getSpecTaskCount(container.gw, s.name);
+  const loadIntents = useCallback((): IntentItemWithStats[] => {
+    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const rawIntents = listUseCase.execute();
+    const enriched: IntentItemWithStats[] = rawIntents.map((s) => {
+      const taskCount = getIntentTaskCount(container.gw, s.name);
 
       let updatedAt: string | undefined;
       const execStatePath = PATHS.executionState(s.name);
@@ -102,7 +101,7 @@ export function useSpecsScreen({
       };
     });
 
-    setSpecs(enriched);
+    setIntents(enriched);
     setSelectedIndex((currentIndex) =>
       Math.min(currentIndex, Math.max(0, enriched.length - 1))
     );
@@ -110,86 +109,89 @@ export function useSpecsScreen({
   }, [container]);
 
   useEffect(() => {
-    if (!initialSpecs) {
-      loadSpecs();
+    if (!initialIntents) {
+      loadIntents();
     }
-  }, [initialSpecs, loadSpecs]);
+  }, [initialIntents, loadIntents]);
 
   useEffect(() => {
-    if (initialSpecs) {
-      setSpecs(initialSpecs);
+    if (initialIntents) {
+      setIntents(initialIntents);
     }
-  }, [initialSpecs]);
+  }, [initialIntents]);
 
-  const selectedSpec = specs[selectedIndex] ?? null;
+  const selectedIntent = intents[selectedIndex] ?? null;
 
-  const isCurrentSpecGenerating = Boolean(
-    planning?.isGenerating && planning.generatingSpecName === selectedSpec?.name
+  const currentGeneratingName = planning?.generatingIntentName;
+  const isCurrentIntentGenerating = Boolean(
+    planning?.isGenerating && currentGeneratingName === selectedIntent?.name
   );
-  const isCurrentSpecResult = Boolean(
-    planning?.result && planning.generatingSpecName === selectedSpec?.name
+  const isCurrentIntentResult = Boolean(
+    planning?.result && currentGeneratingName === selectedIntent?.name
   );
 
-  const isGeneratingPlan = planning ? isCurrentSpecGenerating : localIsGeneratingPlan;
+  const isGeneratingPlan = planning ? isCurrentIntentGenerating : localIsGeneratingPlan;
   const planStartTime = planning
-    ? (isCurrentSpecGenerating || isCurrentSpecResult ? planning.startTime : null)
+    ? (isCurrentIntentGenerating || isCurrentIntentResult ? planning.startTime : null)
     : localPlanStartTime;
   const planEndTime = planning
-    ? (isCurrentSpecResult ? planning.endTime : null)
+    ? (isCurrentIntentResult ? planning.endTime : null)
     : localPlanEndTime;
   const planResult = planning
-    ? (isCurrentSpecResult ? planning.result : null)
+    ? (isCurrentIntentResult ? planning.result : null)
     : localPlanResult;
   const validationErrors =
     localValidationErrors ??
-    (planning && planning.generatingSpecName === selectedSpec?.name
+    (planning && currentGeneratingName === selectedIntent?.name
       ? planning.validationErrors
       : null);
 
   const navigateUp = useCallback(() => {
-    setSelectedIndex((prev) => (prev > 0 ? prev - 1 : Math.max(0, specs.length - 1)));
+    setSelectedIndex((prev) => (prev > 0 ? prev - 1 : Math.max(0, intents.length - 1)));
     setActionFeedback(null);
     setLocalValidationErrors(null);
     setLocalPlanResult(null);
-  }, [specs.length]);
+  }, [intents.length]);
 
   const navigateDown = useCallback(() => {
-    setSelectedIndex((prev) => (prev < specs.length - 1 ? prev + 1 : 0));
+    setSelectedIndex((prev) => (prev < intents.length - 1 ? prev + 1 : 0));
     setActionFeedback(null);
     setLocalValidationErrors(null);
     setLocalPlanResult(null);
-  }, [specs.length]);
+  }, [intents.length]);
 
   const handleOpenInRun = useCallback(
-    (specName?: string) => {
-      const target = specName ?? selectedSpec?.name;
+    (intentName?: string) => {
+      const target = intentName ?? selectedIntent?.name;
       if (!target) return;
-      exec?.setActiveSpec(target);
+      exec?.setActiveIntent?.(target);
+      exec?.setActiveIntent?.(target);
       if (onOpenRun) {
         onOpenRun(target);
       } else {
         nav?.setActiveTab('run');
       }
     },
-    [nav, exec, onOpenRun, selectedSpec?.name]
+    [nav, exec, onOpenRun, selectedIntent?.name]
   );
 
   const handleOpenInTasks = useCallback(
-    (specName?: string) => {
-      const target = specName ?? selectedSpec?.name;
+    (intentName?: string) => {
+      const target = intentName ?? selectedIntent?.name;
       if (!target) return;
-      exec?.setActiveSpec(target);
+      exec?.setActiveIntent?.(target);
+      exec?.setActiveIntent?.(target);
       if (onOpenTasks) {
         onOpenTasks(target);
       } else {
         nav?.setActiveTab('tasks');
       }
     },
-    [nav, exec, onOpenTasks, selectedSpec?.name]
+    [nav, exec, onOpenTasks, selectedIntent?.name]
   );
 
   const handleValidatePlan = useCallback(() => {
-    if (!selectedSpec) return;
+    if (!selectedIntent) return;
     setIsValidating(true);
     setActionFeedback(null);
     setLocalValidationErrors(null);
@@ -197,24 +199,24 @@ export function useSpecsScreen({
 
     try {
       const useCase = container.validatePlanUseCase;
-      const result: ValidationResult = useCase.execute(selectedSpec.name);
+      const result: ValidationResult = useCase.execute(selectedIntent.name);
 
       if (result.kind === 'valid') {
         setActionFeedback({
           type: 'success',
-          message: `Plan for "${selectedSpec.name}" is valid! (${selectedSpec.taskCount} tasks verified)`,
+          message: `Plan for "${selectedIntent.name}" is valid! (${selectedIntent.taskCount} tasks verified)`,
         });
         setLocalValidationErrors(null);
       } else if (result.kind === 'invalid') {
         setActionFeedback({
           type: 'error',
-          message: `Plan for "${selectedSpec.name}" has ${result.errors.length} validation errors.`,
+          message: `Plan for "${selectedIntent.name}" has ${result.errors.length} validation errors.`,
         });
         setLocalValidationErrors(result.errors);
-      } else if (result.kind === 'spec-not-found') {
+      } else if (result.kind === 'intent-not-found') {
         setActionFeedback({
           type: 'error',
-          message: `Tasks directory for "${selectedSpec.name}" not found. Generate plan first ('p').`,
+          message: `Tasks directory for "${selectedIntent.name}" not found. Generate plan first ('g').`,
         });
       } else {
         setActionFeedback({
@@ -228,15 +230,16 @@ export function useSpecsScreen({
     } finally {
       setIsValidating(false);
     }
-  }, [selectedSpec, container]);
+  }, [selectedIntent, container]);
 
   const handleGeneratePlan = useCallback(async () => {
-    if (!selectedSpec) return;
+    if (!selectedIntent) return;
 
     if (planning?.isGenerating) {
+      const activeName = planning.generatingIntentName || planning.generatingIntentName;
       setActionFeedback({
         type: 'info',
-        message: `Já existe um plano sendo gerado para "${planning.generatingSpecName}". Aguarde a conclusão.`,
+        message: `Já existe um plano sendo gerado para "${activeName}". Aguarde a conclusão.`,
       });
       return;
     }
@@ -247,8 +250,8 @@ export function useSpecsScreen({
 
     if (planning) {
       try {
-        await planning.generatePlan(selectedSpec.name);
-        loadSpecs();
+        await planning.generatePlan(selectedIntent.name);
+        loadIntents();
 
         const latestResult = planningRef.current?.result;
         if (latestResult && latestResult.kind !== 'valid') {
@@ -263,7 +266,7 @@ export function useSpecsScreen({
         } else {
           setActionFeedback({
             type: 'success',
-            message: `Plan generated and validated successfully for "${selectedSpec.name}"!`,
+            message: `Plan generated and validated successfully for "${selectedIntent.name}"!`,
           });
         }
       } catch (err: unknown) {
@@ -288,22 +291,22 @@ export function useSpecsScreen({
         : null;
       const model = config?.plannerAgent || 'default';
       const useCase = container.generatePlanUseCase;
-      const result = await useCase.execute(selectedSpec.name, model);
+      const result = await useCase.execute(selectedIntent.name, model);
       const end = Date.now();
       setLocalPlanEndTime(end);
 
-      loadSpecs();
+      loadIntents();
 
-      const taskCount = getSpecTaskCount(container.gw, selectedSpec.name);
+      const taskCount = getIntentTaskCount(container.gw, selectedIntent.name);
 
       if (result.kind === 'valid') {
         setLocalPlanResult({
           kind: 'valid',
-          taskCount: taskCount || selectedSpec.taskCount || 0,
+          taskCount: taskCount || selectedIntent.taskCount || 0,
         });
         setActionFeedback({
           type: 'success',
-          message: `Plan generated and validated successfully for "${selectedSpec.name}"!`,
+          message: `Plan generated and validated successfully for "${selectedIntent.name}"!`,
         });
       } else if (result.kind === 'invalid') {
         setLocalPlanResult({
@@ -337,14 +340,14 @@ export function useSpecsScreen({
     } finally {
       setLocalIsGeneratingPlan(false);
     }
-  }, [selectedSpec, planning, container, loadSpecs]);
+  }, [selectedIntent, planning, container, loadIntents]);
 
   const openCreateModal = useCallback(() => setActiveModal('create'), []);
   const openPullModal = useCallback(() => setActiveModal('pull'), []);
   const closeModal = useCallback(() => setActiveModal(null), []);
 
   const publishDeleteFeedback = useCallback(
-    (feedback: SpecsActionFeedback) => {
+    (feedback: IntentsActionFeedback) => {
       setActionFeedback(feedback);
       onFeedback?.(feedback);
       onNotification?.(feedback.message, feedback.type);
@@ -353,11 +356,11 @@ export function useSpecsScreen({
   );
 
   const openDeleteModal = useCallback(() => {
-    if (!selectedSpec) return;
+    if (!selectedIntent) return;
     isDeleteConfirmingRef.current = false;
     setActionFeedback(null);
     setActiveModal('delete');
-  }, [selectedSpec]);
+  }, [selectedIntent]);
 
   const cancelDelete = useCallback(() => {
     isDeleteConfirmingRef.current = false;
@@ -365,74 +368,81 @@ export function useSpecsScreen({
   }, []);
 
   const confirmDelete = useCallback(() => {
-    if (!selectedSpec || activeModal !== 'delete' || isDeleteConfirmingRef.current) {
+    if (!selectedIntent || activeModal !== 'delete' || isDeleteConfirmingRef.current) {
       return;
     }
 
     isDeleteConfirmingRef.current = true;
-    const specName = selectedSpec.name;
+    const intentName = selectedIntent.name;
     setActiveModal(null);
 
-    let result: ReturnType<typeof container.deleteSpecUseCase.execute>;
+    const deleteUseCase = container.deleteIntentUseCase ?? container.deleteIntentUseCase;
+    let result: ReturnType<typeof deleteUseCase.execute>;
     try {
-      result = container.deleteSpecUseCase.execute(specName);
+      result = deleteUseCase.execute(intentName);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      const translatedMsg = translate('tui_intent_delete_error', language, {
+        intent: intentName,
+        error: message,
+      });
       publishDeleteFeedback({
         type: 'error',
-        message: translate('tui_spec_delete_error', language, {
-          spec: specName,
-          error: message,
-        }),
+        message: translatedMsg !== 'tui_intent_delete_error' ? translatedMsg : `Failed to delete intent '${intentName}': ${message}`,
       });
       return;
     }
 
     switch (result.kind) {
-      case 'deleted':
-        loadSpecs();
+      case 'deleted': {
+        loadIntents();
+        const deletedName = result.intentName || intentName;
+        const translatedSuccess = translate('tui_intent_delete_success', language, {
+          intent: deletedName,
+        });
         publishDeleteFeedback({
           type: 'success',
-          message: translate('tui_spec_delete_success', language, {
-            spec: result.specName,
-          }),
+          message: translatedSuccess !== 'tui_intent_delete_success' ? translatedSuccess : `Intent '${deletedName}' deleted successfully.`,
         });
         return;
-      case 'spec-not-found':
+      }
+      case 'intent-not-found': {
+        const translatedNotFound = translate('tui_intent_delete_not_found', language, { intent: intentName });
         publishDeleteFeedback({
           type: 'error',
-          message: translate('tui_spec_delete_not_found', language, { spec: specName }),
+          message: translatedNotFound !== 'tui_intent_delete_not_found' ? translatedNotFound : `Intent '${intentName}' was not found.`,
         });
         return;
-      case 'not-initialized':
+      }
+      case 'not-initialized': {
+        const translatedNotInit = translate('tui_delete_not_initialized', language);
         publishDeleteFeedback({
           type: 'error',
-          message: translate('tui_delete_not_initialized', language),
+          message: translatedNotInit !== 'tui_delete_not_initialized' ? translatedNotInit : 'Workspace is not initialized.',
         });
         return;
+      }
     }
-  }, [activeModal, container, language, loadSpecs, publishDeleteFeedback, selectedSpec]);
+  }, [activeModal, container, language, loadIntents, publishDeleteFeedback, selectedIntent]);
 
   const handleModalSuccess = useCallback(
-    (specName: string, action: 'created' | 'pulled') => {
+    (intentName: string, action: 'created' | 'pulled') => {
       setActiveModal(null);
-      loadSpecs();
+      loadIntents();
       setActionFeedback({
         type: 'success',
-        message: `Specification "${specName}" ${
+        message: `Intent "${intentName}" ${
           action === 'created' ? 'created' : 'pulled'
         } successfully!`,
       });
     },
-    [loadSpecs]
+    [loadIntents]
   );
 
   return {
     container,
-    specs,
-    selectedIndex,
-    selectedSpec,
-    activeModal,
+    intents,    selectedIndex,
+    selectedIntent,    activeModal,
     actionFeedback,
     language,
     isValidating,
@@ -441,9 +451,7 @@ export function useSpecsScreen({
     planEndTime,
     planResult,
     validationErrors,
-    generatingSpecName: planning?.generatingSpecName ?? null,
-    loadSpecs,
-    navigateUp,
+    generatingIntentName: planning?.generatingIntentName ?? planning?.generatingIntentName ?? null,    loadIntents,    navigateUp,
     navigateDown,
     setSelectedIndex,
     openCreateModal,
@@ -461,4 +469,4 @@ export function useSpecsScreen({
   };
 }
 
-export default useSpecsScreen;
+export default useIntentsScreen;

@@ -2,27 +2,25 @@ import React from 'react';
 import { Box } from 'ink';
 import { AppContainer } from '../../../../infrastructure/container.js';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
-import { CreateSpecModal } from './CreateSpecModal.js';
-import { PullSpecModal } from './PullSpecModal.js';
-import { SpecList, SpecItemWithStats, STATUS_BADGE_MAP } from './components/SpecList.js';
-import { SpecDetails } from './components/SpecDetails.js';
-import { SpecPlanProgress } from './components/SpecPlanProgress.js';
-import { useSpecsScreen } from './hooks/useSpecsScreen.js';
-import { SpecsActionFeedback } from './hooks/useSpecsScreen.js';
-import { useSpecsHotkeys } from './hooks/useSpecsHotkeys.js';
+import { CreateIntentModal } from './CreateIntentModal.js';
+import { PullIntentModal } from './PullIntentModal.js';
+import { IntentList, IntentItemWithStats, STATUS_BADGE_MAP } from './components/IntentList.js';
+import { IntentDetails } from './components/IntentDetails.js';
+import { IntentPlanProgress } from './components/IntentPlanProgress.js';
+import { useIntentsScreen } from './hooks/useIntentsScreen.js';
+import { IntentsActionFeedback } from './hooks/useIntentsScreen.js';
+import { useIntentsHotkeys } from './hooks/useIntentsHotkeys.js';
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal.js';
 import { SupportedLanguage } from '../../../../config/types.js';
 import { translate } from '../../../ui/i18n.js';
 
-export type { SpecItemWithStats };
-export { STATUS_BADGE_MAP };
+export type { IntentItemWithStats };export { STATUS_BADGE_MAP };
 
-export interface SpecsScreenProps {
+export interface IntentsScreenProps {
   container?: AppContainer;
-  initialSpecs?: SpecItemWithStats[];
-  onOpenRun?: (specName: string) => void;
-  onOpenTasks?: (specName: string) => void;
-  onFeedback?: (feedback: SpecsActionFeedback) => void;
+  initialIntents?: IntentItemWithStats[];  onOpenRun?: (intentName: string) => void;
+  onOpenTasks?: (intentName: string) => void;
+  onFeedback?: (feedback: IntentsActionFeedback) => void;
   onNotification?: (
     message: string,
     type?: 'success' | 'error' | 'info',
@@ -30,11 +28,10 @@ export interface SpecsScreenProps {
   language?: SupportedLanguage;
   isInteractive?: boolean;
 }
-
-export const SpecsScreen: React.FC<SpecsScreenProps> = ({
+export const IntentsScreen: React.FC<IntentsScreenProps> = ({
   container: propContainer,
-  initialSpecs,
-  onOpenRun,
+  initialIntents,
+    onOpenRun,
   onOpenTasks,
   onFeedback,
   onNotification,
@@ -44,9 +41,9 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
   const { breakpoint } = useTerminalDimensions();
   const {
     container,
-    specs,
+    intents,
     selectedIndex,
-    selectedSpec,
+    selectedIntent,
     activeModal,
     actionFeedback,
     language,
@@ -56,7 +53,7 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     planEndTime,
     planResult,
     validationErrors,
-    generatingSpecName,
+    generatingIntentName,
     navigateUp,
     navigateDown,
     openCreateModal,
@@ -71,31 +68,30 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
     handleGeneratePlan,
     handleModalSuccess,
     isTextInputActive,
-  } = useSpecsScreen({
+  } = useIntentsScreen({
     container: propContainer,
-    initialSpecs,
-    onOpenRun,
+    initialIntents,    onOpenRun,
     onOpenTasks,
     onFeedback,
     onNotification,
     language: propLanguage,
   });
 
-  useSpecsHotkeys({
+  useIntentsHotkeys({
     isInteractive,
     isModalOpen: activeModal !== null,
     isTextInputActive,
-    hasSelectedSpec: selectedSpec !== null,
+    hasSelectedIntent: selectedIntent !== null,
     onNavigateUp: navigateUp,
     onNavigateDown: navigateDown,
     onOpenRun: () => {
-      if (selectedSpec) {
-        handleOpenInRun(selectedSpec.name);
+      if (selectedIntent) {
+        handleOpenInRun(selectedIntent.name);
       }
     },
     onOpenTasks: () => {
-      if (selectedSpec) {
-        handleOpenInTasks(selectedSpec.name);
+      if (selectedIntent) {
+        handleOpenInTasks(selectedIntent.name);
       }
     },
     onGeneratePlan: () => {
@@ -109,35 +105,40 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
 
   if (activeModal === 'create') {
     return (
-      <CreateSpecModal
+      <CreateIntentModal
         isOpen={true}
         onClose={closeModal}
         container={container}
         width="100%"
-        onSuccess={(specName) => handleModalSuccess(specName, 'created')}
+        onSuccess={(intentName) => handleModalSuccess(intentName, 'created')}
       />
     );
   }
 
   if (activeModal === 'pull') {
     return (
-      <PullSpecModal
+      <PullIntentModal
         isOpen={true}
         onClose={closeModal}
         container={container}
         width="100%"
-        onSuccess={(specName) => handleModalSuccess(specName, 'pulled')}
+        onSuccess={(intentName) => handleModalSuccess(intentName, 'pulled')}
       />
     );
   }
 
-  if (activeModal === 'delete' && selectedSpec) {
+  if (activeModal === 'delete' && selectedIntent) {
+    const translatedTitle = translate('tui_intent_delete_title', language);
+    const translatedBody = translate('tui_intent_delete_body', language);
+    const translatedDetail = translate('tui_intent_delete_detail', language, { intent: selectedIntent.name });
+    const translatedWarning = translate('tui_intent_delete_warning', language);
+
     return (
       <ConfirmDeleteModal
-        title={translate('tui_spec_delete_title', language)}
-        body={translate('tui_spec_delete_body', language)}
-        detail={translate('tui_spec_delete_detail', language, { spec: selectedSpec.name })}
-        warning={translate('tui_spec_delete_warning', language)}
+        title={translatedTitle !== 'tui_intent_delete_title' ? translatedTitle : 'Delete Intent'}
+        body={translatedBody !== 'tui_intent_delete_body' ? translatedBody : 'Are you sure you want to permanently delete this intent?'}
+        detail={translatedDetail !== 'tui_intent_delete_detail' ? translatedDetail : `Intent: ${selectedIntent.name}`}
+        warning={translatedWarning !== 'tui_intent_delete_warning' ? translatedWarning : 'The intent, its tasks, and execution history will be deleted.'}
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
         language={language}
@@ -147,44 +148,42 @@ export const SpecsScreen: React.FC<SpecsScreenProps> = ({
 
   const isSideBySide = breakpoint !== 'minimal';
 
-  const isSelectedSpecGenerating = Boolean(
-    selectedSpec &&
+  const isSelectedIntentGenerating = Boolean(
+    selectedIntent &&
     isGeneratingPlan &&
-    (!generatingSpecName || generatingSpecName === selectedSpec.name)
+    (generatingIntentName === selectedIntent.name)
   );
-  const isSelectedSpecPersisted = Boolean(
-    selectedSpec &&
+  const isSelectedIntentPersisted = Boolean(
+    selectedIntent &&
     planResult &&
-    (!generatingSpecName || generatingSpecName === selectedSpec.name)
+    (generatingIntentName === selectedIntent.name)
   );
-  const showPlanProgress = isSelectedSpecGenerating || isSelectedSpecPersisted;
+  const showPlanProgress = isSelectedIntentGenerating || isSelectedIntentPersisted;
 
   return (
     <Box flexDirection="column" width="100%" flexGrow={1}>
       <Box flexDirection={isSideBySide ? 'row' : 'column'} width="100%" flexGrow={1}>
-        <SpecList
-          specs={specs}
+        <IntentList
+          intents={intents}
           selectedIndex={selectedIndex}
           isSideBySide={isSideBySide}
         />
-        <SpecDetails
-          spec={selectedSpec}
+        <IntentDetails
+          intent={selectedIntent}
           isSideBySide={isSideBySide}
           isValidating={isValidating}
           actionFeedback={actionFeedback}
           validationErrors={validationErrors}
         >
-          <SpecPlanProgress
-            specName={selectedSpec?.name}
+          <IntentPlanProgress
+            intentName={selectedIntent?.name}
             isGenerating={showPlanProgress ? isGeneratingPlan : false}
             startTime={showPlanProgress ? planStartTime : null}
             endTime={showPlanProgress ? planEndTime : null}
             result={showPlanProgress ? planResult : null}
           />
-        </SpecDetails>
+        </IntentDetails>
       </Box>
     </Box>
   );
-};
-
-export default SpecsScreen;
+};export default IntentsScreen;

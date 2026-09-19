@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
-export type TabId = 'run' | 'specs' | 'tasks' | 'docs' | 'config';
+export type TabId = 'run' | 'intents' | 'tasks' | 'docs' | 'config' | 'intents';
 
 export interface TabItem {
   id: TabId;
@@ -10,13 +10,13 @@ export interface TabItem {
 
 export const TABS: readonly TabItem[] = [
   { id: 'run', label: 'Run', numberKey: '1' },
-  { id: 'specs', label: 'Specs', numberKey: '2' },
+  { id: 'intents', label: 'Intents', numberKey: '2' },
   { id: 'tasks', label: 'Tasks', numberKey: '3' },
   { id: 'docs', label: 'Docs', numberKey: '4' },
   { id: 'config', label: 'Config', numberKey: '5' },
 ] as const;
 
-export const TAB_ORDER: readonly TabId[] = ['run', 'specs', 'tasks', 'docs', 'config'] as const;
+export const TAB_ORDER: readonly TabId[] = ['run', 'intents', 'tasks', 'docs', 'config'] as const;
 
 export interface ModalState {
   type: string;
@@ -46,19 +46,22 @@ export const NavigationContext = createContext<NavigationContextValue | undefine
 
 export const NavigationProvider: React.FC<NavigationProviderProps> = ({
   children,
-  initialTab = 'specs',
+  initialTab = 'intents',
 }) => {
-  const [activeTab, setActiveTabState] = useState<TabId>(initialTab);
+  const normalizedInitial = (initialTab === 'intents' ? 'intents' : initialTab) as TabId;
+  const [activeTab, setActiveTabState] = useState<TabId>(normalizedInitial);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [isTextInputActive, setTextInputActive] = useState(false);
 
   const setActiveTab = useCallback((tab: TabId) => {
-    setActiveTabState(tab);
+    const normalized = (tab === 'intents' ? 'intents' : tab) as TabId;
+    setActiveTabState(normalized);
   }, []);
 
   const nextTab = useCallback(() => {
     setActiveTabState((current) => {
-      const idx = TAB_ORDER.indexOf(current);
+      const normalizedCurrent = current === 'intents' ? 'intents' : current;
+      const idx = TAB_ORDER.indexOf(normalizedCurrent);
       const nextIdx = (idx + 1) % TAB_ORDER.length;
       return TAB_ORDER[nextIdx];
     });
@@ -66,7 +69,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
 
   const prevTab = useCallback(() => {
     setActiveTabState((current) => {
-      const idx = TAB_ORDER.indexOf(current);
+      const normalizedCurrent = current === 'intents' ? 'intents' : current;
+      const idx = TAB_ORDER.indexOf(normalizedCurrent);
       const prevIdx = (idx - 1 + TAB_ORDER.length) % TAB_ORDER.length;
       return TAB_ORDER[prevIdx];
     });

@@ -8,7 +8,7 @@ import { translate } from "../ui/i18n.js";
 import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
 
 export async function runAction(
-  spec?: string,
+  intent?: string,
   container: AppContainer = createAppContainer(),
 ): Promise<ActionResult> {
   const config = container.configService.loadConfig() ?? {
@@ -19,26 +19,27 @@ export async function runAction(
   };
   const lang = config.language || "en";
 
-  let specName = spec;
+  let intentName = intent;
 
-  if (!specName) {
-    const specs = container.listSpecsUseCase.execute();
+  if (!intentName) {
+    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const intents = listUseCase.execute();
 
-    if (specs.length === 0) {
-      console.error(translate("err_no_specs_run", lang));
+    if (intents.length === 0) {
+      console.error(translate("err_no_intents_run", lang));
       process.exitCode = 1;
       return { success: false };
     }
 
-    specName = await select({
-      message: translate("run_select_spec", lang),
+    intentName = await select({
+      message: translate("run_select_intent", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((item) => ({ name: item.name, value: item.name })),
+        ...intents.map((item) => ({ name: item.name, value: item.name })),
       ],
     });
 
-    if (specName === "back") {
+    if (intentName === "back") {
       return { back: true };
     }
   }
@@ -53,7 +54,10 @@ export async function runAction(
     : new NoopHookDispatcher();
 
   const reporter = new TerminalSchedulerReporter({
-    getStatus: (name: string) => container.getSpecStatusUseCase.execute(name),
+    getStatus: (name: string) => {
+      const uc = container.getIntentStatusUseCase ?? container.getIntentStatusUseCase;
+      return uc.execute(name);
+    },
     language: lang,
   });
 
@@ -65,7 +69,7 @@ export async function runAction(
   );
 
   try {
-    const runResult = await scheduler.run(specName, config.executorAgent);
+    const runResult = await scheduler.run(intentName, config.executorAgent);
 
     if (runResult.status === "completed") {
       process.exitCode = 0;
@@ -84,9 +88,9 @@ export async function runAction(
 
 export function registerRunCommand(program: Command): void {
   program
-    .command("run [spec]")
-    .description("Execute tasks for a given spec autonomously")
-    .action(async (spec?: string) => {
-      await runAction(spec);
+    .command("run [intent]")
+    .description("Execute tasks for a given intent autonomously")
+    .action(async (intent?: string) => {
+      await runAction(intent);
     });
 }

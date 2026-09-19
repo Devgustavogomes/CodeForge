@@ -13,7 +13,7 @@ export interface HooksCommandListProps {
 }
 
 /**
- * Nível 2 - Lista de Comandos configurados para um Evento específico.
+ * Nível 2 - Lista de Comandos configurados para um Evento eintentífico.
  * Permite adicionar novo comando, visualizar comandos existentes com badges de tipo,
  * editar comandos e confirmar exclusão.
  */

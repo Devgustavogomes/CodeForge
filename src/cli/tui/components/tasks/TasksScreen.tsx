@@ -16,7 +16,7 @@ export type { TaskScreenItem };
 
 export interface TasksScreenProps {
   container?: AppContainer;
-  initialSpec?: string;
+  initialIntent?: string;
   initialTasks?: TaskScreenItem[];
   onCompleteTask?: (taskId: string) => void;
   onResetTask?: (taskId: string) => void;
@@ -31,7 +31,7 @@ export interface TasksScreenProps {
 
 export const TasksScreen: React.FC<TasksScreenProps> = ({
   container,
-  initialSpec,
+  initialIntent,
   initialTasks,
   onCompleteTask,
   onResetTask,
@@ -43,7 +43,7 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
   const { breakpoint } = useTerminalDimensions();
   const screenState = useTasksScreen({
     container,
-    initialSpec,
+    initialIntent,
     initialTasks,
     onCompleteTask,
     onResetTask,
@@ -56,48 +56,48 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
     isInteractive,
     isModalOpen:
       screenState.isViewTaskModalOpen || screenState.isDeleteTaskModalOpen,
-    isSearchingSpec: screenState.isSearchingSpec,
+    isSearchingIntent: screenState.isSearchingIntent,
     isTextInputActive: screenState.isTextInputActive,
     hasSelectedTask: screenState.selectedTask !== null,
     onOpenTask: screenState.handleOpenViewTaskModal,
     onOpenDeleteModal: screenState.handleOpenDeleteTaskModal,
     onNextTask: screenState.handleNextTask,
     onPrevTask: screenState.handlePrevTask,
-    onNextSpec: screenState.handleNextSpec,
-    onPrevSpec: screenState.handlePrevSpec,
+    onNextIntent: screenState.handleNextIntent,
+    onPrevIntent: screenState.handlePrevIntent,
     onToggleViewJson: screenState.handleToggleViewJson,
     onToggleExpand: screenState.handleToggleExpand,
     onComplete: screenState.handleComplete,
     onReset: screenState.handleReset,
-    onStartSearch: screenState.handleStartSearchSpec,
+    onStartSearch: screenState.handleStartSearchIntent,
   });
 
-  // Dedicated input capture when spec search is active
+  // Dedicated input capture when intent search is active
   useInput(
     (input, key) => {
-      if (!isInteractive || !screenState.isSearchingSpec) return;
+      if (!isInteractive || !screenState.isSearchingIntent) return;
 
       // Escape: dismiss search & clear
       if (key.escape || input === '\u001B') {
-        screenState.handleClearSearchSpec();
+        screenState.handleClearSearchIntent();
         return;
       }
 
       // Enter: finish search but keep filtered selection
       if (key.return || input === '\r' || input === '\n') {
-        screenState.handleStopSearchSpec();
+        screenState.handleStopSearchIntent();
         return;
       }
 
       // Backspace / Delete
       if (key.backspace || key.delete || input === '\x08' || input === '\x7f') {
-        screenState.setSpecSearchQuery((prev) => prev.slice(0, -1));
+        screenState.setIntentSearchQuery((prev) => prev.slice(0, -1));
         return;
       }
 
       // Ctrl+U: clear query
       if (key.ctrl && input === 'u') {
-        screenState.setSpecSearchQuery('');
+        screenState.setIntentSearchQuery('');
         return;
       }
 
@@ -112,14 +112,14 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
           .join('');
 
         if (printable.length > 0) {
-          screenState.setSpecSearchQuery((prev) => prev + printable);
+          screenState.setIntentSearchQuery((prev) => prev + printable);
         }
       }
     },
     {
       isActive:
         isInteractive &&
-        screenState.isSearchingSpec &&
+        screenState.isSearchingIntent &&
         !screenState.isViewTaskModalOpen &&
         !screenState.isDeleteTaskModalOpen,
     },
@@ -129,8 +129,8 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
     return (
       <ViewTaskModal
         task={screenState.selectedTask}
-        specName={screenState.currentSpec}
-        currentSpec={screenState.currentSpec}
+        intentName={screenState.currentIntent}
+        currentIntent={screenState.currentIntent}
         isOpen={true}
         onClose={screenState.handleCloseViewTaskModal}
       />
@@ -167,15 +167,15 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({
           tasks={screenState.tasks}
           visibleTasks={screenState.visibleTasks}
           selectedTaskId={screenState.selectedTask?.id ?? null}
-          specs={screenState.specs}
-          selectedSpecIndex={screenState.selectedSpecIndex}
-          currentSpec={screenState.currentSpec}
+          intents={screenState.intents}
+          selectedIntentIndex={screenState.selectedIntentIndex}
+          currentIntent={screenState.currentIntent}
           isSideBySide={isSideBySide}
-          isSearchingSpec={screenState.isSearchingSpec}
-          specSearchQuery={screenState.specSearchQuery}
-          onSearchChange={screenState.setSpecSearchQuery}
-          onSearchSubmit={screenState.handleStopSearchSpec}
-          onSearchCancel={screenState.handleClearSearchSpec}
+          isSearchingIntent={screenState.isSearchingIntent}
+          intentSearchQuery={screenState.intentSearchQuery}
+          onSearchChange={screenState.setIntentSearchQuery}
+          onSearchSubmit={screenState.handleStopSearchIntent}
+          onSearchCancel={screenState.handleClearSearchIntent}
         />
         <TaskMetadataView
           selectedTask={screenState.selectedTask}

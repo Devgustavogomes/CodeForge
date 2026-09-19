@@ -9,9 +9,9 @@ import { TabBar } from './components/common/TabBar.js';
 import { StatusBar } from './components/common/StatusBar.js';
 import { Modal } from './components/common/Modal.js';
 import { RunDashboard } from './components/run/RunDashboard.js';
-import { SpecsScreen } from './components/specs/SpecsScreen.js';
-import { CreateSpecModal } from './components/specs/CreateSpecModal.js';
-import { PullSpecModal } from './components/specs/PullSpecModal.js';
+import { IntentsScreen, } from './components/intents/IntentsScreen.js';
+import { CreateIntentModal, } from './components/intents/CreateIntentModal.js';
+import { PullIntentModal, } from './components/intents/PullIntentModal.js';
 import { TasksScreen } from './components/tasks/TasksScreen.js';
 import { DocsScreen } from './components/docs/DocsScreen.js';
 import { ConfigScreen } from './components/config/ConfigScreen.js';
@@ -27,8 +27,7 @@ import { SupportedLanguage } from '../../config/types.js';
 export interface AppProps {
   container?: AppContainer;
   initialTab?: TabId;
-  initialSpec?: string;
-  autoStart?: boolean;
+  initialIntent?: string;  autoStart?: boolean;
   onExit?: () => void;
   enableAlternateScreen?: boolean;
   language?: SupportedLanguage;
@@ -74,7 +73,7 @@ export function isWorkspaceInitialized(appContainer?: AppContainer): boolean {
     }
     const rawMetadata = gw.readFile(PATHS.metadata);
     const parsedMetadata = JSON.parse(rawMetadata);
-    if (!parsedMetadata || parsedMetadata.initialized !== true) {
+    if (parsedMetadata.initialized !== true) {
       return false;
     }
 
@@ -147,7 +146,7 @@ const AppContent: React.FC<{
     } catch {
       // Keep existing language
     }
-    nav.setActiveTab(initialTab === 'run' ? 'run' : 'specs');
+    nav.setActiveTab(initialTab === 'run' ? 'run' : 'intents');
   }, [container, initialTab, nav]);
 
   const handleScreenNotification = useCallback(
@@ -252,41 +251,41 @@ const AppContent: React.FC<{
         paddingX={1}
         width="100%"
       >
-        <Header activeSpec={exec.activeSpec} borderStyle="none" language={activeLanguage} />
+        <Header activeIntent={exec.activeIntent ?? exec.activeIntent} borderStyle="none" language={activeLanguage} />
         <TabBar activeTab={nav.activeTab} borderStyle="none" language={activeLanguage} />
       </Box>
 
       {/* Active Tab Screen */}
       <Box flexGrow={1} flexDirection="column" overflow="hidden">
-        {nav.modal?.type === 'create_spec' ? (
-          <CreateSpecModal
+        {nav.modal?.type === 'create_intent' || nav.modal?.type === 'create_intent' ? (
+          <CreateIntentModal
             isOpen={true}
             container={container}
             onClose={nav.closeModal}
             width="100%"
-            onSuccess={(specName) => {
+            onSuccess={(intentName) => {
               nav.closeModal();
-              exec.setActiveSpec(specName);
-              nav.setActiveTab('specs');
+              exec.setActiveIntent(intentName);
+              nav.setActiveTab('intents');
             }}
           />
-        ) : nav.modal?.type === 'pull_spec' ? (
-          <PullSpecModal
+        ) : nav.modal?.type === 'pull_intent' || nav.modal?.type === 'pull_intent' ? (
+          <PullIntentModal
             isOpen={true}
             container={container}
             onClose={nav.closeModal}
             width="100%"
-            onSuccess={(specName) => {
+            onSuccess={(intentName) => {
               nav.closeModal();
-              exec.setActiveSpec(specName);
-              nav.setActiveTab('specs');
+              exec.setActiveIntent(intentName);
+              nav.setActiveTab('intents');
             }}
           />
         ) : (
           <>
             {nav.activeTab === 'run' && <RunDashboard isInteractive={isInteractive} />}
-            {nav.activeTab === 'specs' && (
-              <SpecsScreen
+            {(nav.activeTab === 'intents' || (nav.activeTab as string) === 'intents') && (
+              <IntentsScreen
                 container={container}
                 isInteractive={isInteractive}
                 onNotification={handleScreenNotification}
@@ -352,7 +351,7 @@ const AppContent: React.FC<{
         </Modal>
       )}
 
-      {nav.modal && !['create_spec', 'pull_spec', 'quit_confirm'].includes(nav.modal.type) && (
+      {nav.modal && !['create_intent', 'pull_intent', 'create_intent', 'pull_intent', 'quit_confirm'].includes(nav.modal.type) && (
         <Modal
           title={String(nav.modal.type).replace(/_/g, ' ').toUpperCase()}
           isOpen={true}
@@ -377,19 +376,20 @@ const AppContent: React.FC<{
 
 export const App: React.FC<AppProps> = ({
   container,
-  initialTab = 'specs',
-  initialSpec,
-  autoStart = false,
+  initialTab = 'intents',
+  initialIntent,
+    autoStart = false,
   onExit,
   enableAlternateScreen = false,
   language,
 }) => {
   const appContainer = useMemo(() => container ?? createAppContainer(), [container]);
+  const resolvedIntent = initialIntent;
 
   return (
     <ContainerProvider container={appContainer}>
       <NavigationProvider initialTab={initialTab}>
-        <ExecutionProvider container={appContainer} initialSpec={initialSpec} autoStart={autoStart}>
+        <ExecutionProvider container={appContainer} initialIntent={resolvedIntent} autoStart={autoStart}>
           <PlanningProvider container={appContainer}>
             <AppContent
               container={appContainer}
@@ -404,3 +404,5 @@ export const App: React.FC<AppProps> = ({
     </ContainerProvider>
   );
 };
+
+export default App;

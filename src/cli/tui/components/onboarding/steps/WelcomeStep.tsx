@@ -41,7 +41,7 @@ const logoArt = [
 
 /** Autonomous development pipeline execution stages. */
 const pipelineSteps = [
-  { label: 'Spec', isHighlight: false },
+  { label: 'Intent', isHighlight: false },
   { label: 'Plan', isHighlight: false },
   { label: 'DAG', isHighlight: false },
   { label: 'Parallel Execution', isHighlight: false },

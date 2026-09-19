@@ -5,7 +5,7 @@ import { ConfigFieldKey } from './ConfigField.js';
 import { HooksPreview } from './previews/HooksPreview.js';
 import { AgentPreview } from './previews/AgentPreview.js';
 import { EnvironmentPreview } from './previews/EnvironmentPreview.js';
-import { SpecSourcePreview } from './previews/SpecSourcePreview.js';
+import { IntentSourcePreview, } from './previews/IntentSourcePreview.js';
 import { GenericPreview } from './previews/GenericPreview.js';
 import { theme } from '../../../theme.js';
 
@@ -16,16 +16,14 @@ export interface ConfigPreviewProps {
   isLoadingAgents: boolean;
   currentAgentOptions: string[];
   availableEnvironments: string[];
-  availableSpecSourceProviders?: string[];
-}
+  availableIntentSourceProviders?: string[];}
 
 export const PREVIEW_COMPONENTS: Partial<Record<ConfigFieldKey, React.FC<ConfigPreviewProps>>> = {
   hooks: HooksPreview,
   plannerAgent: AgentPreview,
   executorAgent: AgentPreview,
   environment: EnvironmentPreview,
-  specSource: SpecSourcePreview,
-};
+  intentSource: IntentSourcePreview,};
 
 export const ConfigPreviewShortcuts: React.FC<{ activeField: ConfigFieldKey }> = ({ activeField }) => {
   return (
@@ -37,9 +35,9 @@ export const ConfigPreviewShortcuts: React.FC<{ activeField: ConfigFieldKey }> =
           <Text color={theme.colors.muted}>[↑/↓] or [Tab] Select Field</Text>
           <Text color={theme.colors.muted}>[s] Quick Save to File</Text>
         </>
-      ) : activeField === 'specSource' ? (
+      ) : activeField === 'intentSource' ? (
         <>
-          <Text color={theme.colors.muted}>[Enter] Configurar Spec Source</Text>
+          <Text color={theme.colors.muted}>[Enter] Configurar Intent Source</Text>
           <Text color={theme.colors.muted}>[↑/↓] or [Tab] Select Field</Text>
           <Text color={theme.colors.muted}>[s] Quick Save to File</Text>
         </>

@@ -9,7 +9,7 @@ export interface PullProviderSelectorProps {
 }
 
 /**
- * Visual subcomponent for selecting the external specification provider.
+ * Visual subcomponent for selecting the external intent provider.
  * Displays available providers and keyboard hint when focused.
  */
 export const PullProviderSelector: React.FC<PullProviderSelectorProps> = ({

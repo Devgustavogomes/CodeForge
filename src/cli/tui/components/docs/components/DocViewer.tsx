@@ -43,6 +43,8 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
     return meaningfulLines.length > 0 ? meaningfulLines.join('\n') : null;
   }, [previewContent]);
 
+  const linkedIntents = selectedDoc?.intents ?? selectedDoc?.intents ?? [];
+
   return (
     <Box
       flexDirection="column"
@@ -90,11 +92,11 @@ export const DocViewer: React.FC<DocViewerProps> = memo(({
           </Box>
 
           <Box marginBottom={0}>
-            <Text bold>{translate('tui_docs_label_specs', language)} </Text>
+            <Text bold>{translate('tui_docs_label_intents', language)} </Text>
             <Text color={theme.colors.muted} wrap="truncate-end">
-              {selectedDoc.specs.length === 0
+              {linkedIntents.length === 0
                 ? translate('tui_docs_none_linked', language)
-                : selectedDoc.specs.join(', ')}
+                : linkedIntents.join(', ')}
             </Text>
           </Box>
 

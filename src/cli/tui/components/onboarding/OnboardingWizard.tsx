@@ -12,7 +12,7 @@ import {
 } from './hooks/useOnboardingWizard.js';
 import { useOnboardingHotkeys } from './hooks/useOnboardingHotkeys.js';
 import { WelcomeStep } from './steps/WelcomeStep.js';
-import { SpecSourceStep } from './steps/SpecSourceStep.js';
+import { IntentSourceStep } from './steps/IntentSourceStep.js';
 import { EnvironmentStep } from './steps/EnvironmentStep.js';
 import { AgentsStep } from './steps/AgentsStep.js';
 import { CliInstallStep } from './steps/CliInstallStep.js';
@@ -39,7 +39,7 @@ interface WizardStepDefinition {
  * Matches the TUI TabBar visual style: [1] Source [2] Environment [3] Agents [4] CLI [5] Hooks [6] Summary.
  */
 const WIZARD_STEPS: readonly WizardStepDefinition[] = [
-  { id: 'spec_source', numberKey: '1', labelKey: 'onboarding_step_source', defaultLabel: 'Source' },
+  { id: 'intent_source', numberKey: '1', labelKey: 'onboarding_step_source', defaultLabel: 'Source' },
   { id: 'environment', numberKey: '2', labelKey: 'onboarding_step_environment', defaultLabel: 'Environment' },
   { id: 'agents', numberKey: '3', labelKey: 'onboarding_step_agents', defaultLabel: 'Agents' },
   { id: 'cli_install', numberKey: '4', labelKey: 'onboarding_step_cli', defaultLabel: 'CLI' },
@@ -111,11 +111,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
   const renderStepContent = useCallback(() => {
     switch (wizard.currentStep) {
-      case 'spec_source':
+      case 'intent_source':
         return (
-          <SpecSourceStep
-            specSource={wizard.state.specSource}
-            onChange={wizard.setSpecSource}
+          <IntentSourceStep
+            intentSource={wizard.state.intentSource}
+            onChange={wizard.setIntentSource}
             onNext={wizard.nextStep}
             onFormActiveChange={setIsFormActive}
             isInteractive={isInteractive}
@@ -179,7 +179,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           <SummaryStep
             container={container}
             state={wizard.state}
-            specSource={wizard.state.specSource}
+            intentSource={wizard.state.intentSource}
             environment={wizard.state.environment}
             plannerAgent={wizard.state.plannerAgent}
             executorAgent={wizard.state.executorAgent}
@@ -217,7 +217,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     wizard.setHooks,
     wizard.setIsInitializing,
     wizard.setIsInstallingCli,
-    wizard.setSpecSource,
+    wizard.setIntentSource,
     wizard.startCliInstallation,
     wizard.startInitialization,
     wizard.state,

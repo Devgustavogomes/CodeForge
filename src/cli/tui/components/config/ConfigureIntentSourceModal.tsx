@@ -1,34 +1,32 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { Modal } from '../common/Modal.js';
-import { SpecSourceForm } from './components/SpecSourceForm.js';
-import { useConfigureSpecSourceModal } from './hooks/useConfigureSpecSourceModal.js';
+import { IntentSourceForm } from './components/IntentSourceForm.js';
+import { useConfigureIntentSourceModal } from './hooks/useConfigureIntentSourceModal.js';
 import { CodeForgeConfig } from '../../../../config/types.js';
 import { ConfigService } from '../../../../config/ConfigService.js';
-import { SpecSourceConfig } from '../../../../domain/spec-source.js';
+import { IntentSourceConfig } from '../../../../domain/intent-source.js';
 import { theme } from '../../theme.js';
 
-export interface ConfigureSpecSourceModalProps {
+export interface ConfigureIntentSourceModalProps {
   isOpen?: boolean;
   onClose?: () => void;
   config?: CodeForgeConfig;
   configService?: ConfigService;
-  onUpdateSpecSource?: (specSource: SpecSourceConfig) => void;
-  width?: number | string;
+  onUpdateIntentSource?: (intentSource: IntentSourceConfig) => void;  width?: number | string;
 }
-
 /**
- * Modal dialog for configuring external/local Spec Source in CodeForge TUI.
+ * Modal dialog for configuring external/local Intent Source in CodeForge TUI.
  * Allows choosing provider (filesystem, linear, github, clickup) and
  * configuring project (owner/repo / listId), team, and apiKey (or $ENV_VAR).
  */
-export const ConfigureSpecSourceModal: React.FC<ConfigureSpecSourceModalProps> = ({
+export const ConfigureIntentSourceModal: React.FC<ConfigureIntentSourceModalProps> = ({
   isOpen = true,
   onClose,
   config,
   configService,
-  onUpdateSpecSource,
-  width = '100%',
+  onUpdateIntentSource,
+    width = '100%',
 }) => {
   const {
     provider,
@@ -44,14 +42,13 @@ export const ConfigureSpecSourceModal: React.FC<ConfigureSpecSourceModalProps> =
     formErrorMessage,
     feedbackMessage,
     availableProviders,
-    saveSpecSource,
-  } = useConfigureSpecSourceModal({
+    saveIntentSource,
+  } = useConfigureIntentSourceModal({
     isOpen,
     onClose,
     config,
     configService,
-    onUpdateSpecSource,
-  });
+    onUpdateIntentSource,  });
 
   if (!isOpen) {
     return null;
@@ -59,13 +56,13 @@ export const ConfigureSpecSourceModal: React.FC<ConfigureSpecSourceModalProps> =
 
   return (
     <Modal
-      title="Configuração de Spec Source"
+      title="Configuração de Intent Source"
       isOpen={isOpen}
       width={width}
       borderColor={theme.colors.primary}
     >
       <Box flexDirection="column" width="100%">
-        <SpecSourceForm
+        <IntentSourceForm
           activeField={activeFormField}
           activeFieldIndex={activeFormFieldIndex}
           provider={provider}
@@ -78,7 +75,7 @@ export const ConfigureSpecSourceModal: React.FC<ConfigureSpecSourceModalProps> =
           onChangeProject={setProject}
           onChangeTeam={setTeam}
           onChangeApiKey={setApiKey}
-          onSubmit={saveSpecSource}
+          onSubmit={saveIntentSource}
           onCancel={onClose}
         />
 
@@ -102,4 +99,4 @@ export const ConfigureSpecSourceModal: React.FC<ConfigureSpecSourceModalProps> =
       </Box>
     </Modal>
   );
-};
+};export default ConfigureIntentSourceModal;

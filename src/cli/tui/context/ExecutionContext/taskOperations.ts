@@ -3,70 +3,70 @@ import { AppContainer } from '../../../../infrastructure/container.js';
 import { ExecutionStatus, TaskItem } from './types.js';
 
 export function useTaskOperations(
-  activeSpec: string | null,
+  activeIntent: string | null,
   appContainer: AppContainer,
   setTasks: Dispatch<SetStateAction<TaskItem[]>>,
-  refreshTasks: (spec: string) => void,
+  refreshTasks: (intent: string) => void,
   setSchedulerStatus: Dispatch<SetStateAction<ExecutionStatus>>,
 ) {
   const mutateTask = useCallback(
     (
-      action: (spec: string) => void,
+      action: (intent: string) => void,
       optimisticTaskId?: string,
       optimisticStatus?: 'pending' | 'completed',
-      specName?: string,
+      intentName?: string,
     ) => {
-      const spec = specName || activeSpec;
-      if (!spec) return;
-      if (optimisticTaskId && optimisticStatus && spec === activeSpec) {
+      const intent = intentName || activeIntent;
+      if (!intent) return;
+      if (optimisticTaskId && optimisticStatus && intent === activeIntent) {
         setTasks((prev) =>
           prev.map((t) => (t.id === optimisticTaskId ? { ...t, status: optimisticStatus, errors: undefined } : t)),
         );
       }
-      action(spec);
-      if (spec === activeSpec) {
-        refreshTasks(spec);
-        const state = appContainer.executionStateRepository.load(spec);
+      action(intent);
+      if (intent === activeIntent) {
+        refreshTasks(intent);
+        const state = appContainer.executionStateRepository.load(intent);
         if (state) setSchedulerStatus(state.status as ExecutionStatus);
       }
     },
-    [activeSpec, appContainer, refreshTasks, setTasks, setSchedulerStatus],
+    [activeIntent, appContainer, refreshTasks, setTasks, setSchedulerStatus],
   );
 
   const retryTask = useCallback(
-    async (taskId: string, specName?: string) =>
-      mutateTask((s) => appContainer.taskOperationsUseCase.retryTask(s, taskId), taskId, 'pending', specName),
+    async (taskId: string, intentName?: string) =>
+      mutateTask((s) => appContainer.taskOperationsUseCase.retryTask(s, taskId), taskId, 'pending', intentName),
     [mutateTask, appContainer],
   );
 
   const retryAllFailed = useCallback(
-    async (specName?: string) => {
-      const spec = specName || activeSpec;
-      if (!spec) return;
-      if (spec === activeSpec) {
+    async (intentName?: string) => {
+      const intent = intentName || activeIntent;
+      if (!intent) return;
+      if (intent === activeIntent) {
         setTasks((prev) => prev.map((t) => (t.status === 'failed' ? { ...t, status: 'pending', errors: undefined } : t)));
       }
-      appContainer.taskOperationsUseCase.retrySpec(spec);
-      if (spec === activeSpec) {
-        refreshTasks(spec);
-        const state = appContainer.executionStateRepository.load(spec);
+      appContainer.taskOperationsUseCase.retryIntent(intent);
+      if (intent === activeIntent) {
+        refreshTasks(intent);
+        const state = appContainer.executionStateRepository.load(intent);
         if (state) setSchedulerStatus(state.status as ExecutionStatus);
       }
     },
-    [activeSpec, appContainer, refreshTasks, setTasks, setSchedulerStatus],
+    [activeIntent, appContainer, refreshTasks, setTasks, setSchedulerStatus],
   );
 
   const completeTask = useCallback(
-    async (taskId: string, specName?: string) =>
-      mutateTask((s) => appContainer.taskOperationsUseCase.markTaskCompleted(s, taskId), taskId, 'completed', specName),
+    async (taskId: string, intentName?: string) =>
+      mutateTask((s) => appContainer.taskOperationsUseCase.markTaskCompleted(s, taskId), taskId, 'completed', intentName),
     [mutateTask, appContainer],
   );
 
   const resetTask = useCallback(
-    async (taskId: string, specName?: string) => {
-      const spec = specName || activeSpec;
-      if (!spec) return;
-      if (spec === activeSpec) {
+    async (taskId: string, intentName?: string) => {
+      const intent = intentName || activeIntent;
+      if (!intent) return;
+      if (intent === activeIntent) {
         setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: 'pending', errors: undefined } : t)));
       }
       const ops = appContainer.taskOperationsUseCase as unknown as {
@@ -74,34 +74,34 @@ export function useTaskOperations(
         resetTasks: (s: string, id?: string) => void;
       };
       if (typeof ops.resetTask === 'function') {
-        ops.resetTask(spec, taskId);
+        ops.resetTask(intent, taskId);
       } else {
-        ops.resetTasks(spec, taskId);
+        ops.resetTasks(intent, taskId);
       }
-      if (spec === activeSpec) {
-        refreshTasks(spec);
-        const state = appContainer.executionStateRepository.load(spec);
+      if (intent === activeIntent) {
+        refreshTasks(intent);
+        const state = appContainer.executionStateRepository.load(intent);
         if (state) setSchedulerStatus(state.status as ExecutionStatus);
       }
     },
-    [activeSpec, appContainer, refreshTasks, setTasks, setSchedulerStatus],
+    [activeIntent, appContainer, refreshTasks, setTasks, setSchedulerStatus],
   );
 
   const resetAllTasks = useCallback(
-    async (specName?: string) => {
-      const spec = specName || activeSpec;
-      if (!spec) return;
-      if (spec === activeSpec) {
+    async (intentName?: string) => {
+      const intent = intentName || activeIntent;
+      if (!intent) return;
+      if (intent === activeIntent) {
         setTasks((prev) => prev.map((t) => ({ ...t, status: 'pending', errors: undefined })));
       }
-      appContainer.taskOperationsUseCase.resetTasks(spec);
-      if (spec === activeSpec) {
-        refreshTasks(spec);
-        const state = appContainer.executionStateRepository.load(spec);
+      appContainer.taskOperationsUseCase.resetTasks(intent);
+      if (intent === activeIntent) {
+        refreshTasks(intent);
+        const state = appContainer.executionStateRepository.load(intent);
         setSchedulerStatus((state?.status as ExecutionStatus) ?? 'idle');
       }
     },
-    [activeSpec, appContainer, refreshTasks, setTasks, setSchedulerStatus],
+    [activeIntent, appContainer, refreshTasks, setTasks, setSchedulerStatus],
   );
 
   return { retryTask, retryAllFailed, completeTask, resetTask, resetAllTasks };

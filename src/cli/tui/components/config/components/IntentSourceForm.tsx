@@ -1,19 +1,17 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
+import { IntentSourceFactory } from '../../../../../infrastructure/intent-sources/IntentSourceFactory.js';
 import { TextInput } from '../../common/TextInput.js';
 import { theme } from '../../../theme.js';
 
-export type SpecSourceFormField = 'provider' | 'project' | 'team' | 'apiKey' | 'save';
-
-export const SPEC_SOURCE_FORM_FIELDS: SpecSourceFormField[] = [
+export type IntentSourceFormField = 'provider' | 'project' | 'team' | 'apiKey' | 'save';
+export const INTENT_SOURCE_FORM_FIELDS: IntentSourceFormField[] = [
   'provider',
   'project',
   'team',
   'apiKey',
   'save',
 ];
-
 export interface ProviderDescriptor {
   description: string;
   projectPlaceholder: string;
@@ -22,15 +20,15 @@ export interface ProviderDescriptor {
 }
 
 export const DEFAULT_PROVIDER_DESCRIPTOR: ProviderDescriptor = {
-  description: 'Provedor de especificações customizado.',
+  description: 'Provedor de intenções customizado.',
   projectPlaceholder: '(opcional para este provedor)',
   teamPlaceholder: '(opcional para este provedor)',
   apiKeyPlaceholder: '(não obrigatório para filesystem)',
 };
 
-export const SPEC_SOURCE_PROVIDERS_META: Record<string, ProviderDescriptor> = {
+export const INTENT_SOURCE_PROVIDERS_META: Record<string, ProviderDescriptor> = {
   filesystem: {
-    description: 'Opera em arquivos .md locais na pasta .codeforge/specs/.',
+    description: 'Opera em arquivos .md locais na pasta .codeforge/intents/.',
     projectPlaceholder: '(opcional para este provedor)',
     teamPlaceholder: '(opcional para este provedor)',
     apiKeyPlaceholder: '(não obrigatório para filesystem)',
@@ -54,9 +52,8 @@ export const SPEC_SOURCE_PROVIDERS_META: Record<string, ProviderDescriptor> = {
     apiKeyPlaceholder: 'ex: $CLICKUP_API_KEY ou pk_...',
   },
 };
-
-export interface SpecSourceFormProps {
-  activeField?: SpecSourceFormField;
+export interface IntentSourceFormProps {
+  activeField?: IntentSourceFormField;
   activeFieldIndex?: number;
   provider: string;
   project: string;
@@ -73,10 +70,9 @@ export interface SpecSourceFormProps {
   showProviderField?: boolean;
   submitLabel?: string;
 }
-
 const DEFAULT_PROVIDERS = ['filesystem', 'linear', 'github', 'clickup'];
 
-export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
+export const IntentSourceForm: React.FC<IntentSourceFormProps> = ({
   activeField,
   activeFieldIndex,
   provider,
@@ -86,15 +82,15 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
   availableProviders = DEFAULT_PROVIDERS,
   errorMessage,
   showProviderField = true,
-  submitLabel = 'Salvar Spec Source',
+  submitLabel = 'Salvar Intent Source',
 }) => {
-  const currentActiveField: SpecSourceFormField =
+  const currentActiveField: IntentSourceFormField =
     activeField ??
     (activeFieldIndex !== undefined
-      ? SPEC_SOURCE_FORM_FIELDS[activeFieldIndex] ?? 'provider'
+      ? INTENT_SOURCE_FORM_FIELDS[activeFieldIndex] ?? 'provider'
       : 'provider');
-  const meta = SPEC_SOURCE_PROVIDERS_META[provider.toLowerCase()] ?? DEFAULT_PROVIDER_DESCRIPTOR;
-  const fieldColor = (field: SpecSourceFormField) =>
+  const meta = INTENT_SOURCE_PROVIDERS_META[provider.toLowerCase()] ?? DEFAULT_PROVIDER_DESCRIPTOR;
+  const fieldColor = (field: IntentSourceFormField) =>
     currentActiveField === field ? theme.colors.primary : theme.colors.text;
 
   return (
@@ -163,8 +159,8 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
           )}
         </Box>
         <Text color={theme.colors.muted} wrap="truncate-end">
-          {SpecSourceFactory.getDefaultApiKey(provider)
-            ? `Padrão: ${SpecSourceFactory.getDefaultApiKey(provider)} (altere apenas se desejar). Carrega de .codeforge/.env ou .env da raiz.`
+          {IntentSourceFactory.getDefaultApiKey(provider)
+            ? `Padrão: ${IntentSourceFactory.getDefaultApiKey(provider)} (altere apenas se desejar). Carrega de .codeforge/.env ou .env da raiz.`
             : 'Recomendado usar $VAR para carregar de .codeforge/.env ou .env da raiz.'}
         </Text>
       </Box>
@@ -185,4 +181,4 @@ export const SpecSourceForm: React.FC<SpecSourceFormProps> = ({
       </Box>
     </Box>
   );
-};
+};export default IntentSourceForm;

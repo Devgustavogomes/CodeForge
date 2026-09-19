@@ -11,15 +11,16 @@ import { renderProgressBar, theme } from "../../../theme.js";
 export { renderProgressBar };
 
 export interface DashboardMetricsPanelProps {
-  specName: string;
-  tasks: TaskItem[];
+  intentName?: string;  tasks: TaskItem[];
   schedulerStatus: ExecutionStatus | string;
   startedAt?: string;
   completedAt?: string;
 }
 
 export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
-  ({ specName, tasks, schedulerStatus, startedAt, completedAt }) => {
+  ({ intentName,  tasks, schedulerStatus, startedAt, completedAt }) => {
+    const displayName = intentName ?? "";
+
     const completedCount = useMemo(
       () => tasks.filter((t) => t.status === "completed").length,
       [tasks],
@@ -73,7 +74,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
 
           <Box gap={2} marginTop={0} flexWrap="wrap">
             <Text bold color={theme.colors.primary}>
-              [s] Choose another spec
+              [s] Choose another intent
             </Text>
             <Text color={theme.colors.borderSubtle}>│</Text>
             <Text bold color={theme.colors.warning}>
@@ -135,7 +136,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
               [r] Retry selected
             </Text>
             <Text color={theme.colors.borderSubtle}>│</Text>
-            <Text dimColor>[s] Specs</Text>
+            <Text dimColor>[s] Intents</Text>
           </Box>
         </Box>
       );
@@ -163,7 +164,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
         <Box justifyContent="space-between" width="100%">
           <Box gap={1}>
             <Text bold color={theme.colors.primary}>
-              {isRunning ? "Running" : "Spec"} [{specName}]
+              {isRunning ? "Running" : "Intent"} [{displayName}]
             </Text>
           </Box>
           <Box gap={1}>

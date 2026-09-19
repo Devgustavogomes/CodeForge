@@ -6,34 +6,33 @@ import { useTextInput } from '../../hooks/useTextInput.js';
 import { useNavigation } from '../../context/NavigationContext.js';
 import { theme } from '../../theme.js';
 import {
-  CreateSpecUseCase,
-  CreateSpecResult,
-} from '../../../../application/use-cases/CreateSpecUseCase.js';
+  CreateIntentUseCase,
+  CreateIntentResult,
+} from '../../../../application/use-cases/CreateIntentUseCase.js';
 import {
   AppContainer,
   createAppContainer,
 } from '../../../../infrastructure/container.js';
 
-export interface CreateSpecModalProps {
+export interface CreateIntentModalProps {
   isOpen?: boolean;
   onClose?: () => void;
-  onSuccess?: (specName: string, filePath: string) => void;
+  onSuccess?: (intentName: string, filePath: string) => void;
   container?: AppContainer;
-  createSpecUseCase?: CreateSpecUseCase;
-  width?: number | string;
+  createIntentUseCase?: CreateIntentUseCase;  width?: number | string;
 }
 
 /**
- * Modal form for creating a new specification file.
+ * Modal form for creating a new intent file.
  * Uses useTextInput and TextInput primitives for standardized input handling.
  */
-export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
+export const CreateIntentModal: React.FC<CreateIntentModalProps> = ({
   isOpen = true,
   onClose,
   onSuccess,
   container,
-  createSpecUseCase,
-  width = '100%',
+  createIntentUseCase,
+    width = '100%',
 }) => {
   const nav = useNavigation();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -52,14 +51,17 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
     (valueToSubmit: string) => {
       const trimmed = valueToSubmit.trim();
       if (!trimmed) {
-        setErrorMessage('Specification title cannot be empty.');
+        setErrorMessage('Intent title cannot be empty.');
         return;
       }
 
       try {
         const appContainer = container ?? createAppContainer();
-        const useCase = createSpecUseCase ?? appContainer.createSpecUseCase;
-        const result: CreateSpecResult = useCase.execute(trimmed);
+        const useCase =
+          createIntentUseCase ??
+          appContainer.createIntentUseCase ??
+          appContainer.createIntentUseCase;
+        const result: CreateIntentResult = useCase.execute(trimmed);
 
         if (result.kind === 'not-initialized') {
           setErrorMessage(
@@ -70,7 +72,7 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
 
         if (result.kind === 'already-exists') {
           setErrorMessage(
-            `Spec "${trimmed}" already exists at ${result.filePath}.`,
+            `Intent "${trimmed}" already exists at ${result.filePath}.`,
           );
           return;
         }
@@ -84,10 +86,10 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        setErrorMessage(`Failed to create spec: ${msg}`);
+        setErrorMessage(`Failed to create intent: ${msg}`);
       }
     },
-    [container, createSpecUseCase, onSuccess, handleClose],
+    [container, createIntentUseCase, createIntentUseCase, onSuccess, handleClose],
   );
 
   const { value: title, setValue: setTitle } = useTextInput({
@@ -112,7 +114,7 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
 
   return (
     <Modal
-      title="Create Specification"
+      title="Create Intent"
       isOpen={isOpen}
       onClose={handleClose}
       width={width}
@@ -121,7 +123,7 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
       <Box flexDirection="column" width="100%">
         <Box marginBottom={0}>
           <Text dimColor>
-            Enter a descriptive title or slug for the new specification:
+            Enter a descriptive title or slug for the new intent:
           </Text>
         </Box>
 
@@ -169,4 +171,4 @@ export const CreateSpecModal: React.FC<CreateSpecModalProps> = ({
       </Box>
     </Modal>
   );
-};
+};export default CreateIntentModal;

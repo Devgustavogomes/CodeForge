@@ -2,10 +2,10 @@
 
 import { Command } from "commander";
 import { registerInitCommand } from "./commands/init.js";
-import { registerSpecCreateCommand } from "./commands/spec/create.js";
-import { registerSpecPullCommand } from "./commands/spec/pull.js";
-import { registerSpecListCommand } from "./commands/spec/list.js";
-import { registerSpecDeleteCommand } from "./commands/spec/delete.js";
+import { registerIntentCreateCommand } from "./commands/intent/create.js";
+import { registerIntentPullCommand } from "./commands/intent/pull.js";
+import { registerIntentListCommand } from "./commands/intent/list.js";
+import { registerIntentDeleteCommand } from "./commands/intent/delete.js";
 import { registerPlanGenerateCommand } from "./commands/plan/generate.js";
 import { registerPlanValidateCommand } from "./commands/plan/validate.js";
 import { registerRunCommand } from "./commands/run.js";
@@ -20,7 +20,6 @@ import { registerDocsUpdateCommand } from "./commands/docs/update.js";
 import { registerDocsDeleteCommand } from "./commands/docs/delete.js";
 import { registerConfigCommand } from "./commands/config.js";
 
-import { runInteractiveMenu } from "./interactive.js";
 import {
   launchExternalTerminal,
   shouldLaunchExternalTerminal,
@@ -49,12 +48,12 @@ const plan = program
 registerPlanGenerateCommand(plan);
 registerPlanValidateCommand(plan);
 
-const spec = program.command("spec").description("Manage specs");
+const intent = program.command("intent").description("Manage intents");
 
-registerSpecCreateCommand(spec);
-registerSpecPullCommand(spec);
-registerSpecListCommand(spec);
-registerSpecDeleteCommand(spec);
+registerIntentCreateCommand(intent);
+registerIntentPullCommand(intent);
+registerIntentListCommand(intent);
+registerIntentDeleteCommand(intent);
 
 const task = program
   .command("task")
@@ -96,6 +95,7 @@ const isInlineOnly = args.length > 0 && args.every(isInlineFlag);
 
 if (args.length === 0 || isInlineOnly) {
   // Run interactive menu if no arguments or only inline flags are provided
+  const { runInteractiveMenu } = await import("./interactive.js");
   runInteractiveMenu().catch((err) => {
     console.error(err);
     process.exit(1);

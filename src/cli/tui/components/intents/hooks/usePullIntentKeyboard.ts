@@ -1,31 +1,29 @@
 import { useInput } from 'ink';
-import {
-  PullSpecFocusedField,
-} from './types.js';
-import { SpecReference } from '../../../../../domain/spec-source.js';
+import { PullIntentFocusedField } from './types.js';
+import { IntentReference } from '../../../../../domain/intent-source.js';
 
-export interface UsePullSpecKeyboardOptions {
+export interface UsePullIntentKeyboardOptions {
   isOpen: boolean;
   isLoading: boolean;
-  activeField: PullSpecFocusedField;
-  setActiveField: React.Dispatch<React.SetStateAction<PullSpecFocusedField>>;
-  items: SpecReference[];
+  activeField: PullIntentFocusedField;
+  setActiveField: React.Dispatch<React.SetStateAction<PullIntentFocusedField>>;
+  items: IntentReference[];
   selectedItemIndex: number;
   setSelectedItemIndex: React.Dispatch<React.SetStateAction<number>>;
   isManualInput: boolean;
   setIsManualInput: React.Dispatch<React.SetStateAction<boolean>>;
-  specId: string;
-  setSpecId: (val: string) => void;
+  intentId: string;
+  setIntentId: (val: string) => void;
   setErrorMessage: React.Dispatch<React.SetStateAction<string | null>>;
   handleClose: () => void;
   handleSubmit: () => void;
 }
 
 /**
- * Encapsulates keyboard navigation and shortcuts for the PullSpecModal.
- * Only 2 focusable fields: 'id' and 'name' (provider removed).
+ * Encapsulates keyboard navigation and shortcuts for the PullIntentModal.
+ * Only 2 focusable fields: 'id' and 'name'.
  */
-export function usePullSpecKeyboard({
+export function usePullIntentKeyboard({
   isOpen,
   isLoading,
   activeField,
@@ -35,12 +33,12 @@ export function usePullSpecKeyboard({
   setSelectedItemIndex,
   isManualInput,
   setIsManualInput,
-  specId,
-  setSpecId,
+  intentId,
+  setIntentId,
   setErrorMessage,
   handleClose,
   handleSubmit,
-}: UsePullSpecKeyboardOptions): void {
+}: UsePullIntentKeyboardOptions): void {
   useInput(
     (input, key) => {
       if (isLoading) return;
@@ -66,10 +64,10 @@ export function usePullSpecKeyboard({
             items.length > 0 &&
             selectedItemIndex < items.length
               ? items[selectedItemIndex].id
-              : specId.trim();
+              : intentId.trim();
 
           if (!currentId) {
-            setErrorMessage('Spec ID is required.');
+            setErrorMessage('Intent ID is required.');
             return;
           }
         }
@@ -77,13 +75,13 @@ export function usePullSpecKeyboard({
         return;
       }
 
-      // 4. Spec ID list mode navigation
+      // 4. Intent ID list mode navigation
       if (activeField === 'id' && items.length > 0 && !isManualInput) {
         if (key.upArrow || input === 'k') {
           if (selectedItemIndex > 0) {
             const nextIdx = selectedItemIndex - 1;
             setSelectedItemIndex(nextIdx);
-            setSpecId(items[nextIdx].id);
+            setIntentId(items[nextIdx].id);
           }
           return;
         }
@@ -92,11 +90,11 @@ export function usePullSpecKeyboard({
           if (selectedItemIndex < items.length - 1) {
             const nextIdx = selectedItemIndex + 1;
             setSelectedItemIndex(nextIdx);
-            setSpecId(items[nextIdx].id);
+            setIntentId(items[nextIdx].id);
           } else if (selectedItemIndex === items.length - 1) {
             setSelectedItemIndex(items.length);
             setIsManualInput(true);
-            setSpecId('');
+            setIntentId('');
           }
           return;
         }
@@ -104,7 +102,7 @@ export function usePullSpecKeyboard({
         if (input === 'm' || input === 'M') {
           setSelectedItemIndex(items.length);
           setIsManualInput(true);
-          setSpecId('');
+          setIntentId('');
           return;
         }
 
@@ -121,20 +119,20 @@ export function usePullSpecKeyboard({
           if (printable.length > 0) {
             setSelectedItemIndex(items.length);
             setIsManualInput(true);
-            setSpecId(printable);
+            setIntentId(printable);
             setErrorMessage(null);
           }
         }
         return;
       }
 
-      // 5. Spec ID manual mode navigation between fields
+      // 5. Intent ID manual mode navigation between fields
       if (activeField === 'id' && (isManualInput || items.length === 0)) {
         if (key.upArrow) {
-          if (items.length > 0 && specId === '') {
+          if (items.length > 0 && intentId === '') {
             setIsManualInput(false);
             setSelectedItemIndex(items.length - 1);
-            setSpecId(items[items.length - 1].id);
+            setIntentId(items[items.length - 1].id);
           }
           return;
         }

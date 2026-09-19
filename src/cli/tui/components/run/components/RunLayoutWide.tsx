@@ -16,8 +16,7 @@ export interface RunLayoutWideProps {
   selectedTaskId: string | null;
   selectedTask: TaskItem | null;
   focusedPanel: DashboardPanel;
-  specName?: string;
-  schedulerStatus?: ExecutionStatus | string;
+  intentName?: string;  schedulerStatus?: ExecutionStatus | string;
   startedAt?: string;
   completedAt?: string;
   terminalRows?: number;
@@ -34,8 +33,8 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
     selectedTaskId,
     selectedTask,
     focusedPanel,
-    specName = "current-spec",
-    schedulerStatus = "idle",
+    intentName,
+        schedulerStatus = "idle",
     startedAt,
     completedAt,
     terminalRows: propTerminalRows,
@@ -75,7 +74,7 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
         {/* Top Metrics / Banner */}
         {topMetricsPanel ?? (
           <DashboardMetricsPanel
-            specName={specName}
+            intentName={intentName}
             tasks={tasks}
             schedulerStatus={schedulerStatus}
             startedAt={startedAt}

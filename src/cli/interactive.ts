@@ -7,8 +7,7 @@ import { AppContainer } from "../infrastructure/container.js";
 export interface RunInteractiveOptions {
   container?: AppContainer;
   initialTab?: TabId;
-  initialSpec?: string;
-  autoStart?: boolean;
+  initialIntent?: string;  autoStart?: boolean;
 }
 
 export async function runInteractiveMenu(options: RunInteractiveOptions = {}): Promise<void> {
@@ -32,12 +31,13 @@ export async function runInteractiveMenu(options: RunInteractiveOptions = {}): P
     }
   };
 
+  const selectedIntent = options.initialIntent ?? options.initialIntent;
+
   const instance = render(
     React.createElement(App, {
       container: options.container,
       initialTab: options.initialTab,
-      initialSpec: options.initialSpec,
-      autoStart: options.autoStart,
+      initialIntent: selectedIntent,      autoStart: options.autoStart,
       enableAlternateScreen: false,
       onExit: () => {
         instance.unmount();

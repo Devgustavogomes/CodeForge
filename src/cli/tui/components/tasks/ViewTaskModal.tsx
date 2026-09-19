@@ -8,8 +8,8 @@ import { theme } from '../../theme.js';
 
 export interface ViewTaskModalProps {
   task: TaskScreenItem | null;
-  specName?: string;
-  currentSpec?: string;
+  intentName?: string;
+  currentIntent?: string;
   isOpen?: boolean;
   onClose: () => void;
   maxVisibleLines?: number;
@@ -18,14 +18,14 @@ export interface ViewTaskModalProps {
 
 export const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
   task,
-  specName: propSpecName,
-  currentSpec,
+  intentName: propIntentName,
+  currentIntent,
   isOpen = true,
   onClose,
   maxVisibleLines: propMaxVisibleLines,
   width = '100%',
 }) => {
-  const specName = propSpecName ?? currentSpec;
+  const intentName = propIntentName ?? currentIntent;
   const { rows } = useTerminalDimensions();
   const maxVisibleLines = propMaxVisibleLines ?? Math.max(5, rows - 9);
 
@@ -35,9 +35,9 @@ export const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
   const content = useMemo(() => {
     if (!task) return '';
     return viewMode === 'markdown'
-      ? formatTaskToMarkdown(task, specName)
+      ? formatTaskToMarkdown(task, intentName)
       : JSON.stringify(task, null, 2);
-  }, [task, viewMode, specName]);
+  }, [task, viewMode, intentName]);
 
   const contentLines = useMemo(() => {
     if (!content) return [];
@@ -146,7 +146,7 @@ export const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
       width={width}
     >
       {/* Cabeçalho */}
-      <Box justifyContent="space-between" width="100%" marginBottom={specName ? 0 : 1}>
+      <Box justifyContent="space-between" width="100%" marginBottom={intentName ? 0 : 1}>
         <Box gap={1} flexShrink={1}>
           <Text bold color={theme.colors.primary}>
             {titleDisplay}
@@ -160,11 +160,11 @@ export const ViewTaskModal: React.FC<ViewTaskModalProps> = ({
         </Text>
       </Box>
 
-      {/* Caminho / Spec */}
-      {specName && (
+      {/* Caminho / Intent */}
+      {intentName && (
         <Box justifyContent="space-between" width="100%" marginBottom={1}>
           <Text color={theme.colors.muted} wrap="truncate-end">
-            Spec: {specName}
+            Intent: {intentName}
           </Text>
         </Box>
       )}

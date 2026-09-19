@@ -25,9 +25,9 @@ export interface TaskItem {
 export function loadTasksFromDisk(
   gw: WorkspaceGateway,
   stateRepo: ExecutionStateRepository,
-  specName: string,
+  intentName: string,
 ): TaskItem[] {
-  const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  const tasksDir = `${PATHS.tasksDir}/${intentName}`;
   const taskDefs: Task[] = [];
 
   if (gw.exists(tasksDir)) {
@@ -42,7 +42,7 @@ export function loadTasksFromDisk(
     }
   }
 
-  const state = stateRepo.load(specName);
+  const state = stateRepo.load(intentName);
   const seen = new Set<string>();
   const items: TaskItem[] = [];
 
@@ -122,15 +122,15 @@ export function areTasksEqual(
 }
 
 /**
- * Pure function to count task definition JSON files for a given spec on disk.
+ * Pure function to count task definition JSON files for a given intent on disk.
  * Returns 0 if directory does not exist or upon any read error.
  */
-export function getSpecTaskCount(
+export function getIntentTaskCount(
   gw: WorkspaceGateway,
-  specName: string,
+  intentName: string,
 ): number {
   try {
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!gw.exists(tasksDir)) {
       return 0;
     }
@@ -139,4 +139,3 @@ export function getSpecTaskCount(
     return 0;
   }
 }
-

@@ -4,24 +4,24 @@ import {
   CodeForgeConfig,
   SupportedLanguage,
 } from "../../../../../config/types.js";
-import { SpecSourceConfig } from "../../../../../domain/spec-source.js";
-import { SpecSourceFactory } from "../../../../../infrastructure/spec-sources/SpecSourceFactory.js";
+import { IntentSourceConfig } from "../../../../../domain/intent-source.js";
+import { IntentSourceFactory } from "../../../../../infrastructure/intent-sources/IntentSourceFactory.js";
 import { translate, TranslationKey } from "../../../../ui/i18n.js";
 import { theme } from "../../../theme.js";
 import {
-  SpecSourceForm,
-  SpecSourceFormField,
-} from "../../config/components/SpecSourceForm.js";
-import { useConfigureSpecSourceModal } from "../../config/hooks/useConfigureSpecSourceModal.js";
+  IntentSourceForm,
+  IntentSourceFormField,
+} from "../../config/components/IntentSourceForm.js";
+import { useConfigureIntentSourceModal } from "../../config/hooks/useConfigureIntentSourceModal.js";
 
-const REMOTE_FORM_FIELDS: SpecSourceFormField[] = [
+const REMOTE_FORM_FIELDS: IntentSourceFormField[] = [
   "project",
   "team",
   "apiKey",
   "save",
 ];
 
-export interface OnboardingSpecSourceOption {
+export interface OnboardingIntentSourceOption {
   provider: "filesystem" | "github" | "linear" | "clickup";
   labelKey: TranslationKey;
   detailKey: TranslationKey;
@@ -31,24 +31,23 @@ export interface OnboardingSpecSourceOption {
   description: string;
   recommended: boolean;
 }
-
-export const ONBOARDING_SPEC_SOURCE_PROVIDERS: readonly OnboardingSpecSourceOption[] =
+export const ONBOARDING_INTENT_SOURCE_PROVIDERS: readonly OnboardingIntentSourceOption[] =
   [
     {
       provider: "filesystem",
-      labelKey: "onboarding_spec_source_provider_filesystem_label",
-      detailKey: "onboarding_spec_source_provider_filesystem_detail",
-      descriptionKey: "onboarding_spec_source_provider_filesystem_desc",
+      labelKey: "onboarding_intent_source_provider_filesystem_label",
+      detailKey: "onboarding_intent_source_provider_filesystem_detail",
+      descriptionKey: "onboarding_intent_source_provider_filesystem_desc",
       label: "Local",
-      detail: "Filesystem — .codeforge/specs/",
-      description: "Specs em Markdown versionadas junto ao projeto.",
+      detail: "Filesystem — .codeforge/intents/",
+      description: "Intents em Markdown versionadas junto ao projeto.",
       recommended: true,
     },
     {
       provider: "github",
-      labelKey: "onboarding_spec_source_provider_github_label",
-      detailKey: "onboarding_spec_source_provider_github_detail",
-      descriptionKey: "onboarding_spec_source_provider_github_desc",
+      labelKey: "onboarding_intent_source_provider_github_label",
+      detailKey: "onboarding_intent_source_provider_github_detail",
+      descriptionKey: "onboarding_intent_source_provider_github_desc",
       label: "GitHub",
       detail: "Issues / Projects",
       description: "Use issues do repositório como origem dos requisitos.",
@@ -56,9 +55,9 @@ export const ONBOARDING_SPEC_SOURCE_PROVIDERS: readonly OnboardingSpecSourceOpti
     },
     {
       provider: "linear",
-      labelKey: "onboarding_spec_source_provider_linear_label",
-      detailKey: "onboarding_spec_source_provider_linear_detail",
-      descriptionKey: "onboarding_spec_source_provider_linear_desc",
+      labelKey: "onboarding_intent_source_provider_linear_label",
+      detailKey: "onboarding_intent_source_provider_linear_detail",
+      descriptionKey: "onboarding_intent_source_provider_linear_desc",
       label: "Linear",
       detail: "Issues e histórias",
       description: "Sincronize o backlog do seu time no Linear.",
@@ -66,50 +65,48 @@ export const ONBOARDING_SPEC_SOURCE_PROVIDERS: readonly OnboardingSpecSourceOpti
     },
     {
       provider: "clickup",
-      labelKey: "onboarding_spec_source_provider_clickup_label",
-      detailKey: "onboarding_spec_source_provider_clickup_detail",
-      descriptionKey: "onboarding_spec_source_provider_clickup_desc",
+      labelKey: "onboarding_intent_source_provider_clickup_label",
+      detailKey: "onboarding_intent_source_provider_clickup_detail",
+      descriptionKey: "onboarding_intent_source_provider_clickup_desc",
       label: "ClickUp",
       detail: "Tarefas e requisitos",
       description: "Importe tarefas de uma lista do ClickUp.",
       recommended: false,
     },
   ] as const;
-
-export interface SpecSourceStepProps {
-  specSource: SpecSourceConfig;
-  onChange: (specSource: SpecSourceConfig) => void;
+export interface IntentSourceStepProps {
+  intentSource?: IntentSourceConfig;  onChange: (source: IntentSourceConfig) => void;
   onNext: () => void;
   onFormActiveChange?: (isActive: boolean) => void;
   isInteractive?: boolean;
   language?: SupportedLanguage;
 }
-
 function providerIndex(provider: string): number {
   const normalized =
     provider.toLowerCase() === "local" ? "filesystem" : provider.toLowerCase();
-  const index = ONBOARDING_SPEC_SOURCE_PROVIDERS.findIndex(
+  const index = ONBOARDING_INTENT_SOURCE_PROVIDERS.findIndex(
     (option) => option.provider === normalized,
   );
   return index >= 0 ? index : 0;
 }
 
-export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
-  specSource,
-  onChange,
+export const IntentSourceStep: React.FC<IntentSourceStepProps> = ({
+  intentSource,
+    onChange,
   onNext,
   onFormActiveChange,
   isInteractive = true,
   language = "en",
 }) => {
+  const effectiveSource = intentSource ?? { provider: "filesystem" };
   const [selectedIndex, setSelectedIndex] = useState(() =>
-    providerIndex(specSource.provider),
+    providerIndex(effectiveSource.provider),
   );
   const [isFormActive, setIsFormActive] = useState(false);
-  const [draftSource, setDraftSource] = useState<SpecSourceConfig>(() => ({
-    ...specSource,
+  const [draftSource, setDraftSource] = useState<IntentSourceConfig>(() => ({
+    ...effectiveSource,
   }));
-  const selectedOption = ONBOARDING_SPEC_SOURCE_PROVIDERS[selectedIndex];
+  const selectedOption = ONBOARDING_INTENT_SOURCE_PROVIDERS[selectedIndex];
 
   const formConfig = useMemo<CodeForgeConfig>(
     () => ({
@@ -117,14 +114,14 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
       plannerAgent: "default",
       executorAgent: "default",
       language,
-      specSource: draftSource,
+      intentSource: draftSource,
     }),
     [draftSource, language],
   );
 
   const closeForm = useCallback(() => setIsFormActive(false), []);
   const commitRemoteSource = useCallback(
-    (nextSource: SpecSourceConfig) => {
+    (nextSource: IntentSourceConfig) => {
       setDraftSource(nextSource);
       onChange(nextSource);
       setIsFormActive(false);
@@ -133,11 +130,11 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
     [onChange, onNext],
   );
 
-  const form = useConfigureSpecSourceModal({
+  const form = useConfigureIntentSourceModal({
     isOpen: isFormActive,
     onClose: closeForm,
     config: formConfig,
-    onUpdateSpecSource: commitRemoteSource,
+    onUpdateIntentSource: commitRemoteSource,
     availableProviders: [selectedOption.provider],
     formFields: REMOTE_FORM_FIELDS,
   });
@@ -149,23 +146,23 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
 
   const confirmSelection = useCallback(() => {
     if (selectedOption.provider === "filesystem") {
-      const localSource: SpecSourceConfig = { provider: "filesystem" };
+      const localSource: IntentSourceConfig = { provider: "filesystem" };
       setDraftSource(localSource);
       onChange(localSource);
       onNext();
       return;
     }
 
-    const sourceForProvider: SpecSourceConfig =
-      specSource.provider.toLowerCase() === selectedOption.provider
-        ? { ...specSource }
+    const sourceForProvider: IntentSourceConfig =
+      effectiveSource.provider.toLowerCase() === selectedOption.provider
+        ? { ...effectiveSource }
         : {
             provider: selectedOption.provider,
-            apiKey: SpecSourceFactory.getDefaultApiKey(selectedOption.provider),
+            apiKey: IntentSourceFactory.getDefaultApiKey(selectedOption.provider),
           };
     setDraftSource(sourceForProvider);
     setIsFormActive(true);
-  }, [onChange, onNext, selectedOption, specSource]);
+  }, [onChange, onNext, selectedOption, effectiveSource]);
 
   useInput(
     (input, key) => {
@@ -174,15 +171,15 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
       if (key.upArrow || input.toLowerCase() === "k") {
         setSelectedIndex(
           (current) =>
-            (current - 1 + ONBOARDING_SPEC_SOURCE_PROVIDERS.length) %
-            ONBOARDING_SPEC_SOURCE_PROVIDERS.length,
+            (current - 1 + ONBOARDING_INTENT_SOURCE_PROVIDERS.length) %
+            ONBOARDING_INTENT_SOURCE_PROVIDERS.length,
         );
         return;
       }
 
       if (key.downArrow || input.toLowerCase() === "j") {
         setSelectedIndex(
-          (current) => (current + 1) % ONBOARDING_SPEC_SOURCE_PROVIDERS.length,
+          (current) => (current + 1) % ONBOARDING_INTENT_SOURCE_PROVIDERS.length,
         );
         return;
       }
@@ -190,7 +187,7 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
       const numericIndex = Number(input) - 1;
       if (
         numericIndex >= 0 &&
-        numericIndex < ONBOARDING_SPEC_SOURCE_PROVIDERS.length
+        numericIndex < ONBOARDING_INTENT_SOURCE_PROVIDERS.length
       ) {
         setSelectedIndex(numericIndex);
         return;
@@ -207,19 +204,19 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
     <Box flexDirection="column" width="100%" paddingX={1}>
       <Box flexDirection="column" marginBottom={1}>
         <Text bold color={theme.colors.primary}>
-          {translate("onboarding_spec_source_title", language)}
+          {translate("onboarding_intent_source_title", language)}
         </Text>
         <Text color={theme.colors.text}>
-          {translate("onboarding_spec_source_description", language)}
+          {translate("onboarding_intent_source_description", language)}
         </Text>
         <Text color={theme.colors.muted}>
-          {translate("onboarding_spec_source_note", language)}
+          {translate("onboarding_intent_source_note", language)}
         </Text>
       </Box>
 
       {!isFormActive ? (
         <Box flexDirection="column">
-          {ONBOARDING_SPEC_SOURCE_PROVIDERS.map((option, index) => {
+          {ONBOARDING_INTENT_SOURCE_PROVIDERS.map((option, index) => {
             const isSelected = selectedIndex === index;
             const label = translate(option.labelKey, language);
             const detail = translate(option.detailKey, language);
@@ -252,7 +249,7 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
                   {option.recommended && (
                     <Text color={theme.colors.success} bold>
                       {translate(
-                        "onboarding_spec_source_recommended",
+                        "onboarding_intent_source_recommended",
                         language,
                       )}
                     </Text>
@@ -273,7 +270,7 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
             paddingX={1}
           >
             <Text color={theme.colors.muted}>
-              {translate("onboarding_spec_source_nav_hint", language)}
+              {translate("onboarding_intent_source_nav_hint", language)}
             </Text>
           </Box>
         </Box>
@@ -289,10 +286,10 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
               {translate(selectedOption.labelKey, language)}
             </Text>
             <Text color={theme.colors.muted}>
-              {translate("onboarding_spec_source_config_subtitle", language)}
+              {translate("onboarding_intent_source_config_subtitle", language)}
             </Text>
           </Box>
-          <SpecSourceForm
+          <IntentSourceForm
             activeField={form.activeFormField}
             activeFieldIndex={form.activeFormFieldIndex}
             provider={form.provider}
@@ -303,7 +300,7 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
             errorMessage={form.formErrorMessage}
             showProviderField={false}
             submitLabel={translate(
-              "onboarding_spec_source_submit_label",
+              "onboarding_intent_source_submit_label",
               language,
             )}
           />
@@ -311,6 +308,4 @@ export const SpecSourceStep: React.FC<SpecSourceStepProps> = ({
       )}
     </Box>
   );
-};
-
-export default SpecSourceStep;
+};export default IntentSourceStep;

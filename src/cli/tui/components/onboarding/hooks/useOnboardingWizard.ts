@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react';
 import { SupportedLanguage } from '../../../../../config/types.js';
 import { HookMap } from '../../../../../domain/hook.js';
-import { SpecSourceConfig } from '../../../../../domain/spec-source.js';
+import { IntentSourceConfig, } from '../../../../../domain/intent-source.js';
 
 export const ONBOARDING_STEPS = [
   'welcome',
-  'spec_source',
+  'intent_source',
   'environment',
   'agents',
   'cli_install',
@@ -22,8 +22,7 @@ export interface CliInstallResult {
 
 export interface OnboardingState {
   currentStep: OnboardingStep;
-  specSource: SpecSourceConfig;
-  environment: string;
+  intentSource: IntentSourceConfig;  environment: string;
   plannerAgent: string;
   executorAgent: string;
   hooks: HookMap;
@@ -36,7 +35,7 @@ export interface OnboardingState {
 
 export const INITIAL_ONBOARDING_STATE: Readonly<OnboardingState> = {
   currentStep: 'welcome',
-  specSource: { provider: 'local' },
+  intentSource: { provider: 'local' },
   environment: 'local',
   plannerAgent: 'default',
   executorAgent: 'default',
@@ -58,8 +57,7 @@ export interface UseOnboardingWizardReturn {
   nextStep: () => void;
   previousStep: () => void;
   updateState: (patch: StatePatch | ((current: OnboardingState) => StatePatch)) => void;
-  setSpecSource: (value: StateUpdater<SpecSourceConfig>) => void;
-  setEnvironment: (environment: string) => void;
+  setIntentSource: (value: StateUpdater<IntentSourceConfig>) => void;  setEnvironment: (environment: string) => void;
   setPlannerAgent: (plannerAgent: string) => void;
   setExecutorAgent: (executorAgent: string) => void;
   setAgents: (plannerAgent: string, executorAgent: string) => void;
@@ -81,18 +79,19 @@ export interface UseOnboardingWizardReturn {
  */
 function withDefaults(initialState: Partial<OnboardingState> = {}): OnboardingState {
   const requestedStep = initialState.currentStep;
-  const currentStep = requestedStep && ONBOARDING_STEPS.includes(requestedStep)
-    ? requestedStep
+  const normalizedStep = requestedStep;
+  const currentStep = normalizedStep && (ONBOARDING_STEPS as readonly string[]).includes(normalizedStep)
+    ? (normalizedStep as OnboardingStep)
     : 'welcome';
-  const specSource = initialState.specSource ?? INITIAL_ONBOARDING_STATE.specSource;
+  const source = initialState.intentSource ?? INITIAL_ONBOARDING_STATE.intentSource;
 
   return {
     ...INITIAL_ONBOARDING_STATE,
     ...initialState,
     currentStep,
-    specSource: {
-      ...specSource,
-      provider: specSource.provider || 'local',
+    intentSource: {
+      ...source,
+      provider: source.provider || 'local',
     },
     environment: initialState.environment || 'local',
     plannerAgent: initialState.plannerAgent || 'default',
@@ -121,10 +120,15 @@ export function useOnboardingWizard(
 
   const updateState = useCallback(
     (patch: StatePatch | ((current: OnboardingState) => StatePatch)) => {
-      setState((current) => ({
-        ...current,
-        ...(typeof patch === 'function' ? patch(current) : patch),
-      }));
+      setState((current) => {
+        const next = typeof patch === 'function' ? patch(current) : patch;
+        const nextSource = next.intentSource;
+        return {
+          ...current,
+          ...next,
+          ...(nextSource ? { intentSource: nextSource,} : {}),
+        };
+      });
     },
     [],
   );
@@ -135,7 +139,8 @@ export function useOnboardingWizard(
 
   const nextStep = useCallback(() => {
     updateState((current) => {
-      const index = ONBOARDING_STEPS.indexOf(current.currentStep);
+      const active = current.currentStep;
+      const index = (ONBOARDING_STEPS as readonly string[]).indexOf(active);
       return {
         currentStep: ONBOARDING_STEPS[Math.min(index + 1, ONBOARDING_STEPS.length - 1)],
       };
@@ -144,18 +149,19 @@ export function useOnboardingWizard(
 
   const previousStep = useCallback(() => {
     updateState((current) => {
-      const index = ONBOARDING_STEPS.indexOf(current.currentStep);
+      const active = current.currentStep;
+      const index = (ONBOARDING_STEPS as readonly string[]).indexOf(active);
       return { currentStep: ONBOARDING_STEPS[Math.max(index - 1, 0)] };
     });
   }, [updateState]);
 
-  const setSpecSource = useCallback((value: StateUpdater<SpecSourceConfig>) => {
+  const setIntentSource = useCallback((value: StateUpdater<IntentSourceConfig>) => {
     setState((current) => {
-      const specSource = typeof value === 'function' ? value(current.specSource) : value;
+      const src = typeof value === 'function' ? value(current.intentSource) : value;
+      const updated = { ...src, provider: src.provider || 'local' };
       return {
         ...current,
-        specSource: { ...specSource, provider: specSource.provider || 'local' },
-      };
+        intentSource: updated,      };
     });
   }, []);
 
@@ -198,15 +204,11 @@ export function useOnboardingWizard(
   }, [updateState]);
 
   const startCliInstallation = useCallback(() => {
-    updateState({ isInstallingCli: true, cliInstallResult: undefined, error: undefined });
+    updateState({ isInstallingCli: true, cliInstallResult: undefined });
   }, [updateState]);
 
   const finishCliInstallation = useCallback((result: CliInstallResult) => {
-    updateState({
-      isInstallingCli: false,
-      cliInstallResult: result,
-      error: result.success ? undefined : result.message,
-    });
+    updateState({ isInstallingCli: false, cliInstallResult: result });
   }, [updateState]);
 
   const setIsInitializing = useCallback((isInitializing: boolean) => {
@@ -229,19 +231,24 @@ export function useOnboardingWizard(
     setState(withDefaults(initialState));
   }, [initialState]);
 
-  const currentStepIndex = ONBOARDING_STEPS.indexOf(state.currentStep);
+  const activeStep = state.currentStep;
+  const currentIndex = (ONBOARDING_STEPS as readonly string[]).indexOf(activeStep);
+  const canGoBack = currentIndex > 0 && state.currentStep !== 'summary';
+  const canGoNext =
+    currentIndex >= 0 &&
+    currentIndex < ONBOARDING_STEPS.length - 1 &&
+    state.currentStep !== 'welcome';
 
   return {
     state,
     currentStep: state.currentStep,
-    canGoBack: currentStepIndex > 0,
-    canGoNext: currentStepIndex < ONBOARDING_STEPS.length - 1,
+    canGoBack,
+    canGoNext,
     goToStep,
     nextStep,
     previousStep,
     updateState,
-    setSpecSource,
-    setEnvironment,
+    setIntentSource,    setEnvironment,
     setPlannerAgent,
     setExecutorAgent,
     setAgents,

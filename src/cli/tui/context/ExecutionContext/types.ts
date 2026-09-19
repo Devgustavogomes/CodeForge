@@ -7,8 +7,7 @@ export type ExecutionStatus = SchedulerStatus;
 export type { SchedulerStatus, TaskItem };
 
 export interface ExecutionContextValue {
-  activeSpec: string | null;
-  tasks: TaskItem[];
+  activeIntent: string | null;  tasks: TaskItem[];
   selectedTaskId: string | null;
   selectedTask: TaskItem | null;
   status: ExecutionStatus;
@@ -17,14 +16,13 @@ export interface ExecutionContextValue {
   getTaskLogs: (taskId: string) => string[];
   setSelectedTaskId: (taskId: string | null) => void;
   selectTask: (taskId: string | null) => void;
-  setActiveSpec: (specName: string | null) => void;
-  startRun: (specName?: string) => Promise<void>;
-  retryTask: (taskId: string, specName?: string) => Promise<void>;
-  retryAllFailed: () => Promise<void>;
-  completeTask: (taskId: string, specName?: string) => Promise<void>;
-  resetTask: (taskId: string, specName?: string) => Promise<void>;
-  resetAllTasks: (specName?: string) => Promise<void>;
-  refreshTasks?: (spec: string) => void;
+  setActiveIntent: (intentName: string | null) => void;  startRun: (intentName?: string) => Promise<void>;
+  retryTask: (taskId: string, intentName?: string) => Promise<void>;
+  retryAllFailed: (intentName?: string) => Promise<void>;
+  completeTask: (taskId: string, intentName?: string) => Promise<void>;
+  resetTask: (taskId: string, intentName?: string) => Promise<void>;
+  resetAllTasks: (intentName?: string) => Promise<void>;
+  refreshTasks?: (intent: string) => void;
   clearLogs: (taskId?: string) => void;
   scheduler: TaskScheduler | null;
   startedAt?: string;
@@ -35,9 +33,7 @@ export interface ExecutionProviderProps {
   children: React.ReactNode;
   scheduler?: TaskScheduler;
   container?: AppContainer;
-  initialSpec?: string;
-  autoStart?: boolean;
+  initialIntent?: string;  autoStart?: boolean;
   maxLogLines?: number;
   flushIntervalMs?: number;
 }
-

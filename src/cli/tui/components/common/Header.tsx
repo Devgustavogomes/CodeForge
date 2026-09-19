@@ -9,8 +9,7 @@ import { SupportedLanguage } from '../../../../config/types.js';
 
 export interface HeaderProps {
   title?: string;
-  activeSpec?: string | null;
-  breadcrumb?: string;
+  activeIntent?: string | null;  breadcrumb?: string;
   shortcuts?: string;
   borderColor?: string;
   borderStyle?: 'round' | 'single' | 'none';
@@ -19,13 +18,14 @@ export interface HeaderProps {
 
 /**
  * Top header bar for CodeForge TUI shell.
- * Displays brand title, active spec / breadcrumb, and quick shortcut hints
+ * Displays brand title, active intent / breadcrumb, and quick shortcut hints
  * with responsive truncation and modern rounded borders.
  */
 export function areHeaderPropsEqual(prev: HeaderProps, next: HeaderProps): boolean {
   return (
     prev.title === next.title &&
-    prev.activeSpec === next.activeSpec &&
+    prev.activeIntent === next.activeIntent &&
+    prev.activeIntent === next.activeIntent &&
     prev.breadcrumb === next.breadcrumb &&
     prev.shortcuts === next.shortcuts &&
     prev.borderColor === next.borderColor &&
@@ -36,8 +36,8 @@ export function areHeaderPropsEqual(prev: HeaderProps, next: HeaderProps): boole
 
 export const Header: React.FC<HeaderProps> = React.memo(({
   title: propTitle,
-  activeSpec: propActiveSpec,
-  breadcrumb,
+  activeIntent: propActiveIntent,
+    breadcrumb,
   shortcuts,
   borderColor = theme.colors.borderSubtle,
   borderStyle = 'round',
@@ -61,12 +61,18 @@ export const Header: React.FC<HeaderProps> = React.memo(({
       ? propTitle
       : translate('tui_header_title', resolvedLanguage);
 
-  const currentSpec = propActiveSpec !== undefined ? propActiveSpec : exec.activeSpec;
+  const currentIntent =
+    propActiveIntent !== undefined
+      ? propActiveIntent
+      : propActiveIntent !== undefined
+        ? propActiveIntent
+        : (exec.activeIntent ?? exec.activeIntent);
+
   const displayBreadcrumb =
     breadcrumb ||
-    (currentSpec
-      ? translate('tui_header_active_spec', resolvedLanguage, { spec: currentSpec })
-      : translate('tui_header_no_active_spec', resolvedLanguage));
+    (currentIntent
+      ? `Intent: ${currentIntent}`
+      : translate('tui_header_no_active_intent', resolvedLanguage));
 
   const defaultShortcuts = translate('tui_header_shortcuts', resolvedLanguage);
   const displayShortcuts = shortcuts !== undefined ? shortcuts : defaultShortcuts;

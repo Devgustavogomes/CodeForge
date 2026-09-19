@@ -7,7 +7,7 @@ import { NoopHookDispatcher } from "../../../infrastructure/hooks/NoopHookDispat
 import { createAppContainer } from "../../../infrastructure/container.js";
 import { ActionResult } from "../../types.js";
 
-export async function taskRetryAction(spec?: string): Promise<ActionResult> {
+export async function taskRetryAction(intent?: string): Promise<ActionResult> {
   const container = createAppContainer();
 
   const config = container.configService.loadConfig();
@@ -25,53 +25,53 @@ export async function taskRetryAction(spec?: string): Promise<ActionResult> {
     return { success: false };
   }
 
-  let specName = spec;
+  let intentName = intent;
 
-  if (!specName) {
-    const specs = container.listSpecsUseCase.execute();
+  if (!intentName) {
+    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const intents = listUseCase.execute();
 
-    if (specs.length === 0) {
-      console.error(translate("err_no_specs_run", lang));
+    if (intents.length === 0) {
+      console.error(translate("err_no_intents_run", lang));
       process.exitCode = 1;
       return { success: false };
     }
 
-    specName = await select({
-      message: translate("run_select_spec", lang),
+    intentName = await select({
+      message: translate("run_select_intent", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((s) => ({ name: s.name, value: s.name })),
+        ...intents.map((s) => ({ name: s.name, value: s.name })),
       ],
     });
 
-    if (specName === "back") {
+    if (intentName === "back") {
       return { back: true };
     }
   }
 
   const useCase = container.taskOperationsUseCase;
-  const result = useCase.retrySpec(specName);
+  const result = useCase.retryIntent(intentName);
 
   switch (result.kind) {
-    case "spec-not-found":
-      console.error(translate("err_spec_not_found", lang, { spec: specName }));
+    case "intent-not-found":
+      console.error(translate("err_intent_not_found", lang, { intent: intentName,}));
       process.exitCode = 1;
       return { success: false };
     case "no-execution":
-      console.log(translate("status_no_execution", lang, { spec: specName }));
+      console.log(translate("status_no_execution", lang, { intent: intentName,}));
       return { success: true };
     case "all-completed":
-      console.log(translate("retry_all_completed", lang, { spec: specName }));
+      console.log(translate("retry_all_completed", lang, { intent: intentName,}));
       return { success: true };
     case "no-failed-tasks":
-      console.log(translate("retry_no_failed_tasks", lang, { spec: specName }));
+      console.log(translate("retry_no_failed_tasks", lang, { intent: intentName,}));
       return { success: true };
     case "retried": {
       console.log(
         translate("retry_success_starting", lang, {
           count: result.retriedTasks.length,
-          spec: specName,
-        }),
+          intent: intentName,        }),
       );
       const runner = container.runnerProvider(config.environment);
       const hooks = config.hooks
@@ -83,21 +83,23 @@ export async function taskRetryAction(spec?: string): Promise<ActionResult> {
         undefined,
         hooks,
       );
-      const runResult = await scheduler.run(specName, config.executorAgent);
+      const runResult = await scheduler.run(intentName, config.executorAgent);
       if (runResult.status === "failed" || runResult.status === "deadlock") {
         process.exitCode = 1;
         return { success: false };
       }
       return { success: true };
     }
+    default:
+      return { success: false };
   }
 }
 
 export function registerTaskRetryCommand(task: Command): void {
   task
-    .command("retry [spec]")
-    .description("Retry failed tasks for a spec and resume execution")
-    .action(async (spec?: string) => {
-      await taskRetryAction(spec);
+    .command("retry [intent]")
+    .description("Retry failed tasks for an intent and resume execution")
+    .action(async (intent?: string) => {
+      await taskRetryAction(intent);
     });
 }

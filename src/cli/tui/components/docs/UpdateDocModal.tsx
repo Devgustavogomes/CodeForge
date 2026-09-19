@@ -27,17 +27,17 @@ export interface UpdateDocModalProps {
   onClose: () => void;
   selectedDoc?:
     | DocItemInfo
-    | { name: string; specs?: string[]; [key: string]: unknown }
+    | { name: string; intents?: string[]; [key: string]: unknown }
     | string
     | null;
-  availableSpecs?: string[];
-  initialSpec?: string;
+  availableIntents?: string[];
+  initialIntent?: string;
   initialMode?: UpdateMode;
   initialStep?: UpdateStep;
   container?: AppContainer;
-  onConfirmDirect?: (docName: string, specName: string) => Promise<void> | void;
+  onConfirmDirect?: (docName: string, intentName: string) => Promise<void> | void;
   onConfirmAuto?: (
-    specName: string,
+    intentName: string,
     target: AutoTarget,
     affectedDocs: AffectedDoc[]
   ) => Promise<void> | void;
@@ -54,7 +54,7 @@ export interface UpdateDocModalProps {
  *
  * Gerencia a transição entre:
  * - Etapa 1: Seleção de modo de atualização (Manual/Direto vs Automático/Git)
- * - Etapa 2A: Revisão do documento alvo e seleção horizontal da especificação
+ * - Etapa 2A: Revisão do documento alvo e seleção horizontal da intenção
  * - Etapa 2B: Resolução de arquivos/documentos impactados via Git e escopo do manifest
  *
  * Previne qualquer execução assíncrona deliberada de IA antes da confirmação do usuário com Enter na Etapa 2.
@@ -63,8 +63,8 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
   isOpen = true,
   onClose,
   selectedDoc = null,
-  availableSpecs,
-  initialSpec,
+  availableIntents,
+  initialIntent,
   initialMode = 'direct',
   initialStep = 'mode-select',
   container,
@@ -89,9 +89,9 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
     mode,
     handleSelectMode,
     handleCycleMode,
-    selectedSpec,
-    availableSpecs: resolvedAvailableSpecs,
-    handleCycleSpec,
+    selectedIntent,
+    availableIntents: resolvedAvailableIntents,
+    handleCycleIntent,
     targetDocName,
     targetDocDisplayName,
     affectedResult,
@@ -107,8 +107,8 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
     isOpen,
     container,
     selectedDoc: normalizedSelectedDoc,
-    availableSpecs,
-    initialSpec,
+    availableIntents,
+    initialIntent,
     initialMode,
     initialStep,
     language: propLanguage,
@@ -144,7 +144,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
 
       // 2. Setas verticais ou k/j:
       // - Etapa 1: alternar/navegar entre Modo Direto e Modo Automático
-      // - Etapa 2B: navegar entre "[ Atualizar todos ]" e documentos específicos
+      // - Etapa 2B: navegar entre "[ Atualizar todos ]" e documentos eintentíficos
       if (key.upArrow || input === 'k' || input === 'K') {
         if (step === 'mode-select') {
           handleCycleMode();
@@ -183,14 +183,14 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
         }
       }
 
-      // 3. Setas horizontais ou Espaço: alternar/ciclar a spec de referência na Etapa 2A e 2B
+      // 3. Setas horizontais ou Espaço: alternar/ciclar a intent de referência na Etapa 2A e 2B
       if (step === 'direct' || step === 'auto') {
         if (key.leftArrow) {
-          handleCycleSpec(-1);
+          handleCycleIntent(-1);
           return;
         }
         if (key.rightArrow || input === ' ') {
-          handleCycleSpec(1);
+          handleCycleIntent(1);
           return;
         }
       }
@@ -232,8 +232,8 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
       {step === 'direct' && (
         <DirectUpdateStep
           docName={targetDocName}
-          availableSpecs={resolvedAvailableSpecs}
-          selectedSpec={selectedSpec}
+          availableIntents={resolvedAvailableIntents}
+          selectedIntent={selectedIntent}
           width="100%"
           error={propError ?? (edgeCaseMessage && !isEdgeCase ? edgeCaseMessage : null)}
           isLoading={isLoading}
@@ -243,7 +243,7 @@ export const UpdateDocModal: React.FC<UpdateDocModalProps> = ({
 
       {step === 'auto' && (
         <AutoUpdateStep
-          selectedSpec={selectedSpec}
+          selectedIntent={selectedIntent}
           resultKind={affectedResult?.kind}
           affectedDocs={affectedDocs}
           selectedIndex={autoSelectedIndex}

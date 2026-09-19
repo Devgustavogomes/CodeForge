@@ -15,8 +15,8 @@ export type AutoUpdateStatus =
   | 'error';
 
 export interface AutoUpdateStepProps {
-  selectedSpec?: string;
-  specName?: string;
+  selectedIntent?: string;
+  intentName?: string;
   status?: AutoUpdateStatus | string;
   resultKind?: string;
   affectedDocs?: AffectedDoc[];
@@ -30,12 +30,12 @@ export interface AutoUpdateStepProps {
 
 /**
  * Subcomponente visual para a Etapa 2B do modal de atualização:
- * Exibe a spec de referência, mensagens de alerta para casos de borda do Git/Manifest,
+ * Exibe a intent de referência, mensagens de alerta para casos de borda do Git/Manifest,
  * e a listagem de documentos impactados com contagem de arquivos para seleção individual ou em lote.
  */
 export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
-  selectedSpec,
-  specName,
+  selectedIntent,
+  intentName,
   status,
   resultKind,
   affectedDocs = [],
@@ -46,7 +46,7 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
   showEnterShortcut,
   language = 'en',
 }) => {
-  const referenceSpec = selectedSpec ?? specName ?? translate('tui_docs_auto_general', language);
+  const referenceIntent = selectedIntent ?? intentName ?? translate('tui_docs_auto_general', language);
   const effectiveStatus = (resultKind ?? status ?? (affectedDocs.length > 0 ? 'affected-docs' : 'no-affected-docs')) as AutoUpdateStatus;
 
   const isNoGit = effectiveStatus === 'no-git';
@@ -66,10 +66,10 @@ export const AutoUpdateStep: React.FC<AutoUpdateStepProps> = memo(({
 
   return (
     <Box flexDirection="column" width={width} gap={1}>
-      {/* Spec de Referência Associada */}
+      {/* Intent de Referência Associada */}
       <Box flexDirection="row" gap={1}>
-        <Text bold color={theme.colors.text}>{translate('tui_docs_auto_ref_spec', language)}</Text>
-        <Text bold color={theme.colors.primary}>{referenceSpec}</Text>
+        <Text bold color={theme.colors.text}>{translate('tui_docs_auto_ref_intent', language)}</Text>
+        <Text bold color={theme.colors.primary}>{referenceIntent}</Text>
       </Box>
 
       {/* Alerta de Loading */}

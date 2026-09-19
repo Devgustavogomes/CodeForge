@@ -1,8 +1,8 @@
 import { SchedulerReporter } from "../../application/ports/SchedulerReporter.js";
 import {
-  GetSpecStatusUseCase,
-  StatusResult,
-} from "../../application/use-cases/GetSpecStatusUseCase.js";
+  GetIntentStatusUseCase,
+  IntentStatusResult,
+} from "../../application/use-cases/GetIntentStatusUseCase.js";
 import { SupportedLanguage } from "../../config/types.js";
 import { translate } from "./i18n.js";
 import {
@@ -11,11 +11,12 @@ import {
   supportsColor,
 } from "./statusFormatter.js";
 
-export type StatusLookup = (specName: string) => StatusResult | undefined;
+export type StatusLookup = (intentName: string) => IntentStatusResult | undefined;
+export type StatusResult = IntentStatusResult;
 
 export interface TerminalSchedulerReporterOptions {
-  /** Function or GetSpecStatusUseCase providing status snapshots. */
-  getStatus?: StatusLookup | GetSpecStatusUseCase;
+  /** Function or GetIntentStatusUseCase providing status snapshots. */
+  getStatus?: StatusLookup | GetIntentStatusUseCase | { execute: (name: string) => IntentStatusResult };
   /** Output stream for rendering. Defaults to process.stdout. */
   stream?: NodeJS.WritableStream & { isTTY?: boolean };
   /** Whether ANSI colors and styles should be used. Defaults to terminal detection. */
@@ -30,7 +31,7 @@ export interface TerminalSchedulerReporterOptions {
 
 export class TerminalSchedulerReporter implements SchedulerReporter {
   private startTime: number = 0;
-  private specName?: string;
+  private intentName?: string;
   private lastLinesCount: number = 0;
   private cursorHidden: boolean = false;
   private readonly getStatus?: StatusLookup;
@@ -65,8 +66,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     return this.cursorHidden;
   }
 
-  onStart(specName: string): void {
-    this.specName = specName;
+  onStart(intentName: string): void {
+    this.intentName = intentName;
     this.startTime = this.clock();
 
     if (this.interactive && !this.cursorHidden) {
@@ -74,30 +75,29 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
       this.cursorHidden = true;
     }
 
-    this.renderSnapshot(specName);
+    this.renderSnapshot(intentName);
   }
 
-  onUpdate(specName: string): void {
-    this.specName = specName;
+  onUpdate(intentName: string): void {
+    this.intentName = intentName;
     if (!this.startTime) {
       this.startTime = this.clock();
     }
-    this.renderSnapshot(specName);
+    this.renderSnapshot(intentName);
   }
 
-  onComplete(specName: string): void {
-    this.specName = specName;
+  onComplete(intentName: string): void {
+    this.intentName = intentName;
     if (!this.startTime) {
       this.startTime = this.clock();
     }
     const elapsedMs = Math.max(0, this.clock() - this.startTime);
     const elapsedStr = formatElapsed(elapsedMs);
 
-    this.renderFinal(specName);
+    this.renderFinal(intentName);
 
     const message = translate("terminal_run_completed", this.language, {
-      spec: specName,
-      elapsed: elapsedStr,
+      intent: intentName,      elapsed: elapsedStr,
     });
     const styled = this.color ? `\x1b[32m${message}\x1b[0m` : message;
     this.stream.write(`\n${styled}\n`);
@@ -105,19 +105,18 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     this.cleanup();
   }
 
-  onFail(specName: string): void {
-    this.specName = specName;
+  onFail(intentName: string): void {
+    this.intentName = intentName;
     if (!this.startTime) {
       this.startTime = this.clock();
     }
     const elapsedMs = Math.max(0, this.clock() - this.startTime);
     const elapsedStr = formatElapsed(elapsedMs);
 
-    this.renderFinal(specName);
+    this.renderFinal(intentName);
 
     const message = translate("terminal_run_failed", this.language, {
-      spec: specName,
-      elapsed: elapsedStr,
+      intent: intentName,      elapsed: elapsedStr,
     });
     const styled = this.color ? `\x1b[31m${message}\x1b[0m` : message;
     this.stream.write(`\n${styled}\n`);
@@ -125,18 +124,17 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     this.cleanup();
   }
 
-  onDeadlock(specName?: string): void {
-    const resolvedSpec = specName ?? this.specName ?? "";
-    if (resolvedSpec) {
-      this.renderFinal(resolvedSpec);
+  onDeadlock(intentName?: string): void {
+    const resolvedIntent = intentName ?? this.intentName ?? "";
+    if (resolvedIntent) {
+      this.renderFinal(resolvedIntent);
     } else if (this.interactive && this.lastLinesCount > 0) {
       this.stream.write(`\x1b[${this.lastLinesCount}A\x1b[0J`);
       this.lastLinesCount = 0;
     }
 
     const message = translate("terminal_run_deadlock", this.language, {
-      spec: resolvedSpec,
-    });
+      intent: resolvedIntent,    });
     const styled = this.color ? `\x1b[31m${message}\x1b[0m` : message;
     this.stream.write(`\n${styled}\n`);
 
@@ -150,11 +148,10 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const noTasksMatch = errorMessage.match(/^No tasks found for spec: (.*)$/);
+    const noTasksMatch = errorMessage.match(/^No tasks found for (?:intent|intent): (.*)$/);
     const message = noTasksMatch
       ? translate("terminal_run_no_tasks", this.language, {
-          spec: noTasksMatch[1],
-        })
+          intent: noTasksMatch[1],        })
       : translate("terminal_run_error", this.language, { error: errorMessage });
     const styled = this.color ? `\x1b[31m${message}\x1b[0m` : message;
     this.stream.write(`${styled}\n`);
@@ -162,7 +159,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     this.cleanup();
   }
 
-  onLog?(taskId: string, chunk: string): void {
+  onLog?(_taskId: string, _chunk: string): void {
     // Keep raw agent logs contained so they do not corrupt terminal dashboard output
   }
 
@@ -173,8 +170,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     }
   }
 
-  private renderSnapshot(specName: string): void {
-    const content = this.getSnapshotContent(specName);
+  private renderSnapshot(intentName: string): void {
+    const content = this.getSnapshotContent(intentName);
     if (!content) {
       return;
     }
@@ -190,8 +187,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     }
   }
 
-  private renderFinal(specName: string): void {
-    const content = this.getSnapshotContent(specName);
+  private renderFinal(intentName: string): void {
+    const content = this.getSnapshotContent(intentName);
     if (!content) {
       return;
     }
@@ -207,8 +204,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     }
   }
 
-  private getSnapshotContent(specName: string): string | undefined {
-    const status = this.getStatus?.(specName);
+  private getSnapshotContent(intentName: string): string | undefined {
+    const status = this.getStatus?.(intentName);
     const elapsedMs = Math.max(0, this.clock() - this.startTime);
     const elapsedStr = formatElapsed(elapsedMs);
 

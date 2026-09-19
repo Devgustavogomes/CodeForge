@@ -1,6 +1,4 @@
-import { useContext } from 'react';
 import { useInput } from 'ink';
-import { NavigationContext } from '../../../context/NavigationContext.js';
 import { ConfigFieldKey, FIELD_ORDER } from '../components/ConfigField.js';
 
 export interface UseConfigHotkeysProps {
@@ -20,8 +18,7 @@ export interface UseConfigHotkeysProps {
   onCancelEditing: () => void;
   onClearFeedback?: () => void;
   onOpenHooksModal?: () => void;
-  onOpenSpecSourceModal?: () => void;
-}
+  onOpenIntentSourceModal?: () => void;}
 
 export function useConfigHotkeys({
   isInteractive = true,
@@ -40,9 +37,9 @@ export function useConfigHotkeys({
   onCancelEditing,
   onClearFeedback,
   onOpenHooksModal,
-  onOpenSpecSourceModal,
-}: UseConfigHotkeysProps) {
-  const nav = useContext(NavigationContext);
+  onOpenIntentSourceModal,
+  }: UseConfigHotkeysProps) {
+  const handleOpenSourceModal = onOpenIntentSourceModal;
 
   useInput(
     (input, key) => {
@@ -58,102 +55,118 @@ export function useConfigHotkeys({
           onCommitEditing();
           return;
         }
-        if (
-          key.backspace ||
-          key.delete ||
-          input === '\x08' ||
-          input === '\x7f'
-        ) {
+        if (key.backspace || key.delete) {
           setEditValue((prev) => prev.slice(0, -1));
           return;
         }
-        if (key.ctrl && input === 'u') {
-          setEditValue('');
+        if (input && input.length === 1) {
+          setEditValue((prev) => prev + input);
           return;
         }
-        if (!key.ctrl && !key.meta) {
-          const printable = input
-            .split('')
-            .filter((ch) => {
-              const code = ch.charCodeAt(0);
-              return (code >= 32 && code !== 127) || code > 127;
-            })
-            .join('');
-
-          if (printable.length > 0) {
-            setEditValue((prev) => prev + printable);
-          }
-        }
         return;
       }
 
-      if (nav?.isTextInputActive) return;
+      // Clear transient feedback upon any navigation action
+      onClearFeedback?.();
 
-      // Navigate form fields: Up/Down or k/j
-      if (key.upArrow || input === 'k') {
+      // Navigation: Up/Down arrow or Tab/Shift-Tab or k/j
+      if (key.upArrow || (key.tab && key.shift) || input === '\x1b[Z' || input === 'k' || input === 'K') {
         setFocusedFieldIndex((prev) =>
-          prev > 0 ? prev - 1 : FIELD_ORDER.length - 1,
+          prev <= 0 ? FIELD_ORDER.length - 1 : prev - 1,
         );
-        onClearFeedback?.();
-        return;
-      }
-      if (key.downArrow || input === 'j' || key.tab) {
-        setFocusedFieldIndex((prev) =>
-          prev < FIELD_ORDER.length - 1 ? prev + 1 : 0,
-        );
-        onClearFeedback?.();
         return;
       }
 
-      // Quick cycle with Space or Left/Right
-      if (activeField === 'language') {
-        if (key.leftArrow) {
-          onCycleLanguage(-1);
-          return;
-        }
-        if (key.rightArrow || input === ' ') {
+      if (key.downArrow || (key.tab && !key.shift) || input === '\t' || input === 'j' || input === 'J') {
+        setFocusedFieldIndex((prev) =>
+          prev >= FIELD_ORDER.length - 1 ? 0 : prev + 1,
+        );
+        return;
+      }
+
+      // Space / Arrow Right / Arrow Left -> Cycle discrete options
+      if (input === ' ' || key.rightArrow) {
+        if (activeField === 'language') {
           onCycleLanguage(1);
           return;
         }
-      }
-
-      if (activeField === 'environment') {
-        if (key.leftArrow) {
-          onCycleEnvironment(-1);
-          return;
-        }
-        if (key.rightArrow || input === ' ') {
+        if (activeField === 'environment') {
           onCycleEnvironment(1);
           return;
         }
-      }
-
-      if (activeField === 'plannerAgent') {
-        if (key.leftArrow) {
-          onCyclePlannerAgent(-1);
-          return;
-        }
-        if (key.rightArrow || input === ' ') {
+        if (activeField === 'plannerAgent') {
           onCyclePlannerAgent(1);
           return;
         }
-        if (input === 'e') {
-          onStartCustomEdit();
+        if (activeField === 'executorAgent') {
+          onCycleExecutorAgent(1);
+          return;
+        }
+        if (activeField === 'intentSource') {
+          if (handleOpenSourceModal) {
+            handleOpenSourceModal();
+          } else {
+            onStartEditing();
+          }
+          return;
+        }
+        if (activeField === 'saveButton') {
+          onSave();
           return;
         }
       }
 
-      if (activeField === 'executorAgent') {
-        if (key.leftArrow) {
+      if (key.leftArrow) {
+        if (activeField === 'language') {
+          onCycleLanguage(-1);
+          return;
+        }
+        if (activeField === 'environment') {
+          onCycleEnvironment(-1);
+          return;
+        }
+        if (activeField === 'plannerAgent') {
+          onCyclePlannerAgent(-1);
+          return;
+        }
+        if (activeField === 'executorAgent') {
           onCycleExecutorAgent(-1);
           return;
         }
-        if (key.rightArrow || input === ' ') {
-          onCycleExecutorAgent(1);
+        if (activeField === 'intentSource') {
+          if (handleOpenSourceModal) {
+            handleOpenSourceModal();
+          } else {
+            onStartEditing();
+          }
           return;
         }
-        if (input === 'e') {
+      }
+
+      // 'e' -> Custom edit for text-supported fields
+      if (input === 'e' || input === 'E') {
+        if (
+          activeField === 'environment' ||
+          activeField === 'plannerAgent' ||
+          activeField === 'executorAgent'
+        ) {
           onStartCustomEdit();
+          return;
+        }
+        if (activeField === 'hooks') {
+          if (onOpenHooksModal) {
+            onOpenHooksModal();
+          } else {
+            onStartEditing();
+          }
+          return;
+        }
+        if (activeField === 'intentSource') {
+          if (handleOpenSourceModal) {
+            handleOpenSourceModal();
+          } else {
+            onStartEditing();
+          }
           return;
         }
       }
@@ -175,7 +188,7 @@ export function useConfigHotkeys({
         }
       }
 
-      if (activeField === 'specSource') {
+      if (activeField === 'intentSource') {
         if (
           key.return ||
           input === '\r' ||
@@ -183,8 +196,8 @@ export function useConfigHotkeys({
           input === ' ' ||
           key.rightArrow
         ) {
-          if (onOpenSpecSourceModal) {
-            onOpenSpecSourceModal();
+          if (handleOpenSourceModal) {
+            handleOpenSourceModal();
           } else {
             onStartEditing();
           }

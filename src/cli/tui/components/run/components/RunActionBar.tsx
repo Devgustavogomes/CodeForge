@@ -50,7 +50,7 @@ export const RunActionBar: React.FC<RunActionBarProps> = memo(({
     );
   }
 
-  const navigationActions = ['[Tab] Logs', '[s] Switch Spec', '[f] Filter'];
+  const navigationActions = ['[Tab] Logs', '[s] Switch Intent', '[f] Filter'];
   const taskActions: string[] = [];
 
   if (effectiveStatus !== 'running' && hasPendingTasks) {

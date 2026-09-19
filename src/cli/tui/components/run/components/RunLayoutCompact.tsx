@@ -17,8 +17,7 @@ export interface RunLayoutCompactProps {
   selectedTaskId: string | null;
   selectedTask: TaskItem | null;
   focusedPanel: DashboardPanel;
-  specName?: string;
-  schedulerStatus?: ExecutionStatus | string;
+  intentName?: string;  schedulerStatus?: ExecutionStatus | string;
   startedAt?: string;
   completedAt?: string;
   terminalRows?: number;
@@ -35,8 +34,8 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
     selectedTaskId,
     selectedTask,
     focusedPanel,
-    specName = "current-spec",
-    schedulerStatus = "idle",
+    intentName,
+        schedulerStatus = "idle",
     startedAt,
     completedAt,
     terminalRows: propTerminalRows,
@@ -72,7 +71,7 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
         {/* Top Metrics / Banner */}
         {topMetricsPanel ?? (
           <DashboardMetricsPanel
-            specName={specName}
+            intentName={intentName}
             tasks={tasks}
             schedulerStatus={schedulerStatus}
             startedAt={startedAt}

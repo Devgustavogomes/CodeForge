@@ -1,13 +1,12 @@
 import React, { memo, useMemo } from 'react';
 import { Box, Text } from 'ink';
-import { SpecInfo } from '../../../../../application/use-cases/ListSpecsUseCase.js';
+import { IntentInfo } from '../../../../../application/use-cases/ListIntentsUseCase.js';
 import { theme } from '../../../theme.js';
 
-export interface SpecItemWithStats extends SpecInfo {
+export interface IntentItemWithStats extends IntentInfo {
   taskCount: number;
   updatedAt?: string;
 }
-
 export const STATUS_BADGE_MAP: Record<string, { label: string; color: string }> = {
   not_started: { label: '[NOT STARTED]', color: theme.colors.muted },
   planned: { label: '[PLANNED]', color: theme.colors.primary },
@@ -15,29 +14,29 @@ export const STATUS_BADGE_MAP: Record<string, { label: string; color: string }> 
   completed: { label: '[COMPLETED]', color: theme.colors.success },
 };
 
-export interface SpecListProps {
-  specs: SpecItemWithStats[];
-  selectedIndex: number;
+export interface IntentListProps {
+  intents?: IntentItemWithStats[];  selectedIndex: number;
   isSideBySide?: boolean;
 }
 
-export const SpecList: React.FC<SpecListProps> = memo(({
-  specs,
-  selectedIndex,
+export const IntentList: React.FC<IntentListProps> = memo(({
+  intents: propIntents,
+    selectedIndex,
   isSideBySide = true,
 }) => {
-  const maxVisibleSpecs = 6;
-  const visibleSpecs = useMemo(() => {
-    if (specs.length <= maxVisibleSpecs) return specs;
+  const intents = propIntents ?? [];
+  const maxVisibleIntents = 6;
+  const visibleIntents = useMemo(() => {
+    if (intents.length <= maxVisibleIntents) return intents;
     const selectedIdx = Math.max(0, selectedIndex);
-    let start = Math.max(0, selectedIdx - Math.floor(maxVisibleSpecs / 2));
-    if (start + maxVisibleSpecs > specs.length) {
-      start = Math.max(0, specs.length - maxVisibleSpecs);
+    let start = Math.max(0, selectedIdx - Math.floor(maxVisibleIntents / 2));
+    if (start + maxVisibleIntents > intents.length) {
+      start = Math.max(0, intents.length - maxVisibleIntents);
     }
-    return specs.slice(start, start + maxVisibleSpecs);
-  }, [specs, maxVisibleSpecs, selectedIndex]);
+    return intents.slice(start, start + maxVisibleIntents);
+  }, [intents, maxVisibleIntents, selectedIndex]);
 
-  const selectedSpec = specs[selectedIndex] ?? null;
+  const selectedIntent = intents[selectedIndex] ?? null;
 
   return (
     <Box
@@ -49,34 +48,34 @@ export const SpecList: React.FC<SpecListProps> = memo(({
     >
       <Box justifyContent="space-between" marginBottom={0}>
         <Text bold color={theme.colors.primary}>
-          Specifications ({specs.length})
+          Intents ({intents.length})
         </Text>
         <Text dimColor>[c] Create · [P] Pull</Text>
       </Box>
 
-      {specs.length === 0 ? (
+      {intents.length === 0 ? (
         <Box paddingY={1} justifyContent="center" flexDirection="column" alignItems="center">
-          <Text dimColor>No specifications found in .codeforge/specs/</Text>
-          <Text dimColor>Press 'c' to create a new spec or 'P' to pull from GitHub/Linear.</Text>
+          <Text dimColor>No intents found in .codeforge/intents/</Text>
+          <Text dimColor>Press 'c' to create a new intent or 'P' to pull from GitHub/Linear.</Text>
         </Box>
       ) : (
         <Box flexDirection="column">
-          {visibleSpecs.map((spec) => {
-            const isSelected = selectedSpec?.name === spec.name;
-            const badge = STATUS_BADGE_MAP[spec.status] ?? {
-              label: `[${spec.status.toUpperCase()}]`,
+          {visibleIntents.map((intent) => {
+            const isSelected = selectedIntent?.name === intent.name;
+            const badge = STATUS_BADGE_MAP[intent.status] ?? {
+              label: `[${intent.status.toUpperCase()}]`,
               color: theme.colors.muted,
             };
 
             return (
-              <Box key={spec.name} justifyContent="space-between" width="100%">
+              <Box key={intent.name} justifyContent="space-between" width="100%">
                 <Box gap={1} flexShrink={1}>
                   <Text color={isSelected ? theme.colors.primary : undefined} bold={isSelected}>
                     {isSelected ? '>' : ' '}
                   </Text>
                   <Box width={14}>
                     <Text bold={isSelected} color={isSelected ? theme.colors.primary : theme.colors.text} wrap="truncate-end">
-                      {spec.name}
+                      {intent.name}
                     </Text>
                   </Box>
                   <Text color={badge.color} bold>
@@ -84,7 +83,7 @@ export const SpecList: React.FC<SpecListProps> = memo(({
                   </Text>
                 </Box>
                 <Box flexShrink={0} paddingLeft={1}>
-                  <Text dimColor>{spec.taskCount} tasks</Text>
+                  <Text dimColor>{intent.taskCount} tasks</Text>
                 </Box>
               </Box>
             );
@@ -95,5 +94,4 @@ export const SpecList: React.FC<SpecListProps> = memo(({
   );
 });
 
-SpecList.displayName = 'SpecList';
-export default SpecList;
+IntentList.displayName = 'IntentList';export default IntentList;

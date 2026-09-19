@@ -9,7 +9,7 @@ export interface UseKeyboardShortcutsOptions {
 
 const TAB_NUMBER_MAP: Record<string, TabId> = {
   '1': 'run',
-  '2': 'specs',
+  '2': 'intents',
   '3': 'tasks',
   '4': 'docs',
   '5': 'config',
@@ -18,7 +18,7 @@ const TAB_NUMBER_MAP: Record<string, TabId> = {
 /**
  * Global keyboard shortcuts listener for CodeForge TUI.
  * Handles:
- * - Numbers 1-5 for tab switching (1: Run, 2: Specs, 3: Tasks, 4: Docs, 5: Config)
+ * - Numbers 1-5 for tab switching (1: Run, 2: Intents, 3: Tasks, 4: Docs, 5: Config)
  * - 'q' or Ctrl+C for quit confirmation
  * - Left/Right arrows for circular tab navigation
  * - Escape to close active modal

@@ -4,32 +4,33 @@ import { createAppContainer } from "../../../infrastructure/container.js";
 import { translate } from "../../ui/i18n.js";
 import { ActionResult } from "../../types.js";
 
-export async function taskInfoAction(spec?: string, taskId?: string): Promise<ActionResult> {
+export async function taskInfoAction(intent?: string, taskId?: string): Promise<ActionResult> {
   const container = createAppContainer();
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
-  
-  let specName = spec;
+
+  let intentName = intent;
   let selectedTask = taskId;
 
-  // Select Spec
-  if (!specName) {
-    const specs = container.listSpecsUseCase.execute();
-    if (specs.length === 0) {
-      console.error("\n✗ No specs found.\n");
+  // Select Intent
+  if (!intentName) {
+    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const intents = listUseCase.execute();
+    if (intents.length === 0) {
+      console.error(translate("err_no_intents", lang));
       process.exitCode = 1;
       return { success: false };
     }
 
-    specName = await select({
-      message: "Select a spec:",
+    intentName = await select({
+      message: translate("run_select_intent", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((s) => ({ name: s.name, value: s.name }))
+        ...intents.map((s) => ({ name: s.name, value: s.name }))
       ],
     });
 
-    if (specName === "back") {
+    if (intentName === "back") {
       return { back: true };
     }
   }
@@ -37,22 +38,22 @@ export async function taskInfoAction(spec?: string, taskId?: string): Promise<Ac
   // Select Task
   const useCase = container.taskOperationsUseCase;
   if (!selectedTask) {
-    const tasksResult = useCase.getAvailableTasks(specName);
-    if (tasksResult.kind === "spec-not-found") {
+    const tasksResult = useCase.getAvailableTasks(intentName);
+    if (tasksResult.kind === "intent-not-found") {
       console.error(
-        `\n✗ No tasks found for spec '${specName}'. Run 'plan generate' first.\n`,
+        translate("err_tasks_dir_not_found", lang, { intent: intentName,}),
       );
       process.exitCode = 1;
       return { success: false };
     }
     if (tasksResult.kind === "no-tasks") {
-      console.error(`\n✗ No tasks found for spec '${specName}'.\n`);
+      console.error(translate("task_delete_no_tasks", lang, { intent: intentName,}));
       process.exitCode = 1;
       return { success: false };
     }
 
     selectedTask = await select({
-      message: `Select a task from '${specName}':`,
+      message: `Select a task from '${intentName}':`,
       choices: [
         { name: translate("menu_back", lang), value: "back" },
         ...tasksResult.tasks.map((t) => ({ name: `${t.id} - ${t.title}`, value: t.id }))
@@ -64,15 +65,15 @@ export async function taskInfoAction(spec?: string, taskId?: string): Promise<Ac
     }
   }
 
-  const result = useCase.getTaskInfo(specName, selectedTask as string);
+  const result = useCase.getTaskInfo(intentName, selectedTask as string);
 
   switch (result.kind) {
-    case "spec-not-found":
-      console.error(`\n✗ No tasks directory found for spec '${specName}'.\n`);
+    case "intent-not-found":
+      console.error(`\n✗ No tasks directory found for intent '${intentName}'.\n`);
       process.exitCode = 1;
       return { success: false };
     case "task-not-found":
-      console.error(`\n✗ Task '${selectedTask}' not found in spec '${specName}'.\n`);
+      console.error(`\n✗ Task '${selectedTask}' not found in intent '${intentName}'.\n`);
       process.exitCode = 1;
       return { success: false };
     case "invalid-json":
@@ -120,14 +121,16 @@ export async function taskInfoAction(spec?: string, taskId?: string): Promise<Ac
       }
       return { success: true };
     }
+    default:
+      return { success: false };
   }
 }
 
 export function registerTaskInfoCommand(task: Command): void {
   task
-    .command("info [spec] [taskId]")
+    .command("info [intent] [taskId]")
     .description("View details of a specific task")
-    .action(async (spec?: string, taskId?: string) => {
-      await taskInfoAction(spec, taskId);
+    .action(async (intent?: string, taskId?: string) => {
+      await taskInfoAction(intent, taskId);
     });
 }

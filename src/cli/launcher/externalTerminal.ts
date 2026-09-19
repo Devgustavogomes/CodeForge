@@ -25,7 +25,7 @@ export const LINUX_TERMINAL_CANDIDATES = [
 export const SUBCOMMAND_FAMILIES = [
   "run",
   "status",
-  "spec",
+  "intent",
   "task",
   "docs",
   "plan",

@@ -5,11 +5,11 @@ import { CommandHookDispatcher } from '../../../../infrastructure/hooks/CommandH
 import { NoopHookDispatcher } from '../../../../infrastructure/hooks/NoopHookDispatcher.js';
 
 export interface ExecutionReporterCallbacks {
-  onStart?: (specName: string) => void;
-  onUpdate?: (specName: string) => void;
-  onComplete?: (specName: string) => void;
-  onFail?: (specName: string) => void;
-  onDeadlock?: (specName?: string) => void;
+  onStart?: (intentName: string) => void;
+  onUpdate?: (intentName: string) => void;
+  onComplete?: (intentName: string) => void;
+  onFail?: (intentName: string) => void;
+  onDeadlock?: (intentName?: string) => void;
   onError?: (error: string | Error) => void;
   onLog?: (taskId: string, chunk: string) => void;
 }
@@ -21,11 +21,11 @@ export function createExecutionReporter(
   callbacks: ExecutionReporterCallbacks,
 ): SchedulerReporter {
   return {
-    onStart: (specName: string) => callbacks.onStart?.(specName),
-    onUpdate: (specName: string) => callbacks.onUpdate?.(specName),
-    onComplete: (specName: string) => callbacks.onComplete?.(specName),
-    onFail: (specName: string) => callbacks.onFail?.(specName),
-    onDeadlock: (specName?: string) => callbacks.onDeadlock?.(specName),
+    onStart: (intentName: string) => callbacks.onStart?.(intentName),
+    onUpdate: (intentName: string) => callbacks.onUpdate?.(intentName),
+    onComplete: (intentName: string) => callbacks.onComplete?.(intentName),
+    onFail: (intentName: string) => callbacks.onFail?.(intentName),
+    onDeadlock: (intentName?: string) => callbacks.onDeadlock?.(intentName),
     onError: (error: string | Error) => callbacks.onError?.(error),
     onLog: (taskId: string, chunk: string) => callbacks.onLog?.(taskId, chunk),
   };

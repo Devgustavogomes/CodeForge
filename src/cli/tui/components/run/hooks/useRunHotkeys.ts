@@ -17,8 +17,7 @@ export interface UseRunHotkeysProps {
   onCompleteTask: () => void;
   onResetTask: () => void;
   onResetAllTasks: () => void;
-  onSelectSpec: () => void;
-  onFocusLogs: () => void;
+  onSelectIntent?: () => void;  onFocusLogs: () => void;
   onFocusTasks: () => void;
 }
 
@@ -37,10 +36,12 @@ export function useRunHotkeys({
   onCompleteTask,
   onResetTask,
   onResetAllTasks,
-  onSelectSpec,
-  onFocusLogs,
+  onSelectIntent,
+    onFocusLogs,
   onFocusTasks,
 }: UseRunHotkeysProps): void {
+  const handleSelectIntent = onSelectIntent;
+
   useInput(
     (input, key) => {
       if (!isInteractive || isModalOpen || isTextInputActive) return;
@@ -70,7 +71,7 @@ export function useRunHotkeys({
       }
 
       if (input === 's') {
-        onSelectSpec();
+        handleSelectIntent?.();
         return;
       }
       if (input === 'X') {

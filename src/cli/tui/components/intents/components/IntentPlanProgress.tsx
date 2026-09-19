@@ -5,27 +5,28 @@ import { TimerView } from '../../common/TimerView.js';
 import { theme } from '../../../theme.js';
 
 export interface PlanGenerationResult {
-  kind: 'valid' | 'invalid' | 'failed' | 'not-initialized' | 'spec-not-found' | 'tasks-dir-not-found' | 'error' | string;
+  kind: 'valid' | 'invalid' | 'failed' | 'not-initialized' | 'intent-not-found' | 'intent-not-found' | 'tasks-dir-not-found' | 'error' | string;
   taskCount?: number;
   errors?: string[];
   message?: string;
 }
 
-export interface SpecPlanProgressProps {
-  specName?: string;
-  isGenerating: boolean;
+export interface IntentPlanProgressProps {
+  intentName?: string;  isGenerating: boolean;
   startTime?: number | Date | string | null;
   endTime?: number | Date | string | null;
   result?: PlanGenerationResult | null;
 }
 
-export const SpecPlanProgress: React.FC<SpecPlanProgressProps> = memo(({
-  specName,
+export const IntentPlanProgress: React.FC<IntentPlanProgressProps> = memo(({
+  intentName: propIntentName,
   isGenerating,
   startTime,
   endTime,
   result,
 }) => {
+  const intentName = propIntentName;
+
   if (!isGenerating && !result) {
     return null;
   }
@@ -42,7 +43,7 @@ export const SpecPlanProgress: React.FC<SpecPlanProgressProps> = memo(({
       >
         <Box marginBottom={0}>
           <Text bold color={theme.colors.warning}>
-            Gerando Plano de Execução [{specName || 'spec'}]
+            Gerando Plano de Execução [{intentName || 'intent'}]
           </Text>
         </Box>
         <Box justifyContent="space-between" width="100%">
@@ -140,5 +141,4 @@ export const SpecPlanProgress: React.FC<SpecPlanProgressProps> = memo(({
   );
 });
 
-SpecPlanProgress.displayName = 'SpecPlanProgress';
-export default SpecPlanProgress;
+IntentPlanProgress.displayName = 'IntentPlanProgress';export default IntentPlanProgress;

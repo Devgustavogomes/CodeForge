@@ -3,15 +3,15 @@ import { useInput } from 'ink';
 export interface UseTasksHotkeysProps {
   isInteractive?: boolean;
   isModalOpen?: boolean;
-  isSearchingSpec?: boolean;
+  isSearchingIntent?: boolean;
   isTextInputActive?: boolean;
   hasSelectedTask?: boolean;
   onOpenTask?: () => void;
   onOpenDeleteModal?: () => void;
   onNextTask: () => void;
   onPrevTask: () => void;
-  onNextSpec: () => void;
-  onPrevSpec: () => void;
+  onNextIntent: () => void;
+  onPrevIntent: () => void;
   onToggleViewJson: () => void;
   onToggleExpand?: () => void;
   onComplete: () => void;
@@ -22,15 +22,15 @@ export interface UseTasksHotkeysProps {
 export function useTasksHotkeys({
   isInteractive = true,
   isModalOpen = false,
-  isSearchingSpec = false,
+  isSearchingIntent = false,
   isTextInputActive = false,
   hasSelectedTask = false,
   onOpenTask,
   onOpenDeleteModal,
   onNextTask,
   onPrevTask,
-  onNextSpec,
-  onPrevSpec,
+  onNextIntent,
+  onPrevIntent,
   onToggleViewJson,
   onToggleExpand,
   onComplete,
@@ -39,9 +39,9 @@ export function useTasksHotkeys({
 }: UseTasksHotkeysProps) {
   useInput(
     (input, key) => {
-      if (!isInteractive || isModalOpen || isTextInputActive || isSearchingSpec) return;
+      if (!isInteractive || isModalOpen || isTextInputActive || isSearchingIntent) return;
 
-      // Start Spec Search: '/'
+      // Start Intent Search: '/'
       if (input === '/') {
         onStartSearch?.();
         return;
@@ -63,13 +63,13 @@ export function useTasksHotkeys({
         return;
       }
 
-      // Switch spec filter: [ or ] or Left/Right
+      // Switch intent filter: [ or ] or Left/Right
       if (input === '[' || key.leftArrow) {
-        onPrevSpec();
+        onPrevIntent();
         return;
       }
       if (input === ']' || key.rightArrow) {
-        onNextSpec();
+        onNextIntent();
         return;
       }
 
@@ -105,7 +105,7 @@ export function useTasksHotkeys({
     },
     {
       isActive:
-        isInteractive && !isModalOpen && !isTextInputActive && !isSearchingSpec,
+        isInteractive && !isModalOpen && !isTextInputActive && !isSearchingIntent,
     },
   );
 }

@@ -5,7 +5,7 @@ import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 import { translate } from "../../ui/i18n.js";
 import { ActionResult } from "../../types.js";
 
-export async function planGenerateAction(spec?: string): Promise<ActionResult> {
+export async function planGenerateAction(intent?: string): Promise<ActionResult> {
   const container = createAppContainer();
 
   const config = container.configService.loadConfig();
@@ -17,31 +17,32 @@ export async function planGenerateAction(spec?: string): Promise<ActionResult> {
     return { success: false };
   }
 
-  let selectedSpec = spec;
+  let selectedIntent = intent;
 
-  if (!selectedSpec) {
-    const specs = container.listSpecsUseCase.execute();
+  if (!selectedIntent) {
+    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const intents = listUseCase.execute();
 
-    if (specs.length === 0) {
-      console.error(translate("err_no_specs", lang));
+    if (intents.length === 0) {
+      console.error(translate("err_no_intents", lang));
       process.exitCode = 1;
       return { success: false };
     }
 
-    selectedSpec = await select({
-      message: translate("plan_select_spec", lang),
+    selectedIntent = await select({
+      message: translate("plan_select_intent", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((s) => ({ name: s.name, value: s.name }))
+        ...intents.map((s) => ({ name: s.name, value: s.name })),
       ],
     });
 
-    if (selectedSpec === "back") {
+    if (selectedIntent === "back") {
       return { back: true };
     }
   }
 
-  console.log(translate("plan_generating", lang, { spec: selectedSpec }));
+  console.log(translate("plan_generating", lang, { intent: selectedIntent,}));
 
   const useCase = container.generatePlanUseCase;
 
@@ -51,7 +52,7 @@ export async function planGenerateAction(spec?: string): Promise<ActionResult> {
 
   try {
     const valResult = await useCase.execute(
-      selectedSpec,
+      selectedIntent,
       config.plannerAgent,
     );
 
@@ -61,19 +62,19 @@ export async function planGenerateAction(spec?: string): Promise<ActionResult> {
         console.error(translate("err_not_initialized", lang));
         process.exitCode = 1;
         return { success: false };
-      case "spec-not-found":
+      case "intent-not-found":
         ui.stop(false, translate("plan_ui_failed", lang));
-        console.error(translate("err_spec_not_found", lang, { spec: selectedSpec }));
+        console.error(translate("err_intent_not_found", lang, { intent: selectedIntent,}));
         process.exitCode = 1;
         return { success: false };
       case "tasks-dir-not-found":
         ui.stop(false, translate("plan_ui_failed", lang));
-        console.error(translate("plan_err_tasks_dir_not_found", lang, { spec: selectedSpec }));
+        console.error(translate("plan_err_tasks_dir_not_found", lang, { intent: selectedIntent,}));
         process.exitCode = 1;
         return { success: false };
       case "invalid":
         ui.stop(false, translate("plan_ui_failed", lang));
-        console.error(translate("plan_err_validation_failed", lang, { spec: selectedSpec }));
+        console.error(translate("plan_err_validation_failed", lang, { intent: selectedIntent,}));
         for (const err of valResult.errors) {
           console.error(`  - ${err}`);
         }
@@ -82,8 +83,8 @@ export async function planGenerateAction(spec?: string): Promise<ActionResult> {
         return { success: false };
       case "valid":
         ui.stop(true, translate("plan_ui_success", lang));
-        console.log(translate("plan_success", lang, { spec: selectedSpec }));
-        console.log(translate("plan_next_step", lang, { spec: selectedSpec }));
+        console.log(translate("plan_success", lang, { intent: selectedIntent,}));
+        console.log(translate("plan_next_step", lang, { intent: selectedIntent,}));
         return { success: true };
     }
   } catch (error) {
@@ -100,9 +101,9 @@ export async function planGenerateAction(spec?: string): Promise<ActionResult> {
 
 export function registerPlanGenerateCommand(plan: Command): void {
   plan
-    .command("generate [spec]")
+    .command("generate [intent]")
     .description("Generate and execute a planning prompt autonomously")
-    .action(async (spec?: string) => {
-      await planGenerateAction(spec);
+    .action(async (intent?: string) => {
+      await planGenerateAction(intent);
     });
 }

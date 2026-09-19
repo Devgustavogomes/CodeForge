@@ -169,7 +169,7 @@ export const TaskList: React.FC<TaskListProps> = React.memo(({
 
   // Windowed list slicing if maxHeight provided
   const visibleTasks = useMemo(() => {
-    if (!maxHeight || maxHeight <= 0 || filteredTasks.length <= maxHeight) {
+    if (maxHeight === undefined || maxHeight <= 0 || filteredTasks.length <= maxHeight) {
       return filteredTasks;
     }
 

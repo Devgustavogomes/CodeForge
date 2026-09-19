@@ -7,13 +7,13 @@ import { ActionResult } from "../../types.js";
 
 export async function docsCreateAction(
   docName?: string,
-  options?: { spec?: string }
+  options?: { intent?: string;}
 ): Promise<ActionResult> {
   const container = createAppContainer();
 
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
-  
+
   if (!config) {
     console.error(translate("err_not_configured", lang));
     process.exitCode = 1;
@@ -27,7 +27,7 @@ export async function docsCreateAction(
       message: translate("docs_create_enter_name", lang),
     });
 
-    if (!finalDocName || finalDocName.trim().length === 0) {
+    if (finalDocName.trim().length === 0) {
       console.error(translate("docs_create_err_empty_name", lang));
       process.exitCode = 1;
       return { success: false };
@@ -36,31 +36,32 @@ export async function docsCreateAction(
     finalDocName = finalDocName.trim();
   }
 
-  let selectedSpec = options?.spec;
+  let selectedIntent = options?.intent || options?.intent;
 
-  if (!selectedSpec) {
-    const specs = container.listSpecsUseCase.execute();
+  if (!selectedIntent) {
+    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const intents = listUseCase.execute();
 
-    if (specs.length === 0) {
-      console.error(translate("err_no_specs", lang));
+    if (intents.length === 0) {
+      console.error(translate("err_no_intents", lang));
       process.exitCode = 1;
       return { success: false };
     }
 
-    selectedSpec = await select({
-      message: translate("docs_create_select_spec", lang),
+    selectedIntent = await select({
+      message: translate("docs_create_select_intent", lang),
       choices: [
         { name: translate("menu_back", lang), value: "back" },
-        ...specs.map((s) => ({ name: s.name, value: s.name })),
+        ...intents.map((s) => ({ name: s.name, value: s.name })),
       ],
     });
 
-    if (selectedSpec === "back") {
+    if (selectedIntent === "back") {
       return { back: true };
     }
   }
 
-  console.log(translate("docs_create_generating", lang, { docName: finalDocName, spec: selectedSpec }));
+  console.log(translate("docs_create_generating", lang, { docName: finalDocName, intent: selectedIntent,}));
 
   const ui = new AgentProgressUI(translate("docs_create_ui_generating", lang), config.plannerAgent);
   ui.init();
@@ -68,7 +69,7 @@ export async function docsCreateAction(
 
   try {
     const createDocUseCase = container.createDocUseCase;
-    const result = await createDocUseCase.execute(finalDocName, selectedSpec);
+    const result = await createDocUseCase.execute(finalDocName, selectedIntent);
 
     ui.stop(true, translate("docs_create_ui_success", lang));
 
@@ -77,8 +78,8 @@ export async function docsCreateAction(
         console.error(translate("err_not_initialized", lang));
         process.exitCode = 1;
         return { success: false };
-      case "spec-not-found":
-        console.error(translate("err_spec_not_found", lang, { spec: selectedSpec }));
+      case "intent-not-found":
+        console.error(translate("err_intent_not_found", lang, { intent: selectedIntent,}));
         process.exitCode = 1;
         return { success: false };
       case "rules-not-found":
@@ -108,9 +109,9 @@ export async function docsCreateAction(
 export function registerDocsCreateCommand(docs: Command): void {
   docs
     .command("create [doc-name]")
-    .description("Generate documentation autonomously for a completed spec")
-    .option("--spec <spec>", "Name of the spec to associate with the documentation")
-    .action(async (docName?: string, options?: { spec?: string }) => {
+    .description("Generate documentation autonomously for a completed intent")
+    .option("--intent <intent>", "Name of the intent to associate with the documentation")
+    .action(async (docName?: string, options?: { intent?: string;}) => {
       await docsCreateAction(docName, options);
     });
 }

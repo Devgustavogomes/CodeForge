@@ -1,11 +1,10 @@
 import { useInput } from 'ink';
 
-export interface UseSpecsHotkeysProps {
+export interface UseIntentsHotkeysProps {
   isInteractive?: boolean;
   isModalOpen?: boolean;
   isTextInputActive?: boolean;
-  hasSelectedSpec?: boolean;
-  onNavigateUp: () => void;
+  hasSelectedIntent?: boolean;  onNavigateUp: () => void;
   onNavigateDown: () => void;
   onOpenRun: () => void;
   onOpenTasks?: () => void;
@@ -15,13 +14,12 @@ export interface UseSpecsHotkeysProps {
   onOpenPullModal: () => void;
   onOpenDeleteModal: () => void;
 }
-
-export function useSpecsHotkeys({
+export function useIntentsHotkeys({
   isInteractive = true,
   isModalOpen = false,
   isTextInputActive = false,
-  hasSelectedSpec = false,
-  onNavigateUp,
+  hasSelectedIntent,
+    onNavigateUp,
   onNavigateDown,
   onOpenRun,
   onOpenTasks,
@@ -30,7 +28,9 @@ export function useSpecsHotkeys({
   onOpenCreateModal,
   onOpenPullModal,
   onOpenDeleteModal,
-}: UseSpecsHotkeysProps): void {
+}: UseIntentsHotkeysProps): void {
+  const hasSelected = hasSelectedIntent ?? false;
+
   useInput(
     (input, key) => {
       if (!isInteractive || isModalOpen || isTextInputActive) {
@@ -47,20 +47,20 @@ export function useSpecsHotkeys({
         return;
       }
 
-      // 'c' / 'C' -> Open CreateSpecModal
+      // 'c' / 'C' -> Open CreateIntentModal
       if (input === 'c' || input === 'C') {
         onOpenCreateModal();
         return;
       }
 
-      // 'p' / 'P' -> Open PullSpecModal
+      // 'p' / 'P' -> Open PullIntentModal
       if (input === 'p' || input === 'P') {
         onOpenPullModal();
         return;
       }
 
-      // 'd' / 'D' -> Open delete confirmation for the selected specification
-      if ((input === 'd' || input === 'D') && hasSelectedSpec) {
+      // 'd' / 'D' -> Open delete confirmation for the selected intent
+      if ((input === 'd' || input === 'D') && hasSelected) {
         onOpenDeleteModal();
         return;
       }
@@ -93,4 +93,4 @@ export function useSpecsHotkeys({
   );
 }
 
-export default useSpecsHotkeys;
+export default useIntentsHotkeys;

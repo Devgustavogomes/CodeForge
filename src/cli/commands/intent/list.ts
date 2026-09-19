@@ -1,23 +1,23 @@
 import { Command } from "commander";
 import { createAppContainer } from "../../../infrastructure/container.js";
-import { SpecStatus } from "../../../application/use-cases/ListSpecsUseCase.js";
+import { IntentStatus } from "../../../application/use-cases/ListIntentsUseCase.js";
 import { translate } from "../../ui/i18n.js";
 import { SupportedLanguage } from "../../../config/types.js";
 
-function getStatusLabel(status: SpecStatus, language: SupportedLanguage): string {
+function getStatusLabel(status: IntentStatus, language: SupportedLanguage): string {
   switch (status) {
     case "completed":
-      return translate("spec_list_status_completed", language);
+      return translate("intent_list_status_completed", language);
     case "in_progress":
-      return translate("spec_list_status_in_progress", language);
+      return translate("intent_list_status_in_progress", language);
     case "planned":
-      return translate("spec_list_status_planned", language);
+      return translate("intent_list_status_planned", language);
     case "not_started":
-      return translate("spec_list_status_not_started", language);
+      return translate("intent_list_status_not_started", language);
   }
 }
 
-function getStatusBadge(status: SpecStatus, language: SupportedLanguage): string {
+function getStatusBadge(status: IntentStatus, language: SupportedLanguage): string {
   const label = getStatusLabel(status, language);
   switch (status) {
     case "completed":
@@ -31,29 +31,30 @@ function getStatusBadge(status: SpecStatus, language: SupportedLanguage): string
   }
 }
 
-export function registerSpecListCommand(spec: Command): void {
-  spec
+export function registerIntentListCommand(intent: Command): void {
+  intent
     .command("list")
     .alias("ls")
-    .description("List all local specifications and their execution status")
+    .description("List all local intents and their execution status")
     .action(async () => {
       const container = createAppContainer();
       const config = container.configService.loadConfig();
       const lang = (config?.language || "en") as SupportedLanguage;
 
-      const specs = container.listSpecsUseCase.execute();
+      const useCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+      const intents = useCase.execute();
 
-      if (specs.length === 0) {
-        console.log(translate("spec_list_empty", lang));
+      if (intents.length === 0) {
+        console.log(translate("intent_list_empty", lang));
         return;
       }
 
-      const headerName = translate("spec_list_header_name", lang);
-      const headerTitle = translate("spec_list_header_title", lang);
-      const headerStatus = translate("spec_list_header_status", lang);
+      const headerName = translate("intent_list_header_name", lang);
+      const headerTitle = translate("intent_list_header_title", lang);
+      const headerStatus = translate("intent_list_header_status", lang);
 
-      const nameWidth = Math.max(headerName.length, ...specs.map((s) => s.name.length)) + 2;
-      const titleWidth = Math.max(headerTitle.length, ...specs.map((s) => s.title.length)) + 2;
+      const nameWidth = Math.max(headerName.length, ...intents.map((s) => s.name.length)) + 2;
+      const titleWidth = Math.max(headerTitle.length, ...intents.map((s) => s.title.length)) + 2;
 
       console.log("");
       console.log(
@@ -63,7 +64,7 @@ export function registerSpecListCommand(spec: Command): void {
         `  \x1b[2m${"─".repeat(nameWidth)}  ${"─".repeat(titleWidth)}  ${"─".repeat(headerStatus.length + 8)}\x1b[0m`
       );
 
-      for (const s of specs) {
+      for (const s of intents) {
         console.log(
           `  ${s.name.padEnd(nameWidth)}  ${s.title.padEnd(titleWidth)}  ${getStatusBadge(s.status, lang)}`
         );

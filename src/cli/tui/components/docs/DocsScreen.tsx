@@ -22,11 +22,11 @@ export interface DocsScreenProps {
   initialDocs?: DocItemInfo[];
   isInteractive?: boolean;
   language?: SupportedLanguage;
-  onCreateDoc?: (docName: string, specName: string) => Promise<void> | void;
-  onUpdateDoc?: (docName: string, specName: string) => Promise<void> | void;
-  onConfirmDirectUpdate?: (docName: string, specName: string) => Promise<void> | void;
+  onCreateDoc?: (docName: string, intentName: string) => Promise<void> | void;
+  onUpdateDoc?: (docName: string, intentName: string) => Promise<void> | void;
+  onConfirmDirectUpdate?: (docName: string, intentName: string) => Promise<void> | void;
   onConfirmAutoUpdate?: (
-    specName: string,
+    intentName: string,
     target: AutoTarget,
     affectedDocs?: AffectedDoc[]
   ) => Promise<void> | void;
@@ -69,7 +69,7 @@ export const DocsScreen: React.FC<DocsScreenProps> = ({
     isViewModalOpen,
     isDeleteModalOpen,
     deleteTarget,
-    availableSpecs,
+    availableIntents,
     handleCreateDoc,
     handleConfirmDirectUpdate,
     handleConfirmAutoUpdate,
@@ -126,7 +126,7 @@ export const DocsScreen: React.FC<DocsScreenProps> = ({
         isOpen={true}
         onClose={handleCloseCreateModal}
         onSubmit={handleCreateDoc}
-        availableSpecs={availableSpecs}
+        availableIntents={availableIntents}
         language={resolvedLanguage}
       />
     );
@@ -138,7 +138,7 @@ export const DocsScreen: React.FC<DocsScreenProps> = ({
         isOpen={true}
         onClose={handleCloseUpdateModal}
         selectedDoc={selectedDoc}
-        availableSpecs={availableSpecs}
+        availableIntents={availableIntents}
         container={resolvedContainer}
         onConfirmDirect={handleConfirmDirectUpdate}
         onConfirmAuto={handleConfirmAutoUpdate}

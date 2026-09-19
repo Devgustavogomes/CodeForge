@@ -20,11 +20,11 @@ export function formatDocDuration(seconds: number): string {
 export interface UseDocsScreenOptions {
   container?: AppContainer;
   initialDocs?: DocItemInfo[];
-  onCreateDoc?: (docName: string, specName: string) => Promise<void> | void;
-  onUpdateDoc?: (docName: string, specName: string) => Promise<void> | void;
-  onConfirmDirectUpdate?: (docName: string, specName: string) => Promise<void> | void;
+  onCreateDoc?: (docName: string, intentName: string) => Promise<void> | void;
+  onUpdateDoc?: (docName: string, intentName: string) => Promise<void> | void;
+  onConfirmDirectUpdate?: (docName: string, intentName: string) => Promise<void> | void;
   onConfirmAutoUpdate?: (
-    specName: string,
+    intentName: string,
     target: AutoTarget,
     affectedDocs?: AffectedDoc[]
   ) => Promise<void> | void;
@@ -80,8 +80,12 @@ export function useDocsScreen({
   const [feedback, setFeedback] = useState<DocFeedback | null>(null);
   const isDeletingRef = useRef(false);
 
-  const availableSpecs = useMemo(() => {
-    return container.listSpecsUseCase.listNames();
+  const availableIntents = useMemo(() => {
+    try {
+      return container.listIntentsUseCase.listNames();
+    } catch {
+      return [];
+    }
   }, [container]);
 
   const loadDocs = useCallback(() => {
@@ -93,11 +97,11 @@ export function useDocsScreen({
       for (const [name, entry] of Object.entries(manifest.documents || {})) {
         seen.add(name);
         const exists = container.gw.exists(entry.path);
+        const entryIntents = entry.intents || (entry as unknown as { intents?: string[] }).intents || [];
         loaded.push({
           name,
           path: entry.path,
-          specs: entry.specs || [],
-          scope: entry.scope || [],
+          intents: entryIntents,          scope: entry.scope || [],
           createdAt: entry.createdAt || 'N/A',
           updatedAt: entry.updatedAt || 'N/A',
           existsOnDisk: exists,
@@ -114,8 +118,7 @@ export function useDocsScreen({
               loaded.push({
                 name,
                 path: `${PATHS.docsDir}/${file}`,
-                specs: [],
-                scope: [],
+                intents: [],                scope: [],
                 createdAt: 'N/A',
                 updatedAt: 'N/A',
                 existsOnDisk: true,
@@ -267,9 +270,9 @@ export function useDocsScreen({
   }, [container, deleteTarget, language, loadDocs, publishDeleteFeedback]);
 
   const handleCreateDoc = useCallback(
-    async (docName: string, specName: string) => {
+    async (docName: string, intentName: string) => {
       const docNameTrimmed = docName.trim().replace(/\.md$/i, '');
-      const specNameTrimmed = specName.trim().replace(/\.md$/i, '');
+      const intentNameTrimmed = intentName.trim().replace(/\.md$/i, '');
 
       const start = Date.now();
       setIsGenerating(true);
@@ -282,17 +285,17 @@ export function useDocsScreen({
 
       try {
         if (onCreateDoc) {
-          await onCreateDoc(docNameTrimmed, specNameTrimmed);
+          await onCreateDoc(docNameTrimmed, intentNameTrimmed);
         } else {
           const result = await container.createDocUseCase.execute(
             docNameTrimmed,
-            specNameTrimmed
+            intentNameTrimmed
           );
           if (result.kind === 'not-initialized') {
             throw new Error('Workspace not initialized (.codeforge/metadata.json not found).');
           }
-          if (result.kind === 'spec-not-found') {
-            throw new Error(`Specification "${specNameTrimmed}" not found in .codeforge/specs/.`);
+          if (result.kind === 'intent-not-found') {
+            throw new Error(`Intent "${intentNameTrimmed}" not found in .codeforge/intents/.`);
           }
           if (result.kind === 'rules-not-found') {
             throw new Error('Documentation rules file not found (.codeforge/rules/docs.md).');
@@ -329,9 +332,9 @@ export function useDocsScreen({
   );
 
   const handleConfirmDirectUpdate = useCallback(
-    async (docName: string, specName: string) => {
+    async (docName: string, intentName: string) => {
       const docNameTrimmed = docName.trim().replace(/\.md$/i, '');
-      const specNameTrimmed = specName.trim().replace(/\.md$/i, '');
+      const intentNameTrimmed = intentName.trim().replace(/\.md$/i, '');
       const docDisplayName = `${docNameTrimmed}.md`;
 
       handleCloseUpdateModal();
@@ -345,17 +348,17 @@ export function useDocsScreen({
 
       try {
         if (onConfirmDirectUpdate) {
-          await onConfirmDirectUpdate(docNameTrimmed, specNameTrimmed);
+          await onConfirmDirectUpdate(docNameTrimmed, intentNameTrimmed);
         } else if (onUpdateDoc) {
-          await onUpdateDoc(docNameTrimmed, specNameTrimmed);
+          await onUpdateDoc(docNameTrimmed, intentNameTrimmed);
         } else {
           const updateUseCase = container.updateDocUseCase;
-          const manualResult = updateUseCase.getManualDoc(specNameTrimmed, docNameTrimmed);
+          const manualResult = updateUseCase.getManualDoc(intentNameTrimmed, docNameTrimmed);
           if (manualResult.kind === 'not-initialized') {
             throw new Error('Workspace not initialized (.codeforge/metadata.json not found).');
           }
-          if (manualResult.kind === 'spec-not-found') {
-            throw new Error(`Specification "${specNameTrimmed}" not found in .codeforge/specs/.`);
+          if (manualResult.kind === 'intent-not-found') {
+            throw new Error(`Intent "${intentNameTrimmed}" not found in .codeforge/intents/.`);
           }
           if (manualResult.kind === 'rules-not-found') {
             throw new Error('Documentation rules file not found (.codeforge/rules/docs.md).');
@@ -363,7 +366,7 @@ export function useDocsScreen({
           if (manualResult.kind === 'doc-not-found') {
             throw new Error(`Documentation "${docNameTrimmed}" not found.`);
           }
-          await updateUseCase.execute(specNameTrimmed, manualResult.doc, true);
+          await updateUseCase.execute(intentNameTrimmed, manualResult.doc, true);
         }
 
         const elapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
@@ -395,17 +398,17 @@ export function useDocsScreen({
 
   const handleConfirmAutoUpdate = useCallback(
     async (
-      specName: string,
+      intentName: string,
       target: AutoTarget,
       passedAffectedDocs?: AffectedDoc[]
     ) => {
-      const cleanSpec = specName.trim().replace(/\.md$/i, '');
+      const cleanIntent = intentName.trim().replace(/\.md$/i, '');
       handleCloseUpdateModal();
 
       let affectedDocsList: AffectedDoc[] = passedAffectedDocs ?? [];
       if (affectedDocsList.length === 0) {
         try {
-          const result = container.updateDocUseCase.getAffectedDocs(cleanSpec);
+          const result = container.updateDocUseCase.getAffectedDocs(cleanIntent);
           if (result.kind === 'affected-docs') {
             affectedDocsList = result.affectedDocs;
           }
@@ -426,7 +429,7 @@ export function useDocsScreen({
           docsToUpdate = [matched];
         } else {
           try {
-            const manualRes = container.updateDocUseCase.getManualDoc(cleanSpec, targetClean);
+            const manualRes = container.updateDocUseCase.getManualDoc(cleanIntent, targetClean);
             if (manualRes.kind === 'doc') {
               docsToUpdate = [manualRes.doc];
             }
@@ -453,7 +456,7 @@ export function useDocsScreen({
       const total = docsToUpdate.length;
       try {
         if (onConfirmAutoUpdate) {
-          await onConfirmAutoUpdate(cleanSpec, target, docsToUpdate);
+          await onConfirmAutoUpdate(cleanIntent, target, docsToUpdate);
         } else {
           for (let i = 0; i < total; i++) {
             const doc = docsToUpdate[i];
@@ -468,7 +471,7 @@ export function useDocsScreen({
               setBatchInfo(null);
             }
 
-            await container.updateDocUseCase.execute(cleanSpec, doc, false);
+            await container.updateDocUseCase.execute(cleanIntent, doc, false);
           }
         }
 
@@ -507,9 +510,9 @@ export function useDocsScreen({
   );
 
   const handleUpdateDoc = useCallback(
-    async (targetDocName?: string, targetSpecName?: string) => {
-      if (targetDocName && targetSpecName) {
-        return handleConfirmDirectUpdate(targetDocName, targetSpecName);
+    async (targetDocName?: string, targetIntentName?: string) => {
+      if (targetDocName && targetIntentName) {
+        return handleConfirmDirectUpdate(targetDocName, targetIntentName);
       }
       handleOpenUpdateModal();
     },
@@ -538,7 +541,7 @@ export function useDocsScreen({
     isViewModalOpen,
     isDeleteModalOpen: deleteTarget !== null,
     deleteTarget,
-    availableSpecs,
+    availableIntents,
     loadDocs,
     handleCreateDoc,
     handleUpdateDoc,

@@ -1,15 +1,14 @@
 import { Command } from "commander";
 import { select, input } from "@inquirer/prompts";
 import { createAppContainer } from "../../../infrastructure/container.js";
-import { SpecSourceFactory } from "../../../infrastructure/spec-sources/SpecSourceFactory.js";
-import { PullSpecUseCase } from "../../../application/use-cases/PullSpecUseCase.js";
+import { IntentSourceFactory } from "../../../infrastructure/intent-sources/IntentSourceFactory.js";
+import { PullIntentUseCase } from "../../../application/use-cases/PullIntentUseCase.js";
 import { translate } from "../../ui/i18n.js";
-import { SpecReference, SpecSourceConfig } from "../../../domain/spec-source.js";
-import { SpecSource } from "../../../application/ports/SpecSource.js";
-
+import { IntentReference, IntentSourceConfig } from "../../../domain/intent-source.js";
+import { IntentSource } from "../../../application/ports/IntentSource.js";
 import { ActionResult } from "../../types.js";
 
-export async function specPullAction(
+export async function intentPullAction(
   id?: string,
   options?: { source?: string; name?: string }
 ): Promise<ActionResult> {
@@ -17,26 +16,26 @@ export async function specPullAction(
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
 
-  const configSpecSource = config?.specSource;
-  const provider = (options?.source || configSpecSource?.provider || "filesystem").toLowerCase();
+  const configIntentSource = config?.intentSource;
+  const provider = (options?.source || configIntentSource?.provider || "filesystem").toLowerCase();
 
   // If provider is filesystem without [id], display informational message
   if (!id && provider === "filesystem") {
-    console.log(translate("spec_pull_filesystem_notice", lang));
+    console.log(translate("intent_pull_filesystem_notice", lang));
     return { success: true };
   }
 
-  const specSourceConfig: SpecSourceConfig = {
-    ...configSpecSource,
+  const intentSourceConfig: IntentSourceConfig = {
+    ...configIntentSource,
     provider,
   };
 
-  let specSource: SpecSource;
+  let intentSource: IntentSource;
   try {
-    specSource = SpecSourceFactory.create(provider, specSourceConfig);
+    intentSource = (container.intentSourceFactory ?? IntentSourceFactory).create(provider, intentSourceConfig);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(translate("spec_pull_failed", lang, { error: message }));
+    console.error(translate("intent_pull_failed", lang, { error: message }));
     process.exitCode = 1;
     return { success: false };
   }
@@ -45,9 +44,9 @@ export async function specPullAction(
 
   try {
     if (!selectedId) {
-      let items: SpecReference[] = [];
+      let items: IntentReference[] = [];
       try {
-        items = await specSource.list();
+        items = await intentSource.list();
       } catch {
         items = [];
       }
@@ -55,7 +54,7 @@ export async function specPullAction(
       if (items && items.length > 0) {
         const MANUAL_OPTION = "__manual__";
         const selected = await select({
-          message: translate("spec_pull_select_item", lang),
+          message: translate("intent_pull_select_item", lang),
           choices: [
             { name: translate("menu_back", lang), value: "back" },
             ...items.map((item) => ({
@@ -63,7 +62,7 @@ export async function specPullAction(
               value: item.id,
             })),
             {
-              name: translate("spec_pull_manual_input_option", lang),
+              name: translate("intent_pull_manual_input_option", lang),
               value: MANUAL_OPTION,
             },
           ],
@@ -75,7 +74,7 @@ export async function specPullAction(
 
         if (selected === MANUAL_OPTION) {
           selectedId = await input({
-            message: translate("spec_pull_enter_id", lang),
+            message: translate("intent_pull_enter_id", lang),
             validate: (val) => val.trim().length > 0 || "ID is required",
           });
         } else {
@@ -83,7 +82,7 @@ export async function specPullAction(
         }
       } else {
         selectedId = await input({
-          message: translate("spec_pull_enter_id", lang),
+          message: translate("intent_pull_enter_id", lang),
           validate: (val) => val.trim().length > 0 || "ID is required",
         });
       }
@@ -95,17 +94,17 @@ export async function specPullAction(
     }
 
     console.log(
-      translate("spec_pull_fetching", lang, {
+      translate("intent_pull_fetching", lang, {
         id: selectedId,
-        source: specSource.name,
+        source: intentSource.name,
       })
     );
 
-    const useCase = new PullSpecUseCase(container.gw, specSource);
+    const useCase = container.pullIntentUseCase ?? new PullIntentUseCase(container.gw, intentSource);
     const result = await useCase.execute({
       id: selectedId,
       customName: options?.name,
-      specSource,
+      intentSource,
     });
 
     switch (result.kind) {
@@ -116,15 +115,16 @@ export async function specPullAction(
       case "fetch-failed":
       case "error":
         console.error(
-          translate("spec_pull_failed", lang, { error: result.error })
+          translate("intent_pull_failed", lang, { error: result.error })
         );
         process.exitCode = 1;
         return { success: false };
       case "success":
         console.log(
-          translate("spec_pull_success", lang, {
-            id: result.spec.id,
+          translate("intent_pull_success", lang, {
+            id: result.intent.id,
             path: result.filePath,
+            intent: result.intent.id,
           })
         );
         return { success: true };
@@ -134,19 +134,19 @@ export async function specPullAction(
       return { back: true };
     }
     const message = error instanceof Error ? error.message : String(error);
-    console.error(translate("spec_pull_failed", lang, { error: message }));
+    console.error(translate("intent_pull_failed", lang, { error: message }));
     process.exitCode = 1;
     return { success: false };
   }
 }
 
-export function registerSpecPullCommand(spec: Command): void {
-  spec
+export function registerIntentPullCommand(intent: Command): void {
+  intent
     .command("pull [id]")
-    .description("Pull a specification from an external source or issue tracker")
-    .option("-s, --source <provider>", "Spec source provider (e.g. linear, github, clickup, filesystem)")
-    .option("-n, --name <slug>", "Custom filename for the local spec file")
+    .description("Pull an intent from an external source or issue tracker")
+    .option("-s, --source <provider>", "Intent source provider (e.g. linear, github, clickup, filesystem)")
+    .option("-n, --name <slug>", "Custom filename for the local intent file")
     .action(async (id?: string, options?: { source?: string; name?: string }) => {
-      await specPullAction(id, options);
+      await intentPullAction(id, options);
     });
 }

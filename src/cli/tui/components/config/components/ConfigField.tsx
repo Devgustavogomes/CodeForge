@@ -4,7 +4,7 @@ import { LanguageField, LANGUAGES } from './fields/LanguageField.js';
 import { EnvironmentField } from './fields/EnvironmentField.js';
 import { AgentField } from './fields/AgentField.js';
 import { HooksField } from './fields/HooksField.js';
-import { SpecSourceField } from './fields/SpecSourceField.js';
+import { IntentSourceField, } from './fields/IntentSourceField.js';
 import { SaveButtonField } from './fields/SaveButtonField.js';
 
 export { LANGUAGES };
@@ -15,7 +15,8 @@ export type ConfigFieldKey =
   | 'plannerAgent'
   | 'executorAgent'
   | 'hooks'
-  | 'specSource'
+  | 'intentSource'
+  | 'intentSource'
   | 'saveButton';
 
 export const FIELD_ORDER: ConfigFieldKey[] = [
@@ -24,7 +25,7 @@ export const FIELD_ORDER: ConfigFieldKey[] = [
   'plannerAgent',
   'executorAgent',
   'hooks',
-  'specSource',
+  'intentSource',
   'saveButton',
 ];
 
@@ -36,8 +37,7 @@ export interface ConfigFieldProps {
   config: CodeForgeConfig;
   availableEnvironments: string[];
   currentAgentOptions: string[];
-  availableSpecSourceProviders?: string[];
-}
+  availableIntentSourceProviders?: string[];}
 
 export const FIELD_STRATEGIES: Record<ConfigFieldKey, React.FC<ConfigFieldProps>> = {
   language: LanguageField,
@@ -45,8 +45,7 @@ export const FIELD_STRATEGIES: Record<ConfigFieldKey, React.FC<ConfigFieldProps>
   plannerAgent: AgentField,
   executorAgent: AgentField,
   hooks: HooksField,
-  specSource: SpecSourceField,
-  saveButton: SaveButtonField,
+  intentSource: IntentSourceField,  saveButton: SaveButtonField,
 };
 
 export const ConfigField: React.FC<ConfigFieldProps> = (props) => {
@@ -54,4 +53,3 @@ export const ConfigField: React.FC<ConfigFieldProps> = (props) => {
   if (!Strategy) return null;
   return <Strategy {...props} />;
 };
-

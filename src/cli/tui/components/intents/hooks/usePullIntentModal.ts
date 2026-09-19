@@ -1,40 +1,40 @@
 import { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { NavigationContext } from '../../../context/NavigationContext.js';
 import {
-  PullSpecUseCase,
-  PullSpecResult,
-} from '../../../../../application/use-cases/PullSpecUseCase.js';
-import { SpecSourceFactory } from '../../../../../infrastructure/spec-sources/SpecSourceFactory.js';
+  PullIntentUseCase,
+  PullIntentResult,
+} from '../../../../../application/use-cases/PullIntentUseCase.js';
+import { IntentSourceFactory } from '../../../../../infrastructure/intent-sources/IntentSourceFactory.js';
 import { createAppContainer } from '../../../../../infrastructure/container.js';
 import {
-  SpecSourceConfig,
-  SpecReference,
-} from '../../../../../domain/spec-source.js';
+  IntentSourceConfig,
+  IntentReference,
+} from '../../../../../domain/intent-source.js';
 import { useTextInput } from '../../../hooks/useTextInput.js';
-import { usePullSpecKeyboard } from './usePullSpecKeyboard.js';
+import { usePullIntentKeyboard } from './usePullIntentKeyboard.js';
 import {
-  PullSpecFocusedField,
-  UsePullSpecModalOptions,
-  UsePullSpecModalReturn,
+  PullIntentFocusedField,
+  UsePullIntentModalOptions,
+  UsePullIntentModalReturn,
 } from './types.js';
 
 export * from './types.js';
 
 /**
  * Headless hook that manages state, remote data querying, text input editing,
- * and use case submission for PullSpecModal.
+ * and use case submission for PullIntentModal.
  *
- * The provider is read from config.yaml (specSource.provider) and is NOT
+ * The provider is read from config.yaml (intentSource.provider) and is NOT
  * user-selectable within the modal — matching CLI behavior.
  */
-export function usePullSpecModal({
+export function usePullIntentModal({
   isOpen = true,
   onClose,
   onSuccess,
   container,
-  pullSpecUseCase,
+  pullIntentUseCase,
   defaultProvider,
-}: UsePullSpecModalOptions): UsePullSpecModalReturn {
+}: UsePullIntentModalOptions): UsePullIntentModalReturn {
   const nav = useContext(NavigationContext);
   const appContainer = useMemo(
     () => container ?? createAppContainer(),
@@ -46,13 +46,16 @@ export function usePullSpecModal({
 
   // Provider is fixed from config — no user selection
   const selectedProvider =
-    defaultProvider || config?.specSource?.provider || 'github';
+    defaultProvider ||
+    config?.intentSource?.provider ||
+    (config as unknown as { intentSource?: { provider?: string } })?.intentSource?.provider ||
+    'github';
 
-  const [items, setItems] = useState<SpecReference[]>([]);
+  const [items, setItems] = useState<IntentReference[]>([]);
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [isFetchingItems, setIsFetchingItems] = useState(false);
   const [isManualInput, setIsManualInput] = useState(false);
-  const [activeField, setActiveField] = useState<PullSpecFocusedField>('id');
+  const [activeField, setActiveField] = useState<PullIntentFocusedField>('id');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -64,15 +67,15 @@ export function usePullSpecModal({
     onChange: () => setErrorMessage(null),
   });
 
-  // Headless specId input for manual typing mode
-  const specIdInput = useTextInput({
+  // Headless intentId input for manual typing mode
+  const intentIdInput = useTextInput({
     initialValue: '',
     isActive: isOpen && activeField === 'id' && (isManualInput || items.length === 0),
     syncNavigation: false,
     onChange: () => setErrorMessage(null),
   });
 
-  const specId = specIdInput.value;
+  const intentId = intentIdInput.value;
   const customName = customNameInput.value;
 
   // Remote fetch whenever modal opens (provider comes from config)
@@ -82,23 +85,23 @@ export function usePullSpecModal({
     setIsFetchingItems(true);
     setErrorMessage(null);
 
-    const specSourceConfig: SpecSourceConfig = {
-      ...(config?.specSource ?? {}),
+    const intentSourceConfig: IntentSourceConfig = {
+      ...(config?.intentSource ?? {}),
       provider: selectedProvider,
     };
 
     try {
-      const source = SpecSourceFactory.create(selectedProvider, specSourceConfig);
+      const source = IntentSourceFactory.create(selectedProvider, intentSourceConfig);
       source
         .list({ limit: 10 })
-        .then((list) => {
+        .then((list: IntentReference[]) => {
           if (!isCancelled) {
             const safeList = Array.isArray(list) ? list : [];
             setItems(safeList);
             setIsFetchingItems(false);
             if (safeList.length > 0) {
               setSelectedItemIndex(0);
-              specIdInput.setValue(safeList[0].id);
+              intentIdInput.setValue(safeList[0].id);
               setIsManualInput(false);
             } else {
               setIsManualInput(true);
@@ -154,7 +157,7 @@ export function usePullSpecModal({
   }, [nav, onClose]);
 
   const handleSubmit = useCallback(async () => {
-    let finalId = specId.trim();
+    let finalId = intentId.trim();
     if (
       !isManualInput &&
       items.length > 0 &&
@@ -164,7 +167,7 @@ export function usePullSpecModal({
     }
 
     if (!finalId) {
-      setErrorMessage('Spec ID / URL / issue number is required.');
+      setErrorMessage('Intent ID / URL / issue number is required.');
       setActiveField('id');
       return;
     }
@@ -173,19 +176,19 @@ export function usePullSpecModal({
     setErrorMessage(null);
 
     try {
-      const specSourceConfig: SpecSourceConfig = {
-        ...(config?.specSource ?? {}),
+      const intentSourceConfig: IntentSourceConfig = {
+        ...(config?.intentSource ?? {}),
         provider: selectedProvider,
       };
 
-      const specSource = SpecSourceFactory.create(selectedProvider, specSourceConfig);
+      const intentSource = IntentSourceFactory.create(selectedProvider, intentSourceConfig);
       const useCase =
-        pullSpecUseCase ?? new PullSpecUseCase(appContainer.gw, specSource);
+        pullIntentUseCase ?? new PullIntentUseCase(appContainer.gw, intentSource);
 
-      const result: PullSpecResult = await useCase.execute({
+      const result: PullIntentResult = await useCase.execute({
         id: finalId,
         customName: customName.trim() || undefined,
-        specSource,
+        intentSource,
       });
 
       if (result.kind === 'not-initialized') {
@@ -197,7 +200,7 @@ export function usePullSpecModal({
       }
 
       if (result.kind === 'fetch-failed' || result.kind === 'error') {
-        setErrorMessage(result.error || 'Failed to pull specification.');
+        setErrorMessage(result.error || 'Failed to pull intent.');
         setIsLoading(false);
         return;
       }
@@ -216,21 +219,21 @@ export function usePullSpecModal({
       setIsLoading(false);
     }
   }, [
-    specId,
+    intentId,
     isManualInput,
     items,
     selectedItemIndex,
     selectedProvider,
     config,
     appContainer,
-    pullSpecUseCase,
+    pullIntentUseCase,
     customName,
     onSuccess,
     handleClose,
     nav,
   ]);
 
-  usePullSpecKeyboard({
+  usePullIntentKeyboard({
     isOpen,
     isLoading,
     activeField,
@@ -240,8 +243,8 @@ export function usePullSpecModal({
     setSelectedItemIndex,
     isManualInput,
     setIsManualInput,
-    specId,
-    setSpecId: specIdInput.setValue,
+    intentId,
+    setIntentId: intentIdInput.setValue,
     setErrorMessage,
     handleClose,
     handleSubmit: () => void handleSubmit(),
@@ -257,8 +260,8 @@ export function usePullSpecModal({
     isFetchingItems,
     isManualInput,
     setIsManualInput,
-    specId,
-    setSpecId: specIdInput.setValue,
+    intentId,
+    setIntentId: intentIdInput.setValue,
     customName,
     setCustomName: customNameInput.setValue,
     errorMessage,

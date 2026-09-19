@@ -3,7 +3,7 @@ import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { useRunDashboard, DashboardPanel } from './hooks/useRunDashboard.js';
 import { useRunHotkeys } from './hooks/useRunHotkeys.js';
 import { useNavigation } from '../../context/NavigationContext.js';
-import { SpecPicker } from './components/SpecPicker.js';
+import { IntentPicker, } from './components/IntentPicker.js';
 import {
   DashboardMetricsPanel,
   DashboardMetricsPanelProps,
@@ -15,7 +15,7 @@ import { RunLayoutWide } from './components/RunLayoutWide.js';
 import { RunActionBar } from './components/RunActionBar.js';
 
 export type { DashboardPanel, DashboardMetricsPanelProps };
-export { renderProgressBar, DashboardMetricsPanel, SpecPicker };
+export { renderProgressBar, DashboardMetricsPanel, IntentPicker };
 
 export interface RunDashboardProps {
   isInteractive?: boolean;
@@ -38,7 +38,7 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({ isInteractive =
     runningCount,
     pendingCount,
     totalCount,
-    effectiveSpecName,
+    effectiveIntentName,
     effectiveStatus,
     derivedStartedAt,
     derivedCompletedAt,
@@ -59,13 +59,13 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({ isInteractive =
     onCompleteTask: dashboardState.onCompleteTask,
     onResetTask: dashboardState.onResetTask,
     onResetAllTasks: dashboardState.onResetAllTasks,
-    onSelectSpec: dashboardState.onSelectSpec,
+    onSelectIntent: dashboardState.onSelectIntent,
     onFocusLogs: dashboardState.onFocusLogs,
     onFocusTasks: dashboardState.onFocusTasks,
   });
 
   if (tasks.length === 0) {
-    return <SpecPicker isInteractive={isInteractive} />;
+    return <IntentPicker isInteractive={isInteractive} />;
   }
 
   if (terminalDims.breakpoint === 'minimal') {
@@ -84,7 +84,7 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({ isInteractive =
 
   const topMetricsPanel = (
     <DashboardMetricsPanel
-      specName={effectiveSpecName}
+      intentName={effectiveIntentName}
       tasks={tasks}
       schedulerStatus={effectiveStatus}
       startedAt={derivedStartedAt}

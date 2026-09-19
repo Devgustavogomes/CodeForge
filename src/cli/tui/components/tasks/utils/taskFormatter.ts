@@ -5,7 +5,7 @@ import { TaskScreenItem } from '../components/TaskTree.js';
  *
  * Sections:
  * # [ID] Title
- * > Spec: <specName> (if provided)
+ * > Intent: <intentName> (if provided)
  * ## Status ([STATUS])
  * ## Objective
  * ## Dependencies
@@ -15,7 +15,7 @@ import { TaskScreenItem } from '../components/TaskTree.js';
  * ## Constraints
  * ## Errors (if present)
  */
-export function formatTaskToMarkdown(task: TaskScreenItem, specName?: string): string {
+export function formatTaskToMarkdown(task: TaskScreenItem, intentName?: string): string {
   const lines: string[] = [];
 
   // Title: # [ID] Title
@@ -31,8 +31,8 @@ export function formatTaskToMarkdown(task: TaskScreenItem, specName?: string): s
   lines.push(headerTitle);
   lines.push('');
 
-  if (specName) {
-    lines.push(`> Spec: ${specName}`);
+  if (intentName) {
+    lines.push(`> Intent: ${intentName}`);
     lines.push('');
   }
 

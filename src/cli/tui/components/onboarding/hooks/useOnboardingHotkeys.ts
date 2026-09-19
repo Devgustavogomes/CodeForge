@@ -61,7 +61,7 @@ export function useOnboardingHotkeys({
 
       // Subsequent steps manage Enter / confirmation internally via their own components
       if (
-        currentStep === 'spec_source' ||
+        currentStep === 'intent_source' ||
         currentStep === 'environment' ||
         currentStep === 'agents' ||
         currentStep === 'cli_install' ||
