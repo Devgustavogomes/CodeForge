@@ -4,10 +4,10 @@
 
 CodeForge is a CLI that orchestrates AI coding agents such as **Claude Code, Codex, Antigravity, Cursor, Windsurf, and others** into a structured and repeatable development workflow.
 
-Instead of asking an AI agent to implement an entire feature in one long context, CodeForge breaks the work into **small, dependency-aware tasks**, executes them automatically, uses fresh contexts, supports parallel execution, and keeps the development process organized from specification to documentation.
+Instead of asking an AI agent to implement an entire feature in one long context, CodeForge breaks the work into **small, dependency-aware tasks**, executes them automatically, uses fresh contexts, supports parallel execution, and keeps the development process organized from intent to documentation.
 
 ```text
-SPEC
+INTENT
   │
   ▼
 PLAN
@@ -43,7 +43,7 @@ AI AGENT       AI AGENT
 - [The idea](#the-idea)
 - [Why use CodeForge?](#why-use-codeforge)
 - [How it works](#how-it-works)
-  - [1. Spec](#1-spec)
+  - [1. Intent](#1-intent)
   - [2. Plan](#2-plan)
   - [3. Automatic execution](#3-automatic-execution)
   - [4. Fresh context per task](#4-fresh-context-per-task)
@@ -58,7 +58,7 @@ AI AGENT       AI AGENT
 - [Commands](#commands)
   - [Quick Reference](#quick-reference)
   - [Configuration & Initialization](#configuration--initialization)
-  - [Specification & Planning](#specification--planning)
+  - [Intent & Planning](#intent--planning)
   - [Execution & Monitoring](#execution--monitoring)
   - [Task Management](#task-management)
   - [Documentation](#documentation)
@@ -108,7 +108,7 @@ CodeForge handles the process around it:
         │               │               │
      PLANNING        EXECUTION     DOCUMENTATION
         │               │               │
-      Spec → DAG    AI Coding Agents   Docs
+      Intent → DAG    AI Coding Agents   Docs
                         │
                 ┌───────┼───────┐
                 │       │       │
@@ -149,7 +149,7 @@ If you already use Claude Code, Codex, Antigravity, Cursor, or another coding ag
 ### With CodeForge
 
 ```text
-Specification
+Intent
       │
       ▼
 Automatic Planning
@@ -181,19 +181,19 @@ The workflow becomes **explicit, observable, and repeatable**.
 
 # How it works
 
-## 1. Spec
+## 1. Intent
 
-You describe the feature you want to build in a Markdown specification. You can create one locally or pull an issue directly from an external issue tracker (Linear, GitHub Issues, ClickUp):
+You describe the feature you want to build in a Markdown intent. You can create one locally or pull an issue directly from an external issue tracker (Linear, GitHub Issues, ClickUp):
 
 ```bash
-# Create a new local specification template
-codeforge spec create user-authentication
+# Create a new local intent template
+codeforge intent create user-authentication
 
 # Or pull an issue from an external tracker
-codeforge spec pull ENG-123
+codeforge intent pull ENG-123
 ```
 
-The specification becomes the source of intent for the feature.
+The intent becomes the source of intent for the feature.
 
 You can describe:
 
@@ -205,13 +205,13 @@ You can describe:
 - architectural constraints;
 - anything else relevant to the implementation.
 
-CodeForge intentionally keeps the specification flexible instead of forcing a rigid schema.
+CodeForge intentionally keeps the intent flexible instead of forcing a rigid schema.
 
 ---
 
 ## 2. Plan
 
-The configured AI agent reads the specification and analyzes the existing project:
+The configured AI agent reads the intent and analyzes the existing project:
 
 ```bash
 codeforge plan generate user-authentication
@@ -294,7 +294,7 @@ CodeForge creates a fresh execution context for each task.
 
 This reduces context accumulation and prevents unrelated previous conversations from becoming part of the next task's working memory.
 
-The task still receives the information it needs to work correctly, such as its specification, dependencies, rules, and relevant project context.
+The task still receives the information it needs to work correctly, such as its intent, dependencies, rules, and relevant project context.
 
 ---
 
@@ -354,7 +354,7 @@ When an AI agent encounters a runtime error or fails a task, CodeForge captures 
 Instead of restarting the entire feature from scratch or manually pasting error logs:
 
 ```bash
-codeforge task retry <spec>
+codeforge task retry <intent>
 ```
 
 CodeForge injects the previous failure diagnostics directly into the agent's fresh prompt. The agent understands what went wrong and can fix the issue without repeating the same mistake.
@@ -362,9 +362,9 @@ CodeForge injects the previous failure diagnostics directly into the agent's fre
 You can also inspect task details, reset tasks to pending, or manually mark tasks as complete:
 
 ```bash
-codeforge task info <spec> <taskId>
-codeforge task reset <spec> [taskId]
-codeforge task complete <spec> <taskId>
+codeforge task info <intent> <taskId>
+codeforge task reset <intent> [taskId]
+codeforge task complete <intent> <taskId>
 ```
 
 ---
@@ -376,10 +376,10 @@ Documentation is part of the workflow instead of something developers have to re
 After a feature is completed, CodeForge can create its documentation:
 
 ```bash
-codeforge docs create <spec>
+codeforge docs create <intent>
 ```
 
-The documentation process uses the feature specification and the implementation context to generate documentation describing what was actually built.
+The documentation process uses the feature intent and the implementation context to generate documentation describing what was actually built.
 
 CodeForge also tracks the scope of each document so that documentation can be evaluated when the project changes.
 
@@ -532,7 +532,7 @@ There are two kinds, and the difference is whether the exit code matters.
 
 | Kind | Exit code | Use it for |
 | :--- | :--- | :--- |
-| `notify` | reported, never changes anything | telling another system a spec finished, logging, notifications |
+| `notify` | reported, never changes anything | telling another system an intent finished, logging, notifications |
 | `gate` | non-zero fails the task | linters, type checkers, test suites, policy checks |
 
 `notify` is the default, so a hook you forgot to classify cannot fail your build
@@ -542,7 +542,7 @@ by accident.
 
 | Event | Fires |
 | :--- | :--- |
-| `run.started` | a spec begins executing |
+| `run.started` | an intent begins executing |
 | `run.completed` | every task finished successfully |
 | `run.failed` | the run stopped with at least one failed task |
 | `run.deadlock` | tasks remain pending but none can ever become ready |
@@ -574,7 +574,7 @@ hooks:
       timeout: 600000
   run.completed:
     - name: notify the tracker
-      run: ./scripts/spec-finished.sh
+      run: ./scripts/intent-finished.sh
 ```
 
 Omit the key entirely and nothing changes: no hooks run, and execution behaves
@@ -590,15 +590,15 @@ The event reaches your command on two channels, so you can use whichever is
 convenient:
 
 - **stdin**, the whole context as JSON
-- **environment**, as `CODEFORGE_EVENT`, `CODEFORGE_SPEC`, `CODEFORGE_TASK_ID`
+- **environment**, as `CODEFORGE_EVENT`, `CODEFORGE_INTENT`, `CODEFORGE_TASK_ID`
   and `CODEFORGE_CWD`
 
 A shell script is enough:
 
 ```sh
 #!/bin/sh
-# scripts/spec-finished.sh
-echo "$CODEFORGE_SPEC finished" | ./notify-my-team
+# scripts/intent-finished.sh
+echo "$CODEFORGE_INTENT finished" | ./notify-my-team
 ```
 
 And a gate is just a command that exits non-zero when it disagrees:
@@ -630,7 +630,7 @@ agent implements
       │            the task's errors
       │                   │
       │                   ▼
-      │         codeforge task retry <spec>
+      │         codeforge task retry <intent>
       │                   │
       │                   ▼
       │          fresh prompt, now carrying
@@ -656,16 +656,16 @@ After initialization:
 ├── executions/
 ├── plans/
 ├── rules/
-├── specs/
+├── intents/
 ├── tasks/
 └── config.yaml
 ```
 
-A feature has its specification, execution state, and generated task definitions:
+A feature has its intent, execution state, and generated task definitions:
 
 ```text
 .codeforge/
-├── specs/
+├── intents/
 │   └── authentication.md
 │
 ├── executions/
@@ -692,18 +692,18 @@ CodeForge commands are organized into logical functional groups. Most commands s
 | **Configuration & Setup**    | [`codeforge`](#interactive-menu)                                            | Launches the interactive terminal menu with step-by-step navigation   |
 |                              | [`codeforge init`](#initialize-workspace)                                   | Initializes CodeForge in the project and sets up AI agent preferences |
 |                              | [`codeforge config`](#configuration)                                        | Interactively updates configuration (language, environment, agents)   |
-| **Specification & Planning** | [`codeforge spec create [name]`](#create-specification)                     | Creates a new feature specification template                          |
-|                              | [`codeforge spec pull [id]`](#pull-specification)                           | Pulls an issue or specification from an external tracker              |
-|                              | [`codeforge plan generate [spec]`](#generate-plan)                          | Generates an executable task DAG using the AI planner agent           |
-|                              | [`codeforge plan validate [spec] [taskId]`](#validate-plan)                 | Deterministically validates task graph and dependencies               |
-| **Execution & Monitoring**   | [`codeforge run [spec]`](#run-autonomous-execution)                         | Autonomously executes tasks in the dependency graph                   |
-|                              | [`codeforge status [spec] [--once]`](#status-dashboard)                     | Live execution dashboard (or static status snapshot with `--once`)    |
-| **Task Management**          | [`codeforge task info [spec] [taskId]`](#task-info)                         | Displays full details, constraints, and criteria for a task           |
-|                              | [`codeforge task retry [spec]`](#retry-failed-tasks)                        | Resets failed tasks with error diagnostics and resumes execution      |
-|                              | [`codeforge task reset [spec] [taskId]`](#reset-tasks)                      | Resets tasks to pending state without immediate execution             |
-|                              | [`codeforge task complete <spec> <taskId>`](#complete-task-manually)        | Manually marks a task as completed in the execution state             |
-| **Documentation**            | [`codeforge docs create [doc-name] [--spec <spec>]`](#create-documentation) | Autonomously creates technical documentation for a completed spec     |
-|                              | [`codeforge docs update [spec] [--doc <name>]`](#update-documentation)      | Updates documentation affected by git changes or targeted document    |
+| **Intent & Planning** | [`codeforge intent create [name]`](#create-intent)                     | Creates a new feature intent template                          |
+|                              | [`codeforge intent pull [id]`](#pull-intent)                           | Pulls an issue or intent from an external tracker              |
+|                              | [`codeforge plan generate [intent]`](#generate-plan)                          | Generates an executable task DAG using the AI planner agent           |
+|                              | [`codeforge plan validate [intent] [taskId]`](#validate-plan)                 | Deterministically validates task graph and dependencies               |
+| **Execution & Monitoring**   | [`codeforge run [intent]`](#run-autonomous-execution)                         | Autonomously executes tasks in the dependency graph                   |
+|                              | [`codeforge status [intent] [--once]`](#status-dashboard)                     | Live execution dashboard (or static status snapshot with `--once`)    |
+| **Task Management**          | [`codeforge task info [intent] [taskId]`](#task-info)                         | Displays full details, constraints, and criteria for a task           |
+|                              | [`codeforge task retry [intent]`](#retry-failed-tasks)                        | Resets failed tasks with error diagnostics and resumes execution      |
+|                              | [`codeforge task reset [intent] [taskId]`](#reset-tasks)                      | Resets tasks to pending state without immediate execution             |
+|                              | [`codeforge task complete <intent> <taskId>`](#complete-task-manually)        | Manually marks a task as completed in the execution state             |
+| **Documentation**            | [`codeforge docs create [doc-name] [--intent <intent>]`](#create-documentation) | Autonomously creates technical documentation for a completed intent     |
+|                              | [`codeforge docs update [intent] [--doc <name>]`](#update-documentation)      | Updates documentation affected by git changes or targeted document    |
 
 ---
 
@@ -755,7 +755,7 @@ codeforge config
 
 #### Configuration File (`.codeforge/config.yaml`)
 
-CodeForge reads workspace configuration from `.codeforge/config.yaml`. Below is a reference configuration showing core settings along with external specification sources:
+CodeForge reads workspace configuration from `.codeforge/config.yaml`. Below is a reference configuration showing core settings along with external intent sources:
 
 ```yaml
 environment: antigravity
@@ -763,17 +763,17 @@ plannerAgent: gemini-3.8-flash-high
 executorAgent: gemini-3.8-flash-medium
 language: en
 
-# External spec source configuration (optional - defaults to filesystem)
-specSource:
+# External intent source configuration (optional - defaults to filesystem)
+intentSource:
   provider: linear          # Supported: filesystem, linear, github, clickup
   apiKeyEnv: LINEAR_API_KEY # Environment variable containing the API token
   team: ENG                 # Optional: team identifier or key filter
   project: Factory          # Optional: project identifier or name filter
 ```
 
-#### Spec Source Configuration (`specSource`)
+#### Intent Source Configuration (`intentSource`)
 
-The optional `specSource` block defines where `codeforge spec pull` fetches remote specifications from:
+The optional `intentSource` block defines where `codeforge intent pull` fetches remote intents from:
 
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -786,23 +786,23 @@ The optional `specSource` block defines where `codeforge spec pull` fetches remo
 
 ---
 
-## Specification & Planning
+## Intent & Planning
 
-Commands for creating or pulling feature specifications, decomposing them into task graphs (DAG), and validating plan integrity.
+Commands for creating or pulling feature intents, decomposing them into task graphs (DAG), and validating plan integrity.
 
 ### External Ingestion & Local Materialization
 
-CodeForge decouples specification ingestion from execution. Specifications can be authored locally via `codeforge spec create` or pulled directly from external issue tracking tools (Linear, GitHub Issues, ClickUp) via `codeforge spec pull`.
+CodeForge decouples intent ingestion from execution. Intents can be authored locally via `codeforge intent create` or pulled directly from external issue tracking tools (Linear, GitHub Issues, ClickUp) via `codeforge intent pull`.
 
-When an external issue or story is pulled, it is **materialized locally** into a standard Markdown file under `.codeforge/specs/<id>.md`:
+When an external issue or story is pulled, it is **materialized locally** into a standard Markdown file under `.codeforge/intents/<id>.md`:
 
 ```text
                   EXTERNAL SOURCE
             (Linear / GitHub / ClickUp)
                         │
-                        │ codeforge spec pull <id>
+                        │ codeforge intent pull <id>
                         ▼
-             .codeforge/specs/<id>.md
+             .codeforge/intents/<id>.md
                (Local Materialization)
                         │
                         │ codeforge plan generate <id>
@@ -820,12 +820,12 @@ When an external issue or story is pulled, it is **materialized locally** into a
 
 Once materialized on disk, the entire subsequent lifecycle (`codeforge plan generate`, `codeforge run`, `codeforge status`, `codeforge task`, `codeforge docs`) remains **100% local, offline, and deterministic**, with zero runtime dependency on external providers or network connectivity.
 
-### Create Specification
+### Create Intent
 
-Creates a new Markdown specification template under `.codeforge/specs/<name>.md`. Pre-populates standard sections for requirements, business rules, and acceptance criteria. If the name argument is omitted, prompts interactively.
+Creates a new Markdown intent template under `.codeforge/intents/<name>.md`. Pre-populates standard sections for requirements, business rules, and acceptance criteria. If the name argument is omitted, prompts interactively.
 
 ```bash
-codeforge spec create [name]
+codeforge intent create [name]
 ```
 
 - **Arguments**:
@@ -834,81 +834,81 @@ codeforge spec create [name]
 
   ```bash
   # Interactive mode (prompts for feature name)
-  codeforge spec create
+  codeforge intent create
 
-  # Direct specification creation
-  codeforge spec create user-authentication
+  # Direct intent creation
+  codeforge intent create user-authentication
   ```
 
-### Pull Specification
+### Pull Intent
 
-Pulls a feature specification, user story, or issue from an external issue tracker (such as Linear, GitHub Issues, or ClickUp) and materializes it locally as a standard Markdown specification in `.codeforge/specs/<id>.md`.
+Pulls a feature intent, user story, or issue from an external issue tracker (such as Linear, GitHub Issues, or ClickUp) and materializes it locally as a standard Markdown intent in `.codeforge/intents/<id>.md`.
 
-If the issue ID argument is omitted, CodeForge queries the configured provider for open issues and presents an interactive selection list (with option to enter an ID manually). If the local specification file already exists, it is updated idempotently with the latest remote content.
+If the issue ID argument is omitted, CodeForge queries the configured provider for open issues and presents an interactive selection list (with option to enter an ID manually). If the local intent file already exists, it is updated idempotently with the latest remote content.
 
 ```bash
-codeforge spec pull [id] [options]
+codeforge intent pull [id] [options]
 ```
 
 - **Arguments**:
   - `[id]`: _(Optional)_ External issue ID or reference key (e.g. `ENG-123`, `42`). Prompts with an interactive list or input prompt if omitted.
 - **Options**:
-  - `-s, --source <provider>`: _(Optional)_ Overrides the default spec source provider defined in `.codeforge/config.yaml`. Supported providers: `filesystem`, `linear`, `github`, `clickup`.
-  - `-n, --name <slug>`: _(Optional)_ Custom filename/slug for the materialized specification file (e.g. `--name social-login` saves to `.codeforge/specs/social-login.md` instead of the default sanitized ID).
+  - `-s, --source <provider>`: _(Optional)_ Overrides the default intent source provider defined in `.codeforge/config.yaml`. Supported providers: `filesystem`, `linear`, `github`, `clickup`.
+  - `-n, --name <slug>`: _(Optional)_ Custom filename/slug for the materialized intent file (e.g. `--name social-login` saves to `.codeforge/intents/social-login.md` instead of the default sanitized ID).
 - **Examples**:
 
   ```bash
   # Interactive mode (fetches open issues from configured provider or prompts for ID)
-  codeforge spec pull
+  codeforge intent pull
 
   # Pull specific issue from configured default provider
-  codeforge spec pull ENG-123
+  codeforge intent pull ENG-123
 
   # Pull with a custom local filename
-  codeforge spec pull ENG-123 --name user-authentication
+  codeforge intent pull ENG-123 --name user-authentication
 
   # Pull from a specific provider, overriding config.yaml
-  codeforge spec pull 42 --source github
+  codeforge intent pull 42 --source github
 
   # Pull from GitHub with a custom filename
-  codeforge spec pull 42 --source github --name bugfix-token-refresh
+  codeforge intent pull 42 --source github --name bugfix-token-refresh
   ```
 
 ### Generate Plan
 
-Autonomously decomposes a feature specification into a Directed Acyclic Graph (DAG) of executable JSON tasks under `.codeforge/tasks/<spec>/`. Invokes the configured planner agent, deterministically validates the generated tasks, and automatically re-prompts the AI for self-healing if validation errors are detected.
+Autonomously decomposes a feature intent into a Directed Acyclic Graph (DAG) of executable JSON tasks under `.codeforge/tasks/<intent>/`. Invokes the configured planner agent, deterministically validates the generated tasks, and automatically re-prompts the AI for self-healing if validation errors are detected.
 
 ```bash
-codeforge plan generate [spec]
+codeforge plan generate [intent]
 ```
 
 - **Arguments**:
-  - `[spec]`: _(Optional)_ Name of the specification to plan. Prompts with a selection list if omitted.
+  - `[intent]`: _(Optional)_ Name of the intent to plan. Prompts with a selection list if omitted.
 - **Examples**:
 
   ```bash
   # Interactive selection
   codeforge plan generate
 
-  # Generate plan for a specific specification
+  # Generate plan for a specific intent
   codeforge plan generate user-authentication
   ```
 
 ### Validate Plan
 
-Deterministically validates generated task files against schema structure, task ID formats, dependency references, and circular dependency rules without calling an AI model. Can validate an entire spec graph or target a specific task file.
+Deterministically validates generated task files against schema structure, task ID formats, dependency references, and circular dependency rules without calling an AI model. Can validate an entire intent graph or target a specific task file.
 
 ```bash
-codeforge plan validate [spec] [taskId]
+codeforge plan validate [intent] [taskId]
 ```
 
 - **Arguments**:
-  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
-  - `[taskId]`: _(Optional)_ Specific task ID to validate (e.g. `TASK-001`). If omitted, validates all tasks in the specification.
+  - `[intent]`: _(Optional)_ Name of the intent. Prompts interactively if omitted.
+  - `[taskId]`: _(Optional)_ Intentific task ID to validate (e.g. `TASK-001`). If omitted, validates all tasks in the intent.
 - **Examples**:
 
   ```bash
-  # Validate all tasks in a spec
+  # Validate all tasks in an intent
   codeforge plan validate user-authentication
 
   # Validate a single task
@@ -923,43 +923,43 @@ Commands for running the autonomous task execution engine and monitoring workflo
 
 ### Run Autonomous Execution
 
-Starts or resumes the autonomous execution workflow for a specification. The reactive scheduler resolves the task DAG, isolates fresh context windows per task, streams prompts and rules via stdin, dispatches independent tasks in parallel child processes using the configured executor agent, and marks completed tasks upon successful process termination.
+Starts or resumes the autonomous execution workflow for an intent. The reactive scheduler resolves the task DAG, isolates fresh context windows per task, streams prompts and rules via stdin, dispatches independent tasks in parallel child processes using the configured executor agent, and marks completed tasks upon successful process termination.
 
 ```bash
-codeforge run [spec]
+codeforge run [intent]
 ```
 
 - **Arguments**:
-  - `[spec]`: _(Optional)_ Name of the specification to execute. Prompts interactively if omitted.
+  - `[intent]`: _(Optional)_ Name of the intent to execute. Prompts interactively if omitted.
 - **Examples**:
 
   ```bash
   # Interactive selection
   codeforge run
 
-  # Run execution for a spec
+  # Run execution for an intent
   codeforge run user-authentication
   ```
 
 ### Status Dashboard
 
-Displays the execution progress and state of all tasks for a specification. By default, opens a live, flicker-free dashboard in an alternate screen buffer that refreshes every 2 seconds until completion. Use `--once` to print a static snapshot and exit immediately.
+Displays the execution progress and state of all tasks for an intent. By default, opens a live, flicker-free dashboard in an alternate screen buffer that refreshes every 2 seconds until completion. Use `--once` to print a static snapshot and exit immediately.
 
 ```bash
-codeforge status [spec] [options]
+codeforge status [intent] [options]
 ```
 
 - **Arguments**:
-  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+  - `[intent]`: _(Optional)_ Name of the intent. Prompts interactively if omitted.
 - **Options**:
   - `--once`: Prints a single snapshot of execution status and exits immediately without entering watch mode.
 - **Examples**:
 
   ```bash
-  # Live dashboard watch mode (interactive spec selection)
+  # Live dashboard watch mode (interactive intent selection)
   codeforge status
 
-  # Live dashboard for a specific spec
+  # Live dashboard for a specific intent
   codeforge status user-authentication
 
   # Print status snapshot once and exit
@@ -977,11 +977,11 @@ Commands for inspecting, retrying, resetting, and manually completing individual
 Displays complete metadata and content for a specific task, including title, dependencies, files to modify/create, objective, context, implementation steps, constraints, and acceptance criteria.
 
 ```bash
-codeforge task info [spec] [taskId]
+codeforge task info [intent] [taskId]
 ```
 
 - **Arguments**:
-  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
+  - `[intent]`: _(Optional)_ Name of the intent. Prompts interactively if omitted.
   - `[taskId]`: _(Optional)_ ID of the task (e.g. `TASK-001`). Prompts interactively if omitted.
 - **Examples**:
 
@@ -995,14 +995,14 @@ codeforge task info [spec] [taskId]
 
 ### Retry Failed Tasks
 
-Resets all failed tasks in a specification back to pending state and automatically resumes execution. Injects captured error output, failure logs, and diagnostic context from the previous run directly into the AI agent prompt for self-correction.
+Resets all failed tasks in an intent back to pending state and automatically resumes execution. Injects captured error output, failure logs, and diagnostic context from the previous run directly into the AI agent prompt for self-correction.
 
 ```bash
-codeforge task retry [spec]
+codeforge task retry [intent]
 ```
 
 - **Arguments**:
-  - `[spec]`: _(Optional)_ Name of the specification to retry. Prompts interactively if omitted.
+  - `[intent]`: _(Optional)_ Name of the intent to retry. Prompts interactively if omitted.
 - **Examples**:
 
   ```bash
@@ -1015,15 +1015,15 @@ codeforge task retry [spec]
 
 ### Reset Tasks
 
-Resets a specific task or all tasks in a specification back to the `pending` state in the execution state without triggering immediate execution. Allows cleanly re-running tasks on demand.
+Resets a specific task or all tasks in an intent back to the `pending` state in the execution state without triggering immediate execution. Allows cleanly re-running tasks on demand.
 
 ```bash
-codeforge task reset [spec] [taskId]
+codeforge task reset [intent] [taskId]
 ```
 
 - **Arguments**:
-  - `[spec]`: _(Optional)_ Name of the specification. Prompts interactively if omitted.
-  - `[taskId]`: _(Optional)_ Specific task ID to reset (e.g. `TASK-002`). If omitted in interactive mode, prompts to reset an individual task or all tasks.
+  - `[intent]`: _(Optional)_ Name of the intent. Prompts interactively if omitted.
+  - `[taskId]`: _(Optional)_ Intentific task ID to reset (e.g. `TASK-002`). If omitted in interactive mode, prompts to reset an individual task or all tasks.
 - **Examples**:
 
   ```bash
@@ -1033,20 +1033,20 @@ codeforge task reset [spec] [taskId]
   # Reset a specific task
   codeforge task reset user-authentication TASK-002
 
-  # Interactive reset for a given spec
+  # Interactive reset for a given intent
   codeforge task reset user-authentication
   ```
 
 ### Complete Task Manually
 
-Manually marks a specific task as `completed` in the execution state. Useful for recording tasks resolved manually or bypassing an unblockable step. Automatically transitions the overall spec to `completed` if all tasks are finished.
+Manually marks a specific task as `completed` in the execution state. Useful for recording tasks resolved manually or bypassing an unblockable step. Automatically transitions the overall intent to `completed` if all tasks are finished.
 
 ```bash
-codeforge task complete <spec> <taskId>
+codeforge task complete <intent> <taskId>
 ```
 
 - **Arguments**:
-  - `<spec>`: _(Required)_ Name of the specification.
+  - `<intent>`: _(Required)_ Name of the intent.
   - `<taskId>`: _(Required)_ ID of the task to mark as completed (e.g. `TASK-001`).
 - **Examples**:
   ```bash
@@ -1057,11 +1057,11 @@ codeforge task complete <spec> <taskId>
 
 ## Documentation
 
-Commands for generating and updating technical documentation linked to specifications and codebase diffs.
+Commands for generating and updating technical documentation linked to intents and codebase diffs.
 
 ### Create Documentation
 
-Autonomously generates technical documentation for a completed feature using the documentation agent. Reads the specification and the implemented code to produce documentation under `.codeforge/docs/<doc-name>.md` and tracks relevant file path patterns in `.codeforge/docs/manifest.json`.
+Autonomously generates technical documentation for a completed feature using the documentation agent. Reads the intent and the implemented code to produce documentation under `.codeforge/docs/<doc-name>.md` and tracks relevant file path patterns in `.codeforge/docs/manifest.json`.
 
 ```bash
 codeforge docs create [doc-name] [options]
@@ -1070,15 +1070,15 @@ codeforge docs create [doc-name] [options]
 - **Arguments**:
   - `[doc-name]`: _(Optional)_ Name of the document to create. Prompts interactively if omitted.
 - **Options**:
-  - `--spec <spec>`: _(Optional)_ Name of the completed specification associated with the documentation.
+  - `--intent <intent>`: _(Optional)_ Name of the completed intent associated with the documentation.
 - **Examples**:
 
   ```bash
   # Interactive mode
   codeforge docs create
 
-  # Create documentation linked to a spec
-  codeforge docs create auth-architecture --spec user-authentication
+  # Create documentation linked to an intent
+  codeforge docs create auth-architecture --intent user-authentication
   ```
 
 ### Update Documentation
@@ -1086,11 +1086,11 @@ codeforge docs create [doc-name] [options]
 Incrementally updates existing documentation affected by recent codebase changes. In automatic mode, analyzes Git diffs and matches modified files against scope globs in `.codeforge/docs/manifest.json`, prompting the user to review affected docs. With `--doc`, updates a specific document directly.
 
 ```bash
-codeforge docs update [spec] [options]
+codeforge docs update [intent] [options]
 ```
 
 - **Arguments**:
-  - `[spec]`: _(Optional)_ Name of the specification to evaluate changes against. Prompts interactively if omitted.
+  - `[intent]`: _(Optional)_ Name of the intent to evaluate changes against. Prompts interactively if omitted.
 - **Options**:
   - `--doc <name>`: _(Optional)_ Manually specify which document to update, skipping automated Git scope matching.
 - **Examples**:
@@ -1129,10 +1129,10 @@ You also need a supported AI coding agent installed and authenticated on your ma
 
 Suppose you want to add authentication.
 
-Create the specification:
+Create the intent:
 
 ```bash
-codeforge spec create authentication
+codeforge intent create authentication
 ```
 
 Write the requirements.
@@ -1143,7 +1143,7 @@ Generate the plan:
 codeforge plan generate authentication
 ```
 
-The AI analyzes the specification and repository, creates the task graph, and CodeForge validates it.
+The AI analyzes the intent and repository, creates the task graph, and CodeForge validates it.
 
 Start autonomous execution:
 
@@ -1155,7 +1155,7 @@ From there, CodeForge orchestrates the workflow automatically:
 
 ```text
                     Authentication
-                         Spec
+                         Intent
                           │
                           ▼
                          Plan
