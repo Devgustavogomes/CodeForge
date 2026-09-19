@@ -1,18 +1,18 @@
 export function buildPlanningPrompt(
-  specName: string,
-  specContent: string,
+  intentName: string,
+  intentContent: string,
   rulesContent: string,
   tasksDir: string,
   language: string,
 ): string {
   return `SYSTEM PROMPT FOR AI AGENT:
-You have been requested to plan the spec '${specName}'.
+You have been requested to plan the intent '${intentName}'.
 
 --- RULES ---
 ${rulesContent}
 
---- SPEC: ${specName} ---
-${specContent}
+--- INTENT: ${intentName} ---
+${intentContent}
 
 --- INSTRUCTION ---
 All your output, documentation, and task descriptions MUST be written in ${language}.
@@ -23,13 +23,13 @@ All your output, documentation, and task descriptions MUST be written in ${langu
 }
 
 export function buildPlanningFixPrompt(
-  specName: string,
+  intentName: string,
   errors: string[],
   language: string,
 ): string {
   const errorsList = errors.map((e) => `- ${e}`).join("\n");
   return `SYSTEM PROMPT FOR AI AGENT:
-The validation for your generated plan for '${specName}' failed with the following errors:
+The validation for your generated plan for '${intentName}' failed with the following errors:
 
 ${errorsList}
 

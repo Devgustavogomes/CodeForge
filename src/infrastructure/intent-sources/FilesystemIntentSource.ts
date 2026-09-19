@@ -1,31 +1,31 @@
-import { FetchedSpec, SpecReference, SpecSourceConfig } from "../../domain/spec-source.js";
-import { ListSpecOptions, SpecSource } from "../../application/ports/SpecSource.js";
+import { FetchedIntent, IntentReference, IntentSourceConfig } from "../../domain/intent-source.js";
+import { ListIntentOptions, IntentSource } from "../../application/ports/IntentSource.js";
 import { PATHS } from "../paths.js";
 import { NodeWorkspaceGateway, WorkspaceGateway } from "../workspace.js";
 
-export class FilesystemSpecSource implements SpecSource {
+export class FilesystemIntentSource implements IntentSource {
   readonly name = "filesystem";
   private readonly gw: WorkspaceGateway;
 
   constructor(
-    private readonly config?: SpecSourceConfig,
+    private readonly config?: IntentSourceConfig,
     gw?: WorkspaceGateway
   ) {
     this.gw = gw ?? new NodeWorkspaceGateway(process.cwd());
   }
 
-  async list(options?: ListSpecOptions): Promise<SpecReference[]> {
-    if (!this.gw.exists(PATHS.specsDir)) {
+  async list(options?: ListIntentOptions): Promise<IntentReference[]> {
+    if (!this.gw.exists(PATHS.intentsDir)) {
       return [];
     }
 
-    const files = this.gw.listDir(PATHS.specsDir);
+    const files = this.gw.listDir(PATHS.intentsDir);
     const mdFiles = files.filter((file) => file.endsWith(".md")).sort();
 
-    const results: SpecReference[] = [];
+    const results: IntentReference[] = [];
     for (const file of mdFiles) {
       const id = file.replace(/\.md$/, "");
-      const filePath = PATHS.specFile(id);
+      const filePath = PATHS.intentFile(id);
       let title = id;
 
       try {
@@ -53,13 +53,13 @@ export class FilesystemSpecSource implements SpecSource {
     return results;
   }
 
-  async fetch(id: string): Promise<FetchedSpec> {
+  async fetch(id: string): Promise<FetchedIntent> {
     const cleanId = id.replace(/\.md$/, "");
-    const filePath = PATHS.specFile(cleanId);
+    const filePath = PATHS.intentFile(cleanId);
 
     if (!this.gw.exists(filePath)) {
       throw new Error(
-        `Local spec "${id}" not found in ${PATHS.specsDir}. The filesystem provider operates directly on local files. To pull remote specs, use an external provider (e.g. linear, github, clickup) or create a local spec using "codeforge spec create".`
+        `Local intent "${id}" not found in ${PATHS.intentsDir}. The filesystem provider operates directly on local files. To pull remote intents, use an external provider (e.g. linear, github, clickup) or create a local intent using "codeforge intent create".`
       );
     }
 

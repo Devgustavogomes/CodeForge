@@ -1,5 +1,5 @@
 import { HookMap } from "../domain/hook.js";
-import { SpecSourceConfig } from "../domain/spec-source.js";
+import { IntentSourceConfig } from "../domain/intent-source.js";
 
 export type SupportedLanguage = "en" | "pt" | "es";
 
@@ -10,6 +10,6 @@ export interface CodeForgeConfig {
   language: SupportedLanguage;
   envPath?: string;
   hooks?: HookMap;
-  specSource?: SpecSourceConfig;
+  intentSource?: IntentSourceConfig;
   externalTerminal?: boolean;
 }

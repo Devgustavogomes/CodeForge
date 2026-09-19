@@ -8,7 +8,7 @@ import { PATHS } from "../../infrastructure/paths.js";
 
 export type CreateDocResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "rules-not-found" }
   | { kind: "already-exists" }
   | { kind: "success" };
@@ -20,10 +20,10 @@ export class CreateDocUseCase {
     private readonly config: CodeForgeConfig,
   ) {}
 
-  async execute(docName: string, specName: string): Promise<CreateDocResult> {
+  async execute(docName: string, intentName: string): Promise<CreateDocResult> {
     if (!this.gw.exists(PATHS.metadata)) return { kind: "not-initialized" };
-    const specPath = PATHS.specFile(specName);
-    if (!this.gw.exists(specPath)) return { kind: "spec-not-found" };
+    const intentPath = PATHS.intentFile(intentName);
+    if (!this.gw.exists(intentPath)) return { kind: "intent-not-found" };
     if (!this.gw.exists(PATHS.docsRules)) return { kind: "rules-not-found" };
 
     const docPath = `${PATHS.docsDir}/${docName}.md`;
@@ -49,7 +49,7 @@ export class CreateDocUseCase {
 
     manifest.documents[docName] = {
       path: `.codeforge/docs/${docName}.md`,
-      specs: [`.codeforge/specs/${specName}.md`],
+      intents: [PATHS.intentFile(intentName)],
       scope: [],
       createdAt: now,
       updatedAt: now,
@@ -58,15 +58,15 @@ export class CreateDocUseCase {
     manifestRepo.save(manifest);
 
     const rulesContent = this.gw.readFile(PATHS.docsRules);
-    const specContent = this.gw.readFile(specPath);
+    const intentContent = this.gw.readFile(intentPath);
     const promptStr = buildDocsCreatePrompt(
       docName,
       rulesContent,
-      specContent,
+      intentContent,
       this.config.language,
     );
 
-    const docsDir = ".codeforge/docs";
+    const docsDir = PATHS.docsDir;
     if (!this.gw.exists(docsDir)) {
       this.gw.mkdir(docsDir);
     }
@@ -75,8 +75,7 @@ export class CreateDocUseCase {
 
     const context: TaskContext = {
       promptFilePath: promptPath,
-      specName,
-      model: this.config.plannerAgent,
+      intentName,      model: this.config.plannerAgent,
       silent: true,
     };
 

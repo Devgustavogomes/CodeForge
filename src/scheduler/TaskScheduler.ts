@@ -2,13 +2,13 @@ import { WorkspaceGateway } from "../infrastructure/workspace.js";
 import { AgentRunner, TaskContext } from "../runners/AgentRunner.js";
 import { DAGResolver } from "./DAGResolver.js";
 import { Task } from "../domain/task.js";
-import { SpecExecutionState } from "../domain/execution.js";
+import { IntentExecutionState } from "../domain/execution.js";
 import { ExecutionStateRepository } from "../infrastructure/repositories/ExecutionStateRepository.js";
 import { PromptService } from "../application/services/PromptService.js";
 import { PATHS } from "../infrastructure/paths.js";
 import { SchedulerReporter } from "../application/ports/SchedulerReporter.js";
 import { HookDispatcher } from "../application/ports/HookDispatcher.js";
-import { HookEvent } from "../domain/hook.js";
+import { HookContext, HookEvent } from "../domain/hook.js";
 import { CodeForgeConfig } from "../config/types.js";
 
 export type SchedulerStatus =
@@ -19,9 +19,9 @@ export type SchedulerStatus =
   | "deadlock";
 
 export type SchedulerRunResult =
-  | { status: "completed"; specName: string }
-  | { status: "failed"; specName: string; reason?: string }
-  | { status: "deadlock"; specName: string };
+  | { status: "completed"; intentName: string;}
+  | { status: "failed"; intentName: string; reason?: string;}
+  | { status: "deadlock"; intentName: string;};
 
 export class TaskScheduler {
   private status: SchedulerStatus = "idle";
@@ -48,8 +48,34 @@ export class TaskScheduler {
     this.reporter = reporter;
   }
 
-  private loadTasks(specName: string): Task[] {
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  private createResult(
+    status: "completed" | "failed" | "deadlock",
+    intentName: string,
+    reason?: string,
+  ): SchedulerRunResult {
+    if (status === "failed") {
+      return { status, intentName, reason };
+    }
+    return { status, intentName };
+  }
+
+  private createHookContext(
+    event: HookEvent,
+    intentName: string,
+    taskId?: string,
+    errors?: string[],
+  ): HookContext {
+    const ctx: HookContext = {
+      event,
+      intentName,
+      ...(taskId ? { taskId } : {}),
+      ...(errors ? { errors } : {}),
+    };
+    return ctx;
+  }
+
+  private loadTasks(intentName: string): Task[] {
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
       return [];
     }
@@ -63,34 +89,30 @@ export class TaskScheduler {
   }
 
   private prepareState(
-    specName: string,
+    intentName: string,
     tasks: Task[],
   ): { ready: true } | { ready: false; result: SchedulerRunResult } {
-    let state = this.stateRepo.load(specName);
+    let state = this.stateRepo.load(intentName);
     if (!state) {
-      state = this.stateRepo.init(specName, tasks);
+      state = this.stateRepo.init(intentName, tasks);
       this.stateRepo.save(state);
       return { ready: true };
     }
 
     if (state.status === "completed") {
       this.status = "completed";
-      this.reporter?.onComplete(specName);
-      return { ready: false, result: { status: "completed", specName } };
+      this.reporter?.onComplete(intentName);
+      return { ready: false, result: this.createResult("completed", intentName) };
     }
 
     const { pending, failed } = this.getTaskCounts(state);
     if (pending === 0 && failed > 0) {
       this.status = "failed";
-      const reason = "Spec execution has failed tasks.";
-      this.reportFail(specName, reason);
+      const reason = "Intent execution has failed tasks.";
+      this.reportFail(intentName, reason);
       return {
         ready: false,
-        result: {
-          status: "failed",
-          specName,
-          reason,
-        },
+        result: this.createResult("failed", intentName, reason),
       };
     }
 
@@ -100,7 +122,7 @@ export class TaskScheduler {
     return { ready: true };
   }
 
-  private getTaskCounts(state: SpecExecutionState): {
+  private getTaskCounts(state: IntentExecutionState): {
     running: number;
     pending: number;
     failed: number;
@@ -113,17 +135,17 @@ export class TaskScheduler {
     };
   }
 
-  private reportFail(specName: string, message: string): void {
+  private reportFail(intentName: string, message: string): void {
     if (this.reporter?.onFail) {
-      this.reporter.onFail(specName);
+      this.reporter.onFail(intentName);
     } else {
       this.reporter?.onError(new Error(message));
     }
   }
 
   private handleNoReadyTasks(
-    specName: string,
-    state: SpecExecutionState,
+    intentName: string,
+    state: IntentExecutionState,
     counts: { running: number; pending: number; failed: number },
   ): { stop: boolean; event?: HookEvent; result?: SchedulerRunResult } {
     if (counts.running === 0 && counts.pending > 0) {
@@ -131,11 +153,11 @@ export class TaskScheduler {
       state.status = "failed";
       state.completedAt = new Date().toISOString();
       this.stateRepo.save(state);
-      this.reporter?.onDeadlock(specName);
+      this.reporter?.onDeadlock(intentName);
       return {
         stop: true,
         event: "run.deadlock",
-        result: { status: "deadlock", specName },
+        result: this.createResult("deadlock", intentName),
       };
     }
 
@@ -146,15 +168,11 @@ export class TaskScheduler {
         state.completedAt = new Date().toISOString();
         this.stateRepo.save(state);
         const reason = "One or more tasks failed.";
-        this.reportFail(specName, reason);
+        this.reportFail(intentName, reason);
         return {
           stop: true,
           event: "run.failed",
-          result: {
-            status: "failed",
-            specName,
-            reason,
-          },
+          result: this.createResult("failed", intentName, reason),
         };
       }
 
@@ -162,11 +180,11 @@ export class TaskScheduler {
       state.status = "completed";
       state.completedAt = new Date().toISOString();
       this.stateRepo.save(state);
-      this.reporter?.onComplete(specName);
+      this.reporter?.onComplete(intentName);
       return {
         stop: true,
         event: "run.completed",
-        result: { status: "completed", specName },
+        result: this.createResult("completed", intentName),
       };
     }
 
@@ -183,12 +201,10 @@ export class TaskScheduler {
    * Hooks declared as `notify` are ignored here: they are reported by the
    * dispatcher but never decide whether a task passed.
    */
-  private async verify(specName: string, taskId: string): Promise<void> {
-    const results = await this.hooks?.dispatch({
-      event: "task.verify",
-      specName,
-      taskId,
-    });
+  private async verify(intentName: string, taskId: string): Promise<void> {
+    const results = await this.hooks?.dispatch(
+      this.createHookContext("task.verify", intentName, taskId),
+    );
 
     const vetoes = (results ?? []).filter((r) => r.type === "gate" && !r.ok);
     if (vetoes.length === 0) {
@@ -206,11 +222,11 @@ export class TaskScheduler {
   }
 
   private async executeTask(
-    specName: string,
+    intentName: string,
     task: Task,
     model?: string,
   ): Promise<void> {
-    const currentState = this.stateRepo.load(specName);
+    const currentState = this.stateRepo.load(intentName);
     const previousErrors = currentState?.tasks[task.id]?.errors;
     if (currentState) {
       currentState.tasks[task.id].status = "running";
@@ -218,13 +234,15 @@ export class TaskScheduler {
       if (!currentState.startedAt)
         currentState.startedAt = new Date().toISOString();
       this.stateRepo.save(currentState);
-      this.reporter?.onUpdate(specName);
+      this.reporter?.onUpdate(intentName);
     }
 
-    await this.hooks?.dispatch({ event: "task.started", specName, taskId: task.id });
+    await this.hooks?.dispatch(
+      this.createHookContext("task.started", intentName, task.id),
+    );
 
     const promptPath = this.promptService.createPromptFile(
-      specName,
+      intentName,
       task,
       this.config.language,
       previousErrors,
@@ -232,7 +250,7 @@ export class TaskScheduler {
 
     const context: TaskContext = {
       promptFilePath: promptPath,
-      specName,
+      intentName,
       taskId: task.id,
       model,
       silent: true,
@@ -240,22 +258,28 @@ export class TaskScheduler {
     };
 
     try {
-      await this.runner.execute(context);
+      if (this.runner.runTask) {
+        await this.runner.runTask(context);
+      } else {
+        await this.runner.execute(context);
+      }
 
-      await this.verify(specName, task.id);
+      await this.verify(intentName, task.id);
 
-      const postState = this.stateRepo.load(specName);
+      const postState = this.stateRepo.load(intentName);
       if (postState) {
         postState.tasks[task.id].status = "completed";
         postState.tasks[task.id].completedAt = new Date().toISOString();
         delete postState.tasks[task.id].errors;
         this.stateRepo.save(postState);
-        this.reporter?.onUpdate(specName);
+        this.reporter?.onUpdate(intentName);
       }
 
-      await this.hooks?.dispatch({ event: "task.completed", specName, taskId: task.id });
+      await this.hooks?.dispatch(
+        this.createHookContext("task.completed", intentName, task.id),
+      );
     } catch (error) {
-      const errState = this.stateRepo.load(specName);
+      const errState = this.stateRepo.load(intentName);
       if (errState) {
         errState.tasks[task.id].status = "failed";
         errState.tasks[task.id].completedAt = new Date().toISOString();
@@ -268,30 +292,36 @@ export class TaskScheduler {
         errState.tasks[task.id].errors!.push(errorMessage);
 
         this.stateRepo.save(errState);
-        this.reporter?.onUpdate(specName);
+        this.reporter?.onUpdate(intentName);
       }
 
-      await this.hooks?.dispatch({
-        event: "task.failed",
-        specName,
-        taskId: task.id,
-        errors: errState?.tasks[task.id].errors,
-      });
+      await this.hooks?.dispatch(
+        this.createHookContext(
+          "task.failed",
+          intentName,
+          task.id,
+          errState?.tasks[task.id].errors,
+        ),
+      );
     } finally {
       this.promptService.deletePromptFile(promptPath);
     }
   }
 
-  async run(specName: string, model?: string): Promise<SchedulerRunResult> {
-    const tasks = this.loadTasks(specName);
+  async runAll(intentName: string, model?: string): Promise<SchedulerRunResult> {
+    return this.run(intentName, model);
+  }
+
+  async run(intentName: string, model?: string): Promise<SchedulerRunResult> {
+    const tasks = this.loadTasks(intentName);
     if (tasks.length === 0) {
       this.status = "failed";
-      const message = `No tasks found for spec: ${specName}`;
+      const message = `No tasks found for intent: ${intentName}`;
       this.reporter?.onError(new Error(message));
-      return { status: "failed", specName, reason: message };
+      return this.createResult("failed", intentName, message);
     }
 
-    const prep = this.prepareState(specName, tasks);
+    const prep = this.prepareState(intentName, tasks);
     if (!prep.ready) {
       this.status = prep.result.status as SchedulerStatus;
       return prep.result;
@@ -299,36 +329,39 @@ export class TaskScheduler {
 
     this.status = "running";
     const resolver = new DAGResolver();
-    this.reporter?.onStart(specName);
-    await this.hooks?.dispatch({ event: "run.started", specName });
+    this.reporter?.onStart(intentName);
+    await this.hooks?.dispatch(
+      this.createHookContext("run.started", intentName),
+    );
 
     const activeTasks = new Map<string, Promise<void>>();
 
     try {
       while (true) {
-        const currentState = this.stateRepo.load(specName);
+        const currentState = this.stateRepo.load(intentName);
         if (!currentState) {
           this.status = "failed";
-          return {
-            status: "failed",
-            specName,
-            reason: `Execution state not found for spec: ${specName}`,
-          };
+          const reason = `Execution state not found for intent: ${intentName}`;
+          return this.createResult("failed", intentName, reason);
         }
 
         if (currentState.status === "completed") {
           this.status = "completed";
-          this.reporter?.onComplete(specName);
-          await this.hooks?.dispatch({ event: "run.completed", specName });
-          return { status: "completed", specName };
+          this.reporter?.onComplete(intentName);
+          await this.hooks?.dispatch(
+            this.createHookContext("run.completed", intentName),
+          );
+          return this.createResult("completed", intentName);
         }
 
         if (currentState.status === "failed") {
           this.status = "failed";
-          const reason = "Spec execution failed.";
-          this.reportFail(specName, reason);
-          await this.hooks?.dispatch({ event: "run.failed", specName });
-          return { status: "failed", specName, reason };
+          const reason = "Intent execution failed.";
+          this.reportFail(intentName, reason);
+          await this.hooks?.dispatch(
+            this.createHookContext("run.failed", intentName),
+          );
+          return this.createResult("failed", intentName, reason);
         }
 
         const readyTaskIds = resolver.getReadyTasks(currentState);
@@ -337,7 +370,7 @@ export class TaskScheduler {
           if (!activeTasks.has(taskId)) {
             const task = tasks.find((t) => t.id === taskId);
             if (task) {
-              const promise = this.executeTask(specName, task, model).finally(
+              const promise = this.executeTask(intentName, task, model).finally(
                 () => {
                   activeTasks.delete(taskId);
                 },
@@ -351,14 +384,16 @@ export class TaskScheduler {
 
         if (activeTasks.size === 0) {
           const outcome = this.handleNoReadyTasks(
-            specName,
+            intentName,
             currentState,
             counts,
           );
           if (outcome.stop && outcome.result) {
             this.status = outcome.result.status as SchedulerStatus;
             if (outcome.event) {
-              await this.hooks?.dispatch({ event: outcome.event, specName });
+              await this.hooks?.dispatch(
+                this.createHookContext(outcome.event, intentName),
+              );
             }
             return outcome.result;
           }
@@ -370,9 +405,9 @@ export class TaskScheduler {
       this.status = "failed";
       const message = error instanceof Error ? error.message : String(error);
       this.reporter?.onError(error instanceof Error ? error : message);
-      return { status: "failed", specName, reason: message };
+      return this.createResult("failed", intentName, message);
     } finally {
-      this.promptService.deletePromptDir(specName);
+      this.promptService.deletePromptDir(intentName);
     }
   }
 }

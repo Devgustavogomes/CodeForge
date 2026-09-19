@@ -1,8 +1,8 @@
-import { FetchedSpec, SpecReference } from "../../domain/spec-source.js";
-import { ListSpecOptions } from "../../application/ports/SpecSource.js";
-import { BaseRemoteSpecSource } from "./BaseRemoteSpecSource.js";
+import { FetchedIntent, IntentReference } from "../../domain/intent-source.js";
+import { ListIntentOptions } from "../../application/ports/IntentSource.js";
+import { BaseRemoteIntentSource } from "./BaseRemoteIntentSource.js";
 
-export class LinearSpecSource extends BaseRemoteSpecSource {
+export class LinearIntentSource extends BaseRemoteIntentSource {
   readonly name = "linear";
 
   /**
@@ -33,7 +33,7 @@ export class LinearSpecSource extends BaseRemoteSpecSource {
     return trimmed;
   }
 
-  async list(options?: ListSpecOptions): Promise<SpecReference[]> {
+  async list(options?: ListIntentOptions): Promise<IntentReference[]> {
     const apiKey = this.getApiKey("LINEAR_API_KEY");
     const limit = options?.limit ?? 20;
 
@@ -90,7 +90,7 @@ export class LinearSpecSource extends BaseRemoteSpecSource {
       }
 
       const nodes = data.data?.issues?.nodes ?? [];
-      let references: SpecReference[] = nodes.map((node) => ({
+      let references: IntentReference[] = nodes.map((node) => ({
         id: node.identifier || node.id,
         title: node.title,
         url: node.url,
@@ -110,7 +110,7 @@ export class LinearSpecSource extends BaseRemoteSpecSource {
     }
   }
 
-  async fetch(id: string): Promise<FetchedSpec> {
+  async fetch(id: string): Promise<FetchedIntent> {
     const apiKey = this.getApiKey("LINEAR_API_KEY");
     const issueId = this.extractIssueId(id);
 

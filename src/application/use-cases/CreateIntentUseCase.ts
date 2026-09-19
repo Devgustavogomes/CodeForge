@@ -1,7 +1,7 @@
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 
-export type CreateSpecResult =
+export type CreateIntentResult =
   | { kind: "not-initialized" }
   | { kind: "already-exists"; filePath: string }
   | { kind: "created"; filePath: string };
@@ -9,56 +9,30 @@ export type CreateSpecResult =
 function buildTemplate(name: string): string {
   return `# ${name}
 
-## Objective
+## Goal
+<!-- What should this accomplish? -->
 
-<!-- Describe what this feature should accomplish -->
-
-## Functional Requirements
-
+## Requirements
 - 
-
-## Non-Functional Requirements
-
-- 
-
-## Flow
-
-<!-- Optional: describe the request/data flow -->
 
 ## Acceptance Criteria
-
 - 
 
-## Endpoints
-
-<!-- List each endpoint involved -->
-
-| Method | Path | Description |
-|--------|------|-------------|
-|        |      |             |
-
-## Architecture
-
-<!-- e.g. Clean Architecture, MVC, etc. -->
-
-## Technologies
-
-<!-- List the technologies involved -->
-
-- 
+## Technical Context
+<!-- Stack, endpoints, architecture if needed -->
 `;
 }
 
-export class CreateSpecUseCase {
+export class CreateIntentUseCase {
   constructor(private readonly gw: WorkspaceGateway) {}
 
-  execute(name: string): CreateSpecResult {
+  execute(name: string): CreateIntentResult {
     if (!this.gw.exists(PATHS.metadata)) {
       return { kind: "not-initialized" };
     }
 
     const slug = name.toLowerCase().replace(/\s+/g, "-");
-    const filePath = PATHS.specFile(slug);
+    const filePath = PATHS.intentFile(slug);
 
     if (this.gw.exists(filePath)) {
       return { kind: "already-exists", filePath };

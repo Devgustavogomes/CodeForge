@@ -10,16 +10,16 @@ import { RunnerFactory } from "../runners/RunnerFactory.js";
 import { AgentRunner } from "../runners/AgentRunner.js";
 import { InitializeWorkspaceUseCase } from "../application/use-cases/InitializeWorkspaceUseCase.js";
 import { ConfigureEnvironmentUseCase } from "../application/use-cases/ConfigureEnvironmentUseCase.js";
-import { ListSpecsUseCase } from "../application/use-cases/ListSpecsUseCase.js";
-import { GetSpecStatusUseCase } from "../application/use-cases/GetSpecStatusUseCase.js";
-import { CreateSpecUseCase } from "../application/use-cases/CreateSpecUseCase.js";
+import { ListIntentsUseCase } from "../application/use-cases/ListIntentsUseCase.js";
+import { GetIntentStatusUseCase } from "../application/use-cases/GetIntentStatusUseCase.js";
+import { CreateIntentUseCase } from "../application/use-cases/CreateIntentUseCase.js";
 import { ValidatePlanUseCase } from "../application/use-cases/ValidatePlanUseCase.js";
-import { PullSpecUseCase } from "../application/use-cases/PullSpecUseCase.js";
+import { PullIntentUseCase } from "../application/use-cases/PullIntentUseCase.js";
 import { TaskOperationsUseCase } from "../application/use-cases/TaskOperationsUseCase.js";
 import { GeneratePlanUseCase } from "../application/use-cases/GeneratePlanUseCase.js";
 import { CreateDocUseCase } from "../application/use-cases/CreateDocUseCase.js";
 import { UpdateDocUseCase } from "../application/use-cases/UpdateDocUseCase.js";
-import { DeleteSpecUseCase } from "../application/use-cases/DeleteSpecUseCase.js";
+import { DeleteIntentUseCase } from "../application/use-cases/DeleteIntentUseCase.js";
 import { DeleteTaskUseCase } from "../application/use-cases/DeleteTaskUseCase.js";
 import { DeleteDocUseCase } from "../application/use-cases/DeleteDocUseCase.js";
 import { GitGateway } from "./git/GitGateway.js";
@@ -27,6 +27,7 @@ import { NodeGitGateway } from "./git/NodeGitGateway.js";
 import { TaskScheduler } from "../scheduler/TaskScheduler.js";
 import { SchedulerReporter } from "../application/ports/SchedulerReporter.js";
 import { HookDispatcher } from "../application/ports/HookDispatcher.js";
+import { IntentSourceFactory } from "./intent-sources/IntentSourceFactory.js";
 
 export interface AppContainerDependencies {
   workspaceGateway?: WorkspaceGateway;
@@ -40,21 +41,22 @@ export interface AppContainerDependencies {
   promptService?: PromptService;
   runnerProvider?: (environment: string) => AgentRunner;
   gitGateway?: GitGateway;
+  intentSourceFactory?: typeof IntentSourceFactory;
 
   initializeWorkspaceUseCase?: InitializeWorkspaceUseCase;
   initUseCase?: InitializeWorkspaceUseCase;
   configureEnvironmentUseCase?: ConfigureEnvironmentUseCase;
   configureEnvUseCase?: ConfigureEnvironmentUseCase;
-  listSpecsUseCase?: ListSpecsUseCase;
-  getSpecStatusUseCase?: GetSpecStatusUseCase;
-  createSpecUseCase?: CreateSpecUseCase;
+  listIntentsUseCase?: ListIntentsUseCase;
+  getIntentStatusUseCase?: GetIntentStatusUseCase;
+  createIntentUseCase?: CreateIntentUseCase;
   validatePlanUseCase?: ValidatePlanUseCase;
-  pullSpecUseCase?: PullSpecUseCase;
+  pullIntentUseCase?: PullIntentUseCase;
   taskOperationsUseCase?: TaskOperationsUseCase;
   generatePlanUseCase?: GeneratePlanUseCase;
   createDocUseCase?: CreateDocUseCase;
   updateDocUseCase?: UpdateDocUseCase;
-  deleteSpecUseCase?: DeleteSpecUseCase;
+  deleteIntentUseCase?: DeleteIntentUseCase;
   deleteTaskUseCase?: DeleteTaskUseCase;
   deleteDocUseCase?: DeleteDocUseCase;
 }
@@ -70,22 +72,23 @@ export interface AppContainer {
   configService: ConfigService;
   promptService: PromptService;
   runnerProvider: (environment: string) => AgentRunner;
+  intentSourceFactory: typeof IntentSourceFactory;
 
   // Use cases
   initializeWorkspaceUseCase: InitializeWorkspaceUseCase;
   initUseCase: InitializeWorkspaceUseCase;
   configureEnvironmentUseCase: ConfigureEnvironmentUseCase;
   configureEnvUseCase: ConfigureEnvironmentUseCase;
-  listSpecsUseCase: ListSpecsUseCase;
-  getSpecStatusUseCase: GetSpecStatusUseCase;
-  createSpecUseCase: CreateSpecUseCase;
+  listIntentsUseCase: ListIntentsUseCase;
+  getIntentStatusUseCase: GetIntentStatusUseCase;
+  createIntentUseCase: CreateIntentUseCase;
   validatePlanUseCase: ValidatePlanUseCase;
-  pullSpecUseCase: PullSpecUseCase;
+  pullIntentUseCase: PullIntentUseCase;
   taskOperationsUseCase: TaskOperationsUseCase;
   generatePlanUseCase: GeneratePlanUseCase;
   createDocUseCase: CreateDocUseCase;
   updateDocUseCase: UpdateDocUseCase;
-  deleteSpecUseCase: DeleteSpecUseCase;
+  deleteIntentUseCase: DeleteIntentUseCase;
   deleteTaskUseCase: DeleteTaskUseCase;
   deleteDocUseCase: DeleteDocUseCase;
 
@@ -162,30 +165,38 @@ export function createAppContainer(
       runnerProvider,
     );
 
-  const listSpecsUseCase =
-    overrides?.listSpecsUseCase ?? new ListSpecsUseCase(workspaceGateway);
+  const listIntentsUseCase =
+    overrides?.listIntentsUseCase ??
+    overrides?.listIntentsUseCase ??
+    new ListIntentsUseCase(workspaceGateway);
 
-  const getSpecStatusUseCase =
-    overrides?.getSpecStatusUseCase ??
-    new GetSpecStatusUseCase(workspaceGateway);
+  const getIntentStatusUseCase =
+    overrides?.getIntentStatusUseCase ??
+    overrides?.getIntentStatusUseCase ??
+    new GetIntentStatusUseCase(workspaceGateway);
 
-  const createSpecUseCase =
-    overrides?.createSpecUseCase ?? new CreateSpecUseCase(workspaceGateway);
+  const createIntentUseCase =
+    overrides?.createIntentUseCase ??
+    overrides?.createIntentUseCase ??
+    new CreateIntentUseCase(workspaceGateway);
 
   const validatePlanUseCase =
     overrides?.validatePlanUseCase ??
     new ValidatePlanUseCase(workspaceGateway);
 
-  const pullSpecUseCase =
-    overrides?.pullSpecUseCase ?? new PullSpecUseCase(workspaceGateway);
+  const pullIntentUseCase =
+    overrides?.pullIntentUseCase ??
+    overrides?.pullIntentUseCase ??
+    new PullIntentUseCase(workspaceGateway);
 
   const taskOperationsUseCase =
     overrides?.taskOperationsUseCase ??
     new TaskOperationsUseCase(workspaceGateway, stateRepo);
 
-  const deleteSpecUseCase =
-    overrides?.deleteSpecUseCase ??
-    new DeleteSpecUseCase(workspaceGateway, docsRepo);
+  const deleteIntentUseCase =
+    overrides?.deleteIntentUseCase ??
+    overrides?.deleteIntentUseCase ??
+    new DeleteIntentUseCase(workspaceGateway, docsRepo);
 
   const deleteTaskUseCase =
     overrides?.deleteTaskUseCase ??
@@ -194,6 +205,9 @@ export function createAppContainer(
   const deleteDocUseCase =
     overrides?.deleteDocUseCase ??
     new DeleteDocUseCase(workspaceGateway, docsRepo);
+
+  const intentSourceFactory =
+    overrides?.intentSourceFactory ?? IntentSourceFactory;
 
   return {
     gw: workspaceGateway,
@@ -206,20 +220,32 @@ export function createAppContainer(
     configService,
     promptService,
     runnerProvider,
+    intentSourceFactory,
 
     initializeWorkspaceUseCase,
     initUseCase: initializeWorkspaceUseCase,
     configureEnvironmentUseCase,
     configureEnvUseCase: configureEnvironmentUseCase,
-    listSpecsUseCase,
-    getSpecStatusUseCase,
-    createSpecUseCase,
     validatePlanUseCase,
-    pullSpecUseCase,
     taskOperationsUseCase,
-    deleteSpecUseCase,
     deleteTaskUseCase,
     deleteDocUseCase,
+
+    get listIntentsUseCase(): ListIntentsUseCase {
+      return listIntentsUseCase;
+    },
+    get getIntentStatusUseCase(): GetIntentStatusUseCase {
+      return getIntentStatusUseCase;
+    },
+    get createIntentUseCase(): CreateIntentUseCase {
+      return createIntentUseCase;
+    },
+    get pullIntentUseCase(): PullIntentUseCase {
+      return pullIntentUseCase;
+    },
+    get deleteIntentUseCase(): DeleteIntentUseCase {
+      return deleteIntentUseCase;
+    },
 
     get generatePlanUseCase(): GeneratePlanUseCase {
       if (overrides?.generatePlanUseCase) {

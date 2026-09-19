@@ -21,7 +21,7 @@ If you cannot complete a Task (e.g. blocked by a missing dependency, ambiguous r
 Instead, leave it in its current state. The user can retry it with:
 
 \`\`\`bash
-codeforge task retry <spec-name> <task-id>
+codeforge task retry <intent-name> <task-id>
 \`\`\`
 
 ## What you must NOT do

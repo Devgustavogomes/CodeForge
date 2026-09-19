@@ -14,29 +14,28 @@ export type RetryResult =
   | { kind: "retried" };
 
 export type AvailableTasksResult =
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "no-tasks" }
   | { kind: "tasks"; tasks: { id: string; title: string }[] };
 
 export type TaskInfoResult =
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "task-not-found" }
   | { kind: "invalid-json"; message: string }
   | { kind: "info"; task: Task };
 
-export type RetrySpecResult =
-  | { kind: "spec-not-found" }
-  | { kind: "no-execution"; specName: string }
-  | { kind: "all-completed"; specName: string }
-  | { kind: "no-failed-tasks"; specName: string; pendingCount: number }
-  | { kind: "retried"; specName: string; retriedTasks: string[] };
-
+export type RetryIntentResult =
+  | { kind: "intent-not-found" }
+  | { kind: "no-execution"; intentName: string;}
+  | { kind: "all-completed"; intentName: string;}
+  | { kind: "no-failed-tasks"; intentName: string;pendingCount: number }
+  | { kind: "retried"; intentName: string;retriedTasks: string[] };
 export type ResetTaskResult =
-  | { kind: "spec-not-found" }
-  | { kind: "no-execution"; specName: string }
+  | { kind: "intent-not-found" }
+  | { kind: "no-execution"; intentName: string;}
   | { kind: "task-not-found"; taskId: string }
-  | { kind: "reset-single"; specName: string; taskId: string }
-  | { kind: "reset-all"; specName: string; count: number };
+  | { kind: "reset-single"; intentName: string;taskId: string }
+  | { kind: "reset-all"; intentName: string;count: number };
 
 export class TaskOperationsUseCase {
   private readonly stateRepo: ExecutionStateRepository;
@@ -48,8 +47,8 @@ export class TaskOperationsUseCase {
     this.stateRepo = stateRepo ?? new ExecutionStateRepository(gw);
   }
 
-  private loadTasksFromDisk(specName: string): Task[] {
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  private loadTasksFromDisk(intentName: string): Task[] {
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
       return [];
     }
@@ -67,16 +66,16 @@ export class TaskOperationsUseCase {
   }
 
   markTaskCompleted(
-    specName: string,
+    intentName: string,
     taskId: string,
   ): MarkCompleteResult {
     const repo = this.stateRepo;
-    let state = repo.load(specName);
+    let state = repo.load(intentName);
 
     if (!state) {
-      const diskTasks = this.loadTasksFromDisk(specName);
+      const diskTasks = this.loadTasksFromDisk(intentName);
       if (diskTasks.length > 0 && diskTasks.some((t) => t.id === taskId)) {
-        state = repo.init(specName, diskTasks);
+        state = repo.init(intentName, diskTasks);
         state.status = "pending";
         repo.save(state);
       } else {
@@ -105,11 +104,11 @@ export class TaskOperationsUseCase {
   }
 
   retryTask(
-    specName: string,
+    intentName: string,
     taskId: string,
   ): RetryResult {
     const repo = this.stateRepo;
-    const state = repo.load(specName);
+    const state = repo.load(intentName);
 
     if (!state) {
       return { kind: "not-found" };
@@ -138,11 +137,11 @@ export class TaskOperationsUseCase {
   }
 
   getAvailableTasks(
-    specName: string,
+    intentName: string,
   ): AvailableTasksResult {
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+      return { kind: "intent-not-found" };
     }
 
     const taskFiles = this.gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
@@ -165,12 +164,12 @@ export class TaskOperationsUseCase {
   }
 
   getTaskInfo(
-    specName: string,
+    intentName: string,
     taskId: string,
   ): TaskInfoResult {
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+      return { kind: "intent-not-found" };
     }
 
     const taskPath = `${tasksDir}/${taskId}.json`;
@@ -187,17 +186,17 @@ export class TaskOperationsUseCase {
     }
   }
 
-  retrySpec(specName: string): RetrySpecResult {
-    const specPath = PATHS.specFile(specName);
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
-    if (!this.gw.exists(specPath) && !this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+  retryIntent(intentName: string): RetryIntentResult {
+    const intentPath = PATHS.intentFile(intentName);
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
+    if (!this.gw.exists(intentPath) && !this.gw.exists(tasksDir)) {
+      return { kind: "intent-not-found" };
     }
 
     const repo = this.stateRepo;
-    const state = repo.load(specName);
+    const state = repo.load(intentName);
     if (!state) {
-      return { kind: "no-execution", specName };
+      return { kind: "no-execution", intentName,};
     }
 
     const taskEntries = Object.entries(state.tasks);
@@ -208,13 +207,13 @@ export class TaskOperationsUseCase {
         taskEntries.length > 0 &&
         taskEntries.every(([_, t]) => t.status === "completed");
       if (allCompleted) {
-        return { kind: "all-completed", specName };
+        return { kind: "all-completed", intentName,};
       }
 
       const pendingCount = taskEntries.filter(
         ([_, t]) => t.status === "pending",
       ).length;
-      return { kind: "no-failed-tasks", specName, pendingCount };
+      return { kind: "no-failed-tasks", intentName, pendingCount };
     }
 
     const retriedTasks: string[] = [];
@@ -229,30 +228,31 @@ export class TaskOperationsUseCase {
     delete state.completedAt;
     repo.save(state);
 
-    return { kind: "retried", specName, retriedTasks };
+    return { kind: "retried", intentName, retriedTasks };
   }
 
-  resetTask(specName: string, taskId: string): ResetTaskResult {
-    return this.resetTasks(specName, taskId);
+
+  resetTask(intentName: string, taskId: string): ResetTaskResult {
+    return this.resetTasks(intentName, taskId);
   }
 
-  resetTasks(specName: string, taskId?: string): ResetTaskResult {
-    const specPath = PATHS.specFile(specName);
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
-    if (!this.gw.exists(specPath) && !this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+  resetTasks(intentName: string, taskId?: string): ResetTaskResult {
+    const intentPath = PATHS.intentFile(intentName);
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
+    if (!this.gw.exists(intentPath) && !this.gw.exists(tasksDir)) {
+      return { kind: "intent-not-found" };
     }
 
     const repo = this.stateRepo;
-    let state = repo.load(specName);
+    let state = repo.load(intentName);
     if (!state) {
-      const diskTasks = this.loadTasksFromDisk(specName);
+      const diskTasks = this.loadTasksFromDisk(intentName);
       if (diskTasks.length > 0) {
-        state = repo.init(specName, diskTasks);
+        state = repo.init(intentName, diskTasks);
         state.status = "pending";
         repo.save(state);
       } else {
-        return { kind: "no-execution", specName };
+        return { kind: "no-execution", intentName,};
       }
     }
 
@@ -271,7 +271,7 @@ export class TaskOperationsUseCase {
       delete state.completedAt;
       repo.save(state);
 
-      return { kind: "reset-single", specName, taskId };
+      return { kind: "reset-single", intentName, taskId };
     }
 
     const taskList = Object.values(state.tasks);
@@ -287,6 +287,6 @@ export class TaskOperationsUseCase {
     delete state.completedAt;
     repo.save(state);
 
-    return { kind: "reset-all", specName, count: taskList.length };
+    return { kind: "reset-all", intentName, count: taskList.length };
   }
 }

@@ -2,7 +2,7 @@ import { Task } from "../../../domain/task.js";
 
 export function buildRunningPrompt(
   task: Task,
-  specContent: string,
+  intentContent: string,
   rulesContent: string,
   filesContext: string,
   language: string
@@ -30,8 +30,8 @@ ${task.acceptanceCriteria?.length ? "- " + task.acceptanceCriteria.join("\n- ") 
 --- SOURCE CODE CONTEXT ---
 ${filesContext}
 
---- OVERALL SPECIFICATION ---
-${specContent}
+--- OVERALL INTENT ---
+${intentContent}
 
 --- ACTION REQUIRED ---
 Please implement the code required for this task. Modify or create the files as instructed.

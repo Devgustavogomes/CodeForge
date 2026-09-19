@@ -4,7 +4,7 @@ import { docsRule, docsUpdateRule } from "../../infrastructure/assets/rules/docs
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 
-const SUBDIRECTORIES = ["specs", "tasks", "executions", "rules", "docs"];
+const SUBDIRECTORIES = ["intents", "tasks", "executions", "rules", "docs"];
 
 interface WorkspaceMetadata {
   initialized: boolean;

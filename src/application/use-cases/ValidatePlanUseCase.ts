@@ -4,7 +4,7 @@ import { PATHS } from "../../infrastructure/paths.js";
 
 export type ValidationResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "valid" }
   | { kind: "invalid"; errors: string[] };
 
@@ -52,14 +52,14 @@ function hasCycle(adjList: Map<string, string[]>): string[] | null {
 export class ValidatePlanUseCase {
   constructor(private readonly gw: WorkspaceGateway) {}
 
-  execute(specName: string, taskId?: string): ValidationResult {
+  execute(intentName: string, taskId?: string): ValidationResult {
     if (!this.gw.exists(PATHS.metadata)) {
       return { kind: "not-initialized" };
     }
 
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+      return { kind: "intent-not-found" };
     }
 
     const errors: string[] = [];

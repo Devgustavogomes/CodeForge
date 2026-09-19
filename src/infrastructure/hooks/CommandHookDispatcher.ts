@@ -49,6 +49,7 @@ export class CommandHookDispatcher implements HookDispatcher {
     const timeoutMs = definition.timeout ?? DEFAULT_TIMEOUT_MS;
 
     try {
+      const intentName = context.intentName;
       const result = await this.processExecutor.spawn(definition.run, [], {
         shell: true,
         cwd: this.cwd,
@@ -57,7 +58,7 @@ export class CommandHookDispatcher implements HookDispatcher {
         env: {
           ...process.env,
           CODEFORGE_EVENT: context.event,
-          CODEFORGE_SPEC: context.specName,
+          CODEFORGE_INTENT: intentName,
           CODEFORGE_TASK_ID: context.taskId ?? "",
           CODEFORGE_CWD: this.cwd,
         },

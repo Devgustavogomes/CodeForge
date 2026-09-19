@@ -14,6 +14,10 @@ export abstract class BaseProcessRunner implements AgentRunner {
 
   abstract execute(context: TaskContext): Promise<void>;
 
+  async runTask(context: TaskContext): Promise<void> {
+    return this.execute(context);
+  }
+
   protected async spawnProcess(
     cmd: string,
     args: string[],

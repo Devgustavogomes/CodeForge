@@ -2,33 +2,34 @@ import { PATHS } from "../../infrastructure/paths.js";
 import { DocsManifestRepository } from "../../infrastructure/repositories/DocsManifestRepository.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 
-export type DeleteSpecResult =
+export type DeleteIntentResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
-  | { kind: "deleted"; specName: string };
+  | { kind: "intent-not-found" }
+  | { kind: "deleted"; intentName: string };
 
-export class DeleteSpecUseCase {
+export class DeleteIntentUseCase {
   constructor(
     private readonly workspace: WorkspaceGateway,
     private readonly docsManifestRepository: DocsManifestRepository,
   ) {}
 
-  execute(specName: string): DeleteSpecResult {
+  execute(intentName: string): DeleteIntentResult {
     if (!this.workspace.exists(PATHS.metadata)) {
       return { kind: "not-initialized" };
     }
 
-    const specPath = PATHS.specFile(specName);
-    if (!this.workspace.exists(specPath)) {
-      return { kind: "spec-not-found" };
+    const intentPath = PATHS.intentFile(intentName);
+    if (!this.workspace.exists(intentPath)) {
+      return { kind: "intent-not-found" };
     }
 
-    this.workspace.deleteFile(specPath);
-    this.workspace.deleteDir(`${PATHS.tasksDir}/${specName}`);
-    this.workspace.deleteFile(PATHS.executionState(specName));
+    this.workspace.deleteFile(intentPath);
+    this.workspace.deleteDir(`${PATHS.tasksDir}/${intentName}`);
+    this.workspace.deleteFile(PATHS.executionState(intentName));
+    this.workspace.deleteDir(`${PATHS.executionsDir}/${intentName}`);
 
     if (this.workspace.exists(PATHS.plansDir)) {
-      const planPrefix = `${specName}.`;
+      const planPrefix = `${intentName}.`;
 
       for (const fileName of this.workspace.listDir(PATHS.plansDir)) {
         if (
@@ -43,10 +44,12 @@ export class DeleteSpecUseCase {
 
     const manifest = this.docsManifestRepository.load();
     for (const entry of Object.values(manifest.documents)) {
-      entry.specs = entry.specs.filter((associatedSpec) => associatedSpec !== specPath);
+      if (entry.intents) {
+        entry.intents = entry.intents.filter((associatedIntent) => associatedIntent !== intentPath);
+      }
     }
     this.docsManifestRepository.save(manifest);
 
-    return { kind: "deleted", specName };
+    return { kind: "deleted", intentName };
   }
 }

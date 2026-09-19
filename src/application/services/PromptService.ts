@@ -8,13 +8,13 @@ export class PromptService {
   constructor(private gw: WorkspaceGateway) {}
 
   private buildContextPrompt(
-    specName: string,
+    intentName: string,
     task: Task,
     language: string,
     previousErrors?: string[]
   ): string {
-    const specPath = PATHS.specFile(specName);
-    const specContent = this.gw.exists(specPath) ? this.gw.readFile(specPath) : "Spec not found.";
+    const intentPath = PATHS.intentFile(intentName);
+    const intentContent = this.gw.exists(intentPath) ? this.gw.readFile(intentPath) : "Intent not found.";
 
     let filesContext = "";
     if (task.files && task.files.length > 0) {
@@ -33,24 +33,24 @@ export class PromptService {
     const runningRulesContent = this.gw.exists(runningRulesPath) ? this.gw.readFile(runningRulesPath) : "Execution rules not found.";
 
     if (previousErrors && previousErrors.length > 0) {
-      return buildRetryPrompt(task, specContent, runningRulesContent, filesContext, previousErrors, language);
+      return buildRetryPrompt(task, intentContent, runningRulesContent, filesContext, previousErrors, language);
     }
 
-    return buildRunningPrompt(task, specContent, runningRulesContent, filesContext, language);
+    return buildRunningPrompt(task, intentContent, runningRulesContent, filesContext, language);
   }
 
   createPromptFile(
-    specName: string,
+    intentName: string,
     task: Task,
     language: string,
     previousErrors?: string[]
   ): string {
-    const specExecDir = `${PATHS.executionsDir}/${specName}`;
-    if (!this.gw.exists(specExecDir)) {
-      this.gw.mkdir(specExecDir);
+    const intentExecDir = `${PATHS.executionsDir}/${intentName}`;
+    if (!this.gw.exists(intentExecDir)) {
+      this.gw.mkdir(intentExecDir);
     }
-    const promptPath = `${specExecDir}/${task.id}.temp.prompt.md`;
-    const promptContent = this.buildContextPrompt(specName, task, language, previousErrors);
+    const promptPath = `${intentExecDir}/${task.id}.temp.prompt.md`;
+    const promptContent = this.buildContextPrompt(intentName, task, language, previousErrors);
     this.gw.writeFile(promptPath, promptContent);
     return promptPath;
   }
@@ -69,10 +69,10 @@ export class PromptService {
     }
   }
 
-  deletePromptDir(specName: string): void {
-    const specExecDir = `${PATHS.executionsDir}/${specName}`;
-    if (this.gw.exists(specExecDir)) {
-      this.gw.deleteDir(specExecDir);
+  deletePromptDir(intentName: string): void {
+    const intentExecDir = `${PATHS.executionsDir}/${intentName}`;
+    if (this.gw.exists(intentExecDir)) {
+      this.gw.deleteDir(intentExecDir);
     }
   }
 }

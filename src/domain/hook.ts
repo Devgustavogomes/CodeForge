@@ -29,8 +29,7 @@ export type HookMap = Partial<Record<HookEvent, HookDefinition[]>>;
 
 export interface HookContext {
   event: HookEvent;
-  specName: string;
-  taskId?: string;
+  intentName: string;  taskId?: string;
   errors?: string[];
 }
 

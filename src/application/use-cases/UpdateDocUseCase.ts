@@ -8,10 +8,9 @@ import { buildDocsUpdatePrompt, buildDocsManualUpdatePrompt } from "../../infras
 import { AffectedDoc } from "../../domain/doc.js";
 import { DocsManifestRepository } from "../../infrastructure/repositories/DocsManifestRepository.js";
 
-
 export type DocsUpdateResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "rules-not-found" }
   | { kind: "no-git" }
   | { kind: "no-changed-files" }
@@ -20,7 +19,7 @@ export type DocsUpdateResult =
 
 export type ManualDocUpdateResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "rules-not-found" }
   | { kind: "doc-not-found" }
   | { kind: "doc"; doc: AffectedDoc };
@@ -33,10 +32,10 @@ export class UpdateDocUseCase {
     private readonly config: CodeForgeConfig
   ) {}
 
-  public getAffectedDocs(specName: string): DocsUpdateResult {
+  public getAffectedDocs(intentName: string): DocsUpdateResult {
     if (!this.gw.exists(PATHS.metadata)) return { kind: "not-initialized" };
-    const specPath = PATHS.specFile(specName);
-    if (!this.gw.exists(specPath)) return { kind: "spec-not-found" };
+    const intentPath = PATHS.intentFile(intentName);
+    if (!this.gw.exists(intentPath)) return { kind: "intent-not-found" };
     if (!this.gw.exists(PATHS.docsUpdateRules)) return { kind: "rules-not-found" };
     if (!this.git.hasRepository()) return { kind: "no-git" };
 
@@ -63,7 +62,7 @@ export class UpdateDocUseCase {
         affectedDocs.push({
           docName,
           docPath: entry.path,
-          specPaths: entry.specs,
+          intentPaths: entry.intents,
           matchedFiles,
         });
       }
@@ -74,10 +73,10 @@ export class UpdateDocUseCase {
     return { kind: "affected-docs", affectedDocs };
   }
 
-  public getManualDoc(specName: string, docName: string): ManualDocUpdateResult {
+  public getManualDoc(intentName: string, docName: string): ManualDocUpdateResult {
     if (!this.gw.exists(PATHS.metadata)) return { kind: "not-initialized" };
-    const specPath = PATHS.specFile(specName);
-    if (!this.gw.exists(specPath)) return { kind: "spec-not-found" };
+    const intentPath = PATHS.intentFile(intentName);
+    if (!this.gw.exists(intentPath)) return { kind: "intent-not-found" };
     if (!this.gw.exists(PATHS.docsUpdateRules)) return { kind: "rules-not-found" };
 
     const manifest = new DocsManifestRepository(this.gw).load();
@@ -91,19 +90,19 @@ export class UpdateDocUseCase {
     const doc: AffectedDoc = {
       docName,
       docPath: manifestEntry?.path ?? `.codeforge/docs/${docName}.md`,
-      specPaths: manifestEntry?.specs ?? [],
+      intentPaths: manifestEntry?.intents ?? [],
       matchedFiles: [],
     };
 
     return { kind: "doc", doc };
   }
 
-  public async execute(specName: string, doc: AffectedDoc, isManual: boolean = false): Promise<void> {
+  public async execute(intentName: string, doc: AffectedDoc, isManual: boolean = false): Promise<void> {
     const rulesContent = this.gw.readFile(PATHS.docsUpdateRules);
     let promptStr: string;
 
     if (isManual) {
-      promptStr = buildDocsManualUpdatePrompt(doc, rulesContent, specName, this.config.language);
+      promptStr = buildDocsManualUpdatePrompt(doc, rulesContent, intentName, this.config.language);
     } else {
       let changedFilesDiff = "";
       for (const file of doc.matchedFiles) {
@@ -114,11 +113,11 @@ export class UpdateDocUseCase {
           changedFilesDiff += `\n### File: ${file}\n(Could not read diff)\n`;
         }
       }
-      const newSpecRelPath = PATHS.specFile(specName);
-      promptStr = buildDocsUpdatePrompt(doc, rulesContent, changedFilesDiff, newSpecRelPath, this.config.language);
+      const newIntentRelPath = PATHS.intentFile(intentName);
+      promptStr = buildDocsUpdatePrompt(doc, rulesContent, changedFilesDiff, newIntentRelPath, this.config.language);
     }
 
-    const docsDir = ".codeforge/docs";
+    const docsDir = PATHS.docsDir;
     if (!this.gw.exists(docsDir)) {
       this.gw.mkdir(docsDir);
     }
@@ -127,8 +126,7 @@ export class UpdateDocUseCase {
 
     const context: TaskContext = {
       promptFilePath: promptPath,
-      specName,
-      model: this.config.plannerAgent,
+      intentName,      model: this.config.plannerAgent,
       silent: true,
     };
 

@@ -2,7 +2,7 @@ import { Task } from "../../../domain/task.js";
 
 export function buildRetryPrompt(
   task: Task,
-  specContent: string,
+  intentContent: string,
   rulesContent: string,
   filesContext: string,
   errors: string[],
@@ -37,8 +37,8 @@ ${task.acceptanceCriteria?.length ? "- " + task.acceptanceCriteria.join("\n- ") 
 --- SOURCE CODE CONTEXT ---
 ${filesContext}
 
---- OVERALL SPECIFICATION ---
-${specContent}
+--- OVERALL INTENT ---
+${intentContent}
 
 --- ACTION REQUIRED (ERROR RESOLUTION & COMPLETION) ---
 1. Carefully review the error(s) reported in the previous run.

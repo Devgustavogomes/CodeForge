@@ -1,24 +1,25 @@
 import { AffectedDoc } from "../../../domain/doc.js";
+import { PATHS } from "../../paths.js";
 
 export function buildDocsCreatePrompt(
   docName: string,
   rulesContent: string,
-  specContent: string,
+  intentContent: string,
   language: string
 ): string {
   return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation)
 
-You are an expert technical writer and software architect. Your task is to analyze the provided specification and the relevant source code, and then write the initial documentation for it.
+You are an expert technical writer and software architect. Your task is to analyze the provided intent and the relevant source code, and then write the initial documentation for it.
 
 ### Rules for Documentation
 ${rulesContent}
 
-### Specification
-${specContent}
+### Intent
+${intentContent}
 
 ### Instructions
 
-1. Analyze the Specification above and read the relevant code in the workspace to understand how the feature was implemented. You must read the codebase to ensure the documentation reflects the *actual* implementation, not just the intent.
+1. Analyze the Intent above and read the relevant code in the workspace to understand how the feature was implemented. You must read the codebase to ensure the documentation reflects the *actual* implementation.
 2. Determine what needs to be documented.
 3. Write the documentation in Markdown format and output it to \`.codeforge/docs/${docName}.md\`.
 4. Determine the \`scope\` of the documentation. The scope should be an array of glob patterns representing the project paths whose contents, if modified, might render this documentation outdated. Prefer stable glob patterns over listing individual files. For example:
@@ -36,7 +37,7 @@ export function buildDocsUpdatePrompt(
   affectedDoc: AffectedDoc,
   rulesContent: string,
   changedFilesDiff: string,
-  newSpecRelPath: string,
+  newIntentRelPath: string,
   language: string
 ): string {
   return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation Update)
@@ -61,7 +62,7 @@ ${changedFilesDiff}
    - If the changes DO affect the documented behavior, proceed to step 3.
 3. Update the documentation at \`${affectedDoc.docPath}\` to reflect the current implementation. Make targeted, incremental changes — do NOT rewrite from scratch.
 4. Update the \`updatedAt\` field for the \`${affectedDoc.docName}\` entry in \`.codeforge/docs/manifest.json\`.
-5. If the update is relevant, add \`${newSpecRelPath}\` to the \`specs\` array of the \`${affectedDoc.docName}\` entry in the manifest (if not already present).
+5. If the update is relevant, add \`${newIntentRelPath}\` to the \`intents\` array of the \`${affectedDoc.docName}\` entry in the manifest (if not already present).
 6. If the scope patterns need adjustment, update the \`scope\` array. Do NOT modify any other fields or entries.
 
 Please proceed with your evaluation.
@@ -70,19 +71,17 @@ Please proceed with your evaluation.
 All your output, documentation, and task descriptions MUST be written in ${language}.`;
 }
 
-import { PATHS } from "../../paths.js";
-
 export function buildDocsManualUpdatePrompt(
   doc: AffectedDoc,
   rulesContent: string,
-  specName: string,
+  intentName: string,
   language: string
 ): string {
-  const newSpecRelPath = PATHS.specFile(specName);
+  const newIntentRelPath = PATHS.intentFile(intentName);
 
   return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation Update — Manual)
 
-You are an expert technical writer. The user has explicitly requested an update to the documentation '${doc.docName}' following the execution of the spec '${specName}'.
+You are an expert technical writer. The user has explicitly requested an update to the documentation '${doc.docName}' following the execution of the intent '${intentName}'.
 
 ### Update Rules
 ${rulesContent}
@@ -93,12 +92,12 @@ Read the current documentation at \`${doc.docPath}\`.
 ### Instructions
 
 1. Read the existing documentation at \`${doc.docPath}\` and the relevant source code in the workspace.
-2. **RELEVANCE CHECK**: Determine if anything in the codebase (as it currently stands after running spec '${specName}') requires updating this documentation.
+2. **RELEVANCE CHECK**: Determine if anything in the codebase (as it currently stands after running intent '${intentName}') requires updating this documentation.
    - If the documentation is already up-to-date, respond with ONLY: \`NO_UPDATE_NEEDED\`
    - If updates are needed, proceed to step 3.
 3. Update the documentation at \`${doc.docPath}\` to reflect the current implementation. Make targeted, incremental changes — do NOT rewrite from scratch.
 4. Update the \`updatedAt\` field for the \`${doc.docName}\` entry in \`.codeforge/docs/manifest.json\`.
-5. Add \`${newSpecRelPath}\` to the \`specs\` array of the \`${doc.docName}\` entry in the manifest (if not already present).
+5. Add \`${newIntentRelPath}\` to the \`intents\` array of the \`${doc.docName}\` entry in the manifest (if not already present).
 6. If the scope patterns need adjustment, update the \`scope\` array. Do NOT modify any other fields or entries.
 
 Please proceed with your evaluation.

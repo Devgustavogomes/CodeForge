@@ -3,7 +3,7 @@ import type { Task } from "./task.js";
 export interface ExecutionContext {
   task: Task;
 
-  specContext: string;
+  intentContext: string;
 
   repository: RepositoryContext;
 

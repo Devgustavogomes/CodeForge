@@ -1,4 +1,3 @@
-
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { PATHS } from "../../infrastructure/paths.js";
@@ -8,7 +7,7 @@ import { CodeForgeConfig } from "../../config/types.js";
 
 export type GeneratePlanResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "tasks-dir-not-found" }
   | { kind: "invalid"; errors: string[] }
   | { kind: "valid"; autoRun?: boolean };
@@ -24,14 +23,14 @@ export class GeneratePlanUseCase {
     this.validateUseCase = new ValidatePlanUseCase(this.workspace);
   }
 
-  async execute(specName: string, model: string): Promise<GeneratePlanResult> {
+  async execute(intentName: string, model: string): Promise<GeneratePlanResult> {
     if (!this.workspace.exists(PATHS.metadata)) {
       return { kind: "not-initialized" };
     }
 
-    const specPath = PATHS.specFile(specName);
-    if (!this.workspace.exists(specPath)) {
-      return { kind: "spec-not-found" };
+    const intentPath = PATHS.intentFile(intentName);
+    if (!this.workspace.exists(intentPath)) {
+      return { kind: "intent-not-found" };
     }
 
     let rulesContent = "";
@@ -39,42 +38,41 @@ export class GeneratePlanUseCase {
       rulesContent = this.workspace.readFile(PATHS.planningRules);
     }
 
-    const specContent = this.workspace.readFile(specPath);
+    const intentContent = this.workspace.readFile(intentPath);
 
-    const specTasksDir = `${PATHS.tasksDir}/${specName}`;
-    if (!this.workspace.exists(specTasksDir)) {
-      this.workspace.mkdir(specTasksDir);
+    const intentTasksDir = `${PATHS.tasksDir}/${intentName}`;
+    if (!this.workspace.exists(intentTasksDir)) {
+      this.workspace.mkdir(intentTasksDir);
     }
 
-    const prompt = buildPlanningPrompt(specName, specContent, rulesContent, specTasksDir, this.config.language);
+    const prompt = buildPlanningPrompt(intentName, intentContent, rulesContent, intentTasksDir, this.config.language);
 
-    const plansDir = ".codeforge/plans";
+    const plansDir = PATHS.plansDir;
     if (!this.workspace.exists(plansDir)) {
       this.workspace.mkdir(plansDir);
     }
-    const promptPath = `${plansDir}/${specName}.temp.prompt.md`;
+    const promptPath = `${plansDir}/${intentName}.temp.prompt.md`;
     this.workspace.writeFile(promptPath, prompt);
 
     const context: TaskContext = {
       promptFilePath: promptPath,
-      specName: specName,
-      model: model,
+      intentName,      model: model,
       silent: true,
     };
 
     try {
       await this.runner.execute(context);
-      let valResult = this.validateUseCase.execute(specName);
+      let valResult = this.validateUseCase.execute(intentName);
 
       if (valResult.kind === "invalid") {
-        const fixPrompt = buildPlanningFixPrompt(specName, valResult.errors, this.config.language);
+        const fixPrompt = buildPlanningFixPrompt(intentName, valResult.errors, this.config.language);
         this.workspace.writeFile(promptPath, fixPrompt);
-        
+
         await this.runner.execute(context);
-        valResult = this.validateUseCase.execute(specName);
+        valResult = this.validateUseCase.execute(intentName);
       }
 
-      if (valResult.kind === "spec-not-found") {
+      if (valResult.kind === "intent-not-found") {
         return { kind: "tasks-dir-not-found" };
       }
 

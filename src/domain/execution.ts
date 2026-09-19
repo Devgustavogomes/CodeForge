@@ -9,8 +9,8 @@ export interface TaskExecutionState {
   errors?: string[];
 }
 
-export interface SpecExecutionState {
-  specId: string;
+export interface IntentExecutionState {
+  intentId: string;
   status: TaskStatus;
   startedAt?: string;
   completedAt?: string;

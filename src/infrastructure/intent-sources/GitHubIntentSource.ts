@@ -1,8 +1,8 @@
-import { FetchedSpec, SpecReference } from "../../domain/spec-source.js";
-import { ListSpecOptions } from "../../application/ports/SpecSource.js";
-import { BaseRemoteSpecSource } from "./BaseRemoteSpecSource.js";
+import { FetchedIntent, IntentReference } from "../../domain/intent-source.js";
+import { ListIntentOptions } from "../../application/ports/IntentSource.js";
+import { BaseRemoteIntentSource } from "./BaseRemoteIntentSource.js";
 
-export class GitHubSpecSource extends BaseRemoteSpecSource {
+export class GitHubIntentSource extends BaseRemoteIntentSource {
   readonly name = "github";
 
   public getRepoInfo(id?: string): { owner: string; repo: string; issueNumber?: string } {
@@ -69,7 +69,7 @@ export class GitHubSpecSource extends BaseRemoteSpecSource {
     return { owner, repo, issueNumber };
   }
 
-  async list(options?: ListSpecOptions): Promise<SpecReference[]> {
+  async list(options?: ListIntentOptions): Promise<IntentReference[]> {
     const token = this.getApiKey("GITHUB_TOKEN", "token");
     const { owner, repo } = this.getRepoInfo();
 
@@ -123,7 +123,7 @@ export class GitHubSpecSource extends BaseRemoteSpecSource {
     }
   }
 
-  async fetch(id: string): Promise<FetchedSpec> {
+  async fetch(id: string): Promise<FetchedIntent> {
     const token = this.getApiKey("GITHUB_TOKEN", "token");
     const { owner, repo, issueNumber } = this.getRepoInfo(id);
 

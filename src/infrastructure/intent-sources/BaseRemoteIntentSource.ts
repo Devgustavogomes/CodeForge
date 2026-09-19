@@ -1,24 +1,24 @@
 import {
-  FetchedSpec,
-  SpecReference,
-  SpecSourceConfig,
-} from "../../domain/spec-source.js";
+  FetchedIntent,
+  IntentReference,
+  IntentSourceConfig,
+} from "../../domain/intent-source.js";
 import {
-  ListSpecOptions,
-  SpecSource,
-} from "../../application/ports/SpecSource.js";
+  IntentSource,
+  ListIntentOptions,
+} from "../../application/ports/IntentSource.js";
 
 /**
- * Shared utilities for remote spec source implementations (Linear, GitHub, ClickUp).
+ * Shared utilities for remote intent source implementations (Linear, GitHub, ClickUp).
  * Handles the common patterns of API key resolution, error wrapping, and result filtering.
  */
-export abstract class BaseRemoteSpecSource implements SpecSource {
+export abstract class BaseRemoteIntentSource implements IntentSource {
   abstract readonly name: string;
 
-  constructor(protected readonly config?: SpecSourceConfig) {}
+  constructor(protected readonly config?: IntentSourceConfig) {}
 
-  abstract list(options?: ListSpecOptions): Promise<SpecReference[]>;
-  abstract fetch(id: string): Promise<FetchedSpec>;
+  abstract list(options?: ListIntentOptions): Promise<IntentReference[]>;
+  abstract fetch(id: string): Promise<FetchedIntent>;
 
   /**
    * Returns a capitalized/standard display name for user-facing messages.
@@ -114,10 +114,9 @@ export abstract class BaseRemoteSpecSource implements SpecSource {
     const displayName = this.getProviderDisplayName();
     const base =
       operation === "list"
-        ? `Failed to list specs from ${displayName}`
-        : `Failed to fetch spec "${idOrContext}" from ${displayName}`;
+        ? `Failed to list intents from ${displayName}`
+        : `Failed to fetch intent "${idOrContext}" from ${displayName}`;
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`${base}: ${message}`, { cause: error });
   }
 }
-

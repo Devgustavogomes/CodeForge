@@ -1,4 +1,4 @@
-import { SpecExecutionState, TaskStatus } from "../../domain/execution.js";
+import { IntentExecutionState, TaskStatus } from "../../domain/execution.js";
 import { Task } from "../../domain/task.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
@@ -13,33 +13,41 @@ export interface TaskStatusInfo {
   errors?: string[];
 }
 
-export type StatusResult =
+export type IntentStatusResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
-  | { kind: "no-execution"; specName: string }
-  | { kind: "status"; specName: string; specStatus: string; tasks: TaskStatusInfo[]; updatedAt: string; startedAt?: string; completedAt?: string };
+  | { kind: "intent-not-found" }
+  | { kind: "no-execution"; intentName: string }
+  | {
+      kind: "status";
+      intentName: string;
+      intentStatus: string;
+      tasks: TaskStatusInfo[];
+      updatedAt: string;
+      startedAt?: string;
+      completedAt?: string;
+    };
 
-export class GetSpecStatusUseCase {
+export class GetIntentStatusUseCase {
   constructor(private readonly gw: WorkspaceGateway) {}
 
-  execute(specName: string): StatusResult {
+  execute(intentName: string): IntentStatusResult {
     if (!this.gw.exists(PATHS.metadata)) {
       return { kind: "not-initialized" };
     }
 
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+      return { kind: "intent-not-found" };
     }
 
-    const statePath = PATHS.executionState(specName);
+    const statePath = PATHS.executionState(intentName);
     if (!this.gw.exists(statePath)) {
-      return { kind: "no-execution", specName };
+      return { kind: "no-execution", intentName };
     }
 
     const state = JSON.parse(
       this.gw.readFile(statePath),
-    ) as SpecExecutionState;
+    ) as IntentExecutionState;
 
     const tasks: TaskStatusInfo[] = [];
 
@@ -66,8 +74,8 @@ export class GetSpecStatusUseCase {
 
     return {
       kind: "status",
-      specName,
-      specStatus: state.status,
+      intentName,
+      intentStatus: state.status,
       tasks,
       updatedAt: state.updatedAt,
       startedAt: state.startedAt,

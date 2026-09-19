@@ -158,17 +158,18 @@ export class ConfigService {
       }
 
       // Preserve raw apiKey reference if it contains $VAR in the existing file
-      const existingSpecSource = existingRawConfig.specSource as Record<string, unknown> | undefined;
-      const mergedSpecSource = mergedConfig.specSource as Record<string, unknown> | undefined;
+      const existingIntentSource = (existingRawConfig.intentSource) as Record<string, unknown> | undefined;
+      const mergedIntentSource = mergedConfig.intentSource as Record<string, unknown> | undefined;
       if (
-        existingSpecSource &&
-        typeof existingSpecSource.apiKey === 'string' &&
-        existingSpecSource.apiKey.includes('$') &&
-        mergedSpecSource &&
-        typeof mergedSpecSource.apiKey === 'string'
+        existingIntentSource &&
+        typeof existingIntentSource.apiKey === 'string' &&
+        existingIntentSource.apiKey.includes('$') &&
+        mergedIntentSource &&
+        typeof mergedIntentSource.apiKey === 'string'
       ) {
-        mergedSpecSource.apiKey = existingSpecSource.apiKey;
+        mergedIntentSource.apiKey = existingIntentSource.apiKey;
       }
+
 
       const yamlContent = yaml.stringify(mergedConfig);
       this.workspace.writeFile(this.configPath, yamlContent);

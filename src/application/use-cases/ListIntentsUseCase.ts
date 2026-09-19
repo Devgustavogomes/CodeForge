@@ -1,12 +1,12 @@
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 
-export type SpecStatus = "not_started" | "planned" | "in_progress" | "completed";
+export type IntentStatus = "not_started" | "planned" | "in_progress" | "completed";
 
-export interface SpecInfo {
+export interface IntentInfo {
   name: string;
   title: string;
-  status: SpecStatus;
+  status: IntentStatus;
 }
 
 export function extractMarkdownTitle(content: string, fallbackName: string): string {
@@ -24,34 +24,43 @@ export function extractMarkdownTitle(content: string, fallbackName: string): str
   return fallbackName;
 }
 
-export class ListSpecsUseCase {
+export class ListIntentsUseCase {
   constructor(private readonly gw: WorkspaceGateway) {}
 
-  execute(): SpecInfo[] {
-    if (!this.gw.exists(PATHS.specsDir)) {
+  execute(): IntentInfo[] {
+    const dirs = [PATHS.intentsDir].filter((d) => this.gw.exists(d));
+    if (dirs.length === 0) {
       return [];
     }
 
-    const files = this.gw.listDir(PATHS.specsDir);
-    const specNames = files
-      .filter((file) => file.endsWith(".md"))
-      .map((file) => file.replace(/\.md$/, ""))
-      .sort();
+    const intentNamesMap = new Map<string, string>();
+    for (const dir of dirs) {
+      const files = this.gw.listDir(dir);
+      for (const file of files) {
+        if (file.endsWith(".md")) {
+          const name = file.replace(/\.md$/, "");
+          if (!intentNamesMap.has(name)) {
+            intentNamesMap.set(name, dir);
+          }
+        }
+      }
+    }
 
-    return specNames.map((name) => this.getSpecInfo(name));
+    const sortedNames = Array.from(intentNamesMap.keys()).sort();
+    return sortedNames.map((name) => this.getIntentInfo(name, intentNamesMap.get(name)!));
   }
 
   listNames(): string[] {
     return this.execute().map((s) => s.name);
   }
 
-  private getSpecInfo(name: string): SpecInfo {
-    const specFilePath = PATHS.specFile(name);
+  private getIntentInfo(name: string, dir: string = PATHS.intentsDir): IntentInfo {
+    const intentFilePath = `${dir}/${name}.md`;
     let title = name;
 
-    if (this.gw.exists(specFilePath)) {
+    if (this.gw.exists(intentFilePath)) {
       try {
-        const content = this.gw.readFile(specFilePath);
+        const content = this.gw.readFile(intentFilePath);
         title = extractMarkdownTitle(content, name);
       } catch {
         title = name;
@@ -67,7 +76,7 @@ export class ListSpecsUseCase {
     };
   }
 
-  private determineStatus(name: string): SpecStatus {
+  private determineStatus(name: string): IntentStatus {
     const executionPath = PATHS.executionState(name);
     if (this.gw.exists(executionPath)) {
       try {

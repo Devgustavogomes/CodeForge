@@ -1,4 +1,4 @@
-export interface SpecReference {
+export interface IntentReference {
   id: string;
   title: string;
   url?: string;
@@ -6,7 +6,7 @@ export interface SpecReference {
   [key: string]: unknown;
 }
 
-export interface FetchedSpec {
+export interface FetchedIntent {
   id: string;
   title: string;
   description: string;
@@ -14,7 +14,7 @@ export interface FetchedSpec {
   metadata?: Record<string, unknown>;
 }
 
-export interface SpecSourceConfig {
+export interface IntentSourceConfig {
   provider: string;
   apiKey?: string;
   team?: string;

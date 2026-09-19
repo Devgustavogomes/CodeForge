@@ -1,8 +1,8 @@
-import { FetchedSpec, SpecReference } from "../../domain/spec-source.js";
-import { ListSpecOptions } from "../../application/ports/SpecSource.js";
-import { BaseRemoteSpecSource } from "./BaseRemoteSpecSource.js";
+import { FetchedIntent, IntentReference } from "../../domain/intent-source.js";
+import { ListIntentOptions } from "../../application/ports/IntentSource.js";
+import { BaseRemoteIntentSource } from "./BaseRemoteIntentSource.js";
 
-export class ClickUpSpecSource extends BaseRemoteSpecSource {
+export class ClickUpIntentSource extends BaseRemoteIntentSource {
   readonly name = "clickup";
 
   /**
@@ -42,7 +42,7 @@ export class ClickUpSpecSource extends BaseRemoteSpecSource {
     return { taskId: trimmed.replace(/^#/, "") };
   }
 
-  async list(options?: ListSpecOptions): Promise<SpecReference[]> {
+  async list(options?: ListIntentOptions): Promise<IntentReference[]> {
     const apiKey = this.getApiKey("CLICKUP_API_KEY");
     const listId = (this.config?.listId || this.config?.project) as string | undefined;
     const teamId = (this.config?.teamId || this.config?.team) as string | undefined;
@@ -86,7 +86,7 @@ export class ClickUpSpecSource extends BaseRemoteSpecSource {
       };
 
       const tasks = data.tasks ?? [];
-      let references: SpecReference[] = tasks.map((task) => ({
+      let references: IntentReference[] = tasks.map((task) => ({
         id: task.custom_id || task.id,
         title: task.name,
         // The ClickUp tasks endpoint does not always populate `url`; build it as a fallback.
@@ -111,7 +111,7 @@ export class ClickUpSpecSource extends BaseRemoteSpecSource {
     }
   }
 
-  async fetch(id: string): Promise<FetchedSpec> {
+  async fetch(id: string): Promise<FetchedIntent> {
     const apiKey = this.getApiKey("CLICKUP_API_KEY");
     const { taskId, teamId: urlTeamId } = this.extractTaskInfo(id);
     const teamId = urlTeamId || ((this.config?.teamId || this.config?.team) as string | undefined);
