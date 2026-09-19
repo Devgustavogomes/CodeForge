@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { TerminalSchedulerReporter } from "../../../src/cli/ui/TerminalSchedulerReporter.js";
-import { StatusResult } from "../../../src/application/use-cases/GetSpecStatusUseCase.js";
+import { IntentStatusResult } from "../../../src/application/use-cases/GetIntentStatusUseCase.js";
 
 function createMockStream(isTTY = false) {
   let output = "";
@@ -14,10 +14,10 @@ function createMockStream(isTTY = false) {
   };
 }
 
-const mockStatusSnapshot: StatusResult = {
+const mockStatusSnapshot: IntentStatusResult = {
   kind: "status",
-  specName: "auth-spec",
-  specStatus: "running",
+  intentName: "auth-intent",
+  intentStatus: "running",
   tasks: [
     {
       id: "TASK-001",
@@ -65,15 +65,15 @@ describe("TerminalSchedulerReporter", () => {
       interactive: false,
     });
 
-    reporter.onStart("auth-spec");
+    reporter.onStart("auth-intent");
 
     currentTime = 6000; // 5 seconds elapsed
-    reporter.onUpdate("auth-spec");
+    reporter.onUpdate("auth-intent");
 
     const output = stream.getOutput();
 
     // Elapsed header
-    expect(output).toContain("Spec: auth-spec | Elapsed: 5s");
+    expect(output).toContain("Intent: auth-intent | Elapsed: 5s");
     // Progress bar
     expect(output).toContain("Progress: 1/4 tasks completed (25%)");
     expect(output).toContain("[█████░░░░░░░░░░░░░░░]");
@@ -94,7 +94,7 @@ describe("TerminalSchedulerReporter", () => {
     expect(output).toContain("Error: Unauthorized 401");
   });
 
-  it("supports GetSpecStatusUseCase object with execute method as getStatus", () => {
+  it("supports GetIntentStatusUseCase object with execute method as getStatus", () => {
     const stream = createMockStream(false);
     const mockUseCase = {
       execute: vi.fn().mockReturnValue(mockStatusSnapshot),
@@ -107,18 +107,18 @@ describe("TerminalSchedulerReporter", () => {
       interactive: false,
     });
 
-    reporter.onStart("auth-spec");
+    reporter.onStart("auth-intent");
 
-    expect(mockUseCase.execute).toHaveBeenCalledWith("auth-spec");
-    expect(stream.getOutput()).toContain("Spec: auth-spec | Elapsed: 0ms");
+    expect(mockUseCase.execute).toHaveBeenCalledWith("auth-intent");
+    expect(stream.getOutput()).toContain("Intent: auth-intent | Elapsed: 0ms");
   });
 
   it("renders onComplete with final snapshot and localized success message", () => {
     const stream = createMockStream(false);
     let currentTime = 1000;
-    const completedSnapshot: StatusResult = {
+    const completedSnapshot: IntentStatusResult = {
       ...mockStatusSnapshot,
-      specStatus: "completed",
+      intentStatus: "completed",
     };
 
     const reporter = new TerminalSchedulerReporter({
@@ -129,12 +129,12 @@ describe("TerminalSchedulerReporter", () => {
       interactive: false,
     });
 
-    reporter.onStart("auth-spec");
+    reporter.onStart("auth-intent");
     currentTime = 16000; // 15s elapsed
-    reporter.onComplete("auth-spec");
+    reporter.onComplete("auth-intent");
 
     const output = stream.getOutput();
-    expect(output).toContain("Execution of specification 'auth-spec' completed in 15s.");
+    expect(output).toContain("Execution of intent 'auth-intent' completed in 15s.");
   });
 
   it("renders onFail with final snapshot and localized failure message", () => {
@@ -148,12 +148,12 @@ describe("TerminalSchedulerReporter", () => {
       interactive: false,
     });
 
-    reporter.onStart("auth-spec");
+    reporter.onStart("auth-intent");
     currentTime = 12000; // 10s elapsed
-    reporter.onFail("auth-spec");
+    reporter.onFail("auth-intent");
 
     const output = stream.getOutput();
-    expect(output).toContain("Execution of specification 'auth-spec' failed after 10s.");
+    expect(output).toContain("Execution of intent 'auth-intent' failed after 10s.");
   });
 
   it("renders onDeadlock with final snapshot and localized deadlock message", () => {
@@ -166,12 +166,12 @@ describe("TerminalSchedulerReporter", () => {
       interactive: false,
     });
 
-    reporter.onStart("auth-spec");
-    reporter.onDeadlock("auth-spec");
+    reporter.onStart("auth-intent");
+    reporter.onDeadlock("auth-intent");
 
     const output = stream.getOutput();
     expect(output).toContain(
-      "Execution stopped because specification 'auth-spec' has a dependency deadlock.",
+      "Execution stopped because intent 'auth-intent' has a dependency deadlock.",
     );
   });
 
@@ -184,8 +184,8 @@ describe("TerminalSchedulerReporter", () => {
       interactive: false,
     });
 
-    reporter.onError(new Error("No tasks found for spec: empty-spec"));
-    expect(stream.getOutput()).toContain("No tasks found for specification 'empty-spec'.");
+    reporter.onError(new Error("No tasks found for intent: empty-intent"));
+    expect(stream.getOutput()).toContain("No tasks found for intent 'empty-intent'.");
 
     reporter.onError(new Error("Connection to runner timed out"));
     expect(stream.getOutput()).toContain("Execution error: Connection to runner timed out");
@@ -203,17 +203,18 @@ describe("TerminalSchedulerReporter", () => {
 
     expect(reporter.isCursorHidden()).toBe(false);
 
-    reporter.onStart("auth-spec");
+    reporter.onStart("auth-intent");
     // Cursor hidden
     expect(stream.write).toHaveBeenCalledWith("\x1b[?25l");
     expect(reporter.isCursorHidden()).toBe(true);
 
     // On update, cursor moves up and clears
-    reporter.onUpdate("auth-spec");
-    expect(stream.write).toHaveBeenCalledWith(expect.stringMatching(/\x1b\[\d+A\x1b\[0J/));
+    reporter.onUpdate("auth-intent");
+    const escape = String.fromCharCode(27);
+    expect(stream.write).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`${escape}\\[\\d+A${escape}\\[0J`)));
 
     // On complete, terminal is cleaned up and cursor restored
-    reporter.onComplete("auth-spec");
+    reporter.onComplete("auth-intent");
     expect(stream.write).toHaveBeenCalledWith("\x1b[?25h");
     expect(reporter.isCursorHidden()).toBe(false);
   });
@@ -228,14 +229,14 @@ describe("TerminalSchedulerReporter", () => {
       interactive: false,
     });
 
-    reporter.onStart("auth-spec");
-    reporter.onUpdate("auth-spec");
-    reporter.onComplete("auth-spec");
+    reporter.onStart("auth-intent");
+    reporter.onUpdate("auth-intent");
+    reporter.onComplete("auth-intent");
 
     const output = stream.getOutput();
     expect(output).not.toContain("\x1b[?25l");
     expect(output).not.toContain("\x1b[?25h");
-    expect(output).not.toMatch(/\x1b\[\d+A/);
+    expect(output).not.toMatch(new RegExp(`${String.fromCharCode(27)}\\[\\d+A`));
   });
 
   it("formats localized output in Portuguese and Spanish", () => {
@@ -249,14 +250,14 @@ describe("TerminalSchedulerReporter", () => {
       language: "pt",
     });
 
-    reporterPt.onStart("auth-spec");
-    reporterPt.onComplete("auth-spec");
+    reporterPt.onStart("auth-intent");
+    reporterPt.onComplete("auth-intent");
     const outputPt = streamPt.getOutput();
 
-    expect(outputPt).toContain("Spec: auth-spec | Tempo decorrido: 0ms");
+    expect(outputPt).toContain("Intent: auth-intent | Tempo decorrido: 0ms");
     expect(outputPt).toContain("Progresso: 1/4 tarefas concluídas (25%)");
     expect(outputPt).toContain("Resumo: 1 concluídas, 1 em execução, 1 com falha, 1 pendentes");
-    expect(outputPt).toContain("Execução da especificação 'auth-spec' concluída em 0ms.");
+    expect(outputPt).toContain("Execução da intenção 'auth-intent' concluída em 0ms.");
 
     const streamEs = createMockStream(false);
     const reporterEs = new TerminalSchedulerReporter({
@@ -268,12 +269,12 @@ describe("TerminalSchedulerReporter", () => {
       language: "es",
     });
 
-    reporterEs.onStart("auth-spec");
-    reporterEs.onFail("auth-spec");
+    reporterEs.onStart("auth-intent");
+    reporterEs.onFail("auth-intent");
     const outputEs = streamEs.getOutput();
 
-    expect(outputEs).toContain("Spec: auth-spec | Tiempo transcurrido: 0ms");
+    expect(outputEs).toContain("Intent: auth-intent | Tiempo transcurrido: 0ms");
     expect(outputEs).toContain("Progreso: 1/4 tareas completadas (25%)");
-    expect(outputEs).toContain("La ejecución de la especificación 'auth-spec' falló después de 0ms.");
+    expect(outputEs).toContain("La ejecución de la intención 'auth-intent' falló después de 0ms.");
   });
 });

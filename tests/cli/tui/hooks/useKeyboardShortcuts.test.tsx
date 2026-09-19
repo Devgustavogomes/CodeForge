@@ -11,10 +11,10 @@ import { flushAsync } from '../helpers/flushAsync.js';
 
 interface TestAppProps {
   shortcutsOptions?: UseKeyboardShortcutsOptions;
-  initialTab?: 'run' | 'specs' | 'tasks' | 'docs' | 'config';
+  initialTab?: 'run' | 'intents' | 'tasks' | 'docs' | 'config';
 }
 
-const TestApp: React.FC<TestAppProps> = ({ shortcutsOptions, initialTab = 'specs' }) => {
+const TestApp: React.FC<TestAppProps> = ({ shortcutsOptions, initialTab = 'intents' }) => {
   return (
     <NavigationProvider initialTab={initialTab}>
       <TestAppInner shortcutsOptions={shortcutsOptions} />
@@ -48,7 +48,7 @@ describe('useKeyboardShortcuts', () => {
     // Troca de aba via tecla numérica
     stdin.write('2');
     await flushAsync();
-    expect(lastFrame()).toContain('Tab:specs');
+    expect(lastFrame()).toContain('Tab:intents');
 
     // Atalho de quit via tecla 'q'
     stdin.write('q');

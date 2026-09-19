@@ -32,8 +32,8 @@ describe("ExecutionStateRepository", () => {
       mockTask("T2", "Task 2", ["T1"])
     ];
 
-    const state = repo.init("spec1", tasks);
-    expect(state.specId).toBe("spec1");
+    const state = repo.init("intent1", tasks);
+    expect(state.intentId).toBe("intent1");
     expect(state.status).toBe("running");
     expect(state.tasks["T1"].status).toBe("pending");
     expect(state.tasks["T2"].dependencies).toEqual(["T1"]);
@@ -44,17 +44,17 @@ describe("ExecutionStateRepository", () => {
       mockTask("T1", "Task 1", [])
     ];
     
-    const state = repo.init("spec1", tasks);
+    const state = repo.init("intent1", tasks);
     repo.save(state);
 
-    const loadedState = repo.load("spec1");
+    const loadedState = repo.load("intent1");
     expect(loadedState).not.toBeNull();
-    expect(loadedState?.specId).toBe("spec1");
+    expect(loadedState?.intentId).toBe("intent1");
     expect(loadedState?.tasks["T1"].status).toBe("pending");
   });
 
   it("should return null if loading non-existent state", () => {
-    const loadedState = repo.load("non-existent-spec");
+    const loadedState = repo.load("non-existent-intent");
     expect(loadedState).toBeNull();
   });
 });

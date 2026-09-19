@@ -52,13 +52,13 @@ describe('useTextInput hook', () => {
   it('3. submete o texto atual ao pressionar Enter', async () => {
     const onSubmit = vi.fn();
     const { stdin } = render(
-      <TestInputApp initialValue="spec-login" onSubmit={onSubmit} />
+      <TestInputApp initialValue="intent-login" onSubmit={onSubmit} />
     );
 
     stdin.write('\r');
     await flushAsync();
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith('spec-login');
+    expect(onSubmit).toHaveBeenCalledWith('intent-login');
   });
 });

@@ -34,7 +34,7 @@ describe('High-Throughput Stream Integration', () => {
       executionStateRepository: stateRepo,
     });
 
-    gw.mkdir('.codeforge/tasks/stream-spec');
+    gw.mkdir('.codeforge/tasks/stream-intent');
     const taskDefs: Task[] = [
       {
         id: 'TASK-001',
@@ -72,7 +72,7 @@ describe('High-Throughput Stream Integration', () => {
     ];
     for (const t of taskDefs) {
       gw.writeFile(
-        `.codeforge/tasks/stream-spec/${t.id}.json`,
+        `.codeforge/tasks/stream-intent/${t.id}.json`,
         JSON.stringify(t),
       );
     }
@@ -93,7 +93,7 @@ describe('High-Throughput Stream Integration', () => {
     const { frames, unmount } = renderWithProviders(<ContextCapture />, {
       container,
       scheduler,
-      initialSpec: 'stream-spec',
+      initialIntent: 'stream-intent',
       flushIntervalMs: 5,
     });
 

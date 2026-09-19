@@ -3,10 +3,11 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { GeneratePlanUseCase } from "../../src/application/use-cases/GeneratePlanUseCase.js";
 import { AgentRunner } from "../../src/runners/AgentRunner.js";
 import { CodeForgeConfig } from "../../src/config/types.js";
+import { PATHS } from "../../src/infrastructure/paths.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge");
-  gateway.mkdir(".codeforge/specs");
+  gateway.mkdir(PATHS.intentsDir);
   gateway.mkdir(".codeforge/rules");
   gateway.writeFile(".codeforge/metadata.json", JSON.stringify({ initialized: true }));
 }
@@ -34,15 +35,15 @@ describe("GeneratePlanUseCase", () => {
     expect(result.kind).toBe("not-initialized");
   });
 
-  it("returns specNotFound if spec does not exist", async () => {
+  it("returns intentNotFound if intent does not exist", async () => {
     makeWorkspace(gateway);
-    const result = await useCase.execute("missing-spec", "mock-planner");
-    expect(result.kind).toBe("spec-not-found");
+    const result = await useCase.execute("missing-intent", "mock-planner");
+    expect(result.kind).toBe("intent-not-found");
   });
 
   it("creates tasks folder, executes runner, and returns result", async () => {
     makeWorkspace(gateway);
-    gateway.writeFile(".codeforge/specs/auth.md", "AUTH SPEC");
+    gateway.writeFile(PATHS.intentFile("auth"), "AUTH INTENT");
     gateway.writeFile(".codeforge/rules/planning.md", "PLANNING RULES");
 
     // Mock runner creates a valid task file when executed

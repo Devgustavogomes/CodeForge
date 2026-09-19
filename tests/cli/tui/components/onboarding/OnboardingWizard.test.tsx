@@ -14,7 +14,7 @@ describe("OnboardingWizard - Hotkeys and Form Focus", () => {
     const { stdin, unmount } = renderWithProviders(
       <OnboardingWizard
         container={container}
-        initialState={{ currentStep: "spec_source" }}
+        initialState={{ currentStep: "intent_source" }}
         onComplete={() => {}}
         onExit={onExit}
       />,
@@ -33,14 +33,14 @@ describe("OnboardingWizard - Hotkeys and Form Focus", () => {
     const { lastFrame, stdin, unmount } = renderWithProviders(
       <OnboardingWizard
         container={container}
-        initialState={{ currentStep: "spec_source" }}
+        initialState={{ currentStep: "intent_source" }}
         onComplete={() => {}}
         onExit={onExit}
       />,
       { container },
     );
 
-    // Open remote connection form in SpecSourceStep by selecting GitHub (option 2)
+    // Open remote connection form in IntentSourceStep by selecting GitHub (option 2)
     stdin.write("2");
     await flushAsync();
     stdin.write("\r");

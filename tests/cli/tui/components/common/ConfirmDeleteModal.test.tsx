@@ -40,7 +40,7 @@ describe('ConfirmDeleteModal', () => {
     'includes the delete shortcut in every %s screen hint',
     (language) => {
       const hintKeys: TranslationKey[] = [
-        'tui_status_hints_specs',
+        'tui_status_hints_intents',
         'tui_status_hints_tasks',
         'tui_status_hints_docs',
       ];

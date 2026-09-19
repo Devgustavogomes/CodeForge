@@ -57,8 +57,8 @@ describe('interactive terminal rendering', () => {
 
       const gw = new InMemoryWorkspaceGateway();
       setupInitializedWorkspace(gw);
-      gw.mkdir('.codeforge/specs');
-      gw.writeFile('.codeforge/specs/rendering.md', '# Rendering regression');
+      gw.mkdir('.codeforge/intents');
+      gw.writeFile('.codeforge/intents/rendering.md', '# Rendering regression');
       gw.mkdir('.codeforge/tasks/rendering');
       gw.writeFile('.codeforge/tasks/rendering/TASK-001.json', JSON.stringify({
         id: 'TASK-001', title: 'Rendering regression', dependencies: [],
@@ -79,7 +79,7 @@ describe('interactive terminal rendering', () => {
       const originalIsTTY = process.stdout.isTTY;
       process.stdout.isTTY = false;
       const menu = runInteractiveMenu({
-        container, initialTab: 'run', initialSpec: 'rendering', autoStart: true,
+        container, initialTab: 'run', initialIntent: 'rendering', autoStart: true,
       });
 
       try {
@@ -103,7 +103,7 @@ describe('interactive terminal rendering', () => {
 
         stdout.chunks.length = 0;
         stdin.write('2');
-        await vi.waitFor(() => expect(stdout.chunks.join('')).toContain('Specifications'));
+        await vi.waitFor(() => expect(stdout.chunks.join('')).toContain('Intents'));
         await instance!.waitUntilRenderFlush();
         const tabUpdate = stdout.chunks.join('');
         expect(tabUpdate).not.toContain('\x1b[2K');

@@ -11,7 +11,7 @@ import {
 
 const manifestEntry = (name: string) => ({
   path: `.codeforge/docs/${name}.md`,
-  specs: [],
+  intents: [],
   scope: [],
   createdAt: '2026-09-06T10:00:00.000Z',
   updatedAt: '2026-09-06T12:00:00.000Z',
@@ -36,7 +36,7 @@ describe('DocsScreen component', () => {
     {
       name: 'architecture',
       path: '.codeforge/docs/architecture.md',
-      specs: ['.codeforge/specs/tui.md'],
+      intents: ['.codeforge/intents/tui.md'],
       scope: ['src/cli/tui/**'],
       createdAt: '2026-09-06T10:00:00.000Z',
       updatedAt: '2026-09-06T12:00:00.000Z',
@@ -46,7 +46,7 @@ describe('DocsScreen component', () => {
     {
       name: 'api-reference',
       path: '.codeforge/docs/api-reference.md',
-      specs: [],
+      intents: [],
       scope: [],
       createdAt: 'N/A',
       updatedAt: 'N/A',
@@ -73,7 +73,7 @@ describe('DocsScreen component', () => {
     expect(lastFrame() ?? '').toContain('Create Documentation');
     expect(lastFrame() ?? '').toContain('1. Document Name (slug):');
 
-    // Fill name and spec
+    // Fill name and intent
     stdin.write('database');
     await flushAsync();
     stdin.write('\t');

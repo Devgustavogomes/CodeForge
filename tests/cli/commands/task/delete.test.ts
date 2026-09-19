@@ -31,13 +31,13 @@ describe("task delete CLI command", () => {
   function setup(
     result: unknown = {
       kind: "deleted",
-      specName: "alpha",
+      intentName: "alpha",
       taskId: "TASK-001",
       cleanedDependenciesCount: 2,
     },
   ) {
     const deleteTaskUseCase = { execute: vi.fn().mockReturnValue(result) };
-    const listSpecsUseCase = {
+    const listIntentsUseCase = {
       execute: vi.fn().mockReturnValue([
         { name: "alpha", title: "Alpha" },
         { name: "beta", title: "Beta" },
@@ -57,7 +57,7 @@ describe("task delete CLI command", () => {
         loadConfig: vi.fn().mockReturnValue({ language: "en" }),
       },
       deleteTaskUseCase,
-      listSpecsUseCase,
+      listIntentsUseCase,
       taskOperationsUseCase,
     };
     vi.spyOn(containerModule, "createAppContainer").mockReturnValue(
@@ -66,7 +66,7 @@ describe("task delete CLI command", () => {
     return {
       container,
       deleteTaskUseCase,
-      listSpecsUseCase,
+      listIntentsUseCase,
       taskOperationsUseCase,
     };
   }
@@ -95,7 +95,7 @@ describe("task delete CLI command", () => {
     expect(process.exitCode).toBeUndefined();
   });
 
-  it("prompts for the specification before the task and displays ID/title", async () => {
+  it("prompts for the intent before the task and displays ID/title", async () => {
     const { deleteTaskUseCase, taskOperationsUseCase } = setup();
     vi.mocked(select)
       .mockResolvedValueOnce("alpha" as never)
@@ -133,7 +133,7 @@ describe("task delete CLI command", () => {
     );
   });
 
-  it("returns without deleting when Back is selected for the specification", async () => {
+  it("returns without deleting when Back is selected for the intent", async () => {
     const { deleteTaskUseCase, taskOperationsUseCase } = setup();
     vi.mocked(select).mockResolvedValue("back" as never);
 
@@ -203,7 +203,7 @@ describe("task delete CLI command", () => {
 
   it.each([
     ["not-initialized", "not initialized"],
-    ["spec-not-found", "Specification not found"],
+    ["intent-not-found", "Intent not found"],
     ["task-not-found", "Task not found"],
   ])("maps the %s result to a localized failure", async (kind, text) => {
     setup({ kind });
@@ -220,7 +220,7 @@ describe("task delete CLI command", () => {
   });
 
   it.each([
-    ["spec-not-found", "Specification not found"],
+    ["intent-not-found", "Intent not found"],
     ["no-tasks", "No tasks are available"],
   ])("maps the task-list %s result without deleting", async (kind, text) => {
     const { deleteTaskUseCase, taskOperationsUseCase } = setup();

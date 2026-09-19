@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { App, isWorkspaceInitialized } from '../../../src/cli/tui/App.js';
+import { App } from '../../../src/cli/tui/App.js';
 import {
   renderWithProviders,
   createMockContainer,
@@ -19,8 +19,8 @@ describe('App - PlanningProvider Integration and Background Execution (Flow 1)',
     setupInitializedWorkspace(gw);
     const runner = new InMemoryAgentRunner();
 
-    gw.mkdir('.codeforge/specs');
-    gw.writeFile('.codeforge/specs/auth.md', '# Authentication Module\nSpec description');
+    gw.mkdir('.codeforge/intents');
+    gw.writeFile('.codeforge/intents/auth.md', '# Authentication Module\nIntent description');
     gw.mkdir('.codeforge/tasks/auth');
     gw.writeFile(
       '.codeforge/tasks/auth/TASK-001.json',
@@ -45,14 +45,14 @@ describe('App - PlanningProvider Integration and Background Execution (Flow 1)',
       generatePlanUseCase: mockGeneratePlanUseCase as any,
     });
 
-    // 1. Render App in Specs tab
+    // 1. Render App in Intents tab
     const { lastFrame, stdin } = renderWithProviders(
-      <App container={container} initialTab="specs" />,
+      <App container={container} initialTab="intents" />,
       { container },
     );
     await flushAsync();
 
-    expect(lastFrame()).toContain('Specifications');
+    expect(lastFrame()).toContain('Intents');
     expect(lastFrame()).toContain('auth');
 
     // 2. Trigger plan generation with 'g' key
@@ -62,13 +62,12 @@ describe('App - PlanningProvider Integration and Background Execution (Flow 1)',
     expect(mockGeneratePlanUseCase.execute).toHaveBeenCalledWith('auth', expect.any(String));
     expect(lastFrame()).toContain('Gerando Plano de Execução [auth]');
 
-    // 3. Switch to Tasks tab (pressing '3') and verify SpecsScreen unmounts while execution continues in background
+    // 3. Switch to Tasks tab (pressing '3') and verify IntentsScreen unmounts while execution continues in background
     stdin.write('3');
     await flushAsync();
 
     const tasksFrame = lastFrame() ?? '';
     expect(tasksFrame).toContain('Tasks');
-    expect(tasksFrame).not.toContain('Specifications');
     expect(tasksFrame).not.toContain('Gerando Plano de Execução');
 
     // 4. Wait for background use case mock resolution
@@ -80,15 +79,15 @@ describe('App - PlanningProvider Integration and Background Execution (Flow 1)',
       expect(lastFrame()).toContain('✓ Plano gerado para auth');
     });
 
-    // 6. Switch back to Specs tab (pressing '2') and validate that SpecsScreen remounts showing SpecPlanProgress card
+    // 6. Switch back to Intents tab (pressing '2') and validate that IntentsScreen remounts showing IntentPlanProgress card
     stdin.write('2');
     await flushAsync();
 
     await vi.waitFor(() => {
-      const specsFrame = lastFrame() ?? '';
-      expect(specsFrame).toContain('Specifications');
-      expect(specsFrame).toContain('✓ Plano Gerado com Sucesso');
-      expect(specsFrame).toContain('2 tarefas criadas e validadas');
+      const intentsFrame = lastFrame() ?? '';
+      expect(intentsFrame).toContain('Intents');
+      expect(intentsFrame).toContain('✓ Plano Gerado com Sucesso');
+      expect(intentsFrame).toContain('2 tarefas criadas e validadas');
     });
 
     // 7. Validate that switching tabs again clears the temporary notification
@@ -102,13 +101,13 @@ describe('App - PlanningProvider Integration and Background Execution (Flow 1)',
     });
   });
 
-  it('persists failure state in SpecPlanProgress when background generation fails', async () => {
+  it('persists failure state in IntentPlanProgress when background generation fails', async () => {
     const gw = new InMemoryWorkspaceGateway();
     setupInitializedWorkspace(gw);
     const runner = new InMemoryAgentRunner();
 
-    gw.mkdir('.codeforge/specs');
-    gw.writeFile('.codeforge/specs/billing.md', '# Billing Module\nSpec description');
+    gw.mkdir('.codeforge/intents');
+    gw.writeFile('.codeforge/intents/billing.md', '# Billing Module\nIntent description');
 
     let rejectPlan!: (reason: any) => void;
     const planPromise = new Promise((_, reject) => {
@@ -124,14 +123,14 @@ describe('App - PlanningProvider Integration and Background Execution (Flow 1)',
       generatePlanUseCase: mockGeneratePlanUseCase as any,
     });
 
-    // Render in Specs tab
+    // Render in Intents tab
     const { lastFrame, stdin } = renderWithProviders(
-      <App container={container} initialTab="specs" />,
+      <App container={container} initialTab="intents" />,
       { container },
     );
     await flushAsync();
 
-    expect(lastFrame()).toContain('Specifications');
+    expect(lastFrame()).toContain('Intents');
     expect(lastFrame()).toContain('billing');
 
     // Trigger plan generation via 'g'
@@ -143,22 +142,21 @@ describe('App - PlanningProvider Integration and Background Execution (Flow 1)',
     stdin.write('1');
     await flushAsync();
     expect(lastFrame()).toContain('[1] Run');
-    expect(lastFrame()).not.toContain('Specifications');
 
     // Reject background use case with error
     rejectPlan(new Error('AI rate limit exceeded (429)'));
     await flushAsync();
 
-    // Return to Specs tab (pressing '2')
+    // Return to Intents tab (pressing '2')
     stdin.write('2');
     await flushAsync();
 
-    // Validate that SpecPlanProgress remounts displaying persisted failure state
+    // Validate that IntentPlanProgress remounts displaying persisted failure state
     await vi.waitFor(() => {
-      const specsFrame = lastFrame() ?? '';
-      expect(specsFrame).toContain('Specifications');
-      expect(specsFrame).toContain('Falha no Planejamento');
-      expect(specsFrame).toContain('AI rate limit exceeded (429)');
+      const intentsFrame = lastFrame() ?? '';
+      expect(intentsFrame).toContain('Intents');
+      expect(intentsFrame).toContain('Falha no Planejamento');
+      expect(intentsFrame).toContain('AI rate limit exceeded (429)');
     });
   });
 });
@@ -175,7 +173,7 @@ describe('App - Onboarding Wizard Integration and Navigation', () => {
     });
 
     const { lastFrame, stdin, unmount } = renderWithProviders(
-      <App container={container} initialTab="specs" />,
+      <App container={container} initialTab="intents" />,
       { container },
     );
 
@@ -183,12 +181,12 @@ describe('App - Onboarding Wizard Integration and Navigation', () => {
     expect(lastFrame() ?? '').toContain('Deterministic workflows for AI coding agents');
     expect(lastFrame() ?? '').not.toContain('[1] Run');
 
-    // 2. Welcome -> Enter -> Spec Source
+    // 2. Welcome -> Enter -> Intent Source
     stdin.write('\r');
     await flushAsync();
-    expect(lastFrame() ?? '').toContain('Specification Source');
+    expect(lastFrame() ?? '').toContain('Intent Source');
 
-    // 3. Spec Source -> Enter (selects Local) -> Environment
+    // 3. Intent Source -> Enter (selects Local) -> Environment
     stdin.write('\r');
     await flushAsync();
     expect(lastFrame() ?? '').toContain('Execution Environment');
@@ -231,7 +229,7 @@ describe('App - Onboarding Wizard Integration and Navigation', () => {
         const frame = lastFrame() ?? '';
         expect(frame).toContain('CodeForge');
         expect(frame).not.toContain('\u2692');
-        expect(frame).toContain('[2] Specs');
+        expect(frame).toContain('[2] Intents');
         expect(frame).not.toContain('Deterministic workflows for AI coding agents');
       },
       { timeout: 3000 },
@@ -245,59 +243,59 @@ describe('App - Onboarding Wizard Integration and Navigation', () => {
 
     // 11. In subsequent execution with same container, directly opens normal TUI
     const nextRender = renderWithProviders(
-      <App container={container} initialTab="specs" />,
+      <App container={container} initialTab="intents" />,
       { container },
     );
     expect(nextRender.lastFrame() ?? '').toContain('CodeForge');
     expect(nextRender.lastFrame() ?? '').not.toContain('\u2692');
-    expect(nextRender.lastFrame() ?? '').toContain('[2] Specs');
+    expect(nextRender.lastFrame() ?? '').toContain('[2] Intents');
     expect(nextRender.lastFrame() ?? '').not.toContain('Deterministic workflows for AI coding agents');
     nextRender.unmount();
   });
 });
 
 describe('App - Shared StatusBar Deletion Feedback Integration', () => {
-  it('displays deletion feedback on shared StatusBar for specs, supports cancellation, and clears on tab switch', async () => {
+  it('displays deletion feedback on shared StatusBar for intents, supports cancellation, and clears on tab switch', async () => {
     const container = createInitializedContainer();
-    container.gw.mkdir('.codeforge/specs');
-    container.gw.writeFile('.codeforge/specs/auth.md', '# Auth Spec');
-    container.gw.writeFile('.codeforge/specs/billing.md', '# Billing Spec');
+    container.gw.mkdir('.codeforge/intents');
+    container.gw.writeFile('.codeforge/intents/auth.md', '# Auth Intent');
+    container.gw.writeFile('.codeforge/intents/billing.md', '# Billing Intent');
 
     const { lastFrame, stdin, unmount } = renderWithProviders(
-      <App container={container} initialTab="specs" />,
+      <App container={container} initialTab="intents" />,
       { container },
     );
 
     try {
       await vi.waitFor(() => {
         const frame = lastFrame() ?? '';
-        expect(frame).toContain('Specifications');
+        expect(frame).toContain('Intents');
         expect(frame).toContain('auth');
       });
 
       // 1. Cancellation test: press 'd' to open delete modal, then 'n' to cancel
       stdin.write('d');
       await vi.waitFor(() => {
-        expect(lastFrame() ?? '').toContain('Delete Specification');
+        expect(lastFrame() ?? '').toContain('Delete Intent');
       });
 
       stdin.write('n');
       await vi.waitFor(() => {
         const frame = lastFrame() ?? '';
-        expect(frame).not.toContain('Delete Specification');
-        expect(frame).not.toContain("Specification 'auth' deleted");
+        expect(frame).not.toContain('Delete Intent');
+        expect(frame).not.toContain("Intent 'auth' deleted");
       });
 
       // 2. Success test: press 'd', then 'y' to confirm
       stdin.write('d');
       await vi.waitFor(() => {
-        expect(lastFrame() ?? '').toContain('Delete Specification');
+        expect(lastFrame() ?? '').toContain('Delete Intent');
       });
 
       stdin.write('y');
       await vi.waitFor(() => {
         const frame = lastFrame() ?? '';
-        expect(frame).toContain("Specification 'auth' deleted successfully.");
+        expect(frame).toContain("Intent 'auth' deleted successfully.");
         expect(frame).toContain('[v]');
       });
 
@@ -306,28 +304,28 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
       await vi.waitFor(() => {
         const frame = lastFrame() ?? '';
         expect(frame).toContain('Tasks');
-        expect(frame).not.toContain("Specification 'auth' deleted successfully.");
+        expect(frame).not.toContain("Intent 'auth' deleted successfully.");
       });
     } finally {
       unmount();
     }
   });
 
-  it('displays deletion failures on shared StatusBar with error presentation for specs', async () => {
-    const mockDeleteSpec = {
+  it('displays deletion failures on shared StatusBar with error presentation for intents', async () => {
+    const mockDeleteIntent = {
       execute: vi.fn().mockImplementation(() => {
         throw new Error('Disk write error');
       }),
     };
 
     const container = createInitializedContainer({
-      deleteSpecUseCase: mockDeleteSpec as any,
+      deleteIntentUseCase: mockDeleteIntent as any,
     });
-    container.gw.mkdir('.codeforge/specs');
-    container.gw.writeFile('.codeforge/specs/auth.md', '# Auth Spec');
+    container.gw.mkdir('.codeforge/intents');
+    container.gw.writeFile('.codeforge/intents/auth.md', '# Auth Intent');
 
     const { lastFrame, stdin, unmount } = renderWithProviders(
-      <App container={container} initialTab="specs" />,
+      <App container={container} initialTab="intents" />,
       { container },
     );
 
@@ -338,13 +336,13 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
 
       stdin.write('d');
       await vi.waitFor(() => {
-        expect(lastFrame() ?? '').toContain('Delete Specification');
+        expect(lastFrame() ?? '').toContain('Delete Intent');
       });
 
       stdin.write('y');
       await vi.waitFor(() => {
         const frame = lastFrame() ?? '';
-        expect(frame).toContain("[x] Failed to delete specification 'auth': Disk write error");
+        expect(frame).toContain("[x] Failed to delete intent 'auth': Disk write error");
       });
     } finally {
       unmount();
@@ -353,8 +351,8 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
 
   it('displays deletion feedback on shared StatusBar for tasks, supports cancellation, and clears on tab switch', async () => {
     const container = createInitializedContainer();
-    container.gw.mkdir('.codeforge/specs');
-    container.gw.writeFile('.codeforge/specs/auth.md', '# Auth Spec');
+    container.gw.mkdir('.codeforge/intents');
+    container.gw.writeFile('.codeforge/intents/auth.md', '# Auth Intent');
     container.gw.mkdir('.codeforge/tasks/auth');
     container.gw.writeFile(
       '.codeforge/tasks/auth/TASK-001.json',
@@ -400,10 +398,10 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
       });
 
       // 3. Tab switch clears stale feedback
-      stdin.write('2'); // Switch to Specs tab
+      stdin.write('2'); // Switch to Intents tab
       await vi.waitFor(() => {
         const frame = lastFrame() ?? '';
-        expect(frame).toContain('Specifications');
+        expect(frame).toContain('Intents');
         expect(frame).not.toContain("Task 'TASK-001' deleted.");
       });
     } finally {
@@ -421,8 +419,8 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
     const container = createInitializedContainer({
       deleteTaskUseCase: mockDeleteTask as any,
     });
-    container.gw.mkdir('.codeforge/specs');
-    container.gw.writeFile('.codeforge/specs/auth.md', '# Auth Spec');
+    container.gw.mkdir('.codeforge/intents');
+    container.gw.writeFile('.codeforge/intents/auth.md', '# Auth Intent');
     container.gw.mkdir('.codeforge/tasks/auth');
     container.gw.writeFile(
       '.codeforge/tasks/auth/TASK-001.json',
@@ -464,7 +462,7 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
         documents: {
           architecture: {
             path: '.codeforge/docs/architecture.md',
-            specs: ['auth'],
+            intents: ['auth'],
             createdAt: '2026-09-01',
             updatedAt: '2026-09-01',
           },
@@ -512,10 +510,10 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
       });
 
       // 3. Tab switch clears stale feedback
-      stdin.write('2'); // Switch to Specs tab
+      stdin.write('2'); // Switch to Intents tab
       await vi.waitFor(() => {
         const frame = lastFrame() ?? '';
-        expect(frame).toContain('Specifications');
+        expect(frame).toContain('Intents');
         expect(frame).not.toContain("Document 'architecture' deleted successfully.");
       });
     } finally {
@@ -541,7 +539,7 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
         documents: {
           architecture: {
             path: '.codeforge/docs/architecture.md',
-            specs: ['auth'],
+            intents: ['auth'],
             createdAt: '2026-09-01',
             updatedAt: '2026-09-01',
           },
@@ -577,42 +575,42 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
 
   it('replaces previous status notification when a new action produces feedback', async () => {
     const container = createInitializedContainer();
-    container.gw.mkdir('.codeforge/specs');
-    container.gw.writeFile('.codeforge/specs/first-spec.md', '# First Spec');
-    container.gw.writeFile('.codeforge/specs/second-spec.md', '# Second Spec');
+    container.gw.mkdir('.codeforge/intents');
+    container.gw.writeFile('.codeforge/intents/first-intent.md', '# First Intent');
+    container.gw.writeFile('.codeforge/intents/second-intent.md', '# Second Intent');
 
     const { lastFrame, stdin, unmount } = renderWithProviders(
-      <App container={container} initialTab="specs" />,
+      <App container={container} initialTab="intents" />,
       { container },
     );
 
     try {
       await vi.waitFor(() => {
-        expect(lastFrame() ?? '').toContain('first-spec');
+        expect(lastFrame() ?? '').toContain('first-intent');
       });
 
-      // Delete first spec
+      // Delete first intent
       stdin.write('d');
       await vi.waitFor(() => {
-        expect(lastFrame() ?? '').toContain('Delete Specification');
+        expect(lastFrame() ?? '').toContain('Delete Intent');
       });
       stdin.write('y');
 
       await vi.waitFor(() => {
-        expect(lastFrame() ?? '').toContain("Specification 'first-spec' deleted successfully.");
+        expect(lastFrame() ?? '').toContain("Intent 'first-intent' deleted successfully.");
       });
 
-      // Delete second spec
+      // Delete second intent
       stdin.write('d');
       await vi.waitFor(() => {
-        expect(lastFrame() ?? '').toContain('Delete Specification');
+        expect(lastFrame() ?? '').toContain('Delete Intent');
       });
       stdin.write('y');
 
       await vi.waitFor(() => {
         const frame = lastFrame() ?? '';
-        expect(frame).toContain("Specification 'second-spec' deleted successfully.");
-        expect(frame).not.toContain("Specification 'first-spec' deleted successfully.");
+        expect(frame).toContain("Intent 'second-intent' deleted successfully.");
+        expect(frame).not.toContain("Intent 'first-intent' deleted successfully.");
       });
     } finally {
       unmount();

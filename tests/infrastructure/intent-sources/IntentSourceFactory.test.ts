@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SpecSourceFactory } from "../../../src/infrastructure/spec-sources/SpecSourceFactory.js";
-import { FilesystemSpecSource } from "../../../src/infrastructure/spec-sources/FilesystemSpecSource.js";
-import { LinearSpecSource } from "../../../src/infrastructure/spec-sources/LinearSpecSource.js";
-import { GitHubSpecSource } from "../../../src/infrastructure/spec-sources/GitHubSpecSource.js";
-import { ClickUpSpecSource } from "../../../src/infrastructure/spec-sources/ClickUpSpecSource.js";
+import { IntentSourceFactory } from "../../../src/infrastructure/intent-sources/IntentSourceFactory.js";
+import { FilesystemIntentSource } from "../../../src/infrastructure/intent-sources/FilesystemIntentSource.js";
+import { LinearIntentSource } from "../../../src/infrastructure/intent-sources/LinearIntentSource.js";
+import { GitHubIntentSource } from "../../../src/infrastructure/intent-sources/GitHubIntentSource.js";
+import { ClickUpIntentSource } from "../../../src/infrastructure/intent-sources/ClickUpIntentSource.js";
 import { InMemoryWorkspaceGateway } from "../../helpers/in-memory-workspace.js";
 
-describe("SpecSourceFactory", () => {
+describe("IntentSourceFactory", () => {
   it("returns the list of available providers", () => {
-    expect(SpecSourceFactory.getAvailableProviders()).toEqual([
+    expect(IntentSourceFactory.getAvailableProviders()).toEqual([
       "filesystem",
       "linear",
       "github",
@@ -16,72 +16,72 @@ describe("SpecSourceFactory", () => {
     ]);
   });
 
-  it("instantiates FilesystemSpecSource", () => {
-    const source = SpecSourceFactory.create("filesystem");
-    expect(source).toBeInstanceOf(FilesystemSpecSource);
+  it("instantiates FilesystemIntentSource", () => {
+    const source = IntentSourceFactory.create("filesystem");
+    expect(source).toBeInstanceOf(FilesystemIntentSource);
     expect(source.name).toBe("filesystem");
   });
 
-  it("instantiates LinearSpecSource", () => {
-    const source = SpecSourceFactory.create("linear");
-    expect(source).toBeInstanceOf(LinearSpecSource);
+  it("instantiates LinearIntentSource", () => {
+    const source = IntentSourceFactory.create("linear");
+    expect(source).toBeInstanceOf(LinearIntentSource);
     expect(source.name).toBe("linear");
   });
 
-  it("instantiates GitHubSpecSource", () => {
-    const source = SpecSourceFactory.create("github");
-    expect(source).toBeInstanceOf(GitHubSpecSource);
+  it("instantiates GitHubIntentSource", () => {
+    const source = IntentSourceFactory.create("github");
+    expect(source).toBeInstanceOf(GitHubIntentSource);
     expect(source.name).toBe("github");
   });
 
-  it("instantiates ClickUpSpecSource", () => {
-    const source = SpecSourceFactory.create("clickup");
-    expect(source).toBeInstanceOf(ClickUpSpecSource);
+  it("instantiates ClickUpIntentSource", () => {
+    const source = IntentSourceFactory.create("clickup");
+    expect(source).toBeInstanceOf(ClickUpIntentSource);
     expect(source.name).toBe("clickup");
   });
 
   it("handles case-insensitive provider names", () => {
-    expect(SpecSourceFactory.create("FILESYSTEM")).toBeInstanceOf(FilesystemSpecSource);
-    expect(SpecSourceFactory.create("Linear")).toBeInstanceOf(LinearSpecSource);
-    expect(SpecSourceFactory.create("GitHub")).toBeInstanceOf(GitHubSpecSource);
-    expect(SpecSourceFactory.create("CLICKUP")).toBeInstanceOf(ClickUpSpecSource);
+    expect(IntentSourceFactory.create("FILESYSTEM")).toBeInstanceOf(FilesystemIntentSource);
+    expect(IntentSourceFactory.create("Linear")).toBeInstanceOf(LinearIntentSource);
+    expect(IntentSourceFactory.create("GitHub")).toBeInstanceOf(GitHubIntentSource);
+    expect(IntentSourceFactory.create("CLICKUP")).toBeInstanceOf(ClickUpIntentSource);
   });
 
   it("throws descriptive error for unsupported provider", () => {
-    expect(() => SpecSourceFactory.create("jira")).toThrow(
-      "Unsupported spec source provider: jira"
+    expect(() => IntentSourceFactory.create("jira")).toThrow(
+      "Unsupported intent source provider: jira"
     );
   });
 
   it("returns correct default env variable for each provider", () => {
-    expect(SpecSourceFactory.getDefaultEnvVar("github")).toBe("GITHUB_TOKEN");
-    expect(SpecSourceFactory.getDefaultEnvVar("linear")).toBe("LINEAR_API_KEY");
-    expect(SpecSourceFactory.getDefaultEnvVar("clickup")).toBe("CLICKUP_API_KEY");
-    expect(SpecSourceFactory.getDefaultEnvVar("filesystem")).toBe("");
-    expect(SpecSourceFactory.getDefaultEnvVar("unknown")).toBe("");
+    expect(IntentSourceFactory.getDefaultEnvVar("github")).toBe("GITHUB_TOKEN");
+    expect(IntentSourceFactory.getDefaultEnvVar("linear")).toBe("LINEAR_API_KEY");
+    expect(IntentSourceFactory.getDefaultEnvVar("clickup")).toBe("CLICKUP_API_KEY");
+    expect(IntentSourceFactory.getDefaultEnvVar("filesystem")).toBe("");
+    expect(IntentSourceFactory.getDefaultEnvVar("unknown")).toBe("");
   });
 
   it("returns correct default apiKey ($VAR) for each provider", () => {
-    expect(SpecSourceFactory.getDefaultApiKey("github")).toBe("$GITHUB_TOKEN");
-    expect(SpecSourceFactory.getDefaultApiKey("linear")).toBe("$LINEAR_API_KEY");
-    expect(SpecSourceFactory.getDefaultApiKey("clickup")).toBe("$CLICKUP_API_KEY");
-    expect(SpecSourceFactory.getDefaultApiKey("filesystem")).toBe("");
-    expect(SpecSourceFactory.getDefaultApiKey("unknown")).toBe("");
+    expect(IntentSourceFactory.getDefaultApiKey("github")).toBe("$GITHUB_TOKEN");
+    expect(IntentSourceFactory.getDefaultApiKey("linear")).toBe("$LINEAR_API_KEY");
+    expect(IntentSourceFactory.getDefaultApiKey("clickup")).toBe("$CLICKUP_API_KEY");
+    expect(IntentSourceFactory.getDefaultApiKey("filesystem")).toBe("");
+    expect(IntentSourceFactory.getDefaultApiKey("unknown")).toBe("");
   });
 });
 
-describe("FilesystemSpecSource", () => {
-  it("lists existing specs and extracts titles", async () => {
+describe("FilesystemIntentSource", () => {
+  it("lists existing intents and extracts titles", async () => {
     const gateway = new InMemoryWorkspaceGateway({
-      ".codeforge/specs/login.md": "# User Login\n\nLogin details",
-      ".codeforge/specs/signup.md": "# User Signup\n\nSignup details",
-      ".codeforge/specs/not-a-spec.txt": "ignore me",
+      ".codeforge/intents/login.md": "# User Login\n\nLogin details",
+      ".codeforge/intents/signup.md": "# User Signup\n\nSignup details",
+      ".codeforge/intents/not-an-intent.txt": "ignore me",
     });
 
-    const source = new FilesystemSpecSource(undefined, gateway);
-    const specs = await source.list();
+    const source = new FilesystemIntentSource(undefined, gateway);
+    const intents = await source.list();
 
-    expect(specs).toEqual([
+    expect(intents).toEqual([
       { id: "login", title: "User Login" },
       { id: "signup", title: "User Signup" },
     ]);
@@ -89,51 +89,51 @@ describe("FilesystemSpecSource", () => {
 
   it("respects options.limit in list", async () => {
     const gateway = new InMemoryWorkspaceGateway({
-      ".codeforge/specs/a.md": "# Spec A",
-      ".codeforge/specs/b.md": "# Spec B",
-      ".codeforge/specs/c.md": "# Spec C",
+      ".codeforge/intents/a.md": "# Intent A",
+      ".codeforge/intents/b.md": "# Intent B",
+      ".codeforge/intents/c.md": "# Intent C",
     });
 
-    const source = new FilesystemSpecSource(undefined, gateway);
-    const specs = await source.list({ limit: 2 });
+    const source = new FilesystemIntentSource(undefined, gateway);
+    const intents = await source.list({ limit: 2 });
 
-    expect(specs).toHaveLength(2);
-    expect(specs[0].id).toBe("a");
-    expect(specs[1].id).toBe("b");
+    expect(intents).toHaveLength(2);
+    expect(intents[0].id).toBe("a");
+    expect(intents[1].id).toBe("b");
   });
 
-  it("returns empty array if specs directory does not exist", async () => {
+  it("returns empty array if intents directory does not exist", async () => {
     const gateway = new InMemoryWorkspaceGateway({});
-    const source = new FilesystemSpecSource(undefined, gateway);
-    const specs = await source.list();
+    const source = new FilesystemIntentSource(undefined, gateway);
+    const intents = await source.list();
 
-    expect(specs).toEqual([]);
+    expect(intents).toEqual([]);
   });
 
-  it("fetches local spec content", async () => {
+  it("fetches local intent content", async () => {
     const gateway = new InMemoryWorkspaceGateway({
-      ".codeforge/specs/feature-x.md": "# Feature X\n\nThis is the description.",
+      ".codeforge/intents/feature-x.md": "# Feature X\n\nThis is the description.",
     });
 
-    const source = new FilesystemSpecSource(undefined, gateway);
-    const spec = await source.fetch("feature-x");
+    const source = new FilesystemIntentSource(undefined, gateway);
+    const intent = await source.fetch("feature-x");
 
-    expect(spec.id).toBe("feature-x");
-    expect(spec.title).toBe("Feature X");
-    expect(spec.description).toBe("This is the description.");
+    expect(intent.id).toBe("feature-x");
+    expect(intent.title).toBe("Feature X");
+    expect(intent.description).toBe("This is the description.");
   });
 
-  it("throws friendly error when fetching non-existent local spec", async () => {
+  it("throws friendly error when fetching non-existent local intent", async () => {
     const gateway = new InMemoryWorkspaceGateway({});
-    const source = new FilesystemSpecSource(undefined, gateway);
+    const source = new FilesystemIntentSource(undefined, gateway);
 
-    await expect(source.fetch("missing-spec")).rejects.toThrow(
-      /Local spec "missing-spec" not found.*filesystem provider operates directly on local files/
+    await expect(source.fetch("missing-intent")).rejects.toThrow(
+      /Local intent "missing-intent" not found.*filesystem provider operates directly on local files/
     );
   });
 });
 
-describe("LinearSpecSource", () => {
+describe("LinearIntentSource", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -147,7 +147,7 @@ describe("LinearSpecSource", () => {
 
   it("throws error when API key is missing", async () => {
     delete process.env.LINEAR_API_KEY;
-    const source = new LinearSpecSource();
+    const source = new LinearIntentSource();
 
     await expect(source.list()).rejects.toThrow(
       "Linear API key not found. Please set the LINEAR_API_KEY environment variable"
@@ -172,7 +172,7 @@ describe("LinearSpecSource", () => {
       }),
     } as Response);
 
-    const source = new LinearSpecSource({ provider: "linear", apiKey: "direct-api-token" });
+    const source = new LinearIntentSource({ provider: "linear", apiKey: "direct-api-token" });
     const result = await source.fetch("ENG-101");
 
     expect(result.id).toBe("ENG-101");
@@ -203,7 +203,7 @@ describe("LinearSpecSource", () => {
       }),
     } as Response);
 
-    const source = new LinearSpecSource();
+    const source = new LinearIntentSource();
     const result = await source.list();
 
     expect(result).toEqual([
@@ -232,7 +232,7 @@ describe("LinearSpecSource", () => {
       }),
     } as Response);
 
-    const source = new LinearSpecSource();
+    const source = new LinearIntentSource();
     const result = await source.fetch("ENG-100");
 
     expect(result).toEqual({
@@ -258,12 +258,12 @@ describe("LinearSpecSource", () => {
       }),
     } as Response);
 
-    const source = new LinearSpecSource();
+    const source = new LinearIntentSource();
     await expect(source.fetch("ENG-999")).rejects.toThrow('Linear issue "ENG-999" not found.');
   });
 });
 
-describe("GitHubSpecSource", () => {
+describe("GitHubIntentSource", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -277,7 +277,7 @@ describe("GitHubSpecSource", () => {
 
   it("throws error when GitHub token is missing", async () => {
     delete process.env.GITHUB_TOKEN;
-    const source = new GitHubSpecSource({ provider: "github", project: "org/repo" });
+    const source = new GitHubIntentSource({ provider: "github", project: "org/repo" });
 
     await expect(source.list()).rejects.toThrow(
       "GitHub token not found. Please set the GITHUB_TOKEN environment variable"
@@ -286,7 +286,7 @@ describe("GitHubSpecSource", () => {
 
   it("throws error when repository is not configured", async () => {
     process.env.GITHUB_TOKEN = "dummy-token";
-    const source = new GitHubSpecSource({ provider: "github" });
+    const source = new GitHubIntentSource({ provider: "github" });
 
     await expect(source.list()).rejects.toThrow(
       "GitHub repository not configured"
@@ -304,7 +304,7 @@ describe("GitHubSpecSource", () => {
       ],
     } as Response);
 
-    const source = new GitHubSpecSource({ provider: "github", project: "org/repo" });
+    const source = new GitHubIntentSource({ provider: "github", project: "org/repo" });
     const result = await source.list();
 
     expect(result).toEqual([
@@ -320,21 +320,21 @@ describe("GitHubSpecSource", () => {
       status: 200,
       json: async () => ({
         number: 42,
-        title: "Feature spec",
-        body: "Spec content",
+        title: "Feature intent",
+        body: "Intent content",
         html_url: "https://github.com/org/repo/issues/42",
         state: "open",
         user: { login: "octocat" },
       }),
     } as Response);
 
-    const source = new GitHubSpecSource({ provider: "github", project: "org/repo" });
+    const source = new GitHubIntentSource({ provider: "github", project: "org/repo" });
     const result = await source.fetch("42");
 
     expect(result).toEqual({
       id: "42",
-      title: "Feature spec",
-      description: "Spec content",
+      title: "Feature intent",
+      description: "Intent content",
       url: "https://github.com/org/repo/issues/42",
       metadata: {
         status: "open",
@@ -354,12 +354,12 @@ describe("GitHubSpecSource", () => {
       statusText: "Not Found",
     } as Response);
 
-    const source = new GitHubSpecSource({ provider: "github", project: "org/repo" });
+    const source = new GitHubIntentSource({ provider: "github", project: "org/repo" });
     await expect(source.fetch("999")).rejects.toThrow("GitHub issue #999 not found in org/repo.");
   });
 });
 
-describe("ClickUpSpecSource", () => {
+describe("ClickUpIntentSource", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -373,7 +373,7 @@ describe("ClickUpSpecSource", () => {
 
   it("throws error when ClickUp API key is missing", async () => {
     delete process.env.CLICKUP_API_KEY;
-    const source = new ClickUpSpecSource({ provider: "clickup", project: "list123" });
+    const source = new ClickUpIntentSource({ provider: "clickup", project: "list123" });
 
     await expect(source.list()).rejects.toThrow(
       "ClickUp API key not found. Please set the CLICKUP_API_KEY environment variable"
@@ -382,7 +382,7 @@ describe("ClickUpSpecSource", () => {
 
   it("throws error when list or team ID is not specified", async () => {
     process.env.CLICKUP_API_KEY = "dummy-key";
-    const source = new ClickUpSpecSource({ provider: "clickup" });
+    const source = new ClickUpIntentSource({ provider: "clickup" });
 
     await expect(source.list()).rejects.toThrow(
       "ClickUp list or team ID not specified"
@@ -401,7 +401,7 @@ describe("ClickUpSpecSource", () => {
       }),
     } as Response);
 
-    const source = new ClickUpSpecSource({ provider: "clickup", project: "list123" });
+    const source = new ClickUpIntentSource({ provider: "clickup", project: "list123" });
     const result = await source.list();
 
     expect(result).toEqual([
@@ -427,7 +427,7 @@ describe("ClickUpSpecSource", () => {
       }),
     } as Response);
 
-    const source = new ClickUpSpecSource({ provider: "clickup" });
+    const source = new ClickUpIntentSource({ provider: "clickup" });
     const result = await source.fetch("task1");
 
     expect(result).toEqual({
@@ -452,7 +452,7 @@ describe("ClickUpSpecSource", () => {
       statusText: "Not Found",
     } as Response);
 
-    const source = new ClickUpSpecSource({ provider: "clickup" });
+    const source = new ClickUpIntentSource({ provider: "clickup" });
     await expect(source.fetch("missing")).rejects.toThrow('ClickUp task "missing" not found.');
   });
 });

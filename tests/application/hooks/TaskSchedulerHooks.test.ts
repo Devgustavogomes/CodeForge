@@ -53,8 +53,8 @@ describe("TaskScheduler hook dispatch", () => {
     gw = new InMemoryWorkspaceGateway();
     hooks = new RecordingHookDispatcher();
     exitCode = process.exitCode;
-    gw.mkdir(".codeforge/tasks/spec");
-    gw.writeFile(".codeforge/specs/spec.md", "# spec");
+    gw.mkdir(".codeforge/tasks/intent");
+    gw.writeFile(".codeforge/intents/intent.md", "# intent");
   });
 
   afterEach(() => {
@@ -74,14 +74,14 @@ describe("TaskScheduler hook dispatch", () => {
   }
 
   function writeTask(task: Task): void {
-    gw.writeFile(`.codeforge/tasks/spec/${task.id}.json`, JSON.stringify(task));
+    gw.writeFile(`.codeforge/tasks/intent/${task.id}.json`, JSON.stringify(task));
   }
 
   it("announces the run and the task around a successful execution", async () => {
     writeTask(taskFixture());
     const runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
 
-    await schedulerFor(runner).run("spec");
+    await schedulerFor(runner).run("intent");
 
     expect(hooks.events()).toEqual([
       "run.started",
@@ -92,18 +92,21 @@ describe("TaskScheduler hook dispatch", () => {
     ]);
   });
 
-  it("names the spec and the task on every context", async () => {
+  it("names the intent and the task on every context", async () => {
     writeTask(taskFixture());
     const runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
 
-    await schedulerFor(runner).run("spec");
+    await schedulerFor(runner).run("intent");
 
     const started = hooks.contexts.find((c) => c.event === "task.started");
-    expect(started).toEqual({ event: "task.started", specName: "spec", taskId: "TASK-001" });
-    expect(hooks.contexts.find((c) => c.event === "run.started")).toEqual({
+    expect(started).toEqual({ event: "task.started", intentName: "intent", taskId: "TASK-001" });
+    expect(started?.intentName).toBe("intent");
+    const runStarted = hooks.contexts.find((c) => c.event === "run.started");
+    expect(runStarted).toEqual({
       event: "run.started",
-      specName: "spec",
+      intentName: "intent",
     });
+    expect(runStarted?.intentName).toBe("intent");
   });
 
   it("reports a failed task with the diagnostics that were recorded for it", async () => {
@@ -112,7 +115,7 @@ describe("TaskScheduler hook dispatch", () => {
       execute: vi.fn().mockRejectedValue(new Error("agent exploded")),
     } as unknown as AgentRunner;
 
-    await schedulerFor(runner).run("spec");
+    await schedulerFor(runner).run("intent");
 
     expect(hooks.events()).toEqual([
       "run.started",
@@ -129,7 +132,7 @@ describe("TaskScheduler hook dispatch", () => {
     writeTask(taskFixture({ dependencies: ["TASK-999"] }));
     const runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
 
-    await schedulerFor(runner).run("spec");
+    await schedulerFor(runner).run("intent");
 
     expect(hooks.events()).toEqual(["run.started", "run.deadlock"]);
     expect(runner.execute).not.toHaveBeenCalled();
@@ -140,7 +143,7 @@ describe("TaskScheduler hook dispatch", () => {
     writeTask(taskFixture({ id: "TASK-002", dependencies: ["TASK-001"] }));
     const runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
 
-    await schedulerFor(runner).run("spec");
+    await schedulerFor(runner).run("intent");
 
     expect(hooks.contexts.filter((c) => c.event === "task.completed").map((c) => c.taskId))
       .toEqual(["TASK-001", "TASK-002"]);
@@ -150,10 +153,10 @@ describe("TaskScheduler hook dispatch", () => {
     writeTask(taskFixture());
     const runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
 
-    await schedulerFor(runner, false).run("spec");
+    await schedulerFor(runner, false).run("intent");
 
     expect(runner.execute).toHaveBeenCalledTimes(1);
     expect(hooks.contexts).toEqual([]);
-    expect(new ExecutionStateRepository(gw).load("spec")?.status).toBe("completed");
+    expect(new ExecutionStateRepository(gw).load("intent")?.status).toBe("completed");
   });
 });

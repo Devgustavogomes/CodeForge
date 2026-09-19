@@ -25,7 +25,7 @@ function createContainerWithExecution() {
     objective: 'Core business logic implementation', files: ['src/index.ts'],
   }));
   executionStateRepository.save({
-    specId: 'core-engine', status: 'running', startedAt: '2026-09-06T10:00:00.000Z',
+    intentId: 'core-engine', status: 'running', startedAt: '2026-09-06T10:00:00.000Z',
     updatedAt: '2026-09-06T10:00:00.000Z',
     tasks: {
       'TASK-001': { status: 'completed', dependencies: [], title: 'Initialize repository', completedAt: '2026-09-06T10:00:05.000Z' },
@@ -42,7 +42,7 @@ describe('RunDashboard - Integration with ExecutionProvider', () => {
     const { container, executionStateRepository } = createContainerWithExecution();
     const { lastFrame, stdin } = renderWithProviders(<RunDashboard isInteractive />, {
       container,
-      initialSpec: 'core-engine',
+      initialIntent: 'core-engine',
     });
 
     stdin.write('j');

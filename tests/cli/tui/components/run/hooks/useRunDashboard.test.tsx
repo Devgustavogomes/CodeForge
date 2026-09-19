@@ -18,7 +18,7 @@ function task(id: string, status: TaskItem['status']): TaskItem {
 
 function createExecution(overrides: Partial<ExecutionContextValue> = {}): ExecutionContextValue {
   return {
-    activeSpec: 'spec-ativa',
+    activeIntent: 'intent-ativa',
     tasks: [task('TASK-1', 'failed')],
     selectedTaskId: 'TASK-1',
     selectedTask: null,
@@ -28,7 +28,7 @@ function createExecution(overrides: Partial<ExecutionContextValue> = {}): Execut
     getTaskLogs: vi.fn((id: string) => id === 'TASK-1' ? ['erro anterior'] : []),
     setSelectedTaskId: vi.fn(),
     selectTask: vi.fn(),
-    setActiveSpec: vi.fn(),
+    setActiveIntent: vi.fn(),
     startRun: vi.fn().mockResolvedValue(undefined),
     retryTask: vi.fn().mockResolvedValue(undefined),
     retryAllFailed: vi.fn().mockResolvedValue(undefined),
@@ -63,8 +63,8 @@ describe('useRunDashboard', () => {
 
     await act(async () => { await hook.current.onRetryTask(); });
 
-    expect(hook.execution.retryTask).toHaveBeenCalledWith('TASK-1', 'spec-ativa');
-    expect(hook.execution.startRun).toHaveBeenCalledWith('spec-ativa');
+    expect(hook.execution.retryTask).toHaveBeenCalledWith('TASK-1', 'intent-ativa');
+    expect(hook.execution.startRun).toHaveBeenCalledWith('intent-ativa');
     expect(vi.mocked(hook.execution.retryTask).mock.invocationCallOrder[0])
       .toBeLessThan(vi.mocked(hook.execution.startRun).mock.invocationCallOrder[0]);
     expect(hook.current.actionFeedback).toBe('✓ Task TASK-1 retried — scheduler resuming');
@@ -83,7 +83,7 @@ describe('useRunDashboard', () => {
     await act(async () => { await hook.current.onRetryAllFailed(); });
 
     expect(hook.execution.retryAllFailed).toHaveBeenCalledTimes(1);
-    expect(hook.execution.startRun).toHaveBeenCalledWith('spec-ativa');
+    expect(hook.execution.startRun).toHaveBeenCalledWith('intent-ativa');
     expect(hook.current.actionFeedback).toBe('✓ 2 failed tasks retried — scheduler resuming');
 
     const withoutFailures = renderHook(createExecution({ tasks: [task('TASK-1', 'pending')] }));
@@ -97,13 +97,13 @@ describe('useRunDashboard', () => {
     const hook = renderHook();
 
     await act(async () => { await hook.current.onResetAllTasks(); });
-    expect(hook.execution.resetAllTasks).toHaveBeenCalledWith('spec-ativa');
-    expect(hook.execution.startRun).toHaveBeenCalledWith('spec-ativa');
+    expect(hook.execution.resetAllTasks).toHaveBeenCalledWith('intent-ativa');
+    expect(hook.execution.startRun).toHaveBeenCalledWith('intent-ativa');
     expect(vi.mocked(hook.execution.resetAllTasks).mock.invocationCallOrder[0])
       .toBeLessThan(vi.mocked(hook.execution.startRun).mock.invocationCallOrder[0]);
 
     await act(async () => { await hook.current.onResetTask(); });
-    expect(hook.execution.resetTask).toHaveBeenCalledWith('TASK-1', 'spec-ativa');
+    expect(hook.execution.resetTask).toHaveBeenCalledWith('TASK-1', 'intent-ativa');
     expect(hook.execution.startRun).toHaveBeenCalledTimes(1);
 
     const completed = renderHook(createExecution({ tasks: [task('TASK-1', 'completed')] }));
@@ -112,7 +112,7 @@ describe('useRunDashboard', () => {
     expect(completed.execution.startRun).not.toHaveBeenCalled();
   });
 
-  it('limpa a spec, alterna painéis e expira ou substitui o feedback', async () => {
+  it('limpa a intent, alterna painéis e expira ou substitui o feedback', async () => {
     vi.useFakeTimers();
     const hook = renderHook();
 
@@ -129,7 +129,7 @@ describe('useRunDashboard', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
     expect(hook.current.actionFeedback).toBeNull();
 
-    act(() => hook.current.onSelectSpec());
-    expect(hook.execution.setActiveSpec).toHaveBeenCalledWith(null);
+    act(() => hook.current.onSelectIntent());
+    expect(hook.execution.setActiveIntent).toHaveBeenCalledWith(null);
   });
 });

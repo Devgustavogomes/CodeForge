@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   loadTasksFromDisk,
   areTasksEqual,
-  getSpecTaskCount,
+  getIntentTaskCount,
   TaskItem,
 } from "../../../../src/cli/tui/context/ExecutionContext/taskLoader.js";
 import { InMemoryWorkspaceGateway } from "../../../helpers/in-memory-workspace.js";
@@ -19,7 +19,7 @@ describe("taskLoader", () => {
   });
 
   it("loads tasks from disk and merges with execution state", () => {
-    gw.mkdir(".codeforge/tasks/auth-spec");
+    gw.mkdir(".codeforge/tasks/auth-intent");
     const task1: Task = {
       id: "TASK-001",
       title: "Login page",
@@ -27,16 +27,16 @@ describe("taskLoader", () => {
       objective: "Build login",
     };
     gw.writeFile(
-      ".codeforge/tasks/auth-spec/TASK-001.json",
+      ".codeforge/tasks/auth-intent/TASK-001.json",
       JSON.stringify(task1),
     );
 
-    const state = stateRepo.init("auth-spec", [task1]);
+    const state = stateRepo.init("auth-intent", [task1]);
     state.tasks["TASK-001"].status = "completed";
     state.tasks["TASK-001"].completedAt = "2026-09-01T12:00:00Z";
     stateRepo.save(state);
 
-    const items = loadTasksFromDisk(gw, stateRepo, "auth-spec");
+    const items = loadTasksFromDisk(gw, stateRepo, "auth-intent");
     expect(items).toHaveLength(1);
     expect(items[0].id).toBe("TASK-001");
     expect(items[0].title).toBe("Login page");
@@ -51,7 +51,7 @@ describe("taskLoader", () => {
   });
 
   it("includes tasks present in state repository even if missing from disk", () => {
-    const state = stateRepo.init("orphaned-spec", []);
+    const state = stateRepo.init("orphaned-intent", []);
     state.tasks["TASK-GHOST"] = {
       title: "Ghost task",
       status: "failed",
@@ -60,7 +60,7 @@ describe("taskLoader", () => {
     };
     stateRepo.save(state);
 
-    const items = loadTasksFromDisk(gw, stateRepo, "orphaned-spec");
+    const items = loadTasksFromDisk(gw, stateRepo, "orphaned-intent");
     expect(items).toHaveLength(1);
     expect(items[0].id).toBe("TASK-GHOST");
     expect(items[0].status).toBe("failed");
@@ -106,26 +106,26 @@ describe("taskLoader", () => {
     });
   });
 
-  describe("getSpecTaskCount", () => {
+  describe("getIntentTaskCount", () => {
     it("returns 0 when tasks directory does not exist", () => {
-      const count = getSpecTaskCount(gw, "non-existent-spec");
+      const count = getIntentTaskCount(gw, "non-existent-intent");
       expect(count).toBe(0);
     });
 
     it("returns 0 when tasks directory exists but is empty", () => {
-      gw.mkdir(".codeforge/tasks/empty-spec");
-      const count = getSpecTaskCount(gw, "empty-spec");
+      gw.mkdir(".codeforge/tasks/empty-intent");
+      const count = getIntentTaskCount(gw, "empty-intent");
       expect(count).toBe(0);
     });
 
-    it("counts only .json task definition files in the spec tasks directory", () => {
-      gw.mkdir(".codeforge/tasks/auth-spec");
-      gw.writeFile(".codeforge/tasks/auth-spec/TASK-001.json", "{}");
-      gw.writeFile(".codeforge/tasks/auth-spec/TASK-002.json", "{}");
-      gw.writeFile(".codeforge/tasks/auth-spec/README.md", "# Readme");
-      gw.writeFile(".codeforge/tasks/auth-spec/notes.txt", "Notes");
+    it("counts only .json task definition files in the intent tasks directory", () => {
+      gw.mkdir(".codeforge/tasks/auth-intent");
+      gw.writeFile(".codeforge/tasks/auth-intent/TASK-001.json", "{}");
+      gw.writeFile(".codeforge/tasks/auth-intent/TASK-002.json", "{}");
+      gw.writeFile(".codeforge/tasks/auth-intent/README.md", "# Readme");
+      gw.writeFile(".codeforge/tasks/auth-intent/notes.txt", "Notes");
 
-      const count = getSpecTaskCount(gw, "auth-spec");
+      const count = getIntentTaskCount(gw, "auth-intent");
       expect(count).toBe(2);
     });
 
@@ -137,7 +137,7 @@ describe("taskLoader", () => {
         listDir: () => [],
       } as unknown as InMemoryWorkspaceGateway;
 
-      expect(getSpecTaskCount(throwingGw, "error-spec")).toBe(0);
+      expect(getIntentTaskCount(throwingGw, "error-intent")).toBe(0);
     });
   });
 });

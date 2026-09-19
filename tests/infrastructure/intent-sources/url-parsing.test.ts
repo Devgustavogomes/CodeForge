@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { GitHubSpecSource } from "../../../src/infrastructure/spec-sources/GitHubSpecSource.js";
-import { LinearSpecSource } from "../../../src/infrastructure/spec-sources/LinearSpecSource.js";
-import { ClickUpSpecSource } from "../../../src/infrastructure/spec-sources/ClickUpSpecSource.js";
+import { GitHubIntentSource } from "../../../src/infrastructure/intent-sources/GitHubIntentSource.js";
+import { LinearIntentSource } from "../../../src/infrastructure/intent-sources/LinearIntentSource.js";
+import { ClickUpIntentSource } from "../../../src/infrastructure/intent-sources/ClickUpIntentSource.js";
 
-describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () => {
+describe("Remote Intent Sources URL Parsing, API Key Resolution, and Timeout", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -15,9 +15,9 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     vi.restoreAllMocks();
   });
 
-  describe("GitHubSpecSource URL Parsing", () => {
+  describe("GitHubIntentSource URL Parsing", () => {
     it("extracts owner, repo, and issueNumber from full GitHub issue URLs", () => {
-      const source = new GitHubSpecSource();
+      const source = new GitHubIntentSource();
 
       expect(source.getRepoInfo("https://github.com/owner/repo/issues/42")).toEqual({
         owner: "owner",
@@ -50,7 +50,7 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
 
     it("extracts info from domain-prefixed or shorthand formats without protocol", () => {
-      const source = new GitHubSpecSource();
+      const source = new GitHubIntentSource();
 
       expect(source.getRepoInfo("github.com/owner/repo/issues/42")).toEqual({
         owner: "owner",
@@ -78,7 +78,7 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
 
     it("falls back to config for owner and repo when shorthand issue number is provided", () => {
-      const source = new GitHubSpecSource({ provider: "github", project: "org/my-project" });
+      const source = new GitHubIntentSource({ provider: "github", project: "org/my-project" });
 
       expect(source.getRepoInfo("#42")).toEqual({
         owner: "org",
@@ -94,7 +94,7 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
 
     it("fetches issue using full URL", async () => {
-      const source = new GitHubSpecSource({ provider: "github", apiKey: "gh-secret-token" });
+      const source = new GitHubIntentSource({ provider: "github", apiKey: "gh-secret-token" });
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
         ok: true,
@@ -109,10 +109,10 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
         }),
       } as Response);
 
-      const spec = await source.fetch("https://github.com/acme/project/issues/101");
+      const intent = await source.fetch("https://github.com/acme/project/issues/101");
 
-      expect(spec.id).toBe("101");
-      expect(spec.title).toBe("URL Issue");
+      expect(intent.id).toBe("101");
+      expect(intent.title).toBe("URL Issue");
       expect(globalThis.fetch).toHaveBeenCalledWith(
         "https://api.github.com/repos/acme/project/issues/101",
         expect.objectContaining({
@@ -124,9 +124,9 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
   });
 
-  describe("LinearSpecSource URL Parsing", () => {
+  describe("LinearIntentSource URL Parsing", () => {
     it("extracts issue identifier from full Linear URLs", () => {
-      const source = new LinearSpecSource();
+      const source = new LinearIntentSource();
 
       expect(
         source.extractIssueId("https://linear.app/my-workspace/issue/ENG-123/slug-of-the-task")
@@ -144,14 +144,14 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
 
     it("preserves raw identifiers and UUIDs", () => {
-      const source = new LinearSpecSource();
+      const source = new LinearIntentSource();
 
       expect(source.extractIssueId("ENG-123")).toBe("ENG-123");
       expect(source.extractIssueId("abc-def-uuid-456")).toBe("abc-def-uuid-456");
     });
 
     it("fetches issue using full Linear URL", async () => {
-      const source = new LinearSpecSource({ provider: "linear", apiKey: "lin-secret-token" });
+      const source = new LinearIntentSource({ provider: "linear", apiKey: "lin-secret-token" });
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
         ok: true,
@@ -170,10 +170,10 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
         }),
       } as Response);
 
-      const spec = await source.fetch("https://linear.app/my-workspace/issue/ENG-123/linear-full-url-issue");
+      const intent = await source.fetch("https://linear.app/my-workspace/issue/ENG-123/linear-full-url-issue");
 
-      expect(spec.id).toBe("ENG-123");
-      expect(spec.title).toBe("Linear Full URL Issue");
+      expect(intent.id).toBe("ENG-123");
+      expect(intent.title).toBe("Linear Full URL Issue");
       expect(globalThis.fetch).toHaveBeenCalledWith(
         "https://api.linear.app/graphql",
         expect.objectContaining({
@@ -183,9 +183,9 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
   });
 
-  describe("ClickUpSpecSource URL Parsing", () => {
+  describe("ClickUpIntentSource URL Parsing", () => {
     it("extracts taskId and teamId from full ClickUp URLs", () => {
-      const source = new ClickUpSpecSource();
+      const source = new ClickUpIntentSource();
 
       expect(source.extractTaskInfo("https://app.clickup.com/t/task1")).toEqual({
         taskId: "task1",
@@ -219,7 +219,7 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
 
     it("preserves shorthand task IDs and strips leading hash", () => {
-      const source = new ClickUpSpecSource();
+      const source = new ClickUpIntentSource();
 
       expect(source.extractTaskInfo("#CU-1")).toEqual({ taskId: "CU-1" });
       expect(source.extractTaskInfo("CU-1")).toEqual({ taskId: "CU-1" });
@@ -227,7 +227,7 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
 
     it("fetches task using full ClickUp URL with team ID", async () => {
-      const source = new ClickUpSpecSource({ provider: "clickup", apiKey: "cu-token" });
+      const source = new ClickUpIntentSource({ provider: "clickup", apiKey: "cu-token" });
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
         ok: true,
@@ -242,10 +242,10 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
         }),
       } as Response);
 
-      const spec = await source.fetch("https://app.clickup.com/t/901812345/CU-99");
+      const intent = await source.fetch("https://app.clickup.com/t/901812345/CU-99");
 
-      expect(spec.id).toBe("CU-99");
-      expect(spec.title).toBe("ClickUp URL Task");
+      expect(intent.id).toBe("CU-99");
+      expect(intent.title).toBe("ClickUp URL Task");
       expect(globalThis.fetch).toHaveBeenCalledWith(
         "https://api.clickup.com/api/v2/task/CU-99?custom_task_ids=true&team_id=901812345",
         expect.objectContaining({
@@ -260,35 +260,35 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
   describe("API Key Resolution", () => {
     it("resolves apiKey directly from config.apiKey", () => {
       delete process.env.GITHUB_TOKEN;
-      const gh = new GitHubSpecSource({ provider: "github", apiKey: "token-from-config" });
+      const gh = new GitHubIntentSource({ provider: "github", apiKey: "token-from-config" });
       expect(gh.getApiKey("GITHUB_TOKEN")).toBe("token-from-config");
 
       delete process.env.LINEAR_API_KEY;
-      const lin = new LinearSpecSource({ provider: "linear", apiKey: "lin-token-from-config" });
+      const lin = new LinearIntentSource({ provider: "linear", apiKey: "lin-token-from-config" });
       expect(lin.getApiKey("LINEAR_API_KEY")).toBe("lin-token-from-config");
 
       delete process.env.CLICKUP_API_KEY;
-      const cu = new ClickUpSpecSource({ provider: "clickup", apiKey: "cu-token-from-config" });
+      const cu = new ClickUpIntentSource({ provider: "clickup", apiKey: "cu-token-from-config" });
       expect(cu.getApiKey("CLICKUP_API_KEY")).toBe("cu-token-from-config");
     });
 
     it("falls back to process.env when config.apiKey is not provided", () => {
       process.env.GITHUB_TOKEN = "env-gh-token";
-      const gh = new GitHubSpecSource({ provider: "github" });
+      const gh = new GitHubIntentSource({ provider: "github" });
       expect(gh.getApiKey("GITHUB_TOKEN")).toBe("env-gh-token");
 
       process.env.LINEAR_API_KEY = "env-lin-token";
-      const lin = new LinearSpecSource({ provider: "linear" });
+      const lin = new LinearIntentSource({ provider: "linear" });
       expect(lin.getApiKey("LINEAR_API_KEY")).toBe("env-lin-token");
 
       process.env.CLICKUP_API_KEY = "env-cu-token";
-      const cu = new ClickUpSpecSource({ provider: "clickup" });
+      const cu = new ClickUpIntentSource({ provider: "clickup" });
       expect(cu.getApiKey("CLICKUP_API_KEY")).toBe("env-cu-token");
     });
 
     it("throws informative error mentioning config.yaml apiKey and .env file when missing", () => {
       delete process.env.GITHUB_TOKEN;
-      const gh = new GitHubSpecSource({ provider: "github" });
+      const gh = new GitHubIntentSource({ provider: "github" });
 
       expect(() => gh.getApiKey("GITHUB_TOKEN", "token")).toThrow(
         "GitHub token not found. Please set the GITHUB_TOKEN environment variable in the .env file or configure apiKey: $GITHUB_TOKEN in .codeforge/config.yaml."
@@ -297,7 +297,7 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
 
     it("mentions custom envPath in error message when configured", () => {
       delete process.env.LINEAR_API_KEY;
-      const lin = new LinearSpecSource({
+      const lin = new LinearIntentSource({
         provider: "linear",
         envPath: ".env.custom",
       });
@@ -309,7 +309,7 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
 
     it("never leaks actual credentials in error messages", async () => {
       const secret = "super-secret-password-12345";
-      const gh = new GitHubSpecSource({ provider: "github", apiKey: secret, project: "owner/repo" });
+      const gh = new GitHubIntentSource({ provider: "github", apiKey: secret, project: "owner/repo" });
 
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
         ok: false,
@@ -326,7 +326,7 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
 
   describe("HTTP Timeout Handling (15 seconds)", () => {
     it("enforces a 15-second AbortSignal timeout on requests", async () => {
-      const gh = new GitHubSpecSource({ provider: "github", apiKey: "token", project: "org/repo" });
+      const gh = new GitHubIntentSource({ provider: "github", apiKey: "token", project: "org/repo" });
 
       vi.spyOn(globalThis, "fetch").mockImplementationOnce((_url, init) => {
         const signal = (init as RequestInit)?.signal;
@@ -344,35 +344,35 @@ describe("Remote Spec Sources URL Parsing, API Key Resolution, and Timeout", () 
     });
 
     it("produces user-friendly timeout error when fetch exceeds timeout in GitHub", async () => {
-      const gh = new GitHubSpecSource({ provider: "github", apiKey: "token", project: "org/repo" });
+      const gh = new GitHubIntentSource({ provider: "github", apiKey: "token", project: "org/repo" });
 
       const timeoutError = new DOMException("The operation was aborted due to timeout", "TimeoutError");
       vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(timeoutError);
 
       await expect(gh.fetch("42")).rejects.toThrow(
-        'Failed to fetch spec "42" from GitHub: Request to GitHub timed out after 15s. Please check your network connection.'
+        'Failed to fetch intent "42" from GitHub: Request to GitHub timed out after 15s. Please check your network connection.'
       );
     });
 
     it("produces user-friendly timeout error when fetch exceeds timeout in Linear", async () => {
-      const lin = new LinearSpecSource({ provider: "linear", apiKey: "token" });
+      const lin = new LinearIntentSource({ provider: "linear", apiKey: "token" });
 
       const timeoutError = new DOMException("The operation was aborted due to timeout", "TimeoutError");
       vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(timeoutError);
 
       await expect(lin.list()).rejects.toThrow(
-        "Failed to list specs from Linear: Request to Linear timed out after 15s. Please check your network connection."
+        "Failed to list intents from Linear: Request to Linear timed out after 15s. Please check your network connection."
       );
     });
 
     it("produces user-friendly timeout error when fetch exceeds timeout in ClickUp", async () => {
-      const cu = new ClickUpSpecSource({ provider: "clickup", apiKey: "token" });
+      const cu = new ClickUpIntentSource({ provider: "clickup", apiKey: "token" });
 
       const timeoutError = new DOMException("The operation was aborted due to timeout", "TimeoutError");
       vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(timeoutError);
 
       await expect(cu.fetch("task123")).rejects.toThrow(
-        'Failed to fetch spec "task123" from ClickUp: Request to ClickUp timed out after 15s. Please check your network connection.'
+        'Failed to fetch intent "task123" from ClickUp: Request to ClickUp timed out after 15s. Please check your network connection.'
       );
     });
   });

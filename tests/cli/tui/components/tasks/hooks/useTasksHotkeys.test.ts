@@ -15,8 +15,8 @@ const callbackNames = [
   'onOpenDeleteModal',
   'onNextTask',
   'onPrevTask',
-  'onNextSpec',
-  'onPrevSpec',
+  'onNextIntent',
+  'onPrevIntent',
   'onToggleViewJson',
   'onToggleExpand',
   'onComplete',
@@ -31,15 +31,15 @@ const HotkeysHarness: React.FC<HarnessProps> = (props) => {
   useTasksHotkeys({
     isInteractive: props.isInteractive,
     isModalOpen: props.isModalOpen,
-    isSearchingSpec: props.isSearchingSpec,
+    isSearchingIntent: props.isSearchingIntent,
     isTextInputActive: props.isTextInputActive,
     hasSelectedTask: props.hasSelectedTask ?? true,
     onOpenTask: props.onOpenTask,
     onOpenDeleteModal: props.onOpenDeleteModal,
     onNextTask: props.onNextTask ?? vi.fn(),
     onPrevTask: props.onPrevTask ?? vi.fn(),
-    onNextSpec: props.onNextSpec ?? vi.fn(),
-    onPrevSpec: props.onPrevSpec ?? vi.fn(),
+    onNextIntent: props.onNextIntent ?? vi.fn(),
+    onPrevIntent: props.onPrevIntent ?? vi.fn(),
     onToggleViewJson: props.onToggleViewJson ?? vi.fn(),
     onToggleExpand: props.onToggleExpand,
     onComplete: props.onComplete ?? vi.fn(),
@@ -90,7 +90,7 @@ describe('useTasksHotkeys', () => {
     ['non-interactive mode', { isInteractive: false }],
     ['an open task-view modal', { isModalOpen: true }],
     ['an open delete modal', { isModalOpen: true }],
-    ['specification search', { isSearchingSpec: true }],
+    ['intent search', { isSearchingIntent: true }],
     ['active text input', { isTextInputActive: true }],
   ] as const)('blocks delete during %s', async (_label, guardProps) => {
     const { stdin } = render(
@@ -107,7 +107,7 @@ describe('useTasksHotkeys', () => {
     expect(callbacks.onOpenDeleteModal).not.toHaveBeenCalled();
   });
 
-  it('preserves task, spec, view, complete, reset, and search dispatches', async () => {
+  it('preserves task, intent, view, complete, reset, and search dispatches', async () => {
     const { stdin } = render(React.createElement(HotkeysHarness, callbacks));
 
     for (const input of [
@@ -129,8 +129,8 @@ describe('useTasksHotkeys', () => {
     expect(callbacks.onOpenTask).toHaveBeenCalledOnce();
     expect(callbacks.onNextTask).toHaveBeenCalledOnce();
     expect(callbacks.onPrevTask).toHaveBeenCalledOnce();
-    expect(callbacks.onNextSpec).toHaveBeenCalledOnce();
-    expect(callbacks.onPrevSpec).toHaveBeenCalledOnce();
+    expect(callbacks.onNextIntent).toHaveBeenCalledOnce();
+    expect(callbacks.onPrevIntent).toHaveBeenCalledOnce();
     expect(callbacks.onToggleViewJson).toHaveBeenCalledOnce();
     expect(callbacks.onToggleExpand).toHaveBeenCalledOnce();
     expect(callbacks.onComplete).toHaveBeenCalledOnce();

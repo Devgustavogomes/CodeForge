@@ -3,25 +3,25 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from 'ink-testing-library';
 import { Text } from 'ink';
 import {
-  useConfigureSpecSourceModal,
-  UseConfigureSpecSourceModalOptions,
-  UseConfigureSpecSourceModalReturn,
-} from '../../../../../src/cli/tui/components/config/hooks/useConfigureSpecSourceModal.js';
+  useConfigureIntentSourceModal,
+  UseConfigureIntentSourceModalOptions,
+  UseConfigureIntentSourceModalReturn,
+} from '../../../../../src/cli/tui/components/config/hooks/useConfigureIntentSourceModal.js';
 import { flushAsync } from '../../helpers/flushAsync.js';
 
 interface HarnessProps {
-  options: UseConfigureSpecSourceModalOptions;
-  onUpdate: (ret: UseConfigureSpecSourceModalReturn) => void;
+  options: UseConfigureIntentSourceModalOptions;
+  onUpdate: (ret: UseConfigureIntentSourceModalReturn) => void;
 }
 
 const HookHarness: React.FC<HarnessProps> = ({ options, onUpdate }) => {
-  const ret = useConfigureSpecSourceModal(options);
+  const ret = useConfigureIntentSourceModal(options);
   onUpdate(ret);
   return React.createElement(Text, null, `${ret.provider}:${ret.apiKey}`);
 };
 
-function renderSpecSourceHook(options: UseConfigureSpecSourceModalOptions) {
-  let latest!: UseConfigureSpecSourceModalReturn;
+function renderIntentSourceHook(options: UseConfigureIntentSourceModalOptions) {
+  let latest!: UseConfigureIntentSourceModalReturn;
   const result = render(
     React.createElement(HookHarness, {
       options,
@@ -38,11 +38,11 @@ function renderSpecSourceHook(options: UseConfigureSpecSourceModalOptions) {
   };
 }
 
-describe('useConfigureSpecSourceModal - Provider cycling and API Key handling', () => {
+describe('useConfigureIntentSourceModal - Provider cycling and API Key handling', () => {
   it('dynamically updates apiKey to provider default env var when cycling providers without custom apiKey', async () => {
-    const hook = renderSpecSourceHook({
+    const hook = renderIntentSourceHook({
       config: {
-        specSource: { provider: 'filesystem' },
+        intentSource: { provider: 'filesystem' },
       } as any,
     });
 
@@ -71,9 +71,9 @@ describe('useConfigureSpecSourceModal - Provider cycling and API Key handling', 
   });
 
   it('updates apiKey when cycling away from an existing default apiKey (e.g. clickup to github)', async () => {
-    const hook = renderSpecSourceHook({
+    const hook = renderIntentSourceHook({
       config: {
-        specSource: { provider: 'clickup', apiKey: '$CLICKUP_API_KEY' },
+        intentSource: { provider: 'clickup', apiKey: '$CLICKUP_API_KEY' },
       } as any,
     });
 
@@ -96,9 +96,9 @@ describe('useConfigureSpecSourceModal - Provider cycling and API Key handling', 
   });
 
   it('preserves user custom apiKey when cycling providers', async () => {
-    const hook = renderSpecSourceHook({
+    const hook = renderIntentSourceHook({
       config: {
-        specSource: { provider: 'github' },
+        intentSource: { provider: 'github' },
       } as any,
     });
 
@@ -118,12 +118,12 @@ describe('useConfigureSpecSourceModal - Provider cycling and API Key handling', 
   });
 
   it('saves chosen provider default apiKey when apiKey is left blank', async () => {
-    const onUpdateSpecSource = vi.fn();
-    const hook = renderSpecSourceHook({
+    const onUpdateIntentSource = vi.fn();
+    const hook = renderIntentSourceHook({
       config: {
-        specSource: { provider: 'filesystem' },
+        intentSource: { provider: 'filesystem' },
       } as any,
-      onUpdateSpecSource,
+      onUpdateIntentSource,
     });
 
     hook.current.cycleProvider(1); // linear
@@ -131,10 +131,10 @@ describe('useConfigureSpecSourceModal - Provider cycling and API Key handling', 
     hook.current.setApiKey(''); // clear apiKey
     await flushAsync(10);
 
-    hook.current.saveSpecSource();
+    hook.current.saveIntentSource();
     await flushAsync(10);
 
-    expect(onUpdateSpecSource).toHaveBeenCalledWith({
+    expect(onUpdateIntentSource).toHaveBeenCalledWith({
       provider: 'linear',
       apiKey: '$LINEAR_API_KEY',
     });

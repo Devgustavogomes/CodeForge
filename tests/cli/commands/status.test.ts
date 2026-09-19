@@ -22,27 +22,27 @@ describe("status CLI command", () => {
 
   function setupContainerMock(
     statusResult: any,
-    specs = [{ name: "spec-a", title: "Spec A" }],
+    intents = [{ name: "intent-a", title: "Intent A" }],
     language = "en",
   ) {
     const executeStatus = vi.fn().mockReturnValue(statusResult);
-    const listSpecs = vi.fn().mockReturnValue(specs);
+    const listIntents = vi.fn().mockReturnValue(intents);
     const mockContainer = {
-      getSpecStatusUseCase: { execute: executeStatus },
-      listSpecsUseCase: { execute: listSpecs },
+      getIntentStatusUseCase: { execute: executeStatus },
+      listIntentsUseCase: { execute: listIntents },
       configService: {
         loadConfig: vi.fn().mockReturnValue({ language, environment: "test" }),
       },
     };
 
     vi.spyOn(containerModule, "createAppContainer").mockReturnValue(mockContainer as any);
-    return { executeStatus, listSpecs };
+    return { executeStatus, listIntents };
   }
 
   const statusResult = {
     kind: "status",
-    specName: "todo-api",
-    specStatus: "running",
+    intentName: "todo-api",
+    intentStatus: "running",
     tasks: [
       {
         id: "TASK-001",
@@ -112,25 +112,25 @@ describe("status CLI command", () => {
     expect(runInteractiveMenu).not.toHaveBeenCalled();
   });
 
-  it("prompts with a translated Back choice when the spec is omitted", async () => {
-    const selectedResult = { ...statusResult, specName: "selected-spec" };
+  it("prompts with a translated Back choice when the intent is omitted", async () => {
+    const selectedResult = { ...statusResult, intentName: "selected-intent" };
     const { executeStatus } = setupContainerMock(
       selectedResult,
-      [{ name: "selected-spec", title: "Selected Spec" }],
+      [{ name: "selected-intent", title: "Selected Intent" }],
     );
-    vi.mocked(select).mockResolvedValueOnce("selected-spec" as never);
+    vi.mocked(select).mockResolvedValueOnce("selected-intent" as never);
     vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     const result = await statusAction();
 
     expect(select).toHaveBeenCalledWith({
-      message: "Select a spec to view status:",
+      message: "Select an intent to view status:",
       choices: [
         { name: "<- Back", value: "back" },
-        { name: "selected-spec", value: "selected-spec" },
+        { name: "selected-intent", value: "selected-intent" },
       ],
     });
-    expect(executeStatus).toHaveBeenCalledWith("selected-spec");
+    expect(executeStatus).toHaveBeenCalledWith("selected-intent");
     expect(result).toEqual({ success: true });
   });
 
@@ -145,13 +145,13 @@ describe("status CLI command", () => {
     expect(runInteractiveMenu).not.toHaveBeenCalled();
   });
 
-  it("fails when no specification is available for selection", async () => {
+  it("fails when no intent is available for selection", async () => {
     const { executeStatus } = setupContainerMock(statusResult, []);
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const result = await statusAction();
 
-    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("No specs found"));
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("No intents found"));
     expect(executeStatus).not.toHaveBeenCalled();
     expect(result).toEqual({ success: false });
     expect(process.exitCode).toBe(1);
@@ -159,12 +159,12 @@ describe("status CLI command", () => {
 
   it.each([
     ["not-initialized", "CodeForge is not initialized"],
-    ["spec-not-found", "Spec not found: missing-spec.md"],
+    ["intent-not-found", "Intent not found: missing-intent.md"],
   ])("maps %s to a localized failure and exit code 1", async (kind, message) => {
     setupContainerMock({ kind });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    const result = await statusAction("missing-spec");
+    const result = await statusAction("missing-intent");
 
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining(message));
     expect(result).toEqual({ success: false });
@@ -172,13 +172,13 @@ describe("status CLI command", () => {
   });
 
   it("maps no-execution to localized successful output", async () => {
-    setupContainerMock({ kind: "no-execution", specName: "spec-a" });
+    setupContainerMock({ kind: "no-execution", intentName: "intent-a" });
     const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    const result = await statusAction("spec-a");
+    const result = await statusAction("intent-a");
 
     expect(consoleLog).toHaveBeenCalledWith(
-      expect.stringContaining("No execution started for spec 'spec-a'"),
+      expect.stringContaining("No execution started for intent 'intent-a'"),
     );
     expect(result).toEqual({ success: true });
     expect(process.exitCode).toBeUndefined();

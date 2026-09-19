@@ -44,7 +44,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
           'plannerAgent: planner',
           'executorAgent: executor',
           'language: en',
-          'specSource:',
+          'intentSource:',
           '  provider: github',
           '  apiKey: $TEST_API_KEY',
         ].join('\n')
@@ -54,7 +54,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
 
       expect(process.env.ROOT_VAR).toBe('root_value');
       expect(process.env.TEST_API_KEY).toBe('key_from_root');
-      expect(config?.specSource?.apiKey).toBe('key_from_root');
+      expect(config?.intentSource?.apiKey).toBe('key_from_root');
     });
 
     it('loads environment variables from default .codeforge/.env with priority over root .env', () => {
@@ -95,7 +95,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
           'executorAgent: e',
           'language: en',
           'envPath: config/custom.env',
-          'specSource:',
+          'intentSource:',
           '  provider: github',
           '  apiKey: $TEST_API_KEY',
         ].join('\n')
@@ -105,7 +105,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
 
       expect(process.env.CUSTOM_VAR).toBe('custom_value');
       expect(process.env.TEST_API_KEY).toBe('custom_key');
-      expect(config?.specSource?.apiKey).toBe('custom_key');
+      expect(config?.intentSource?.apiKey).toBe('custom_key');
     });
 
     it('falls back to .codeforge/.env and root .env when custom envPath does not exist', () => {
@@ -196,7 +196,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
           'plannerAgent: $HOST',
           'executorAgent: ${HOST}:${PORT}',
           'language: en',
-          'specSource:',
+          'intentSource:',
           '  provider: github',
           '  apiKey: ${TEST_API_KEY}',
         ].join('\n')
@@ -206,7 +206,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
 
       expect(config?.plannerAgent).toBe('localhost');
       expect(config?.executorAgent).toBe('localhost:8080');
-      expect(config?.specSource?.apiKey).toBe('secret_token_123');
+      expect(config?.intentSource?.apiKey).toBe('secret_token_123');
     });
 
     it('resolves unset variables to empty string', () => {
@@ -217,7 +217,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
           'plannerAgent: planner',
           'executorAgent: executor',
           'language: en',
-          'specSource:',
+          'intentSource:',
           '  provider: github',
           '  apiKey: $UNSET_VAR',
         ].join('\n')
@@ -225,7 +225,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
 
       const config = configService.loadConfig();
 
-      expect(config?.specSource?.apiKey).toBe('');
+      expect(config?.intentSource?.apiKey).toBe('');
     });
 
     it('interpolates nested hooks array and strings', () => {
@@ -252,7 +252,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
   });
 
   describe('Non-destructive saveConfig', () => {
-    it('preserves existing fields (hooks, specSource, envPath) when saving new settings in ConfigService', () => {
+    it('preserves existing fields (hooks, intentSource, envPath) when saving new settings in ConfigService', () => {
       workspace.writeFile(
         PATHS.config,
         [
@@ -265,14 +265,14 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
           '  task.verify:',
           '    - name: gate-check',
           '      run: npm test',
-          'specSource:',
+          'intentSource:',
           '  provider: linear',
           '  team: ENG',
           '  apiKey: $LINEAR_API_KEY',
         ].join('\n')
       );
 
-      // Save updated environment and agents without passing hooks or specSource
+      // Save updated environment and agents without passing hooks or intentSource
       configService.saveConfig({
         environment: 'antigravity',
         plannerAgent: 'new-planner',
@@ -296,7 +296,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
       expect(reloaded?.plannerAgent).toBe('new-planner');
       expect(reloaded?.language).toBe('pt');
       expect(reloaded?.hooks?.['task.verify']).toBeDefined();
-      expect(reloaded?.specSource?.provider).toBe('linear');
+      expect(reloaded?.intentSource?.provider).toBe('linear');
       expect(reloaded?.envPath).toBe('.env.local');
     });
 
@@ -312,7 +312,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
           '  task.verify:',
           '    - name: check',
           '      run: test',
-          'specSource:',
+          'intentSource:',
           '  provider: github',
           '  apiKey: $GITHUB_TOKEN',
         ].join('\n')
@@ -332,7 +332,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
       expect(reloaded?.executorAgent).toBe('e2');
       expect(reloaded?.language).toBe('es');
       expect(reloaded?.hooks?.['task.verify']).toBeDefined();
-      expect(reloaded?.specSource?.provider).toBe('github');
+      expect(reloaded?.intentSource?.provider).toBe('github');
 
       const rawContent = workspace.readFile(PATHS.config);
       expect(rawContent).toContain('apiKey: $GITHUB_TOKEN');

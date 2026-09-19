@@ -1,23 +1,23 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
-import { CreateSpecUseCase } from "../../src/application/use-cases/CreateSpecUseCase.js";
+import { CreateIntentUseCase } from "../../src/application/use-cases/CreateIntentUseCase.js";
 
 function makeInitializedWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge");
-  gateway.mkdir(".codeforge/specs");
+  gateway.mkdir(".codeforge/intents");
   gateway.writeFile(
     ".codeforge/metadata.json",
     JSON.stringify({ initialized: true, version: "1.0", initializedAt: new Date().toISOString() })
   );
 }
 
-describe("CreateSpecUseCase", () => {
+describe("CreateIntentUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
-  let useCase: CreateSpecUseCase;
+  let useCase: CreateIntentUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
-    useCase = new CreateSpecUseCase(gateway);
+    useCase = new CreateIntentUseCase(gateway);
   });
 
   it("returns notInitialized: true when .codeforge/metadata.json is missing", () => {
@@ -25,7 +25,7 @@ describe("CreateSpecUseCase", () => {
     expect(result.kind).toBe("not-initialized");
   });
 
-  it("creates the spec file successfully with expected template", () => {
+  it("creates the intent file successfully with expected 4-section template", () => {
     makeInitializedWorkspace(gateway);
 
     const result = useCase.execute("User Authentication");
@@ -36,12 +36,16 @@ describe("CreateSpecUseCase", () => {
       
       const content = gateway.readFile(result.filePath);
       expect(content).toContain("# User Authentication");
-      expect(content).toContain("## Objective");
-      expect(content).toContain("## Functional Requirements");
+      expect(content).toContain("## Goal");
+      expect(content).toContain("## Requirements");
+      expect(content).toContain("## Acceptance Criteria");
+      expect(content).toContain("## Technical Context");
+      expect(content).not.toContain("## Objective");
+      expect(content).not.toContain("## Functional Requirements");
     }
   });
 
-  it("returns alreadyExists: true when spec already exists", () => {
+  it("returns alreadyExists: true when intent already exists", () => {
     makeInitializedWorkspace(gateway);
     useCase.execute("User Authentication");
 
@@ -50,7 +54,7 @@ describe("CreateSpecUseCase", () => {
     expect(result.kind).toBe("already-exists");
   });
 
-  it("does not overwrite existing spec file", () => {
+  it("does not overwrite existing intent file", () => {
     makeInitializedWorkspace(gateway);
     const resultFirst = useCase.execute("User Authentication");
     

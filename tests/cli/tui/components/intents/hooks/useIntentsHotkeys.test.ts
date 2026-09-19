@@ -3,15 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'ink-testing-library';
 import { Text } from 'ink';
 import {
-  useSpecsHotkeys,
-  UseSpecsHotkeysProps,
-} from '../../../../../../src/cli/tui/components/specs/hooks/useSpecsHotkeys.js';
+  useIntentsHotkeys,
+  UseIntentsHotkeysProps,
+} from '../../../../../../src/cli/tui/components/intents/hooks/useIntentsHotkeys.js';
 import { flushAsync } from '../../../helpers/flushAsync.js';
 
-type HarnessProps = Partial<UseSpecsHotkeysProps>;
+type HarnessProps = Partial<UseIntentsHotkeysProps>;
 
 const TestHotkeysHarness: React.FC<HarnessProps> = (props) => {
-  useSpecsHotkeys({
+  useIntentsHotkeys({
     onNavigateUp: props.onNavigateUp ?? vi.fn(),
     onNavigateDown: props.onNavigateDown ?? vi.fn(),
     onOpenRun: props.onOpenRun ?? vi.fn(),
@@ -21,13 +21,13 @@ const TestHotkeysHarness: React.FC<HarnessProps> = (props) => {
     onOpenCreateModal: props.onOpenCreateModal ?? vi.fn(),
     onOpenPullModal: props.onOpenPullModal ?? vi.fn(),
     onOpenDeleteModal: props.onOpenDeleteModal ?? vi.fn(),
-    hasSelectedSpec: props.hasSelectedSpec ?? true,
+    hasSelectedIntent: props.hasSelectedIntent ?? true,
     isInteractive: props.isInteractive,
     isModalOpen: props.isModalOpen,
     isTextInputActive: props.isTextInputActive,
   });
 
-  return React.createElement(Text, null, 'SpecsHotkeysTest');
+  return React.createElement(Text, null, 'IntentsHotkeysTest');
 };
 
 interface Callbacks {
@@ -42,7 +42,7 @@ interface Callbacks {
   onOpenDeleteModal: () => void;
 }
 
-describe('useSpecsHotkeys hook', () => {
+describe('useIntentsHotkeys hook', () => {
   let callbacks: Callbacks;
 
   beforeEach(() => {
@@ -59,8 +59,8 @@ describe('useSpecsHotkeys hook', () => {
     };
   });
 
-  describe('Specification deletion', () => {
-    it("opens delete confirmation with 'd' or 'D' when a spec is selected", async () => {
+  describe('Intent deletion', () => {
+    it("opens delete confirmation with 'd' or 'D' when a intent is selected", async () => {
       const { stdin } = render(React.createElement(TestHotkeysHarness, callbacks));
 
       stdin.write('d');
@@ -71,11 +71,11 @@ describe('useSpecsHotkeys hook', () => {
       expect(callbacks.onOpenDeleteModal).toHaveBeenCalledTimes(2);
     });
 
-    it('ignores delete shortcuts when no spec is selected', async () => {
+    it('ignores delete shortcuts when no intent is selected', async () => {
       const { stdin } = render(
         React.createElement(TestHotkeysHarness, {
           ...callbacks,
-          hasSelectedSpec: false,
+          hasSelectedIntent: false,
         })
       );
 

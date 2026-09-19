@@ -14,11 +14,11 @@ export class WorkspaceBuilder {
   private initializeStandardStructure(): void {
     const dirs = [
       ".codeforge",
-      ".codeforge/specs",
+      ".codeforge/intents",
       ".codeforge/tasks",
       ".codeforge/executions",
       ".codeforge/docs",
-      "specs",
+      "intents",
       "tasks",
       "executions",
       "docs",
@@ -54,23 +54,23 @@ export class WorkspaceBuilder {
     return this;
   }
 
-  withSpec(name: string, content?: string): this {
-    const defaultContent = `# Spec: ${name}\n\nObjective: Test spec\n`;
-    this.gw.writeFile(PATHS.specFile(name), content ?? defaultContent);
+  withIntent(name: string, content?: string): this {
+    const defaultContent = `# Intent: ${name}\n\nObjective: Test intent\n`;
+    this.gw.writeFile(PATHS.intentFile(name), content ?? defaultContent);
     return this;
   }
 
-  withTasks(specName: string, tasks: Task[]): this {
-    this.gw.mkdir(`${PATHS.tasksDir}/${specName}`);
+  withTasks(intentName: string, tasks: Task[]): this {
+    this.gw.mkdir(`${PATHS.tasksDir}/${intentName}`);
     for (const task of tasks) {
-      this.gw.writeFile(PATHS.taskFile(specName, task.id), JSON.stringify(task, null, 2));
+      this.gw.writeFile(PATHS.taskFile(intentName, task.id), JSON.stringify(task, null, 2));
     }
     return this;
   }
 
-  withExecutionState(specName: string, state: object): this {
+  withExecutionState(intentName: string, state: object): this {
     this.gw.mkdir(PATHS.executionsDir);
-    this.gw.writeFile(PATHS.executionState(specName), JSON.stringify(state, null, 2));
+    this.gw.writeFile(PATHS.executionState(intentName), JSON.stringify(state, null, 2));
     return this;
   }
 

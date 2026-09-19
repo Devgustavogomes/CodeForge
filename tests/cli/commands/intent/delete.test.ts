@@ -8,12 +8,12 @@ vi.mock("@inquirer/prompts", () => ({
 import { confirm, select } from "@inquirer/prompts";
 import { Command } from "commander";
 import {
-  registerSpecDeleteCommand,
-  specDeleteAction,
-} from "../../../../src/cli/commands/spec/delete.js";
+  registerIntentDeleteCommand,
+  intentDeleteAction,
+} from "../../../../src/cli/commands/intent/delete.js";
 import * as containerModule from "../../../../src/infrastructure/container.js";
 
-describe("spec delete CLI command", () => {
+describe("intent delete CLI command", () => {
   let originalExitCode: typeof process.exitCode;
 
   beforeEach(() => {
@@ -28,9 +28,9 @@ describe("spec delete CLI command", () => {
     vi.restoreAllMocks();
   });
 
-  function setup(result: unknown = { kind: "deleted", specName: "alpha" }) {
-    const deleteSpecUseCase = { execute: vi.fn().mockReturnValue(result) };
-    const listSpecsUseCase = {
+  function setup(result: unknown = { kind: "deleted", intentName: "alpha" }) {
+    const deleteIntentUseCase = { execute: vi.fn().mockReturnValue(result) };
+    const listIntentsUseCase = {
       execute: vi.fn().mockReturnValue([
         { name: "alpha", title: "Alpha" },
         { name: "beta", title: "Beta" },
@@ -40,21 +40,21 @@ describe("spec delete CLI command", () => {
       configService: {
         loadConfig: vi.fn().mockReturnValue({ language: "en" }),
       },
-      deleteSpecUseCase,
-      listSpecsUseCase,
+      deleteIntentUseCase,
+      listIntentsUseCase,
     };
     vi.spyOn(containerModule, "createAppContainer").mockReturnValue(
       container as never,
     );
-    return { container, deleteSpecUseCase, listSpecsUseCase };
+    return { container, deleteIntentUseCase, listIntentsUseCase };
   }
 
-  it("deletes an explicit specification after confirmation", async () => {
-    const { deleteSpecUseCase } = setup();
+  it("deletes an explicit intent after confirmation", async () => {
+    const { deleteIntentUseCase } = setup();
     vi.mocked(confirm).mockResolvedValue(true);
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    const result = await specDeleteAction("alpha");
+    const result = await intentDeleteAction("alpha");
 
     expect(confirm).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -62,7 +62,7 @@ describe("spec delete CLI command", () => {
         default: false,
       }),
     );
-    expect(deleteSpecUseCase.execute).toHaveBeenCalledWith("alpha");
+    expect(deleteIntentUseCase.execute).toHaveBeenCalledWith("alpha");
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining("deleted successfully"),
     );
@@ -70,13 +70,13 @@ describe("spec delete CLI command", () => {
     expect(process.exitCode).toBeUndefined();
   });
 
-  it("prompts for an omitted specification and includes Back", async () => {
-    const { deleteSpecUseCase } = setup();
+  it("prompts for an omitted intent and includes Back", async () => {
+    const { deleteIntentUseCase } = setup();
     vi.mocked(select).mockResolvedValue("beta" as never);
     vi.mocked(confirm).mockResolvedValue(true);
     vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    await specDeleteAction();
+    await intentDeleteAction();
 
     expect(select).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -87,64 +87,64 @@ describe("spec delete CLI command", () => {
         ]),
       }),
     );
-    expect(deleteSpecUseCase.execute).toHaveBeenCalledWith("beta");
+    expect(deleteIntentUseCase.execute).toHaveBeenCalledWith("beta");
   });
 
   it("returns without deleting when Back is selected", async () => {
-    const { deleteSpecUseCase } = setup();
+    const { deleteIntentUseCase } = setup();
     vi.mocked(select).mockResolvedValue("back" as never);
 
-    const result = await specDeleteAction();
+    const result = await intentDeleteAction();
 
     expect(result).toEqual({ back: true });
     expect(confirm).not.toHaveBeenCalled();
-    expect(deleteSpecUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteIntentUseCase.execute).not.toHaveBeenCalled();
     expect(process.exitCode).toBeUndefined();
   });
 
   it("returns without deleting when confirmation is rejected", async () => {
-    const { deleteSpecUseCase } = setup();
+    const { deleteIntentUseCase } = setup();
     vi.mocked(confirm).mockResolvedValue(false);
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    const result = await specDeleteAction("alpha");
+    const result = await intentDeleteAction("alpha");
 
     expect(result).toEqual({ back: true });
-    expect(deleteSpecUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteIntentUseCase.execute).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(expect.stringContaining("cancelled"));
     expect(process.exitCode).toBeUndefined();
   });
 
   it("treats prompt cancellation as a non-destructive return", async () => {
-    const { deleteSpecUseCase } = setup();
+    const { deleteIntentUseCase } = setup();
     const cancellation = new Error("cancelled");
     cancellation.name = "ExitPromptError";
     vi.mocked(select).mockRejectedValue(cancellation);
     vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    const result = await specDeleteAction();
+    const result = await intentDeleteAction();
 
     expect(result).toEqual({ back: true });
-    expect(deleteSpecUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteIntentUseCase.execute).not.toHaveBeenCalled();
     expect(process.exitCode).toBeUndefined();
   });
 
   it("still selects an omitted target with --force but skips confirmation", async () => {
-    const { deleteSpecUseCase } = setup();
+    const { deleteIntentUseCase } = setup();
     vi.mocked(select).mockResolvedValue("alpha" as never);
     vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-    const result = await specDeleteAction(undefined, { force: true });
+    const result = await intentDeleteAction(undefined, { force: true });
 
     expect(select).toHaveBeenCalledOnce();
     expect(confirm).not.toHaveBeenCalled();
-    expect(deleteSpecUseCase.execute).toHaveBeenCalledWith("alpha");
+    expect(deleteIntentUseCase.execute).toHaveBeenCalledWith("alpha");
     expect(result).toEqual({ success: true });
   });
 
   it.each([
     ["not-initialized", "not initialized"],
-    ["spec-not-found", "Specification not found"],
+    ["intent-not-found", "Intent not found"],
   ])("maps the %s result to a localized failure", async (kind, text) => {
     setup({ kind });
     vi.mocked(confirm).mockResolvedValue(true);
@@ -152,7 +152,7 @@ describe("spec delete CLI command", () => {
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
 
-    const result = await specDeleteAction("missing");
+    const result = await intentDeleteAction("missing");
 
     expect(result).toEqual({ success: false });
     expect(error).toHaveBeenCalledWith(expect.stringContaining(text));
@@ -160,8 +160,8 @@ describe("spec delete CLI command", () => {
   });
 
   it("reports thrown filesystem errors and sets a failure exit code", async () => {
-    const { deleteSpecUseCase } = setup();
-    deleteSpecUseCase.execute.mockImplementation(() => {
+    const { deleteIntentUseCase } = setup();
+    deleteIntentUseCase.execute.mockImplementation(() => {
       throw new Error("EACCES: permission denied");
     });
     vi.mocked(confirm).mockResolvedValue(true);
@@ -169,7 +169,7 @@ describe("spec delete CLI command", () => {
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
 
-    const result = await specDeleteAction("alpha");
+    const result = await intentDeleteAction("alpha");
 
     expect(result).toEqual({ success: false });
     expect(error).toHaveBeenCalledWith(
@@ -179,33 +179,33 @@ describe("spec delete CLI command", () => {
   });
 
   it("registers delete and rm with force parsing", async () => {
-    const { deleteSpecUseCase } = setup();
+    const { deleteIntentUseCase } = setup();
     vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     const deleteProgram = new Command();
-    registerSpecDeleteCommand(deleteProgram.command("spec"));
+    registerIntentDeleteCommand(deleteProgram.command("intent"));
     await deleteProgram.parseAsync([
       "node",
       "codeforge",
-      "spec",
+      "intent",
       "delete",
       "alpha",
       "--force",
     ]);
 
     const rmProgram = new Command();
-    registerSpecDeleteCommand(rmProgram.command("spec"));
+    registerIntentDeleteCommand(rmProgram.command("intent"));
     await rmProgram.parseAsync([
       "node",
       "codeforge",
-      "spec",
+      "intent",
       "rm",
       "beta",
       "-f",
     ]);
 
     expect(confirm).not.toHaveBeenCalled();
-    expect(deleteSpecUseCase.execute).toHaveBeenNthCalledWith(1, "alpha");
-    expect(deleteSpecUseCase.execute).toHaveBeenNthCalledWith(2, "beta");
+    expect(deleteIntentUseCase.execute).toHaveBeenNthCalledWith(1, "alpha");
+    expect(deleteIntentUseCase.execute).toHaveBeenNthCalledWith(2, "beta");
   });
 });

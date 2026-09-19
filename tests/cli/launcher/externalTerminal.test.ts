@@ -74,18 +74,18 @@ describe("externalTerminal launcher", () => {
       });
 
       it("returns false for each registered subcommand family with arguments", () => {
-        expect(shouldLaunchExternalTerminal(["run", "spec-1"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["status", "spec-1"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["spec", "list"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["spec", "create", "spec-new"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["spec", "delete", "spec-del"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["task", "complete", "spec-1", "TASK-1"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["task", "retry", "spec-1", "TASK-1"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["task", "delete", "spec-1", "TASK-1"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["docs", "create", "spec-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["run", "intent-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["status", "intent-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["intent", "list"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["intent", "create", "intent-new"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["intent", "delete", "intent-del"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["task", "complete", "intent-1", "TASK-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["task", "retry", "intent-1", "TASK-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["task", "delete", "intent-1", "TASK-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["docs", "create", "intent-1"], {})).toBe(false);
         expect(shouldLaunchExternalTerminal(["docs", "delete", "arch"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["plan", "generate", "spec-1"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["plan", "validate", "spec-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["plan", "generate", "intent-1"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["plan", "validate", "intent-1"], {})).toBe(false);
         expect(shouldLaunchExternalTerminal(["init"], {})).toBe(false);
         expect(shouldLaunchExternalTerminal(["config"], {})).toBe(false);
       });
@@ -109,7 +109,7 @@ describe("externalTerminal launcher", () => {
 
       it("returns false when help flag is combined with subcommand", () => {
         expect(shouldLaunchExternalTerminal(["run", "--help"], {})).toBe(false);
-        expect(shouldLaunchExternalTerminal(["spec", "-h"], {})).toBe(false);
+        expect(shouldLaunchExternalTerminal(["intent", "-h"], {})).toBe(false);
       });
     });
 

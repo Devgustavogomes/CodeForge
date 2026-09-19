@@ -35,7 +35,7 @@ describe("run CLI command", () => {
   function setupContainerMock(options: {
     status?: "completed" | "failed" | "deadlock";
     hooks?: any;
-    specs?: Array<{ name: string; title: string }>;
+    intents?: Array<{ name: string; title: string }>;
     language?: "en" | "pt" | "es";
     executorAgent?: string;
     environment?: string;
@@ -44,7 +44,7 @@ describe("run CLI command", () => {
     const {
       status = "completed",
       hooks = undefined,
-      specs = [{ name: "spec-a", title: "Spec A" }],
+      intents = [{ name: "intent-a", title: "Intent A" }],
       language = "en",
       executorAgent = "test-agent",
       environment = "test-env",
@@ -55,7 +55,7 @@ describe("run CLI command", () => {
     const mockScheduler = {
       run: shouldThrow
         ? vi.fn().mockRejectedValue(new Error("Scheduler runtime fault"))
-        : vi.fn().mockResolvedValue({ status, specName: "spec-a" }),
+        : vi.fn().mockResolvedValue({ status, intentName: "intent-a" }),
     };
 
     const config = {
@@ -67,11 +67,11 @@ describe("run CLI command", () => {
 
     const createTaskScheduler = vi.fn().mockReturnValue(mockScheduler);
     const runnerProvider = vi.fn().mockReturnValue(mockRunner);
-    const listSpecs = vi.fn().mockReturnValue(specs);
-    const getSpecStatus = vi.fn().mockReturnValue({
+    const listIntents = vi.fn().mockReturnValue(intents);
+    const getIntentStatus = vi.fn().mockReturnValue({
       kind: "status",
-      specName: "spec-a",
-      specStatus: status,
+      intentName: "intent-a",
+      intentStatus: status,
       tasks: [],
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
@@ -80,8 +80,8 @@ describe("run CLI command", () => {
       configService: {
         loadConfig: vi.fn().mockReturnValue(config),
       },
-      listSpecsUseCase: { execute: listSpecs },
-      getSpecStatusUseCase: { execute: getSpecStatus },
+      listIntentsUseCase: { execute: listIntents },
+      getIntentStatusUseCase: { execute: getIntentStatus },
       runnerProvider,
       createTaskScheduler,
       processExecutor: { execute: vi.fn() },
@@ -97,18 +97,18 @@ describe("run CLI command", () => {
       mockRunner,
       createTaskScheduler,
       runnerProvider,
-      listSpecs,
+      listIntents,
     };
   }
 
   it("executes TaskScheduler without mounting or calling runInteractiveMenu", async () => {
     const { mockScheduler, createTaskScheduler } = setupContainerMock();
 
-    const result = await runAction("spec-a");
+    const result = await runAction("intent-a");
 
     expect(runInteractiveMenu).not.toHaveBeenCalled();
     expect(createTaskScheduler).toHaveBeenCalledTimes(1);
-    expect(mockScheduler.run).toHaveBeenCalledWith("spec-a", "test-agent");
+    expect(mockScheduler.run).toHaveBeenCalledWith("intent-a", "test-agent");
     expect(result).toEqual({ success: true });
     expect(process.exitCode).toBe(0);
   });
@@ -119,7 +119,7 @@ describe("run CLI command", () => {
       executorAgent: "custom-executor",
     });
 
-    await runAction("spec-a");
+    await runAction("intent-a");
 
     expect(createTaskScheduler).toHaveBeenCalledWith(
       mockRunner,
@@ -130,7 +130,7 @@ describe("run CLI command", () => {
       expect.any(TerminalSchedulerReporter),
       expect.any(NoopHookDispatcher),
     );
-    expect(mockScheduler.run).toHaveBeenCalledWith("spec-a", "custom-executor");
+    expect(mockScheduler.run).toHaveBeenCalledWith("intent-a", "custom-executor");
   });
 
   it("chooses CommandHookDispatcher when hooks are configured", async () => {
@@ -142,7 +142,7 @@ describe("run CLI command", () => {
       },
     });
 
-    await runAction("spec-a");
+    await runAction("intent-a");
 
     expect(createTaskScheduler).toHaveBeenCalledWith(
       expect.anything(),
@@ -157,7 +157,7 @@ describe("run CLI command", () => {
       hooks: undefined,
     });
 
-    await runAction("spec-a");
+    await runAction("intent-a");
 
     expect(createTaskScheduler).toHaveBeenCalledWith(
       expect.anything(),
@@ -167,34 +167,34 @@ describe("run CLI command", () => {
     );
   });
 
-  it("prompts for specification when omitted and runs chosen spec", async () => {
+  it("prompts for intent when omitted and runs chosen intent", async () => {
     const { mockScheduler } = setupContainerMock({
-      specs: [
-        { name: "spec-a", title: "Spec A" },
-        { name: "spec-b", title: "Spec B" },
+      intents: [
+        { name: "intent-a", title: "Intent A" },
+        { name: "intent-b", title: "Intent B" },
       ],
     });
 
-    vi.mocked(select).mockResolvedValue("spec-b");
+    vi.mocked(select).mockResolvedValue("intent-b");
 
     const result = await runAction();
 
     expect(select).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: "Select a spec to execute:",
+        message: "Select an intent to execute:",
         choices: [
           { name: "<- Back", value: "back" },
-          { name: "spec-a", value: "spec-a" },
-          { name: "spec-b", value: "spec-b" },
+          { name: "intent-a", value: "intent-a" },
+          { name: "intent-b", value: "intent-b" },
         ],
       }),
     );
-    expect(mockScheduler.run).toHaveBeenCalledWith("spec-b", "test-agent");
+    expect(mockScheduler.run).toHaveBeenCalledWith("intent-b", "test-agent");
     expect(result).toEqual({ success: true });
     expect(process.exitCode).toBe(0);
   });
 
-  it("starts no scheduler and returns back when user chooses Back in spec selection", async () => {
+  it("starts no scheduler and returns back when user chooses Back in intent selection", async () => {
     const { createTaskScheduler, mockScheduler } = setupContainerMock();
 
     vi.mocked(select).mockResolvedValue("back");
@@ -207,13 +207,13 @@ describe("run CLI command", () => {
     expect(process.exitCode).toBeUndefined();
   });
 
-  it("displays translated error and sets exit code 1 when no specs exist and spec was omitted", async () => {
-    const { createTaskScheduler } = setupContainerMock({ specs: [] });
+  it("displays translated error and sets exit code 1 when no intents exist and intent was omitted", async () => {
+    const { createTaskScheduler } = setupContainerMock({ intents: [] });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const result = await runAction();
 
-    expect(consoleError).toHaveBeenCalledWith("\n[x] No specs found.\n");
+    expect(consoleError).toHaveBeenCalledWith("\n[x] No intents found.\n");
     expect(createTaskScheduler).not.toHaveBeenCalled();
     expect(result).toEqual({ success: false });
     expect(process.exitCode).toBe(1);
@@ -222,7 +222,7 @@ describe("run CLI command", () => {
   it("sets exit code 1 when execution fails", async () => {
     setupContainerMock({ status: "failed" });
 
-    const result = await runAction("spec-a");
+    const result = await runAction("intent-a");
 
     expect(result).toEqual({ success: false });
     expect(process.exitCode).toBe(1);
@@ -231,7 +231,7 @@ describe("run CLI command", () => {
   it("sets exit code 1 when execution deadlocks", async () => {
     setupContainerMock({ status: "deadlock" });
 
-    const result = await runAction("spec-a");
+    const result = await runAction("intent-a");
 
     expect(result).toEqual({ success: false });
     expect(process.exitCode).toBe(1);
@@ -241,7 +241,7 @@ describe("run CLI command", () => {
     setupContainerMock({ shouldThrow: true });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    const result = await runAction("spec-a");
+    const result = await runAction("intent-a");
 
     expect(consoleError).toHaveBeenCalledWith("Execution error: Scheduler runtime fault");
     expect(result).toEqual({ success: false });
@@ -254,9 +254,9 @@ describe("run CLI command", () => {
     const program = new Command();
     registerRunCommand(program);
 
-    await program.parseAsync(["node", "codeforge", "run", "auth-spec"]);
+    await program.parseAsync(["node", "codeforge", "run", "auth-intent"]);
 
-    expect(mockScheduler.run).toHaveBeenCalledWith("auth-spec", "test-agent");
+    expect(mockScheduler.run).toHaveBeenCalledWith("auth-intent", "test-agent");
     expect(runInteractiveMenu).not.toHaveBeenCalled();
   });
 });

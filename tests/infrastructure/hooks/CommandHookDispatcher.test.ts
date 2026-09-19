@@ -4,7 +4,7 @@ import { HookContext, HookMap } from "../../../src/domain/hook.js";
 import { FakeProcessExecutor, ProcessSpawnOptions } from "../../helpers/fake-process-executor.js";
 
 function contextFor(overrides: Partial<HookContext> = {}): HookContext {
-  return { event: "task.verify", specName: "spec", taskId: "TASK-001", ...overrides };
+  return { event: "task.verify", intentName: "intent", taskId: "TASK-001", ...overrides };
 }
 
 function createDefaultExecutor(): FakeProcessExecutor {
@@ -24,7 +24,7 @@ function createDefaultExecutor(): FakeProcessExecutor {
     if (cmd.includes("$CODEFORGE_EVENT")) {
       const env = options?.env ?? {};
       return {
-        stdout: `${env.CODEFORGE_EVENT}|${env.CODEFORGE_SPEC}|${env.CODEFORGE_TASK_ID}`,
+        stdout: `${env.CODEFORGE_EVENT}|${env.CODEFORGE_INTENT}|${env.CODEFORGE_TASK_ID}`,
         stderr: "",
         exitCode: 0,
       };
@@ -121,7 +121,7 @@ describe("CommandHookDispatcher", () => {
 
     expect(JSON.parse(result.output)).toEqual({
       event: "task.verify",
-      specName: "spec",
+      intentName: "intent",
       taskId: "TASK-001",
     });
   });
@@ -129,13 +129,13 @@ describe("CommandHookDispatcher", () => {
   it("exposes the context as CODEFORGE_* environment variables", async () => {
     const dispatcher = dispatcherFor({
       "task.verify": [
-        { name: "env", run: 'printf "%s|%s|%s" "$CODEFORGE_EVENT" "$CODEFORGE_SPEC" "$CODEFORGE_TASK_ID"' },
+        { name: "env", run: 'printf "%s|%s|%s" "$CODEFORGE_EVENT" "$CODEFORGE_INTENT" "$CODEFORGE_TASK_ID"' },
       ],
     });
 
     const [result] = await dispatcher.dispatch(contextFor());
 
-    expect(result.output).toBe("task.verify|spec|TASK-001");
+    expect(result.output).toBe("task.verify|intent|TASK-001");
   });
 
   it("leaves CODEFORGE_TASK_ID empty for run-level events", async () => {

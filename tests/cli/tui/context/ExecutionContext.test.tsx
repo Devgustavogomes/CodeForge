@@ -40,13 +40,13 @@ describe('ExecutionContext', () => {
       language: 'en',
     });
 
-    gw.mkdir('.codeforge/tasks/test-spec');
+    gw.mkdir('.codeforge/tasks/test-intent');
   });
 
-  function writeTask(specName: string, task: Task): void {
-    gw.mkdir(`.codeforge/tasks/${specName}`);
+  function writeTask(intentName: string, task: Task): void {
+    gw.mkdir(`.codeforge/tasks/${intentName}`);
     gw.writeFile(
-      `.codeforge/tasks/${specName}/${task.id}.json`,
+      `.codeforge/tasks/${intentName}/${task.id}.json`,
       JSON.stringify(task),
     );
   }
@@ -104,7 +104,7 @@ describe('ExecutionContext', () => {
       .withId('TASK-001')
       .withTitle('Task 1')
       .build();
-    writeTask('test-spec', task1);
+    writeTask('test-intent', task1);
 
     let contextValue!: ExecutionContextValue;
     const TestConsumer = () => {
@@ -115,7 +115,7 @@ describe('ExecutionContext', () => {
     const { unmount } = renderWithProviders(<TestConsumer />, {
       container,
       scheduler,
-      initialSpec: 'test-spec',
+      initialIntent: 'test-intent',
       flushIntervalMs: 0,
     });
 
@@ -123,11 +123,11 @@ describe('ExecutionContext', () => {
     expect(contextValue?.tasks[0].status).toBe('pending');
 
     // Task started
-    const state = stateRepo.init('test-spec', [task1]);
+    const state = stateRepo.init('test-intent', [task1]);
     state.tasks['TASK-001'].status = 'running';
     state.tasks['TASK-001'].startedAt = new Date().toISOString();
     stateRepo.save(state);
-    scheduler.getReporter()?.onStart('test-spec');
+    scheduler.getReporter()?.onStart('test-intent');
     await vi.waitFor(() => {
       expect(contextValue?.tasks[0].status).toBe('running');
     });
@@ -136,7 +136,7 @@ describe('ExecutionContext', () => {
     state.tasks['TASK-001'].status = 'failed';
     state.tasks['TASK-001'].errors = ['Syntax error'];
     stateRepo.save(state);
-    scheduler.getReporter()?.onUpdate('test-spec');
+    scheduler.getReporter()?.onUpdate('test-intent');
     await vi.waitFor(() => {
       expect(contextValue?.tasks[0].status).toBe('failed');
       expect(contextValue?.tasks[0].errors).toEqual(['Syntax error']);
@@ -146,7 +146,7 @@ describe('ExecutionContext', () => {
     state.tasks['TASK-001'].status = 'completed';
     delete state.tasks['TASK-001'].errors;
     stateRepo.save(state);
-    scheduler.getReporter()?.onComplete('test-spec');
+    scheduler.getReporter()?.onComplete('test-intent');
     await vi.waitFor(() => {
       expect(contextValue?.tasks[0].status).toBe('completed');
       expect(contextValue?.tasks[0].errors).toBeUndefined();
@@ -171,19 +171,19 @@ describe('ExecutionContext', () => {
     await flushAsync(1);
     expect(contextValue?.schedulerStatus).toBe('idle');
 
-    scheduler.getReporter()?.onStart('test-spec');
+    scheduler.getReporter()?.onStart('test-intent');
     await flushAsync(1);
     expect(contextValue?.schedulerStatus).toBe('running');
 
-    scheduler.getReporter()?.onComplete('test-spec');
+    scheduler.getReporter()?.onComplete('test-intent');
     await flushAsync(1);
     expect(contextValue?.schedulerStatus).toBe('completed');
 
-    scheduler.getReporter()?.onFail('test-spec');
+    scheduler.getReporter()?.onFail('test-intent');
     await flushAsync(1);
     expect(contextValue?.schedulerStatus).toBe('failed');
 
-    scheduler.getReporter()?.onDeadlock('test-spec');
+    scheduler.getReporter()?.onDeadlock('test-intent');
     await flushAsync(1);
     expect(contextValue?.schedulerStatus).toBe('deadlock');
 

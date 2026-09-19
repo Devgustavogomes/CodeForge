@@ -12,11 +12,11 @@ describe("PromptService", () => {
     gw = new InMemoryWorkspaceGateway();
     service = new PromptService(gw);
     gw.mkdir(".codeforge");
-    gw.mkdir(".codeforge/specs");
+    gw.mkdir(".codeforge/intents");
   });
 
   it("should create and return prompt file path", () => {
-    const specName = "test-spec";
+    const intentName = "test-intent";
     const task: Task = {
       id: "TASK-1",
       title: "Title",
@@ -29,9 +29,9 @@ describe("PromptService", () => {
       acceptanceCriteria: []
     };
 
-    const path = service.createPromptFile(specName, task, "typescript");
+    const path = service.createPromptFile(intentName, task, "typescript");
     
-    expect(path).toBe(`${PATHS.executionsDir}/${specName}/${task.id}.temp.prompt.md`);
+    expect(path).toBe(`${PATHS.executionsDir}/${intentName}/${task.id}.temp.prompt.md`);
     expect(gw.exists(path)).toBe(true);
     
     const content = gw.readFile(path);
@@ -39,8 +39,8 @@ describe("PromptService", () => {
   });
 
   it("should delete prompt file and empty parent directory", () => {
-    const specName = "test-spec";
-    const dir = `${PATHS.executionsDir}/${specName}`;
+    const intentName = "test-intent";
+    const dir = `${PATHS.executionsDir}/${intentName}`;
     const path = `${dir}/TASK-1.temp.prompt.md`;
     gw.mkdir(dir);
     gw.writeFile(path, "content");
@@ -53,8 +53,8 @@ describe("PromptService", () => {
   });
 
   it("should not delete parent directory if other prompt files remain", () => {
-    const specName = "test-spec";
-    const dir = `${PATHS.executionsDir}/${specName}`;
+    const intentName = "test-intent";
+    const dir = `${PATHS.executionsDir}/${intentName}`;
     const path1 = `${dir}/TASK-1.temp.prompt.md`;
     const path2 = `${dir}/TASK-2.temp.prompt.md`;
     gw.mkdir(dir);
@@ -71,18 +71,18 @@ describe("PromptService", () => {
   });
 
   it("should delete entire prompt directory with deletePromptDir", () => {
-    const specName = "test-spec";
-    const dir = `${PATHS.executionsDir}/${specName}`;
+    const intentName = "test-intent";
+    const dir = `${PATHS.executionsDir}/${intentName}`;
     gw.mkdir(dir);
     gw.writeFile(`${dir}/TASK-1.temp.prompt.md`, "content");
     expect(gw.exists(dir)).toBe(true);
 
-    service.deletePromptDir(specName);
+    service.deletePromptDir(intentName);
     expect(gw.exists(dir)).toBe(false);
   });
 
-  it("builds prompt correctly including spec content and task fields", () => {
-    gw.writeFile(".codeforge/specs/auth.md", "My Spec Content");
+  it("builds prompt correctly including intent content and task fields", () => {
+    gw.writeFile(".codeforge/intents/auth.md", "My Intent Content");
 
     const task: Task = {
       id: "TASK-001",
@@ -103,13 +103,13 @@ describe("PromptService", () => {
     expect(prompt).toContain("TASK-001 - Login");
     expect(prompt).toContain("Objective: Do login");
     expect(prompt).toContain("No specific files provided in context.");
-    expect(prompt).toContain("OVERALL SPECIFICATION");
-    expect(prompt).toContain("My Spec Content");
+    expect(prompt).toContain("--- OVERALL INTENT ---");
+    expect(prompt).toContain("My Intent Content");
     expect(prompt).toContain("Constraints:\n- No external APIs");
   });
 
   it("injects real file contents if task specifies files", () => {
-    gw.writeFile(".codeforge/specs/auth.md", "Spec");
+    gw.writeFile(".codeforge/intents/auth.md", "Intent");
 
     // Create a real source file in the workspace
     gw.mkdir("src");
@@ -139,7 +139,7 @@ describe("PromptService", () => {
   });
 
   it("selects buildRetryPrompt and includes error section when previousErrors is provided with items", () => {
-    gw.writeFile(".codeforge/specs/auth.md", "Spec content");
+    gw.writeFile(".codeforge/intents/auth.md", "Intent content");
 
     const task: Task = {
       id: "TASK-003",
@@ -177,7 +177,7 @@ describe("PromptService", () => {
   });
 
   it("selects buildRunningPrompt when previousErrors is omitted or empty", () => {
-    gw.writeFile(".codeforge/specs/auth.md", "Spec content");
+    gw.writeFile(".codeforge/intents/auth.md", "Intent content");
 
     const task: Task = {
       id: "TASK-004",

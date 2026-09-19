@@ -14,7 +14,7 @@ describe("InitializeWorkspaceUseCase", () => {
   it("creates all expected subdirectories (no plans/)", () => {
     useCase.execute();
 
-    const subdirs = ["specs", "tasks", "executions", "rules", "docs"];
+    const subdirs = ["intents", "tasks", "executions", "rules", "docs"];
     for (const sub of subdirs) {
       expect(gateway.exists(`.codeforge/${sub}`)).toBe(true);
     }
@@ -54,7 +54,7 @@ describe("InitializeWorkspaceUseCase", () => {
       expect(result.created).toContain(".codeforge/rules/planning.md");
       expect(result.created).toContain(".codeforge/metadata.json");
 
-      const subdirs = ["specs", "tasks", "executions", "rules", "docs"];
+      const subdirs = ["intents", "tasks", "executions", "rules", "docs"];
       for (const sub of subdirs) {
         expect(result.created).toContain(`.codeforge/${sub}/`);
       }

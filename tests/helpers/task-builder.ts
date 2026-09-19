@@ -1,4 +1,5 @@
 import { Task } from "../../src/domain/task.js";
+import { IntentExecutionState, TaskStatus } from "../../src/domain/execution.js";
 
 export class TaskBuilder {
   private id: string = "TASK-001";
@@ -86,5 +87,95 @@ export class TaskBuilder {
       constraints: [...this.constraints],
       acceptanceCriteria: [...this.acceptanceCriteria],
     };
+  }
+
+  static anIntentExecutionState(
+    intentId: string = "test-intent",
+    tasks: Record<string, { status: TaskStatus; dependencies?: string[]; title?: string }> = {},
+    status: TaskStatus = "pending",
+  ): IntentExecutionState {
+    const taskStates: Record<string, { status: TaskStatus; dependencies: string[]; title?: string }> = {};
+    for (const [id, t] of Object.entries(tasks)) {
+      taskStates[id] = {
+        status: t.status,
+        dependencies: t.dependencies ?? [],
+        title: t.title,
+      };
+    }
+    const state: IntentExecutionState = {
+      intentId,
+      status,
+      tasks: taskStates,
+      updatedAt: new Date().toISOString(),
+    };
+    (state as any).intentId = intentId;
+    return state;
+  }
+
+  toExecutionState(intentId: string = "test-intent", status: TaskStatus = "pending"): IntentExecutionState {
+    const state: IntentExecutionState = {
+      intentId,
+      status,
+      tasks: {
+        [this.id]: {
+          status,
+          dependencies: [...this.dependencies],
+          title: this.title,
+        },
+      },
+      updatedAt: new Date().toISOString(),
+    };
+    (state as any).intentId = intentId;
+    return state;
+  }
+}
+
+export class IntentExecutionStateBuilder {
+  private intentId: string = "test-intent";
+  private status: TaskStatus = "pending";
+  private tasks: Record<string, { status: TaskStatus; dependencies: string[]; title?: string }> = {};
+  private startedAt?: string;
+  private completedAt?: string;
+  private updatedAt: string = new Date().toISOString();
+
+  static anExecutionState(defaults?: Partial<IntentExecutionState>): IntentExecutionStateBuilder {
+    const builder = new IntentExecutionStateBuilder();
+    if (defaults) {
+      if (defaults.intentId !== undefined) builder.intentId = defaults.intentId;
+      if (defaults.status !== undefined) builder.status = defaults.status;
+      if (defaults.tasks !== undefined) builder.tasks = { ...defaults.tasks };
+      if (defaults.startedAt !== undefined) builder.startedAt = defaults.startedAt;
+      if (defaults.completedAt !== undefined) builder.completedAt = defaults.completedAt;
+      if (defaults.updatedAt !== undefined) builder.updatedAt = defaults.updatedAt;
+    }
+    return builder;
+  }
+
+  withIntentId(intentId: string): this {
+    this.intentId = intentId;
+    return this;
+  }
+
+  withStatus(status: TaskStatus): this {
+    this.status = status;
+    return this;
+  }
+
+  withTask(taskId: string, status: TaskStatus = "pending", dependencies: string[] = []): this {
+    this.tasks[taskId] = { status, dependencies };
+    return this;
+  }
+
+  build(): IntentExecutionState {
+    const state: IntentExecutionState = {
+      intentId: this.intentId,
+      status: this.status,
+      startedAt: this.startedAt,
+      completedAt: this.completedAt,
+      tasks: { ...this.tasks },
+      updatedAt: this.updatedAt,
+    };
+    (state as any).intentId = this.intentId;
+    return state;
   }
 }

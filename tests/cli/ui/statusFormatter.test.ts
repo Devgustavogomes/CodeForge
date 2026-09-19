@@ -7,8 +7,8 @@ import {
 
 const snapshot = {
   kind: "status" as const,
-  specName: "feature-x",
-  specStatus: "failed",
+  intentName: "feature-x",
+  intentStatus: "failed",
   tasks: [
     {
       id: "TASK-001",
@@ -48,7 +48,7 @@ describe("statusFormatter", () => {
   it("formats aggregate progress and all four status counts", () => {
     const output = formatPlainTextStatus(snapshot);
 
-    expect(output).toContain("Spec: feature-x (failed)");
+    expect(output).toContain("Intent: feature-x (failed)");
     expect(output).toContain("Progress: 1/4 tasks completed (25%)");
     expect(output).toContain(
       "Summary: 1 completed, 1 running, 1 failed, 1 pending",
@@ -94,8 +94,8 @@ describe("statusFormatter", () => {
   it("formats an empty execution without dividing by zero", () => {
     const output = formatPlainTextStatus({
       kind: "status",
-      specName: "empty",
-      specStatus: "pending",
+      intentName: "empty",
+      intentStatus: "pending",
       tasks: [],
       updatedAt: "2026-01-01T00:00:00.000Z",
     });

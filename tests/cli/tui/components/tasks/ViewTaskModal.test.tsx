@@ -22,10 +22,10 @@ describe('ViewTaskModal component and taskFormatter', () => {
 
   describe('formatTaskToMarkdown', () => {
     it('formats a complete task with all sections into markdown', () => {
-      const md = formatTaskToMarkdown(mockTask, 'test-spec');
+      const md = formatTaskToMarkdown(mockTask, 'test-intent');
 
       expect(md).toContain('# [TASK-002] Implementar ViewTaskModal');
-      expect(md).toContain('> Spec: test-spec');
+      expect(md).toContain('> Intent: test-intent');
       expect(md).toContain('## Status ([PENDING])');
       expect(md).toContain('## Objective');
       expect(md).toContain('Criar modal com visualizacao de task linha a linha');

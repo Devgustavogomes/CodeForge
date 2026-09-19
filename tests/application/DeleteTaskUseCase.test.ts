@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { DeleteTaskUseCase } from "../../src/application/use-cases/DeleteTaskUseCase.js";
 import {
-  SpecExecutionState,
+  IntentExecutionState,
   TaskStatus,
 } from "../../src/domain/execution.js";
 import { Task } from "../../src/domain/task.js";
@@ -11,7 +11,7 @@ import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { TaskBuilder } from "../helpers/task-builder.js";
 import { WorkspaceBuilder } from "../helpers/workspace-builder.js";
 
-const SPEC_NAME = "test-spec";
+const INTENT_NAME = "test-intent";
 const TARGET_ID = "TASK-002";
 
 function makeTask(
@@ -30,8 +30,8 @@ function makeTask(
 function initializedWorkspace(tasks: Task[]): InMemoryWorkspaceGateway {
   return WorkspaceBuilder.aWorkspace()
     .withMetadata()
-    .withSpec(SPEC_NAME)
-    .withTasks(SPEC_NAME, tasks)
+    .withIntent(INTENT_NAME)
+    .withTasks(INTENT_NAME, tasks)
     .build();
 }
 
@@ -39,9 +39,9 @@ function saveExecutionState(
   repo: ExecutionStateRepository,
   tasks: Task[],
   statuses: Record<string, TaskStatus>,
-  overrides: Partial<SpecExecutionState> = {},
+  overrides: Partial<IntentExecutionState> = {},
 ): void {
-  const state = repo.init(SPEC_NAME, tasks);
+  const state = repo.init(INTENT_NAME, tasks);
   Object.assign(state, overrides);
   for (const [taskId, status] of Object.entries(statuses)) {
     state.tasks[taskId].status = status;
@@ -73,14 +73,14 @@ describe("DeleteTaskUseCase", () => {
     );
     const filesBefore = new Map(gateway.files);
 
-    const result = useCase.execute(SPEC_NAME, TARGET_ID);
+    const result = useCase.execute(INTENT_NAME, TARGET_ID);
 
     expect(result).toEqual({ kind: "not-initialized" });
     expect(gateway.files).toEqual(filesBefore);
   });
 
-  it("returns spec-not-found without deleting orphaned task or execution data", () => {
-    gateway.deleteFile(PATHS.specFile(SPEC_NAME));
+  it("returns intent-not-found without deleting orphaned task or execution data", () => {
+    gateway.deleteFile(PATHS.intentFile(INTENT_NAME));
     saveExecutionState(
       repository,
       [makeTask("TASK-001"), makeTask(TARGET_ID)],
@@ -88,9 +88,9 @@ describe("DeleteTaskUseCase", () => {
     );
     const filesBefore = new Map(gateway.files);
 
-    const result = useCase.execute(SPEC_NAME, TARGET_ID);
+    const result = useCase.execute(INTENT_NAME, TARGET_ID);
 
-    expect(result).toEqual({ kind: "spec-not-found" });
+    expect(result).toEqual({ kind: "intent-not-found" });
     expect(gateway.files).toEqual(filesBefore);
   });
 
@@ -102,7 +102,7 @@ describe("DeleteTaskUseCase", () => {
     );
     const filesBefore = new Map(gateway.files);
 
-    const result = useCase.execute(SPEC_NAME, "TASK-404");
+    const result = useCase.execute(INTENT_NAME, "TASK-404");
 
     expect(result).toEqual({ kind: "task-not-found" });
     expect(gateway.files).toEqual(filesBefore);
@@ -132,34 +132,35 @@ describe("DeleteTaskUseCase", () => {
     repository = new ExecutionStateRepository(gateway);
     useCase = new DeleteTaskUseCase(gateway, repository);
 
-    const unchangedPath = PATHS.taskFile(SPEC_NAME, "TASK-004");
+    const unchangedPath = PATHS.taskFile(INTENT_NAME, "TASK-004");
     const unchangedRaw = '{"customFormatting":true,"id":"TASK-004","title":"Unchanged","objective":"O","context":"C","implementation":"I","files":[],"dependencies":["TASK-001"],"constraints":[],"acceptanceCriteria":[],"extension":{"keep":true}}';
     gateway.writeFile(unchangedPath, unchangedRaw);
-    gateway.writeFile(`${PATHS.tasksDir}/${SPEC_NAME}/notes.txt`, "keep me");
+    gateway.writeFile(`${PATHS.tasksDir}/${INTENT_NAME}/notes.txt`, "keep me");
     gateway.writeFile(
-      PATHS.taskFile("other-spec", TARGET_ID),
+      PATHS.taskFile("other-intent", TARGET_ID),
       JSON.stringify(makeTask(TARGET_ID)),
     );
 
-    const result = useCase.execute(SPEC_NAME, TARGET_ID);
+    const result = useCase.execute(INTENT_NAME, TARGET_ID);
 
     expect(result).toEqual({
       kind: "deleted",
-      specName: SPEC_NAME,
+      intentName: INTENT_NAME,
+      intentName: INTENT_NAME,
       taskId: TARGET_ID,
       cleanedDependenciesCount: 2,
     });
-    expect(gateway.exists(PATHS.taskFile(SPEC_NAME, TARGET_ID))).toBe(false);
-    expect(gateway.exists(PATHS.taskFile("other-spec", TARGET_ID))).toBe(true);
-    expect(gateway.readFile(`${PATHS.tasksDir}/${SPEC_NAME}/notes.txt`)).toBe(
+    expect(gateway.exists(PATHS.taskFile(INTENT_NAME, TARGET_ID))).toBe(false);
+    expect(gateway.exists(PATHS.taskFile("other-intent", TARGET_ID))).toBe(true);
+    expect(gateway.readFile(`${PATHS.tasksDir}/${INTENT_NAME}/notes.txt`)).toBe(
       "keep me",
     );
 
     const cleanedFirst = JSON.parse(
-      gateway.readFile(PATHS.taskFile(SPEC_NAME, "TASK-001")),
+      gateway.readFile(PATHS.taskFile(INTENT_NAME, "TASK-001")),
     ) as Task;
     const cleanedSecond = JSON.parse(
-      gateway.readFile(PATHS.taskFile(SPEC_NAME, "TASK-003")),
+      gateway.readFile(PATHS.taskFile(INTENT_NAME, "TASK-003")),
     ) as Task;
     expect(cleanedFirst).toEqual({
       ...firstSibling,
@@ -169,13 +170,13 @@ describe("DeleteTaskUseCase", () => {
     expect(gateway.readFile(unchangedPath)).toBe(unchangedRaw);
   });
 
-  it("does not create execution state when the specification has never run", () => {
-    expect(repository.load(SPEC_NAME)).toBeNull();
+  it("does not create execution state when the intent has never run", () => {
+    expect(repository.load(INTENT_NAME)).toBeNull();
 
-    const result = useCase.execute(SPEC_NAME, TARGET_ID);
+    const result = useCase.execute(INTENT_NAME, TARGET_ID);
 
     expect(result.kind).toBe("deleted");
-    expect(gateway.exists(PATHS.executionState(SPEC_NAME))).toBe(false);
+    expect(gateway.exists(PATHS.executionState(INTENT_NAME))).toBe(false);
   });
 
   it.each<{
@@ -204,7 +205,7 @@ describe("DeleteTaskUseCase", () => {
       expectsCompletedAt: false,
     },
   ])(
-    "recalculates the specification as $expectedStatus when a remaining task is $remainingStatus",
+    "recalculates the intent as $expectedStatus when a remaining task is $remainingStatus",
     ({ remainingStatus, expectedStatus, expectsCompletedAt }) => {
       const tasks = [makeTask("TASK-001", [TARGET_ID]), makeTask(TARGET_ID)];
       gateway = initializedWorkspace(tasks);
@@ -220,9 +221,9 @@ describe("DeleteTaskUseCase", () => {
         },
       );
 
-      useCase.execute(SPEC_NAME, TARGET_ID);
+      useCase.execute(INTENT_NAME, TARGET_ID);
 
-      const updatedState = repository.load(SPEC_NAME)!;
+      const updatedState = repository.load(INTENT_NAME)!;
       expect(updatedState.status).toBe(expectedStatus);
       expect(updatedState.tasks[TARGET_ID]).toBeUndefined();
       expect(updatedState.tasks["TASK-001"].dependencies).toEqual([]);
@@ -254,9 +255,9 @@ describe("DeleteTaskUseCase", () => {
       { status: "running" },
     );
 
-    useCase.execute(SPEC_NAME, TARGET_ID);
+    useCase.execute(INTENT_NAME, TARGET_ID);
 
-    const updatedState = repository.load(SPEC_NAME)!;
+    const updatedState = repository.load(INTENT_NAME)!;
     expect(updatedState.status).toBe("completed");
     expect(updatedState.completedAt).toEqual(expect.any(String));
   });
@@ -276,16 +277,16 @@ describe("DeleteTaskUseCase", () => {
         completedAt: "2026-09-01T10:00:00.000Z",
       },
     );
-    const state = repository.load(SPEC_NAME)!;
+    const state = repository.load(INTENT_NAME)!;
     state.tasks["TASK-001"].title = "Preserved execution title";
     state.tasks["TASK-001"].startedAt = "2026-09-01T09:05:00.000Z";
     state.tasks["TASK-001"].completedAt = "2026-09-01T09:10:00.000Z";
     state.tasks["TASK-001"].errors = ["Preserved error"];
     repository.save(state);
 
-    useCase.execute(SPEC_NAME, TARGET_ID);
+    useCase.execute(INTENT_NAME, TARGET_ID);
 
-    const updatedState = repository.load(SPEC_NAME)!;
+    const updatedState = repository.load(INTENT_NAME)!;
     expect(updatedState.startedAt).toBe("2026-09-01T09:00:00.000Z");
     expect(updatedState.completedAt).toBe("2026-09-01T10:00:00.000Z");
     expect(updatedState.tasks["TASK-001"]).toEqual({
@@ -305,9 +306,9 @@ describe("DeleteTaskUseCase", () => {
     useCase = new DeleteTaskUseCase(gateway, repository);
     saveExecutionState(repository, tasks, { [TARGET_ID]: "pending" });
 
-    useCase.execute(SPEC_NAME, TARGET_ID);
+    useCase.execute(INTENT_NAME, TARGET_ID);
 
-    const updatedState = repository.load(SPEC_NAME)!;
+    const updatedState = repository.load(INTENT_NAME)!;
     expect(updatedState.tasks).toEqual({});
     expect(updatedState.status).toBe("completed");
     expect(updatedState.completedAt).toEqual(expect.any(String));

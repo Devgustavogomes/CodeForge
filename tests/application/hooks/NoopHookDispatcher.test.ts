@@ -8,7 +8,7 @@ describe("NoopHookDispatcher", () => {
 
     for (const event of HOOK_EVENTS) {
       await expect(
-        dispatcher.dispatch({ event, specName: "spec" }),
+        dispatcher.dispatch({ event, intentName: "intent" }),
       ).resolves.toEqual([]);
     }
   });
@@ -19,7 +19,7 @@ describe("NoopHookDispatcher", () => {
     await expect(
       dispatcher.dispatch({
         event: "task.failed",
-        specName: "spec",
+        intentName: "intent",
         taskId: "TASK-001",
         errors: ["boom"],
       }),

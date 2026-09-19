@@ -1,15 +1,15 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { SpecSourceStep } from '../../../../../src/cli/tui/components/onboarding/steps/SpecSourceStep.js';
+import { IntentSourceStep } from '../../../../../src/cli/tui/components/onboarding/steps/IntentSourceStep.js';
 import { flushAsync, renderWithProviders } from '../../helpers/renderWithProviders.js';
 
-describe('SpecSourceStep', () => {
+describe('IntentSourceStep', () => {
   it('selects Local by default and advances on confirmation', async () => {
     const onChange = vi.fn();
     const onNext = vi.fn();
     const { stdin, unmount } = renderWithProviders(
-      <SpecSourceStep
-        specSource={{ provider: 'local' }}
+      <IntentSourceStep
+        intentSource={{ provider: 'local' }}
         onChange={onChange}
         onNext={onNext}
       />,
@@ -28,8 +28,8 @@ describe('SpecSourceStep', () => {
     const onNext = vi.fn();
     const onFormActiveChange = vi.fn();
     const { stdin, unmount } = renderWithProviders(
-      <SpecSourceStep
-        specSource={{ provider: 'local' }}
+      <IntentSourceStep
+        intentSource={{ provider: 'local' }}
         onChange={onChange}
         onNext={onNext}
         onFormActiveChange={onFormActiveChange}

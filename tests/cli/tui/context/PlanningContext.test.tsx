@@ -58,7 +58,7 @@ describe('PlanningContext & PlanningProvider', () => {
     );
 
     expect(captured.isGenerating).toBe(false);
-    expect(captured.generatingSpecName).toBeNull();
+    expect(captured.generatingIntentName).toBeNull();
     expect(captured.startTime).toBeNull();
     expect(captured.endTime).toBeNull();
     expect(captured.result).toBeNull();
@@ -72,9 +72,9 @@ describe('PlanningContext & PlanningProvider', () => {
   });
 
   it('executa fluxo de sucesso na geração de plano com parâmetros corretos e notificação temporária', async () => {
-    gw.mkdir('.codeforge/tasks/auth-spec');
-    gw.writeFile('.codeforge/tasks/auth-spec/TASK-001.json', JSON.stringify({ id: 'TASK-001' }));
-    gw.writeFile('.codeforge/tasks/auth-spec/TASK-002.json', JSON.stringify({ id: 'TASK-002' }));
+    gw.mkdir('.codeforge/tasks/auth-intent');
+    gw.writeFile('.codeforge/tasks/auth-intent/TASK-001.json', JSON.stringify({ id: 'TASK-001' }));
+    gw.writeFile('.codeforge/tasks/auth-intent/TASK-002.json', JSON.stringify({ id: 'TASK-002' }));
 
     let resolvePlan!: (value: unknown) => void;
     const planPromise = new Promise((resolve) => {
@@ -105,11 +105,11 @@ describe('PlanningContext & PlanningProvider', () => {
       </PlanningProvider>,
     );
 
-    const promise = captured.generatePlan('auth-spec');
+    const promise = captured.generatePlan('auth-intent');
 
     await vi.waitFor(() => {
       expect(captured.isGenerating).toBe(true);
-      expect(captured.generatingSpecName).toBe('auth-spec');
+      expect(captured.generatingIntentName).toBe('auth-intent');
       expect(captured.startTime).toBeTypeOf('number');
       expect(captured.endTime).toBeNull();
     });
@@ -118,9 +118,9 @@ describe('PlanningContext & PlanningProvider', () => {
     await promise;
 
     await vi.waitFor(() => {
-      expect(executeSpy).toHaveBeenCalledWith('auth-spec', 'gpt-4o');
+      expect(executeSpy).toHaveBeenCalledWith('auth-intent', 'gpt-4o');
       expect(captured.isGenerating).toBe(false);
-      expect(captured.generatingSpecName).toBe('auth-spec');
+      expect(captured.generatingIntentName).toBe('auth-intent');
       expect(captured.endTime).toBeTypeOf('number');
       expect(captured.endTime).toBeGreaterThanOrEqual(captured.startTime!);
       expect(captured.result).toEqual({
@@ -128,7 +128,7 @@ describe('PlanningContext & PlanningProvider', () => {
         taskCount: 2,
       });
       expect(captured.validationErrors).toBeNull();
-      expect(captured.statusNotification).toBe('✓ Plano gerado para auth-spec');
+      expect(captured.statusNotification).toBe('✓ Plano gerado para auth-intent');
     });
 
     unmount();
@@ -155,17 +155,17 @@ describe('PlanningContext & PlanningProvider', () => {
       </PlanningProvider>,
     );
 
-    const planPromise = captured.generatePlan('billing-spec');
+    const planPromise = captured.generatePlan('billing-intent');
     await planPromise;
 
     // Aguarda renderização pós término
     await vi.waitFor(() => {
-      expect(captured.statusNotification).toBe('✓ Plano gerado para billing-spec');
+      expect(captured.statusNotification).toBe('✓ Plano gerado para billing-intent');
     });
 
     // Avança 4.9s
     vi.advanceTimersByTime(4900);
-    expect(captured.statusNotification).toBe('✓ Plano gerado para billing-spec');
+    expect(captured.statusNotification).toBe('✓ Plano gerado para billing-intent');
 
     // Avança mais 200ms (> 5s total)
     vi.advanceTimersByTime(200);
@@ -203,7 +203,7 @@ describe('PlanningContext & PlanningProvider', () => {
       </PlanningProvider>,
     );
 
-    await captured.generatePlan('broken-spec');
+    await captured.generatePlan('broken-intent');
 
     await vi.waitFor(() => {
       expect(captured.isGenerating).toBe(false);
@@ -218,11 +218,11 @@ describe('PlanningContext & PlanningProvider', () => {
     unmount();
   });
 
-  it('lida com outros tipos de retorno como spec-not-found', async () => {
+  it('lida com outros tipos de retorno como intent-not-found', async () => {
     const container = createTestContainer({
       generatePlanUseCase: {
         execute: vi.fn().mockResolvedValue({
-          kind: 'spec-not-found',
+          kind: 'intent-not-found',
         }),
       } as unknown as AppContainer['generatePlanUseCase'],
     });
@@ -239,13 +239,13 @@ describe('PlanningContext & PlanningProvider', () => {
       </PlanningProvider>,
     );
 
-    await captured.generatePlan('missing-spec');
+    await captured.generatePlan('missing-intent');
 
     await vi.waitFor(() => {
       expect(captured.isGenerating).toBe(false);
       expect(captured.result).toEqual({
-        kind: 'spec-not-found',
-        message: 'Plan generation failed: spec-not-found',
+        kind: 'intent-not-found',
+        message: 'Plan generation failed: intent-not-found',
       });
       expect(captured.validationErrors).toBeNull();
     });
@@ -272,7 +272,7 @@ describe('PlanningContext & PlanningProvider', () => {
       </PlanningProvider>,
     );
 
-    await captured.generatePlan('failing-spec');
+    await captured.generatePlan('failing-intent');
 
     await vi.waitFor(() => {
       expect(captured.isGenerating).toBe(false);
@@ -293,8 +293,8 @@ describe('PlanningContext & PlanningProvider', () => {
       resolveFirstPlan = resolve;
     });
 
-    const executeSpy = vi.fn().mockImplementation((specName: string) => {
-      if (specName === 'spec-alpha') {
+    const executeSpy = vi.fn().mockImplementation((intentName: string) => {
+      if (intentName === 'intent-alpha') {
         return firstPlanPromise;
       }
       return Promise.resolve({ kind: 'valid' });
@@ -309,7 +309,7 @@ describe('PlanningContext & PlanningProvider', () => {
     let captured!: PlanningContextValue;
     const TestConsumer = () => {
       captured = usePlanning();
-      return <Text>Active: {captured.generatingSpecName ?? 'none'}</Text>;
+      return <Text>Active: {captured.generatingIntentName ?? 'none'}</Text>;
     };
 
     const { unmount } = render(
@@ -318,20 +318,20 @@ describe('PlanningContext & PlanningProvider', () => {
       </PlanningProvider>,
     );
 
-    const firstCall = captured.generatePlan('spec-alpha');
+    const firstCall = captured.generatePlan('intent-alpha');
 
     await vi.waitFor(() => {
       expect(captured.isGenerating).toBe(true);
-      expect(captured.generatingSpecName).toBe('spec-alpha');
+      expect(captured.generatingIntentName).toBe('intent-alpha');
     });
 
-    await expect(captured.generatePlan('spec-beta')).rejects.toThrow(
-      'Já existe um plano sendo gerado para "spec-alpha". Aguarde a conclusão.',
+    await expect(captured.generatePlan('intent-beta')).rejects.toThrow(
+      'Já existe um plano sendo gerado para "intent-alpha". Aguarde a conclusão.',
     );
 
     expect(executeSpy).toHaveBeenCalledTimes(1);
-    expect(executeSpy).toHaveBeenCalledWith('spec-alpha', 'default');
-    expect(captured.generatingSpecName).toBe('spec-alpha');
+    expect(executeSpy).toHaveBeenCalledWith('intent-alpha', 'default');
+    expect(captured.generatingIntentName).toBe('intent-alpha');
     expect(captured.isGenerating).toBe(true);
 
     resolveFirstPlan({ kind: 'valid' });
@@ -341,9 +341,9 @@ describe('PlanningContext & PlanningProvider', () => {
       expect(captured.isGenerating).toBe(false);
     });
 
-    await captured.generatePlan('spec-beta');
+    await captured.generatePlan('intent-beta');
     expect(executeSpy).toHaveBeenCalledTimes(2);
-    expect(executeSpy).toHaveBeenLastCalledWith('spec-beta', 'default');
+    expect(executeSpy).toHaveBeenLastCalledWith('intent-beta', 'default');
 
     unmount();
   });
@@ -372,7 +372,7 @@ describe('PlanningContext & PlanningProvider', () => {
     await vi.waitFor(() => {
       expect(captured.result).not.toBeNull();
       expect(captured.statusNotification).toBe('✓ Plano gerado para clean-test');
-      expect(captured.generatingSpecName).toBe('clean-test');
+      expect(captured.generatingIntentName).toBe('clean-test');
     });
 
     captured.clearPlanResult();
@@ -382,7 +382,7 @@ describe('PlanningContext & PlanningProvider', () => {
       expect(captured.validationErrors).toBeNull();
       expect(captured.startTime).toBeNull();
       expect(captured.endTime).toBeNull();
-      expect(captured.generatingSpecName).toBeNull();
+      expect(captured.generatingIntentName).toBeNull();
       expect(captured.statusNotification).toBe('✓ Plano gerado para clean-test');
     });
 
@@ -407,12 +407,12 @@ describe('PlanningContext & PlanningProvider', () => {
 
     const ConsumerA = () => {
       capturedA = usePlanning();
-      return <Text>Consumer A: {capturedA.generatingSpecName}</Text>;
+      return <Text>Consumer A: {capturedA.generatingIntentName}</Text>;
     };
 
     const ConsumerB = () => {
       capturedB = usePlanning();
-      return <Text>Consumer B: {capturedB.generatingSpecName}</Text>;
+      return <Text>Consumer B: {capturedB.generatingIntentName}</Text>;
     };
 
     const ParentSwitch = ({ showA }: { showA: boolean }) => {
@@ -425,11 +425,11 @@ describe('PlanningContext & PlanningProvider', () => {
 
     const { rerender, unmount } = render(<ParentSwitch showA={true} />);
 
-    await capturedA.generatePlan('persistent-spec');
+    await capturedA.generatePlan('persistent-intent');
 
     await vi.waitFor(() => {
       expect(capturedA.result?.kind).toBe('valid');
-      expect(capturedA.generatingSpecName).toBe('persistent-spec');
+      expect(capturedA.generatingIntentName).toBe('persistent-intent');
     });
 
     rerender(<ParentSwitch showA={false} />);
@@ -437,9 +437,9 @@ describe('PlanningContext & PlanningProvider', () => {
 
     await vi.waitFor(() => {
       expect(capturedB.result?.kind).toBe('valid');
-      expect(capturedB.generatingSpecName).toBe('persistent-spec');
+      expect(capturedB.generatingIntentName).toBe('persistent-intent');
       expect(capturedB.isGenerating).toBe(false);
-      expect(capturedB.statusNotification).toBe('✓ Plano gerado para persistent-spec');
+      expect(capturedB.statusNotification).toBe('✓ Plano gerado para persistent-intent');
     });
 
     unmount();

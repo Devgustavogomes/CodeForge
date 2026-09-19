@@ -23,8 +23,8 @@ class FakeChildProcess extends EventEmitter {
 
 function contextFor(overrides: Partial<TaskContext> = {}): TaskContext {
   return {
-    promptFilePath: ".codeforge/executions/spec/TASK-001.temp.prompt.md",
-    specName: "spec",
+    promptFilePath: ".codeforge/executions/intent/TASK-001.temp.prompt.md",
+    intentName: "intent",
     taskId: "TASK-001",
     silent: true,
     ...overrides,

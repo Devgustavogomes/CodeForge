@@ -16,8 +16,8 @@ export { flushAsync } from './flushAsync.js';
 export interface RenderWithProvidersOptions {
   container?: AppContainer;
   initialTab?: TabId;
-  initialSpec?: string | null;
-  initialActiveSpec?: string | null;
+  initialIntent?: string | null;
+  initialActiveIntent?: string | null;
   scheduler?: TaskScheduler;
   autoStart?: boolean;
   maxLogLines?: number;
@@ -79,8 +79,8 @@ export interface TestProvidersProps {
   children: ReactNode;
   container?: AppContainer;
   initialTab?: TabId;
-  initialSpec?: string | null;
-  initialActiveSpec?: string | null;
+  initialIntent?: string | null;
+  initialActiveIntent?: string | null;
   scheduler?: TaskScheduler;
   autoStart?: boolean;
   maxLogLines?: number;
@@ -90,16 +90,16 @@ export interface TestProvidersProps {
 export const TestProviders: React.FC<TestProvidersProps> = ({
   children,
   container,
-  initialTab = 'specs',
-  initialSpec,
-  initialActiveSpec,
+  initialTab = 'intents',
+  initialIntent,
+  initialActiveIntent,
   scheduler,
   autoStart = false,
   maxLogLines,
   flushIntervalMs = 0,
 }) => {
   const resolvedContainer = container ?? createMockContainer();
-  const spec = initialSpec ?? initialActiveSpec ?? undefined;
+  const intent = initialIntent ?? initialActiveIntent ?? undefined;
 
   return (
     <ContainerProvider container={resolvedContainer}>
@@ -107,7 +107,7 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
         <ExecutionProvider
           container={resolvedContainer}
           scheduler={scheduler}
-          initialSpec={spec}
+          initialIntent={intent}
           autoStart={autoStart}
           maxLogLines={maxLogLines}
           flushIntervalMs={flushIntervalMs}

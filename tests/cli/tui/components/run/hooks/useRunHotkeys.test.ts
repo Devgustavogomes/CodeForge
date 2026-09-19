@@ -17,13 +17,13 @@ const Harness: React.FC<HarnessProps> = (props) => {
     onTogglePanel: props.onTogglePanel ?? vi.fn(), onStartRun: props.onStartRun ?? vi.fn(),
     onRetryTask: props.onRetryTask ?? vi.fn(), onRetryAllFailed: props.onRetryAllFailed ?? vi.fn(),
     onResetTask: props.onResetTask ?? vi.fn(),
-    onResetAllTasks: props.onResetAllTasks ?? vi.fn(), onSelectSpec: props.onSelectSpec ?? vi.fn(),
+    onResetAllTasks: props.onResetAllTasks ?? vi.fn(), onSelectIntent: props.onSelectIntent ?? vi.fn(),
     onFocusLogs: props.onFocusLogs ?? vi.fn(), onFocusTasks: props.onFocusTasks ?? vi.fn(),
   });
   return React.createElement(Text, null, 'RunHotkeysTest');
 };
 
-const callbackNames = ['onTogglePanel', 'onStartRun', 'onRetryTask', 'onRetryAllFailed', 'onResetTask', 'onResetAllTasks', 'onSelectSpec', 'onFocusLogs', 'onFocusTasks'] as const;
+const callbackNames = ['onTogglePanel', 'onStartRun', 'onRetryTask', 'onRetryAllFailed', 'onResetTask', 'onResetAllTasks', 'onSelectIntent', 'onFocusLogs', 'onFocusTasks'] as const;
 type CallbackName = (typeof callbackNames)[number];
 type Callbacks = Record<CallbackName, ReturnType<typeof vi.fn>>;
 
@@ -69,7 +69,7 @@ describe('useRunHotkeys', () => {
     const { stdin } = render(React.createElement(Harness, callbacks));
     for (const key of ['s', 'r', 'R', 'x', 'X']) stdin.write(key);
     await flushAsync();
-    expect(callbacks.onSelectSpec).toHaveBeenCalledOnce();
+    expect(callbacks.onSelectIntent).toHaveBeenCalledOnce();
     expect(callbacks.onRetryTask).toHaveBeenCalledOnce();
     expect(callbacks.onRetryAllFailed).toHaveBeenCalledOnce();
     expect(callbacks.onResetTask).toHaveBeenCalledOnce();

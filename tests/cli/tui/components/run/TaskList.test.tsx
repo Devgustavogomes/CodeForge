@@ -11,9 +11,9 @@ const tasks: TaskItem[] = [
 
 function execution(): ExecutionContextValue {
   return {
-    activeSpec: 'spec', tasks, selectedTaskId: 'TASK-001', selectedTask: tasks[0]!,
+    activeIntent: 'intent', tasks, selectedTaskId: 'TASK-001', selectedTask: tasks[0]!,
     status: 'idle', schedulerStatus: 'idle', logs: {}, getTaskLogs: vi.fn(() => []),
-    setSelectedTaskId: vi.fn(), selectTask: vi.fn(), setActiveSpec: vi.fn(),
+    setSelectedTaskId: vi.fn(), selectTask: vi.fn(), setActiveIntent: vi.fn(),
     startRun: vi.fn(), retryTask: vi.fn(), retryAllFailed: vi.fn(), completeTask: vi.fn(),
     resetTask: vi.fn(), resetAllTasks: vi.fn(), clearLogs: vi.fn(), scheduler: null,
   };

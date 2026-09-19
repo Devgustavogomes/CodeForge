@@ -111,20 +111,20 @@ describe("Test Infrastructure Helpers", () => {
       const gw = new WorkspaceBuilder().build();
 
       expect(gw.exists(".codeforge")).toBe(true);
-      expect(gw.exists(".codeforge/specs")).toBe(true);
+      expect(gw.exists(".codeforge/intents")).toBe(true);
       expect(gw.exists(".codeforge/tasks")).toBe(true);
       expect(gw.exists(".codeforge/executions")).toBe(true);
       expect(gw.exists(".codeforge/docs")).toBe(true);
     });
 
-    it("fluently adds metadata, config, specs, tasks, and execution state", () => {
+    it("fluently adds metadata, config, intents, tasks, and execution state", () => {
       const task1 = new TaskBuilder().withId("TASK-001").build();
       const task2 = new TaskBuilder().withId("TASK-002").build();
 
       const gw = WorkspaceBuilder.aWorkspace()
         .withMetadata()
         .withConfig({ environment: "test", plannerAgent: "p", executorAgent: "e" })
-        .withSpec("feature-x", "# Spec Feature X")
+        .withIntent("feature-x", "# Intent Feature X")
         .withTasks("feature-x", [task1, task2])
         .withExecutionState("feature-x", {
           status: "running",
@@ -134,8 +134,8 @@ describe("Test Infrastructure Helpers", () => {
 
       expect(gw.exists(PATHS.metadata)).toBe(true);
       expect(gw.exists(PATHS.config)).toBe(true);
-      expect(gw.exists(PATHS.specFile("feature-x"))).toBe(true);
-      expect(gw.readFile(PATHS.specFile("feature-x"))).toBe("# Spec Feature X");
+      expect(gw.exists(PATHS.intentFile("feature-x"))).toBe(true);
+      expect(gw.readFile(PATHS.intentFile("feature-x"))).toBe("# Intent Feature X");
       expect(gw.exists(PATHS.taskFile("feature-x", "TASK-001"))).toBe(true);
       expect(gw.exists(PATHS.taskFile("feature-x", "TASK-002"))).toBe(true);
       expect(gw.exists(PATHS.executionState("feature-x"))).toBe(true);
@@ -200,7 +200,7 @@ describe("Test Infrastructure Helpers", () => {
       const runner = new InMemoryAgentRunner();
       const context = {
         promptFilePath: "/path/to/prompt.md",
-        specName: "my-spec",
+        intentName: "my-intent",
         taskId: "TASK-001",
       };
 
@@ -214,7 +214,7 @@ describe("Test Infrastructure Helpers", () => {
       const runner = new InMemoryAgentRunner().withError("Runner failed");
 
       await expect(
-        runner.execute({ promptFilePath: "p", specName: "s", taskId: "T1" })
+        runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T1" })
       ).rejects.toThrow("Runner failed");
     });
 
@@ -222,11 +222,11 @@ describe("Test Infrastructure Helpers", () => {
       const runner = new InMemoryAgentRunner().withErrorForTask("T2", "Task T2 failed");
 
       await expect(
-        runner.execute({ promptFilePath: "p", specName: "s", taskId: "T1" })
+        runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T1" })
       ).resolves.toBeUndefined();
 
       await expect(
-        runner.execute({ promptFilePath: "p", specName: "s", taskId: "T2" })
+        runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T2" })
       ).rejects.toThrow("Task T2 failed");
     });
 
@@ -236,8 +236,8 @@ describe("Test Infrastructure Helpers", () => {
         executed.push(ctx.taskId!);
       });
 
-      await runner.execute({ promptFilePath: "p", specName: "s", taskId: "T1" });
-      await runner.execute({ promptFilePath: "p", specName: "s", taskId: "T2" });
+      await runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T1" });
+      await runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T2" });
 
       expect(executed).toEqual(["T1", "T2"]);
     });

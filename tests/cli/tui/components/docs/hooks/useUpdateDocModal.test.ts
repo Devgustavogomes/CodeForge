@@ -25,13 +25,13 @@ const TestHarness: React.FC<TestHarnessProps> = ({ options, onRender }) => {
   return React.createElement(
     Text,
     null,
-    `Step:${result.step}|Mode:${result.mode}|Spec:${result.selectedSpec}|Target:${result.selectedAutoTarget}`
+    `Step:${result.step}|Mode:${result.mode}|Intent:${result.selectedIntent}|Target:${result.selectedAutoTarget}`
   );
 };
 
 interface RenderHookOptions {
   options?: UseUpdateDocModalOptions;
-  activeSpec?: string | null;
+  activeIntent?: string | null;
 }
 
 function renderHook(props: RenderHookOptions = {}) {
@@ -41,7 +41,7 @@ function renderHook(props: RenderHookOptions = {}) {
     return (
       props.options?.container ??
       ({
-        listSpecsUseCase: { listNames: vi.fn().mockReturnValue(['tui', 'specs', 'auth']) },
+        listIntentsUseCase: { listNames: vi.fn().mockReturnValue(['tui', 'intents', 'auth']) },
         updateDocUseCase: { getAffectedDocs: vi.fn().mockReturnValue({ kind: 'no-affected-docs' }) },
       } as unknown as AppContainer)
     );
@@ -56,7 +56,7 @@ function renderHook(props: RenderHookOptions = {}) {
       { value: currentContainer },
       React.createElement(
         ExecutionContext.Provider,
-        { value: { activeSpec: renderOpts.activeSpec ?? null } as any },
+        { value: { activeIntent: renderOpts.activeIntent ?? null } as any },
         React.createElement(TestHarness, {
           options: { container: currentContainer, ...renderOpts.options },
           onRender: (ret) => {
@@ -86,13 +86,13 @@ describe('useUpdateDocModal hook', () => {
     {
       docName: 'architecture',
       docPath: '.codeforge/docs/architecture.md',
-      specPaths: ['.codeforge/specs/tui.md'],
+      intentPaths: ['.codeforge/intents/tui.md'],
       matchedFiles: ['src/cli/tui/components/docs/DocsScreen.tsx', 'src/cli/tui/App.tsx'],
     },
     {
       docName: 'security',
       docPath: '.codeforge/docs/security.md',
-      specPaths: ['.codeforge/specs/tui.md'],
+      intentPaths: ['.codeforge/intents/tui.md'],
       matchedFiles: ['src/security/auth.ts'],
     },
   ];
@@ -112,14 +112,14 @@ describe('useUpdateDocModal hook', () => {
     expect(hook.current.mode).toBe('direct');
   });
 
-  it('2. avança para etapa 2A (modo direto), cicla specs e confirma seleção', async () => {
+  it('2. avança para etapa 2A (modo direto), cicla intents e confirma seleção', async () => {
     const onConfirmDirect = vi.fn();
     const hook = renderHook({
       options: {
         initialStep: 'mode-select',
         initialMode: 'direct',
-        availableSpecs: ['spec1', 'spec2'],
-        initialSpec: 'spec1',
+        availableIntents: ['intent1', 'intent2'],
+        initialIntent: 'intent1',
         selectedDoc: { name: 'architecture.md' },
         onConfirmDirect,
       },
@@ -130,15 +130,15 @@ describe('useUpdateDocModal hook', () => {
     await flushAsync();
     expect(hook.current.step).toBe('direct');
 
-    // Cicla spec
-    hook.current.handleCycleSpec(1);
+    // Cicla intent
+    hook.current.handleCycleIntent(1);
     await flushAsync();
-    expect(hook.current.selectedSpec).toBe('spec2');
+    expect(hook.current.selectedIntent).toBe('intent2');
 
     // Confirma modo direto
     await hook.current.handleConfirm();
     await flushAsync();
-    expect(onConfirmDirect).toHaveBeenCalledWith('architecture', 'spec2');
+    expect(onConfirmDirect).toHaveBeenCalledWith('architecture', 'intent2');
   });
 
   it('3. avança para etapa 2B (modo auto), detecta docs afetados e confirma seleção', async () => {
@@ -149,7 +149,7 @@ describe('useUpdateDocModal hook', () => {
     });
 
     const container = {
-      listSpecsUseCase: { listNames: vi.fn().mockReturnValue(['tui']) },
+      listIntentsUseCase: { listNames: vi.fn().mockReturnValue(['tui']) },
       updateDocUseCase: { getAffectedDocs: mockGetAffectedDocs },
     } as unknown as AppContainer;
 
@@ -157,7 +157,7 @@ describe('useUpdateDocModal hook', () => {
       options: {
         container,
         initialMode: 'auto',
-        initialSpec: 'tui',
+        initialIntent: 'tui',
         onConfirmAuto,
       },
     });
@@ -186,7 +186,7 @@ describe('useUpdateDocModal hook', () => {
     const mockGetAffectedDocs = vi.fn().mockReturnValue({ kind: 'no-git' } as DocsUpdateResult);
 
     const container = {
-      listSpecsUseCase: { listNames: vi.fn().mockReturnValue(['tui']) },
+      listIntentsUseCase: { listNames: vi.fn().mockReturnValue(['tui']) },
       updateDocUseCase: { getAffectedDocs: mockGetAffectedDocs },
     } as unknown as AppContainer;
 
@@ -194,7 +194,7 @@ describe('useUpdateDocModal hook', () => {
       options: {
         container,
         initialStep: 'auto',
-        initialSpec: 'tui',
+        initialIntent: 'tui',
         language: 'pt',
         onConfirmAuto,
       },
@@ -210,7 +210,7 @@ describe('useUpdateDocModal hook', () => {
       options: {
         container,
         initialStep: 'auto',
-        initialSpec: 'tui',
+        initialIntent: 'tui',
         language: 'en',
         onConfirmAuto,
       },

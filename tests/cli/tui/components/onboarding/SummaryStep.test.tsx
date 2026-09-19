@@ -19,7 +19,7 @@ describe('SummaryStep', () => {
         environment="local"
         plannerAgent="default"
         executorAgent="default"
-        specSource={{ provider: 'local' }}
+        intentSource={{ provider: 'local' }}
         hooks={{}}
         onComplete={onComplete}
         celebrationDurationMs={50}
@@ -38,7 +38,7 @@ describe('SummaryStep', () => {
     expect(savedConfig?.environment).toBe('local');
     expect(savedConfig?.plannerAgent).toBe('default');
     expect(savedConfig?.executorAgent).toBe('default');
-    expect(savedConfig?.specSource?.provider).toBe('filesystem');
+    expect(savedConfig?.intentSource?.provider).toBe('filesystem');
 
     // Wait for celebration and completion callback
     await vi.waitFor(() => {

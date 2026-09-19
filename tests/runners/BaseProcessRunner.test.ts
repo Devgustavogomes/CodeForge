@@ -40,7 +40,7 @@ class TestRunner extends BaseProcessRunner {
 function createContext(overrides: Partial<TaskContext> = {}): TaskContext {
   return {
     promptFilePath: "prompts/test.md",
-    specName: "spec-test",
+    intentName: "intent-test",
     taskId: "TASK-001",
     ...overrides,
   };

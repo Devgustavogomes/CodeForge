@@ -8,7 +8,7 @@ import {
 import { flushAsync } from '../helpers/flushAsync.js';
 
 describe('NavigationContext', () => {
-  it('starts at configured initial tab or default specs tab', () => {
+  it('starts at configured initial tab or default intents tab', () => {
     let defaultNav: ReturnType<typeof useNavigation> | undefined;
     const DefaultConsumer = () => {
       defaultNav = useNavigation();
@@ -21,7 +21,7 @@ describe('NavigationContext', () => {
       </NavigationProvider>,
     );
 
-    expect(defaultNav?.activeTab).toBe('specs');
+    expect(defaultNav?.activeTab).toBe('intents');
     unmountDefault();
 
     let customNav: ReturnType<typeof useNavigation> | undefined;
@@ -42,7 +42,6 @@ describe('NavigationContext', () => {
 
   it('cycles tabs forward and backward with nextTab and prevTab', async () => {
     let capturedNav!: ReturnType<typeof useNavigation>;
-
     const TestComponent = () => {
       capturedNav = useNavigation();
       return null;
@@ -56,10 +55,10 @@ describe('NavigationContext', () => {
 
     expect(capturedNav.activeTab).toBe('run');
 
-    // next: run -> specs -> tasks -> docs -> config -> run
+    // next: run -> intents -> tasks -> docs -> config -> run
     capturedNav.nextTab();
     await flushAsync(1);
-    expect(capturedNav.activeTab).toBe('specs');
+    expect(capturedNav.activeTab).toBe('intents');
 
     capturedNav.nextTab();
     await flushAsync(1);
@@ -77,7 +76,7 @@ describe('NavigationContext', () => {
     await flushAsync(1);
     expect(capturedNav.activeTab).toBe('run');
 
-    // prev: run -> config -> docs -> tasks -> specs -> run
+    // prev: run -> config -> docs -> tasks -> intents -> run
     capturedNav.prevTab();
     await flushAsync(1);
     expect(capturedNav.activeTab).toBe('config');
@@ -92,7 +91,7 @@ describe('NavigationContext', () => {
 
     capturedNav.prevTab();
     await flushAsync(1);
-    expect(capturedNav.activeTab).toBe('specs');
+    expect(capturedNav.activeTab).toBe('intents');
 
     capturedNav.prevTab();
     await flushAsync(1);

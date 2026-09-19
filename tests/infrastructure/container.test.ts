@@ -7,7 +7,7 @@ import { ConfigureEnvironmentUseCase } from "../../src/application/use-cases/Con
 import { ExecutionStateRepository } from "../../src/infrastructure/repositories/ExecutionStateRepository.js";
 import { ConfigService } from "../../src/config/ConfigService.js";
 import { AgentRunner } from "../../src/runners/AgentRunner.js";
-import { DeleteSpecUseCase } from "../../src/application/use-cases/DeleteSpecUseCase.js";
+import { DeleteIntentUseCase } from "../../src/application/use-cases/DeleteIntentUseCase.js";
 import { DeleteTaskUseCase } from "../../src/application/use-cases/DeleteTaskUseCase.js";
 import { DeleteDocUseCase } from "../../src/application/use-cases/DeleteDocUseCase.js";
 import { DocsManifestRepository } from "../../src/infrastructure/repositories/DocsManifestRepository.js";
@@ -31,13 +31,13 @@ describe("AppContainer composition root", () => {
     expect(container.initUseCase).toBe(container.initializeWorkspaceUseCase);
     expect(container.configureEnvironmentUseCase).toBeDefined();
     expect(container.configureEnvUseCase).toBe(container.configureEnvironmentUseCase);
-    expect(container.listSpecsUseCase).toBeDefined();
-    expect(container.getSpecStatusUseCase).toBeDefined();
-    expect(container.createSpecUseCase).toBeDefined();
+    expect(container.listIntentsUseCase).toBeDefined();
+    expect(container.getIntentStatusUseCase).toBeDefined();
+    expect(container.createIntentUseCase).toBeDefined();
     expect(container.validatePlanUseCase).toBeDefined();
-    expect(container.pullSpecUseCase).toBeDefined();
+    expect(container.pullIntentUseCase).toBeDefined();
     expect(container.taskOperationsUseCase).toBeDefined();
-    expect(container.deleteSpecUseCase).toBeInstanceOf(DeleteSpecUseCase);
+    expect(container.deleteIntentUseCase).toBeInstanceOf(DeleteIntentUseCase);
     expect(container.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
     expect(container.deleteDocUseCase).toBeInstanceOf(DeleteDocUseCase);
   });
@@ -91,7 +91,7 @@ describe("AppContainer composition root", () => {
       docsManifestRepository: docsRepo,
     });
 
-    expect(container.deleteSpecUseCase).toMatchObject({
+    expect(container.deleteIntentUseCase).toMatchObject({
       workspace: container.workspaceGateway,
       docsManifestRepository: container.docsManifestRepository,
     });
@@ -107,12 +107,12 @@ describe("AppContainer composition root", () => {
 
   it("returns deletion use-case overrides unchanged and independently", () => {
     const memoryGw = new InMemoryWorkspaceGateway();
-    const deleteSpecUseCase = {} as DeleteSpecUseCase;
+    const deleteIntentUseCase = {} as DeleteIntentUseCase;
     const deleteTaskUseCase = {} as DeleteTaskUseCase;
     const deleteDocUseCase = {} as DeleteDocUseCase;
 
-    const specContainer = createAppContainer(memoryGw, {
-      deleteSpecUseCase,
+    const intentContainer = createAppContainer(memoryGw, {
+      deleteIntentUseCase,
     });
     const taskContainer = createAppContainer(memoryGw, {
       deleteTaskUseCase,
@@ -121,16 +121,16 @@ describe("AppContainer composition root", () => {
       deleteDocUseCase,
     });
 
-    expect(specContainer.deleteSpecUseCase).toBe(deleteSpecUseCase);
-    expect(specContainer.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
-    expect(specContainer.deleteDocUseCase).toBeInstanceOf(DeleteDocUseCase);
+    expect(intentContainer.deleteIntentUseCase).toBe(deleteIntentUseCase);
+    expect(intentContainer.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
+    expect(intentContainer.deleteDocUseCase).toBeInstanceOf(DeleteDocUseCase);
 
     expect(taskContainer.deleteTaskUseCase).toBe(deleteTaskUseCase);
-    expect(taskContainer.deleteSpecUseCase).toBeInstanceOf(DeleteSpecUseCase);
+    expect(taskContainer.deleteIntentUseCase).toBeInstanceOf(DeleteIntentUseCase);
     expect(taskContainer.deleteDocUseCase).toBeInstanceOf(DeleteDocUseCase);
 
     expect(docContainer.deleteDocUseCase).toBe(deleteDocUseCase);
-    expect(docContainer.deleteSpecUseCase).toBeInstanceOf(DeleteSpecUseCase);
+    expect(docContainer.deleteIntentUseCase).toBeInstanceOf(DeleteIntentUseCase);
     expect(docContainer.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
   });
 
@@ -160,9 +160,9 @@ describe("Constructor injection in use cases", () => {
     const loadSpy = vi.spyOn(customRepo, "load").mockReturnValue(null);
 
     const useCase = new TaskOperationsUseCase(memoryGw, customRepo);
-    const result = useCase.markTaskCompleted("my-spec", "TASK-001");
+    const result = useCase.markTaskCompleted("my-intent", "TASK-001");
 
-    expect(loadSpy).toHaveBeenCalledWith("my-spec");
+    expect(loadSpy).toHaveBeenCalledWith("my-intent");
     expect(result).toEqual({ kind: "not-found" });
   });
 

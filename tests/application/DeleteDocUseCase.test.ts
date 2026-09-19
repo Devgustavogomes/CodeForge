@@ -14,7 +14,7 @@ function manifestEntry(
 ): DocsManifestEntry {
   return {
     path,
-    specs: [".codeforge/specs/example.md"],
+    intents: [".codeforge/intents/example.md"],
     scope: ["src/**"],
     createdAt,
     updatedAt,
@@ -112,7 +112,7 @@ describe("DeleteDocUseCase", () => {
     const keptContent = "# Keep me\n\nByte-for-byte content.\n";
     const unrelatedContent = "unrelated bytes\r\n";
     const keptEntry = manifestEntry(keptPath, {
-      specs: [".codeforge/specs/auth.md", ".codeforge/specs/billing.md"],
+      intents: [".codeforge/intents/auth.md", ".codeforge/intents/billing.md"],
       scope: ["src/auth/**", "src/billing/**"],
     });
     gateway.writeFile(deletedPath, "# Delete me");

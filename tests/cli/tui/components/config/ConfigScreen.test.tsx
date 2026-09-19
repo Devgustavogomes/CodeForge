@@ -14,7 +14,7 @@ describe('ConfigScreen component', () => {
     hooks: {
       'run.started': [{ name: 'test', run: 'npm run test:fast' }],
     },
-    specSource: {
+    intentSource: {
       provider: 'filesystem',
     },
   };
@@ -73,7 +73,7 @@ describe('ConfigScreen component', () => {
     );
   });
 
-  it('opens ConfigureSpecSourceModal on specSource field with Enter and persists changes', async () => {
+  it('opens ConfigureIntentSourceModal on intentSource field with Enter and persists changes', async () => {
     const mockSaveConfig = vi.fn();
     const mockConfigService = {
       loadConfig: () => mockConfig,
@@ -88,23 +88,23 @@ describe('ConfigScreen component', () => {
       />
     );
 
-    // Navigate to specSource field (index 5 in FIELD_ORDER)
+    // Navigate to intentSource field (index 5 in FIELD_ORDER)
     for (let i = 0; i < 5; i++) {
       stdin.write('j');
     }
     await flushAsync();
 
-    // Open specSource modal
+    // Open intentSource modal
     stdin.write('\r');
     await flushAsync();
 
-    expect(lastFrame() ?? '').toContain('Configuração de Spec Source');
+    expect(lastFrame() ?? '').toContain('Configuração de Intent Source');
 
     // Cycle provider with Space
     stdin.write(' ');
     await flushAsync();
 
-    // Tab 4 times to reach "[ Salvar Spec Source ]" button
+    // Tab 4 times to reach "[ Salvar Intent Source ]" button
     for (let i = 0; i < 4; i++) {
       stdin.write('\t');
     }

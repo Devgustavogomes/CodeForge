@@ -1,14 +1,15 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
-import { GetSpecStatusUseCase, TaskStatusInfo } from "../../src/application/use-cases/GetSpecStatusUseCase.js";
-import { SpecExecutionState } from "../../src/domain/execution.js";
+import { GetIntentStatusUseCase, TaskStatusInfo } from "../../src/application/use-cases/GetIntentStatusUseCase.js";
+import { IntentExecutionState } from "../../src/domain/execution.js";
+import { PATHS } from "../../src/infrastructure/paths.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge");
-  gateway.mkdir(".codeforge/specs");
-  gateway.mkdir(".codeforge/tasks/test-spec");
-  gateway.mkdir(".codeforge/executions");
-  gateway.writeFile(".codeforge/metadata.json", JSON.stringify({ initialized: true }));
+  gateway.mkdir(PATHS.intentsDir);
+  gateway.mkdir(".codeforge/tasks/test-intent");
+  gateway.mkdir(PATHS.executionsDir);
+  gateway.writeFile(PATHS.metadata, JSON.stringify({ initialized: true }));
 }
 
 function writeTask(gateway: InMemoryWorkspaceGateway, id: string, title: string, deps: string[] = []) {
@@ -23,37 +24,37 @@ function writeTask(gateway: InMemoryWorkspaceGateway, id: string, title: string,
     constraints: [],
     acceptanceCriteria: [],
   };
-  gateway.writeFile(`.codeforge/tasks/test-spec/${id}.json`, JSON.stringify(task));
+  gateway.writeFile(`.codeforge/tasks/test-intent/${id}.json`, JSON.stringify(task));
 }
 
-function writeState(gateway: InMemoryWorkspaceGateway, state: SpecExecutionState) {
-  gateway.writeFile(`.codeforge/executions/${state.specId}.json`, JSON.stringify(state, null, 2));
+function writeState(gateway: InMemoryWorkspaceGateway, state: IntentExecutionState) {
+  gateway.writeFile(PATHS.executionState(state.intentId), JSON.stringify(state, null, 2));
 }
 
-describe("GetSpecStatusUseCase", () => {
+describe("GetIntentStatusUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
-  let useCase: GetSpecStatusUseCase;
+  let useCase: GetIntentStatusUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
-    useCase = new GetSpecStatusUseCase(gateway);
+    useCase = new GetIntentStatusUseCase(gateway);
   });
 
   it("returns notInitialized when metadata is missing", () => {
-    const result = useCase.execute("test-spec");
+    const result = useCase.execute("test-intent");
     expect(result.kind).toBe("not-initialized");
   });
 
-  it("returns specNotFound when tasks directory is missing", () => {
+  it("returns intentNotFound when tasks directory is missing", () => {
     makeWorkspace(gateway);
     const result = useCase.execute("nonexistent");
-    expect(result.kind).toBe("spec-not-found");
+    expect(result.kind).toBe("intent-not-found");
   });
 
   it("returns noExecution when no execution state exists", () => {
     makeWorkspace(gateway);
     writeTask(gateway, "TASK-001", "Setup", []);
-    const result = useCase.execute("test-spec");
+    const result = useCase.execute("test-intent");
     expect(result.kind).toBe("no-execution");
   });
 
@@ -63,7 +64,7 @@ describe("GetSpecStatusUseCase", () => {
     writeTask(gateway, "TASK-002", "Configure DB", ["TASK-001"]);
 
     writeState(gateway, {
-      specId: "test-spec",
+      intentId: "test-intent",
       status: "running",
       tasks: {
         "TASK-001": { status: "completed", dependencies: [] },
@@ -72,10 +73,10 @@ describe("GetSpecStatusUseCase", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = useCase.execute("test-spec");
+    const result = useCase.execute("test-intent");
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
-      expect(result.specStatus).toBe("running");
+      expect(result.intentStatus).toBe("running");
       expect(result.tasks).toHaveLength(2);
       expect(result.tasks[0]).toEqual({
         id: "TASK-001",
@@ -97,7 +98,7 @@ describe("GetSpecStatusUseCase", () => {
 
     // Execution state only contains TASK-001
     writeState(gateway, {
-      specId: "test-spec",
+      intentId: "test-intent",
       status: "running",
       tasks: {
         "TASK-001": { status: "completed", dependencies: [] },
@@ -105,7 +106,7 @@ describe("GetSpecStatusUseCase", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = useCase.execute("test-spec");
+    const result = useCase.execute("test-intent");
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
       const task2 = result.tasks.find((t) => t.id === "TASK-002");
@@ -120,13 +121,13 @@ describe("GetSpecStatusUseCase", () => {
     writeTask(gateway, "TASK-002", "Second", []);
 
     writeState(gateway, {
-      specId: "test-spec",
+      intentId: "test-intent",
       status: "running",
       tasks: {},
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
 
-    const result = useCase.execute("test-spec");
+    const result = useCase.execute("test-intent");
     expect(result.kind).toBe("status");
     if (result.kind === "status") {
       expect(result.tasks.map((t: TaskStatusInfo) => t.id)).toEqual(["TASK-001", "TASK-002", "TASK-003"]);
