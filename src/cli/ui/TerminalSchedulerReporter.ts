@@ -1,4 +1,5 @@
-import { SchedulerReporter } from "../../application/ports/SchedulerReporter.js";
+import { ReviewErrorMetadata, ReviewStartMetadata, SchedulerReporter } from "../../application/ports/SchedulerReporter.js";
+import { ReviewResultMetadata } from "../../domain/hook.js";
 import {
   GetIntentStatusUseCase,
   IntentStatusResult,
@@ -173,6 +174,44 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     this.cleanup();
   }
 
+  onReviewStart(intentName: string, metadata: ReviewStartMetadata): void {
+    this.intentName = intentName;
+    if (!this.startTime) this.startTime = this.clock();
+    this.printLine(translate("terminal_review_started", this.language, {
+      agent: metadata.agent,
+      round: metadata.round,
+      maxRounds: metadata.maxRounds,
+    }));
+  }
+
+  onReviewEnd(intentName: string, result: ReviewResultMetadata): void {
+    this.intentName = intentName;
+    if (result.outcome === "approved") {
+      this.printLine(translate("terminal_review_approved", this.language));
+      return;
+    }
+
+    this.finished = true;
+    this.settleSnapshot();
+    this.stream.write(`${translate("terminal_review_tasks_created", this.language, {
+      count: result.newTasksCount,
+      taskIds: result.taskIds.join(", "),
+    })}\n`);
+    this.stream.write(`${translate("terminal_review_rerun", this.language, { intent: intentName })}\n`);
+    this.cleanup();
+  }
+
+  onReviewError(intentName: string, error: ReviewErrorMetadata): void {
+    this.intentName = intentName;
+    this.finished = true;
+    this.settleSnapshot();
+    this.stream.write(`${translate("terminal_review_error", this.language, {
+      error: error.message,
+      round: error.round,
+    })}\n`);
+    this.cleanup();
+  }
+
   onLog?(_taskId: string, _chunk: string): void {
     // Keep raw agent logs contained so they do not corrupt terminal dashboard output
   }
@@ -216,6 +255,13 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
       this.lastLinesCount = content.split("\n").length;
     } else {
       this.stream.write(content + "\n");
+    }
+  }
+
+  private settleSnapshot(): void {
+    if (this.interactive && this.lastLinesCount > 0) {
+      this.stream.write(`\x1b[${this.lastLinesCount}A\x1b[0J`);
+      this.lastLinesCount = 0;
     }
   }
 

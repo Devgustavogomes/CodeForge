@@ -79,6 +79,11 @@ const en = {
   terminal_run_deadlock: "Execution stopped because intent '{intent}' has a dependency deadlock.",
   terminal_run_error: "Execution error: {error}",
   terminal_run_no_tasks: "No tasks found for intent '{intent}'.",
+  terminal_review_started: "🔍 [AI Review] Reviewing completed tasks with agent '{agent}' (round {round}/{maxRounds})...",
+  terminal_review_approved: "✓ [AI Review] Code review approved. No issues found.",
+  terminal_review_tasks_created: "⚠️ [AI Review] Reviewer created {count} new task(s): {taskIds}.",
+  terminal_review_rerun: "Run 'codeforge run {intent}' to execute the new tasks.",
+  terminal_review_error: "⚠️ [AI Review] Review failed in round {round}: {error}. You can retry the review by running the intent again.",
 
   // plan generate
   plan_select_intent: "Select an intent to generate a plan for:",  plan_generating: "\n▶ Generating plan for intent: {intent}",
@@ -181,6 +186,12 @@ const en = {
   config_enter_executor: "Enter new value for executorAgent:",
   config_no_agents: "No agents found for environment '{env}'. Falling back to manual input.",
   config_updated: "\n[v] Config updated successfully: {key} = {value}\n",
+  config_ai_review_enabled: "Enable AI Review?",
+  config_select_reviewer: "Select reviewer agent:",
+  config_enter_review_rounds: "Maximum review rounds:",
+  config_invalid_review_rounds: "Maximum review rounds must be a positive integer.",
+  config_yes: "Yes",
+  config_no: "No",
 
   // TUI - Tabs
   tui_tab_run: "Run",
@@ -598,6 +609,11 @@ const pt: Dictionary = {
   terminal_run_deadlock: "A execução foi interrompida porque a intenção '{intent}' possui um deadlock de dependências.",
   terminal_run_error: "Erro de execução: {error}",
   terminal_run_no_tasks: "Nenhuma tarefa encontrada para a intenção '{intent}'.",
+  terminal_review_started: "🔍 [Revisão por IA] Revisando tarefas concluídas com o agente '{agent}' (rodada {round}/{maxRounds})...",
+  terminal_review_approved: "✓ [Revisão por IA] Revisão de código aprovada. Nenhum problema encontrado.",
+  terminal_review_tasks_created: "⚠️ [Revisão por IA] O revisor criou {count} nova(s) tarefa(s): {taskIds}.",
+  terminal_review_rerun: "Execute 'codeforge run {intent}' para executar as novas tarefas.",
+  terminal_review_error: "⚠️ [Revisão por IA] A revisão falhou na rodada {round}: {error}. Você pode tentar novamente executando a intenção outra vez.",
 
   plan_select_intent: "Selecione uma intenção para gerar um plano:",  plan_generating: "\n▶ Gerando plano para a intenção: {intent}",
   plan_ui_generating: "Gerando plano...",
@@ -695,6 +711,12 @@ const pt: Dictionary = {
   config_enter_executor: "Digite o novo valor para executorAgent:",
   config_no_agents: "Nenhum agente encontrado para o ambiente '{env}'. Usando entrada manual.",
   config_updated: "\n[v] Configuração atualizada com sucesso: {key} = {value}\n",
+  config_ai_review_enabled: "Ativar revisão por IA?",
+  config_select_reviewer: "Selecione o agente revisor:",
+  config_enter_review_rounds: "Máximo de rodadas de revisão:",
+  config_invalid_review_rounds: "O máximo de rodadas de revisão deve ser um número inteiro positivo.",
+  config_yes: "Sim",
+  config_no: "Não",
 
   // TUI - Tabs
   tui_tab_run: "Executar",
@@ -1109,6 +1131,11 @@ const es: Dictionary = {
   terminal_run_deadlock: "La ejecución se detuvo porque la intención '{intent}' tiene un interbloqueo de dependencias.",
   terminal_run_error: "Error de ejecución: {error}",
   terminal_run_no_tasks: "No se encontraron tareas para la intención '{intent}'.",
+  terminal_review_started: "🔍 [Revisión de IA] Revisando tareas completadas con el agente '{agent}' (ronda {round}/{maxRounds})...",
+  terminal_review_approved: "✓ [Revisión de IA] Revisión de código aprobada. No se encontraron problemas.",
+  terminal_review_tasks_created: "⚠️ [Revisión de IA] El revisor creó {count} tarea(s) nueva(s): {taskIds}.",
+  terminal_review_rerun: "Ejecute 'codeforge run {intent}' para ejecutar las nuevas tareas.",
+  terminal_review_error: "⚠️ [Revisión de IA] La revisión falló en la ronda {round}: {error}. Puede reintentarla ejecutando la intención otra vez.",
 
   plan_select_intent: "Seleccione una intención para generar un plan:",  plan_generating: "\n▶ Generando plan para la intención: {intent}",
   plan_ui_generating: "Generando plan...",
@@ -1206,6 +1233,12 @@ const es: Dictionary = {
   config_enter_executor: "Ingrese el nuevo valor para executorAgent:",
   config_no_agents: "No se encontraron agentes para el entorno '{env}'. Usando entrada manual.",
   config_updated: "\n[v] Configuración actualizada correctamente: {key} = {value}\n",
+  config_ai_review_enabled: "¿Activar revisión de IA?",
+  config_select_reviewer: "Seleccione el agente revisor:",
+  config_enter_review_rounds: "Máximo de rondas de revisión:",
+  config_invalid_review_rounds: "El máximo de rondas de revisión debe ser un número entero positivo.",
+  config_yes: "Sí",
+  config_no: "No",
 
   // TUI - Tabs
   tui_tab_run: "Ejecutar",

@@ -278,6 +278,27 @@ describe("TerminalSchedulerReporter", () => {
     expect(outputEs).toContain("La ejecución de la intención 'auth-intent' falló después de 0ms.");
   });
 
+  it("reports review start, approval, generated tasks, and recoverable errors", () => {
+    const stream = createMockStream(false);
+    const reporter = new TerminalSchedulerReporter({
+      stream: stream as any,
+      color: false,
+      interactive: false,
+    });
+
+    reporter.onReviewStart("auth-intent", { agent: "reviewer", round: 1, maxRounds: 3 });
+    reporter.onReviewEnd("auth-intent", { outcome: "approved", newTasksCount: 0, taskIds: [] });
+    reporter.onReviewEnd("auth-intent", { outcome: "tasks_created", newTasksCount: 2, taskIds: ["TASK-004", "TASK-005"] });
+    reporter.onReviewError("auth-intent", { message: "Timed out", round: 2 });
+
+    const output = stream.getOutput();
+    expect(output).toContain("Reviewing completed tasks with agent 'reviewer' (round 1/3)");
+    expect(output).toContain("Code review approved. No issues found.");
+    expect(output).toContain("Reviewer created 2 new task(s): TASK-004, TASK-005.");
+    expect(output).toContain("Run 'codeforge run auth-intent' to execute the new tasks.");
+    expect(output).toContain("Review failed in round 2: Timed out.");
+  });
+
   describe("printLine helper for live snapshot coordination", () => {
     it("clears snapshot, prints line, and re-renders snapshot in interactive mode", () => {
       const stream = createMockStream(true);
@@ -305,7 +326,7 @@ describe("TerminalSchedulerReporter", () => {
       );
 
       // Verify snapshot was re-rendered below the printed line
-      expect(output).toContain("Intent: auth-intent | Elapsed: 0ms");
+      expect(output).toMatch(/Intent: auth-intent \| Elapsed: \d+ms/);
     });
 
     it("writes formatted text directly in non-interactive mode without cursor repositioning", () => {

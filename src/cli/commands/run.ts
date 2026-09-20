@@ -9,9 +9,15 @@ import { CliHookReporter } from "../ui/CliHookReporter.js";
 import { translate } from "../ui/i18n.js";
 import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
 
+export interface RunCommandOptions {
+  review?: boolean;
+  skipReview?: boolean;
+}
+
 export async function runAction(
   intent?: string,
   container: AppContainer = createAppContainer(),
+  options: RunCommandOptions = {},
 ): Promise<ActionResult> {
   const config = container.configService.loadConfig() ?? {
     environment: "antigravity",
@@ -75,9 +81,16 @@ export async function runAction(
   );
 
   try {
-    const runResult = await scheduler.run(intentName, config.executorAgent);
+    const reviewOptions = {
+      forceReview: options.review === true,
+      skipReview: options.skipReview === true,
+    };
+    const hasReviewOverride = reviewOptions.forceReview || reviewOptions.skipReview;
+    const runResult = hasReviewOverride
+      ? await scheduler.run(intentName, config.executorAgent, reviewOptions)
+      : await scheduler.run(intentName, config.executorAgent);
 
-    if (runResult.status === "completed") {
+    if (runResult.status === "completed" || runResult.status === "pending") {
       process.exitCode = 0;
       return { success: true };
     }
@@ -96,7 +109,9 @@ export function registerRunCommand(program: Command): void {
   program
     .command("run [intent]")
     .description("Execute tasks for a given intent autonomously")
-    .action(async (intent?: string) => {
-      await runAction(intent);
+    .option("--review", "Force AI review for this run")
+    .option("--skip-review", "Skip AI review for this run")
+    .action(async (intent: string | undefined, options: RunCommandOptions) => {
+      await runAction(intent, undefined, options);
     });
 }

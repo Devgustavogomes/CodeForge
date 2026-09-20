@@ -244,6 +244,42 @@ describe("run CLI command", () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it("forwards --review as a per-run force override", async () => {
+    const { mockScheduler } = setupContainerMock();
+
+    await runAction("intent-a", undefined, { review: true });
+
+    expect(mockScheduler.run).toHaveBeenCalledWith("intent-a", "test-agent", {
+      forceReview: true,
+      skipReview: false,
+    });
+  });
+
+  it("forwards both review flags so the scheduler can apply skip precedence", async () => {
+    const { mockScheduler } = setupContainerMock();
+
+    await runAction("intent-a", undefined, { review: true, skipReview: true });
+
+    expect(mockScheduler.run).toHaveBeenCalledWith("intent-a", "test-agent", {
+      forceReview: true,
+      skipReview: true,
+    });
+  });
+
+  it("treats a generated-task pause as a successful, actionable exit", async () => {
+    const { mockScheduler } = setupContainerMock({ status: "completed" });
+    mockScheduler.run.mockResolvedValue({
+      status: "pending",
+      intentName: "intent-a",
+      newTasks: ["TASK-004"],
+    });
+
+    const result = await runAction("intent-a");
+
+    expect(result).toEqual({ success: true });
+    expect(process.exitCode).toBe(0);
+  });
+
   it("catches unhandled scheduler exceptions, logs error, and sets exit code 1", async () => {
     setupContainerMock({ shouldThrow: true });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
