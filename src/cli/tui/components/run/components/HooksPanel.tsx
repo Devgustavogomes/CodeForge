@@ -67,7 +67,7 @@ export const HooksPanel: React.FC<HooksPanelProps> = memo(({
       const available = Math.max(1, maxHeight - fixedLines);
       return hookHistory.slice(0, Math.min(hookHistory.length, available));
     }
-    return hookHistory.slice(0, 5);
+    return hookHistory;
   }, [hookHistory, maxHeight, activeHook]);
 
   return (

@@ -10,14 +10,17 @@ export interface UseRunHotkeysProps {
   selectedTaskId: string | null;
   selectedTaskStatus: string | null;
   effectiveStatus: string;
+  allTasksCompleted?: boolean;
   onTogglePanel: () => void;
   onStartRun: () => void;
+  onStartReview?: () => void;
   onRetryTask: () => void;
   onRetryAllFailed: () => void;
   onCompleteTask: () => void;
   onResetTask: () => void;
   onResetAllTasks: () => void;
-  onSelectIntent?: () => void;  onFocusLogs: () => void;
+  onSelectIntent?: () => void;
+  onFocusLogs: () => void;
   onFocusTasks: () => void;
 }
 
@@ -29,15 +32,17 @@ export function useRunHotkeys({
   selectedTaskId,
   selectedTaskStatus,
   effectiveStatus,
+  allTasksCompleted = false,
   onTogglePanel,
   onStartRun,
+  onStartReview,
   onRetryTask,
   onRetryAllFailed,
   onCompleteTask,
   onResetTask,
   onResetAllTasks,
   onSelectIntent,
-    onFocusLogs,
+  onFocusLogs,
   onFocusTasks,
 }: UseRunHotkeysProps): void {
   const handleSelectIntent = onSelectIntent;
@@ -59,21 +64,29 @@ export function useRunHotkeys({
       // Navegação, filtros e scrolling pertencem aos componentes filhos.
       if (focusedPanel !== 'tasks') return;
 
-      if (key.return || input === '\r' || input === '\n') {
-        if (effectiveStatus !== 'running') onStartRun();
-        else onFocusLogs();
-        return;
-      }
-
-      if (input === ' ') {
-        if (effectiveStatus !== 'running') onStartRun();
-        return;
-      }
-
       if (input === 's') {
         handleSelectIntent?.();
         return;
       }
+
+      if (key.return || input === '\r' || input === '\n') {
+        if (effectiveStatus !== 'running' && effectiveStatus !== 'reviewing') onStartRun();
+        else if (effectiveStatus === 'running') onFocusLogs();
+        return;
+      }
+
+      if (input === ' ') {
+        if (effectiveStatus !== 'running' && effectiveStatus !== 'reviewing') onStartRun();
+        return;
+      }
+
+      if (input === 'v') {
+        if (allTasksCompleted && effectiveStatus !== 'running' && effectiveStatus !== 'reviewing') {
+          onStartReview?.();
+        }
+        return;
+      }
+
       if (input === 'X') {
         onResetAllTasks();
         return;

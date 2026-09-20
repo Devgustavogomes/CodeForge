@@ -97,7 +97,6 @@ export const IntentPicker: React.FC<IntentPickerProps> = memo(
               onSelectRef.current(chosen.name);
             }
             exec.setActiveIntent(chosen.name);
-            void exec.startRun(chosen.name);
           }
           return;
         }

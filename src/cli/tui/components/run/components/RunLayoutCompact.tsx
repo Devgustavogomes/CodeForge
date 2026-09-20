@@ -18,6 +18,7 @@ import { HooksPanel } from "./HooksPanel.js";
 export interface RunLayoutCompactProps {
   tasks: TaskItem[];
   selectedTaskId: string | null;
+  logTaskId?: string | null;
   selectedTask: TaskItem | null;
   focusedPanel: DashboardPanel;
   intentName?: string;  schedulerStatus?: ExecutionStatus | string;
@@ -38,6 +39,7 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
   ({
     tasks,
     selectedTaskId,
+    logTaskId,
     selectedTask,
     focusedPanel,
     intentName,
@@ -61,7 +63,7 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
     // feedback. A reserva evita que os painéis avancem sobre o rodapé.
     const actionBarRows = actionBar ? 3 : 0;
     const panelRows = Math.max(8, availableRows - actionBarRows);
-    const compactTaskListHeight = Math.max(4, Math.floor(panelRows * 0.58));
+    const compactTaskListHeight = Math.max(4, Math.min(Math.floor(panelRows * 0.58), panelRows - 5 - (hookHistory?.length ?? 0)));
 
     const effectiveTaskLogs =
       propTaskLogs !== undefined
@@ -138,6 +140,7 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
                 hookHistory={hookHistory}
                 hasConfiguredHooks={hasConfiguredHooks}
                 borderStyle="round"
+                maxHeight={Math.max(4, panelRows - compactTaskListHeight)}
               />
             </Box>
           </Box>
@@ -158,7 +161,7 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
               />
             </Box>
             <LogStreamView
-              taskId={selectedTaskId}
+              taskId={logTaskId === undefined ? selectedTaskId : logTaskId}
               logs={effectiveTaskLogs}
               isFocused={true}
               maxVisibleLines={Math.max(4, panelRows - 9)}

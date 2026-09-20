@@ -17,6 +17,7 @@ import { HooksPanel } from "./HooksPanel.js";
 export interface RunLayoutWideProps {
   tasks: TaskItem[];
   selectedTaskId: string | null;
+  logTaskId?: string | null;
   selectedTask: TaskItem | null;
   focusedPanel: DashboardPanel;
   intentName?: string;  schedulerStatus?: ExecutionStatus | string;
@@ -37,6 +38,7 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
   ({
     tasks,
     selectedTaskId,
+    logTaskId,
     selectedTask,
     focusedPanel,
     intentName,
@@ -62,7 +64,7 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
     // o rodapé em terminais baixos.
     const actionBarRows = actionBar ? 3 : 0;
     const panelRows = Math.max(8, availableRows - actionBarRows);
-    const taskListHeight = Math.max(4, Math.floor(panelRows * 0.58));
+    const taskListHeight = Math.max(4, Math.min(Math.floor(panelRows * 0.58), panelRows - 5 - (hookHistory?.length ?? 0)));
     const logMaxLines = Math.max(4, panelRows - 7);
 
     const effectiveTaskLogs =
@@ -117,6 +119,7 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
                 hookHistory={hookHistory}
                 hasConfiguredHooks={hasConfiguredHooks}
                 borderStyle="round"
+                maxHeight={Math.max(4, panelRows - taskListHeight)}
               />
             </Box>
           </Box>
@@ -138,7 +141,7 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
               />
             </Box>
             <LogStreamView
-              taskId={selectedTaskId}
+              taskId={logTaskId === undefined ? selectedTaskId : logTaskId}
               logs={effectiveTaskLogs}
               isFocused={focusedPanel === "logs"}
               maxVisibleLines={logMaxLines}

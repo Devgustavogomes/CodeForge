@@ -3,7 +3,8 @@ import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { useRunDashboard, DashboardPanel } from './hooks/useRunDashboard.js';
 import { useRunHotkeys } from './hooks/useRunHotkeys.js';
 import { useNavigation } from '../../context/NavigationContext.js';
-import { IntentPicker, } from './components/IntentPicker.js';
+import { useExecution } from '../../context/ExecutionContext.js';
+import { IntentPicker } from './components/IntentPicker.js';
 import {
   DashboardMetricsPanel,
   DashboardMetricsPanelProps,
@@ -29,7 +30,7 @@ export interface RunDashboardProps {
   hasConfiguredHooks?: boolean;
 }
 
-export const RunDashboard: React.FC<RunDashboardProps> = memo(({
+const RunDashboardContent: React.FC<RunDashboardProps> = memo(({
   isInteractive = true,
   activeHook: propActiveHook,
   hookHistory: propHookHistory,
@@ -55,6 +56,9 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({
     effectiveStatus,
     derivedStartedAt,
     derivedCompletedAt,
+    reviewStartedAt,
+    reviewResult,
+    reviewError,
   } = dashboardState;
 
   const activeHook = propActiveHook !== undefined ? propActiveHook : dashboardState.activeHook;
@@ -63,17 +67,23 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({
     propHasConfiguredHooks !== undefined
       ? propHasConfiguredHooks
       : dashboardState.hasConfiguredHooks;
+  const showReviewLogs = effectiveStatus !== 'reviewing' && effectiveStatus !== 'running'
+    && Boolean(logs.review?.length) && Boolean(reviewResult || reviewError);
+  const visibleLogTaskId = showReviewLogs ? 'review' : selectedTaskId;
+  const visibleTaskLogs = showReviewLogs ? (logs.review ?? []) : taskLogs;
 
   useRunHotkeys({
-    isInteractive: isInteractive && tasks.length > 0,
+    isInteractive,
     isModalOpen: Boolean(navigation.modal),
     isTextInputActive: navigation.isTextInputActive,
     focusedPanel,
     selectedTaskId,
     selectedTaskStatus: dashboardState.selectedTaskStatus,
     effectiveStatus,
+    allTasksCompleted: tasks.length > 0 && completedCount === tasks.length,
     onTogglePanel: dashboardState.onTogglePanel,
     onStartRun: dashboardState.onStartRun,
+    onStartReview: dashboardState.onStartReview,
     onRetryTask: dashboardState.onRetryTask,
     onRetryAllFailed: dashboardState.onRetryAllFailed,
     onCompleteTask: dashboardState.onCompleteTask,
@@ -83,10 +93,6 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({
     onFocusLogs: dashboardState.onFocusLogs,
     onFocusTasks: dashboardState.onFocusTasks,
   });
-
-  if (tasks.length === 0) {
-    return <IntentPicker isInteractive={isInteractive} />;
-  }
 
   if (terminalDims.breakpoint === 'minimal') {
     return (
@@ -109,6 +115,9 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({
       schedulerStatus={effectiveStatus}
       startedAt={derivedStartedAt}
       completedAt={derivedCompletedAt}
+      reviewStartedAt={reviewStartedAt}
+      reviewResult={reviewResult}
+      reviewError={reviewError}
     />
   );
 
@@ -133,10 +142,11 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({
         focusedPanel={focusedPanel}
         tasks={tasks}
         selectedTaskId={selectedTaskId}
+        logTaskId={visibleLogTaskId}
         selectedTask={selectedTask}
         terminalRows={terminalDims.rows}
         logs={logs}
-        taskLogs={taskLogs}
+        taskLogs={visibleTaskLogs}
         onCompleteTask={dashboardState.onCompleteTask}
         activeHook={activeHook}
         hookHistory={hookHistory}
@@ -152,16 +162,30 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({
       focusedPanel={focusedPanel}
       tasks={tasks}
       selectedTaskId={selectedTaskId}
+      logTaskId={visibleLogTaskId}
       selectedTask={selectedTask}
       terminalRows={terminalDims.rows}
       logs={logs}
-      taskLogs={taskLogs}
+      taskLogs={visibleTaskLogs}
       onCompleteTask={dashboardState.onCompleteTask}
       activeHook={activeHook}
       hookHistory={hookHistory}
       hasConfiguredHooks={hasConfiguredHooks}
     />
   );
+});
+
+RunDashboardContent.displayName = 'RunDashboardContent';
+
+export const RunDashboard: React.FC<RunDashboardProps> = memo((props) => {
+  const exec = useExecution();
+  const activeIntent = exec.activeIntent;
+
+  if (!activeIntent || exec.tasks.length === 0) {
+    return <IntentPicker isInteractive={props.isInteractive} />;
+  }
+
+  return <RunDashboardContent key={activeIntent} {...props} />;
 });
 
 RunDashboard.displayName = 'RunDashboard';

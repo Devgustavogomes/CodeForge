@@ -7,18 +7,27 @@ import {
 import { TimerView } from "../../common/TimerView.js";
 import { Spinner } from "../../common/Spinner.js";
 import { renderProgressBar, theme } from "../../../theme.js";
+import { ReviewResultMetadata } from '../../../../../domain/hook.js';
 
 export { renderProgressBar };
+
+function reviewErrorSummary(error: string): string {
+  const firstLine = error.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').split(/\r?\n/)[0].trim();
+  return firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine;
+}
 
 export interface DashboardMetricsPanelProps {
   intentName?: string;  tasks: TaskItem[];
   schedulerStatus: ExecutionStatus | string;
   startedAt?: string;
   completedAt?: string;
+  reviewStartedAt?: string;
+  reviewResult?: ReviewResultMetadata;
+  reviewError?: string;
 }
 
 export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
-  ({ intentName,  tasks, schedulerStatus, startedAt, completedAt }) => {
+  ({ intentName,  tasks, schedulerStatus, startedAt, completedAt, reviewStartedAt, reviewResult, reviewError }) => {
     const displayName = intentName ?? "";
 
     const completedCount = useMemo(
@@ -39,6 +48,18 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
     );
     const totalCount = tasks.length;
     const isRunning = schedulerStatus === "running" || runningCount > 0;
+
+    if (schedulerStatus === 'reviewing') {
+      return (
+        <Box flexDirection="column" paddingX={1} marginBottom={1} width="100%">
+          <Box justifyContent="space-between" width="100%" overflow="hidden">
+            <Box gap={1} flexShrink={1} overflow="hidden"><Spinner color={theme.colors.primary} /><Text bold color={theme.colors.primary} wrap="truncate-end">AI Review in progress</Text></Box>
+            <Text color={theme.colors.primary} bold>Elapsed: <TimerView startTime={reviewStartedAt ?? startedAt} isRunning /></Text>
+          </Box>
+          <Text dimColor>Completed tasks are preserved while the reviewer checks this intent.</Text>
+        </Box>
+      );
+    }
 
     // Success Banner when completed
     if (schedulerStatus === "completed") {
@@ -72,17 +93,8 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
             <Text color={theme.colors.success}>{failedCount} failures</Text>
           </Box>
 
-          <Box gap={2} marginTop={0} flexWrap="wrap">
-            <Text bold color={theme.colors.primary}>
-              [s] Choose another intent
-            </Text>
-            <Text color={theme.colors.borderSubtle}>│</Text>
-            <Text bold color={theme.colors.warning}>
-              [X] Reset all & Re-run
-            </Text>
-            <Text color={theme.colors.borderSubtle}>│</Text>
-            <Text dimColor>[Tab] Inspect logs</Text>
-          </Box>
+          <Text color={theme.colors.primary} wrap="truncate-end">[s] Intents  [X] Reset &amp; Run  [Tab] Logs  [v] Review</Text>
+          {reviewResult?.outcome === 'approved' && <Text color={theme.colors.success}>AI Review approved the implementation. No new tasks created.</Text>}
         </Box>
       );
     }
@@ -123,21 +135,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
             <Text dimColor>{pendingCount} remaining</Text>
           </Box>
 
-          <Box gap={2} marginTop={0} flexWrap="wrap">
-            <Text bold color={theme.colors.error}>
-              [R] Retry all failed
-            </Text>
-            <Text color={theme.colors.borderSubtle}>│</Text>
-            <Text bold color={theme.colors.success}>
-              [Enter] Resume
-            </Text>
-            <Text color={theme.colors.borderSubtle}>│</Text>
-            <Text bold color={theme.colors.warning}>
-              [r] Retry selected
-            </Text>
-            <Text color={theme.colors.borderSubtle}>│</Text>
-            <Text dimColor>[s] Intents</Text>
-          </Box>
+          <Text color={theme.colors.text} wrap="truncate-end">[R] Retry all  [Enter] Resume  [r] Retry selected  [s] Intents</Text>
         </Box>
       );
     }
@@ -161,9 +159,9 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
         marginBottom={0}
         width="100%"
       >
-        <Box justifyContent="space-between" width="100%">
-          <Box gap={1}>
-            <Text bold color={theme.colors.primary}>
+        <Box justifyContent="space-between" width="100%" overflow="hidden">
+          <Box gap={1} flexShrink={1} overflow="hidden">
+            <Text bold color={theme.colors.primary} wrap="truncate-end">
               {isRunning ? "Running" : "Intent"} [{displayName}]
             </Text>
           </Box>
@@ -180,28 +178,18 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           </Box>
         </Box>
 
-        <Box gap={2} marginY={0} flexWrap="wrap">
-          <Box gap={1}>
-            {isRunning ? (
-              <Spinner color={theme.colors.warning} />
-            ) : (
-              <Text color={theme.colors.warning}>-</Text>
-            )}
-            <Text color={theme.colors.warning} bold>
-              Parallel: {runningCount}
-            </Text>
-          </Box>
-          <Text color={theme.colors.borderSubtle}>│</Text>
-          <Text color={theme.colors.success} bold>
-            ✓ Completed: {completedCount}
+        <Box marginY={0} width="100%" overflow="hidden">
+          <Text wrap="truncate-end" color={theme.colors.text}>
+            Parallel: {runningCount}  |  Completed: {completedCount}  |  Failed: {failedCount}  |  Remaining: {pendingCount}
           </Text>
-          <Text color={theme.colors.borderSubtle}>│</Text>
-          <Text color={theme.colors.error} bold>
-            ✗ Failed: {failedCount}
-          </Text>
-          <Text color={theme.colors.borderSubtle}>│</Text>
-          <Text dimColor>Remaining: {pendingCount}</Text>
         </Box>
+
+        {reviewResult?.outcome === 'tasks_created' && (
+          <Text color={theme.colors.warning} bold wrap="truncate-end">AI Review created {reviewResult.newTasksCount} new task{reviewResult.newTasksCount === 1 ? '' : 's'}. Press [Enter] to run.</Text>
+        )}
+        {reviewError && (
+          <Text color={theme.colors.error} bold wrap="truncate-end">AI Review failed: {reviewErrorSummary(reviewError)}. Press [v] to retry.</Text>
+        )}
 
         <Box marginTop={0} justifyContent="space-between" width="100%">
           <Text bold color={theme.colors.primary}>

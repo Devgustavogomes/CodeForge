@@ -142,4 +142,49 @@ describe('RunDashboard - Integration with ExecutionProvider', () => {
     expect(frame).toContain('notify-slack');
     expect(frame).toContain('(0.4s)');
   });
+
+  it('allows pressing s or v after selecting an intent from IntentPicker', async () => {
+    const { container, executionStateRepository } = createContainerWithExecution();
+    container.gw.writeFile('.codeforge/intents/core-engine.md', '# Core Engine\nImplement core engine');
+    executionStateRepository.save({
+      intentId: 'core-engine', status: 'completed', startedAt: '2026-09-06T10:00:00.000Z',
+      completedAt: '2026-09-06T10:00:05.000Z',
+      updatedAt: '2026-09-06T10:00:05.000Z',
+      tasks: {
+        'TASK-001': { status: 'completed', dependencies: [], title: 'Initialize repository', completedAt: '2026-09-06T10:00:05.000Z' },
+        'TASK-002': { status: 'completed', dependencies: ['TASK-001'], title: 'Implement core business logic', completedAt: '2026-09-06T10:00:05.000Z' },
+      },
+    });
+
+    const { lastFrame, stdin } = renderWithProviders(
+      <RunDashboard isInteractive />,
+      { container },
+    );
+
+    expect(lastFrame() ?? '').toContain('Select an Intent');
+
+    // Select the intent
+    stdin.write('\r');
+    await flushAsync(50);
+
+    expect(lastFrame() ?? '').toContain('[s] Intents');
+
+    // Now press 's' to choose another intent
+    stdin.write('s');
+    await flushAsync(50);
+
+    expect(lastFrame() ?? '').toContain('Select an Intent');
+
+    // Re-select the intent
+    stdin.write('\r');
+    await flushAsync(50);
+    expect(lastFrame() ?? '').toContain('[v] Review');
+
+    // Now press 'v' to trigger review
+    stdin.write('v');
+    await flushAsync(50);
+    // When review starts, effectiveStatus becomes 'reviewing' or displays review feedback
+    expect(lastFrame() ?? '').toMatch(/AI Review|reviewing/i);
+  });
 });
+

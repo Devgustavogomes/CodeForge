@@ -14,7 +14,9 @@ const Harness: React.FC<HarnessProps> = (props) => {
     selectedTaskId: props.selectedTaskId !== undefined ? props.selectedTaskId : 'TASK-001',
     selectedTaskStatus: props.selectedTaskStatus !== undefined ? props.selectedTaskStatus : 'failed',
     effectiveStatus: props.effectiveStatus ?? 'idle',
+    allTasksCompleted: props.allTasksCompleted,
     onTogglePanel: props.onTogglePanel ?? vi.fn(), onStartRun: props.onStartRun ?? vi.fn(),
+    onStartReview: props.onStartReview ?? vi.fn(),
     onRetryTask: props.onRetryTask ?? vi.fn(), onRetryAllFailed: props.onRetryAllFailed ?? vi.fn(),
     onResetTask: props.onResetTask ?? vi.fn(),
     onResetAllTasks: props.onResetAllTasks ?? vi.fn(), onSelectIntent: props.onSelectIntent ?? vi.fn(),
@@ -23,7 +25,7 @@ const Harness: React.FC<HarnessProps> = (props) => {
   return React.createElement(Text, null, 'RunHotkeysTest');
 };
 
-const callbackNames = ['onTogglePanel', 'onStartRun', 'onRetryTask', 'onRetryAllFailed', 'onResetTask', 'onResetAllTasks', 'onSelectIntent', 'onFocusLogs', 'onFocusTasks'] as const;
+const callbackNames = ['onTogglePanel', 'onStartRun', 'onStartReview', 'onRetryTask', 'onRetryAllFailed', 'onResetTask', 'onResetAllTasks', 'onSelectIntent', 'onFocusLogs', 'onFocusTasks'] as const;
 type CallbackName = (typeof callbackNames)[number];
 type Callbacks = Record<CallbackName, ReturnType<typeof vi.fn>>;
 
@@ -94,6 +96,21 @@ describe('useRunHotkeys', () => {
     for (const key of ['s', 'r', 'R', 'x', 'X', ' ']) stdin.write(key);
     await flushAsync();
     for (const name of callbackNames) expect(callbacks[name]).not.toHaveBeenCalled();
+  });
+
+  it('starts forced review with v only for a fully completed inactive run', async () => {
+    const eligible = render(React.createElement(Harness, { ...callbacks, effectiveStatus: 'completed', allTasksCompleted: true }));
+    eligible.stdin.write('v');
+    await flushAsync();
+    expect(callbacks.onStartReview).toHaveBeenCalledOnce();
+    expect(callbacks.onStartRun).not.toHaveBeenCalled();
+
+    const pending = render(React.createElement(Harness, { ...callbacks, effectiveStatus: 'completed', allTasksCompleted: false }));
+    pending.stdin.write('v');
+    const active = render(React.createElement(Harness, { ...callbacks, effectiveStatus: 'reviewing', allTasksCompleted: true }));
+    active.stdin.write('v');
+    await flushAsync();
+    expect(callbacks.onStartReview).toHaveBeenCalledOnce();
   });
 
   it.each([['isInteractive', false], ['isModalOpen', true], ['isTextInputActive', true]] as const)(

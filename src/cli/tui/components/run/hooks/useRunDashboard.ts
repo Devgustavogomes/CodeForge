@@ -79,6 +79,15 @@ export function useRunDashboard() {
     beginAction();
     try { await exec.startRun(currentIntent); } catch { /* sem feedback falso */ }
   }, [beginAction, currentIntent, exec]);
+  const onStartReview = useCallback(async () => {
+    if (!currentIntent) return;
+    beginAction();
+    try {
+      await exec.startReview(currentIntent);
+    } catch (error) {
+      publishFeedback(`AI Review failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, [beginAction, currentIntent, exec, publishFeedback]);
   const onRetryTask = useCallback(async () => {
     if (!currentIntent || !selectedTask || selectedTask.status !== 'failed') return;
     beginAction();
@@ -159,10 +168,14 @@ export function useRunDashboard() {
     hookHistory: exec.hookHistory,
     hasConfiguredHooks: exec.hasConfiguredHooks ?? false,
     activeIntent: currentIntent,    currentIntent,    effectiveIntentName: currentIntent ?? '',    effectiveStatus: exec.schedulerStatus,
+    reviewStartedAt: exec.reviewStartedAt,
+    reviewResult: exec.reviewResult,
+    reviewError: exec.reviewError,
     selectTask: exec.selectTask,
     setActiveIntent: exec.setActiveIntent,    onTogglePanel,
     onFocusTasks,
     onFocusLogs,
+    onStartReview,
     onStartRun,
     onRetryTask,
     onRetryAllFailed,
