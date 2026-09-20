@@ -11,18 +11,31 @@ import { HookDispatcher } from "../application/ports/HookDispatcher.js";
 import { HookReporter } from "../application/ports/HookReporter.js";
 import { HookContext, HookEvent } from "../domain/hook.js";
 import { CodeForgeConfig } from "../config/types.js";
+import { ExecuteReviewUseCase } from "../application/use-cases/ExecuteReviewUseCase.js";
+import { ValidatePlanUseCase } from "../application/use-cases/ValidatePlanUseCase.js";
+import { ReviewResultMetadata } from "../domain/hook.js";
 
 export type SchedulerStatus =
   | "idle"
+  | "paused"
   | "running"
+  | "reviewing"
   | "completed"
   | "failed"
   | "deadlock";
 
 export type SchedulerRunResult =
   | { status: "completed"; intentName: string }
+  | { status: "pending"; intentName: string; newTasks: string[] }
+  | { status: "paused"; intentName: string; reason?: string }
   | { status: "failed"; intentName: string; reason?: string }
   | { status: "deadlock"; intentName: string };
+
+/** Per-invocation controls for the optional terminal AI review. */
+export interface SchedulerRunOptions {
+  forceReview?: boolean;
+  skipReview?: boolean;
+}
 
 export class TaskScheduler {
   private status: SchedulerStatus = "idle";
@@ -36,6 +49,8 @@ export class TaskScheduler {
     private reporter?: SchedulerReporter,
     private hooks?: HookDispatcher,
     private hookReporter?: HookReporter,
+    private reviewUseCase?: ExecuteReviewUseCase,
+    private validatePlanUseCase?: ValidatePlanUseCase,
   ) {
     if (this.hookReporter && this.hooks?.setReporter) {
       this.hooks.setReporter(this.hookReporter);
@@ -89,10 +104,17 @@ export class TaskScheduler {
   }
 
   private createResult(
-    status: "completed" | "failed" | "deadlock",
+    status: SchedulerRunResult["status"],
     intentName: string,
     reason?: string,
+    newTasks?: string[],
   ): SchedulerRunResult {
+    if (status === "pending") {
+      return { status, intentName, newTasks: newTasks ?? [] };
+    }
+    if (status === "paused") {
+      return { status, intentName, reason };
+    }
     if (status === "failed") {
       return { status, intentName, reason };
     }
@@ -104,12 +126,14 @@ export class TaskScheduler {
     intentName: string,
     taskId?: string,
     errors?: string[],
+    reviewResult?: ReviewResultMetadata,
   ): HookContext {
     const ctx: HookContext = {
       event,
       intentName,
       ...(taskId ? { taskId } : {}),
       ...(errors ? { errors } : {}),
+      ...(reviewResult ? { reviewResult } : {}),
     };
     return ctx;
   }
@@ -128,9 +152,45 @@ export class TaskScheduler {
     return tasks;
   }
 
+  private listJsonTaskFiles(intentName: string): string[] {
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
+    return this.gw.exists(tasksDir)
+      ? this.gw.listDir(tasksDir).filter((file) => file.endsWith(".json"))
+      : [];
+  }
+
+  /** Removes only files which did not exist when this review attempt began. */
+  private cleanupReviewOutput(intentName: string, filesBeforeReview: ReadonlySet<string>): void {
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
+    for (const file of this.listJsonTaskFiles(intentName)) {
+      if (!filesBeforeReview.has(file)) {
+        this.gw.deleteFile(`${tasksDir}/${file}`);
+      }
+    }
+  }
+
+  private pauseForTaskLoadError(intentName: string, error: unknown): SchedulerRunResult {
+    const message = `Unable to load task files: ${error instanceof Error ? error.message : String(error)}`;
+    const state = this.stateRepo.load(intentName);
+    if (!state) {
+      this.status = "failed";
+      this.reporter?.onError(new Error(message));
+      return this.createResult("failed", intentName, message);
+    }
+
+    state.status = "paused";
+    state.reviewError = message;
+    this.status = "paused";
+    this.stateRepo.save(state);
+    this.reporter?.onReviewError?.(intentName, { message, round: (state.reviewRounds ?? 0) + 1 });
+    if (!this.reporter?.onReviewError) this.reporter?.onError(new Error(message));
+    return this.createResult("paused", intentName, message);
+  }
+
   private prepareState(
     intentName: string,
     tasks: Task[],
+    options: SchedulerRunOptions,
   ): { ready: true } | { ready: false; result: SchedulerRunResult } {
     let state = this.stateRepo.load(intentName);
     if (!state) {
@@ -139,7 +199,7 @@ export class TaskScheduler {
       return { ready: true };
     }
 
-    if (state.status === "completed") {
+    if (state.status === "completed" && !options.forceReview) {
       this.status = "completed";
       this.reporter?.onComplete(intentName);
       return { ready: false, result: this.createResult("completed", intentName) };
@@ -160,6 +220,126 @@ export class TaskScheduler {
     state.status = "running";
     this.stateRepo.save(state);
     return { ready: true };
+  }
+
+  private resolveReviewOptions(options: SchedulerRunOptions): Required<SchedulerRunOptions> {
+    // An explicit bypass is safer and deterministic when both flags are supplied.
+    return { forceReview: options.forceReview === true, skipReview: options.skipReview === true };
+  }
+
+  private maxReviewRounds(): number {
+    const configured = this.config.aiReview?.maxRounds ?? 3;
+    return Number.isFinite(configured) ? Math.max(0, Math.floor(configured)) : 3;
+  }
+
+  private shouldRunReview(state: IntentExecutionState, input: SchedulerRunOptions): boolean {
+    const options = this.resolveReviewOptions(input);
+    if (options.skipReview || (state.reviewApproved && !options.forceReview)) return false;
+    if (!(this.config.aiReview?.enabled || options.forceReview)) return false;
+    return (state.reviewRounds ?? 0) < this.maxReviewRounds();
+  }
+
+  private allTasksCompleted(state: IntentExecutionState): boolean {
+    const counts = this.getTaskCounts(state);
+    return counts.running === 0 && counts.pending === 0 && counts.failed === 0;
+  }
+
+  private async completeRun(intentName: string, state: IntentExecutionState): Promise<SchedulerRunResult> {
+    this.status = "completed";
+    state.status = "completed";
+    state.reviewApproved = true;
+    state.completedAt = new Date().toISOString();
+    this.stateRepo.save(state);
+    this.reporter?.onComplete(intentName);
+    await this.hooks?.dispatch(this.createHookContext("run.completed", intentName));
+    return this.createResult("completed", intentName);
+  }
+
+  private async reviewCompletedTasks(
+    intentName: string,
+    state: IntentExecutionState,
+  ): Promise<SchedulerRunResult> {
+    const round = (state.reviewRounds ?? 0) + 1;
+    const maxRounds = this.maxReviewRounds();
+    this.status = "reviewing";
+    state.status = "reviewing";
+    delete state.reviewError;
+    this.stateRepo.save(state);
+    this.reporter?.onReviewStart?.(intentName, {
+      agent: this.config.aiReview?.agent ?? "default",
+      round,
+      maxRounds,
+    });
+
+    // This snapshot is deliberately taken by the scheduler. It provides the
+    // transaction boundary even when the reviewer throws after writing output.
+    const filesBeforeReview = new Set(this.listJsonTaskFiles(intentName));
+    try {
+      await this.hooks?.dispatch(this.createHookContext("review.started", intentName));
+      if (!this.reviewUseCase || !this.validatePlanUseCase) {
+        throw new Error("AI review services are not configured.");
+      }
+      const completedTasks = this.loadTasks(intentName).filter(
+        (task) => state.tasks[task.id]?.status === "completed",
+      );
+      const review = await this.reviewUseCase.execute({
+        intentName,
+        completedTasks,
+        onLog: (chunk) => this.reporter?.onLog?.("review", chunk),
+      });
+
+      // Validate even on an apparent approval. Otherwise an invalid JSON file
+      // left by a prior reviewer attempt could remain outside execution state
+      // while the current reviewer creates zero files and completes the run.
+      const validation = this.validatePlanUseCase.execute(intentName);
+      if (validation.kind !== "valid") {
+        const details = validation.kind === "invalid" ? validation.errors.join("\n") : validation.kind;
+        throw new Error(`Reviewer-created tasks failed plan validation: ${details}`);
+      }
+
+      if (review.newTaskFiles.length === 0) {
+        const result: ReviewResultMetadata = {
+          outcome: "approved", newTasksCount: 0, taskIds: [],
+        };
+        await this.hooks?.dispatch(this.createHookContext("review.completed", intentName, undefined, undefined, result));
+        this.reporter?.onReviewEnd?.(intentName, result);
+        return this.completeRun(intentName, state);
+      }
+
+      const generated = this.loadTasks(intentName).filter((task) => review.newTaskIds.includes(task.id));
+      if (generated.length !== review.newTaskIds.length) {
+        throw new Error("Reviewer-created task files could not be loaded.");
+      }
+      for (const task of generated) {
+        state.tasks[task.id] = {
+          status: "pending", dependencies: task.dependencies ?? [], title: task.title,
+        };
+      }
+      state.reviewRounds = round;
+      state.status = "paused";
+      this.status = "paused";
+      this.stateRepo.save(state);
+      const result: ReviewResultMetadata = {
+        outcome: "tasks_created", newTasksCount: generated.length, taskIds: generated.map((task) => task.id),
+      };
+      this.reporter?.onUpdate(intentName);
+      this.reporter?.onReviewEnd?.(intentName, result);
+      await this.hooks?.dispatch(this.createHookContext("review.completed", intentName, undefined, undefined, result));
+      return this.createResult("pending", intentName, undefined, result.taskIds);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.cleanupReviewOutput(intentName, filesBeforeReview);
+      // Deliberately do not touch individual task records: completed timestamps are retry evidence.
+      state.status = "paused";
+      state.reviewError = message;
+      this.status = "paused";
+      this.stateRepo.save(state);
+      this.reporter?.onReviewError?.(intentName, { message, round });
+      if (!this.reporter?.onReviewError) {
+        this.reporter?.onError(new Error(message));
+      }
+      return this.createResult("paused", intentName, message);
+    }
   }
 
   private getTaskCounts(state: IntentExecutionState): {
@@ -348,12 +528,29 @@ export class TaskScheduler {
     }
   }
 
-  async runAll(intentName: string, model?: string): Promise<SchedulerRunResult> {
-    return this.run(intentName, model);
+  async runAll(
+    intentName: string,
+    model?: string,
+    options?: SchedulerRunOptions,
+  ): Promise<SchedulerRunResult> {
+    return this.run(intentName, model, options);
   }
 
-  async run(intentName: string, model?: string): Promise<SchedulerRunResult> {
-    const tasks = this.loadTasks(intentName);
+  async run(
+    intentName: string,
+    modelOrOptions?: string | SchedulerRunOptions,
+    suppliedOptions?: SchedulerRunOptions,
+  ): Promise<SchedulerRunResult> {
+    const model = typeof modelOrOptions === "string" ? modelOrOptions : undefined;
+    const options = this.resolveReviewOptions(
+      typeof modelOrOptions === "object" ? modelOrOptions : suppliedOptions ?? {},
+    );
+    let tasks: Task[];
+    try {
+      tasks = this.loadTasks(intentName);
+    } catch (error) {
+      return this.pauseForTaskLoadError(intentName, error);
+    }
     if (tasks.length === 0) {
       this.status = "failed";
       const message = `No tasks found for intent: ${intentName}`;
@@ -361,7 +558,7 @@ export class TaskScheduler {
       return this.createResult("failed", intentName, message);
     }
 
-    const prep = this.prepareState(intentName, tasks);
+    const prep = this.prepareState(intentName, tasks, options);
     if (!prep.ready) {
       this.status = prep.result.status as SchedulerStatus;
       return prep.result;
@@ -386,12 +583,10 @@ export class TaskScheduler {
         }
 
         if (currentState.status === "completed") {
-          this.status = "completed";
-          this.reporter?.onComplete(intentName);
-          await this.hooks?.dispatch(
-            this.createHookContext("run.completed", intentName),
-          );
-          return this.createResult("completed", intentName);
+          if (this.allTasksCompleted(currentState) && this.shouldRunReview(currentState, options)) {
+            return this.reviewCompletedTasks(intentName, currentState);
+          }
+          return this.completeRun(intentName, currentState);
         }
 
         if (currentState.status === "failed") {
@@ -423,6 +618,12 @@ export class TaskScheduler {
         const counts = this.getTaskCounts(currentState);
 
         if (activeTasks.size === 0) {
+          if (this.allTasksCompleted(currentState)) {
+            if (this.shouldRunReview(currentState, options)) {
+              return this.reviewCompletedTasks(intentName, currentState);
+            }
+            return this.completeRun(intentName, currentState);
+          }
           const outcome = this.handleNoReadyTasks(
             intentName,
             currentState,

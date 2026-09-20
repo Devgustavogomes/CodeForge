@@ -11,6 +11,7 @@ import { DeleteIntentUseCase } from "../../src/application/use-cases/DeleteInten
 import { DeleteTaskUseCase } from "../../src/application/use-cases/DeleteTaskUseCase.js";
 import { DeleteDocUseCase } from "../../src/application/use-cases/DeleteDocUseCase.js";
 import { DocsManifestRepository } from "../../src/infrastructure/repositories/DocsManifestRepository.js";
+import { ExecuteReviewUseCase } from "../../src/application/use-cases/ExecuteReviewUseCase.js";
 
 describe("AppContainer composition root", () => {
   it("initializes default container when called without arguments", () => {
@@ -40,6 +41,7 @@ describe("AppContainer composition root", () => {
     expect(container.deleteIntentUseCase).toBeInstanceOf(DeleteIntentUseCase);
     expect(container.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
     expect(container.deleteDocUseCase).toBeInstanceOf(DeleteDocUseCase);
+    expect(container.executeReviewUseCase).toBeInstanceOf(ExecuteReviewUseCase);
   });
 
   it("uses provided workspace gateway", () => {
@@ -78,6 +80,14 @@ describe("AppContainer composition root", () => {
     });
 
     expect(container.taskOperationsUseCase).toBe(mockTaskOps);
+  });
+
+  it("exposes an injected ExecuteReviewUseCase", () => {
+    const memoryGw = new InMemoryWorkspaceGateway();
+    const reviewUseCase = {} as ExecuteReviewUseCase;
+    const container = createAppContainer(memoryGw, { executeReviewUseCase: reviewUseCase });
+
+    expect(container.executeReviewUseCase).toBe(reviewUseCase);
   });
 
   it("uses shared dependencies for deletion use cases", () => {

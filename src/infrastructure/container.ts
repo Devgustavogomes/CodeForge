@@ -29,6 +29,7 @@ import { SchedulerReporter } from "../application/ports/SchedulerReporter.js";
 import { HookDispatcher } from "../application/ports/HookDispatcher.js";
 import { HookReporter } from "../application/ports/HookReporter.js";
 import { IntentSourceFactory } from "./intent-sources/IntentSourceFactory.js";
+import { ExecuteReviewUseCase } from "../application/use-cases/ExecuteReviewUseCase.js";
 
 export interface AppContainerDependencies {
   workspaceGateway?: WorkspaceGateway;
@@ -61,6 +62,7 @@ export interface AppContainerDependencies {
   deleteIntentUseCase?: DeleteIntentUseCase;
   deleteTaskUseCase?: DeleteTaskUseCase;
   deleteDocUseCase?: DeleteDocUseCase;
+  executeReviewUseCase?: ExecuteReviewUseCase;
 }
 
 export interface AppContainer {
@@ -73,6 +75,7 @@ export interface AppContainer {
   docsManifestRepository: DocsManifestRepository;
   configService: ConfigService;
   promptService: PromptService;
+  gitGateway: GitGateway;
   runnerProvider: (environment: string) => AgentRunner;
   intentSourceFactory: typeof IntentSourceFactory;
 
@@ -93,6 +96,7 @@ export interface AppContainer {
   deleteIntentUseCase: DeleteIntentUseCase;
   deleteTaskUseCase: DeleteTaskUseCase;
   deleteDocUseCase: DeleteDocUseCase;
+  executeReviewUseCase: ExecuteReviewUseCase;
 
   hookReporter?: HookReporter;
 
@@ -226,6 +230,7 @@ export function createAppContainer(
     docsManifestRepository: docsRepo,
     configService,
     promptService,
+    gitGateway,
     runnerProvider,
     intentSourceFactory,
     hookReporter,
@@ -297,6 +302,25 @@ export function createAppContainer(
       return new UpdateDocUseCase(workspaceGateway, gitGateway, runner, config);
     },
 
+    get executeReviewUseCase(): ExecuteReviewUseCase {
+      if (overrides?.executeReviewUseCase) {
+        return overrides.executeReviewUseCase;
+      }
+      const config = configService.loadConfig() ?? {
+        environment: "antigravity",
+        plannerAgent: "default",
+        executorAgent: "default",
+        language: "en",
+      };
+      return new ExecuteReviewUseCase(
+        workspaceGateway,
+        gitGateway,
+        runnerProvider(config.environment),
+        promptService,
+        config,
+      );
+    },
+
     createTaskScheduler(
       runner: AgentRunner,
       config: CodeForgeConfig,
@@ -313,6 +337,16 @@ export function createAppContainer(
         reporter,
         hooks,
         schedulerHookReporter ?? hookReporter,
+        // Keep these trailing optional constructor dependencies so direct scheduler
+        // construction in integrations remains source-compatible.
+        overrides?.executeReviewUseCase ?? new ExecuteReviewUseCase(
+          workspaceGateway,
+          gitGateway,
+          runner,
+          promptService,
+          config,
+        ),
+        validatePlanUseCase,
       );
     },
   };

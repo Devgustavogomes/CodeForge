@@ -5,6 +5,7 @@ import { ExecutionStateRepository } from "../../../src/infrastructure/repositori
 import { PromptService } from "../../../src/application/services/PromptService.js";
 import { HookDispatcher } from "../../../src/application/ports/HookDispatcher.js";
 import { HookContext, HookResult } from "../../../src/domain/hook.js";
+import { HOOK_EVENTS } from "../../../src/domain/hook.js";
 import { CodeForgeConfig } from "../../../src/config/types.js";
 import { AgentRunner } from "../../../src/runners/AgentRunner.js";
 import { Task } from "../../../src/domain/task.js";
@@ -59,6 +60,44 @@ describe("TaskScheduler hook dispatch", () => {
 
   afterEach(() => {
     process.exitCode = exitCode;
+  });
+
+  it("exposes AI review lifecycle events and review result metadata", () => {
+    expect(HOOK_EVENTS).toContain("review.started");
+    expect(HOOK_EVENTS).toContain("review.completed");
+
+    const context: HookContext = {
+      event: "review.completed",
+      intentName: "intent",
+      reviewResult: {
+        outcome: "tasks_created",
+        newTasksCount: 1,
+        taskIds: ["TASK-002"],
+      },
+    };
+
+    expect(context.reviewResult?.taskIds).toEqual(["TASK-002"]);
+  });
+
+  it("does not start AI review when an already completed intent is opened again", async () => {
+    const task = taskFixture();
+    writeTask(task);
+    const repository = new ExecutionStateRepository(gw);
+    const state = repository.init("intent", [task]);
+    state.tasks[task.id].status = "completed";
+    state.status = "completed";
+    repository.save(state);
+    const runner = { execute: vi.fn() } as unknown as AgentRunner;
+    const scheduler = new TaskScheduler(
+      gw, runner, { ...config, aiReview: { enabled: true, agent: "default", maxRounds: 3 } },
+      repository, new PromptService(gw), undefined, hooks,
+    );
+
+    const result = await scheduler.run("intent");
+
+    expect(result.status).toBe("completed");
+    expect(runner.execute).not.toHaveBeenCalled();
+    expect(hooks.events()).not.toContain("review.started");
   });
 
   function schedulerFor(runner: AgentRunner, withHooks = true): TaskScheduler {

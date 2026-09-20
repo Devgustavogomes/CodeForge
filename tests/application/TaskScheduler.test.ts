@@ -11,6 +11,9 @@ import { HookDispatcher } from "../../src/application/ports/HookDispatcher.js";
 import { HookContext, HookResult } from "../../src/domain/hook.js";
 import { Task } from "../../src/domain/task.js";
 import { IntentExecutionState } from "../../src/domain/execution.js";
+import { ExecuteReviewUseCase } from "../../src/application/use-cases/ExecuteReviewUseCase.js";
+import { ValidatePlanUseCase } from "../../src/application/use-cases/ValidatePlanUseCase.js";
+import { PATHS } from "../../src/infrastructure/paths.js";
 
 class StubHookDispatcher implements HookDispatcher {
   constructor(private readonly results: HookResult[] = []) {}
@@ -248,6 +251,78 @@ describe("TaskScheduler", () => {
       expect(result.intentName).toBe("test-intent");
       expect(runner.executedContexts).toHaveLength(0);
       expect(process.exitCode).toBeUndefined();
+    });
+  });
+
+  describe("review output recovery", () => {
+    it("removes reviewer tasks with invalid dependencies before they enter execution state", async () => {
+      const completed = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", completed);
+      gw.writeFile(PATHS.metadata, "{}");
+      stateRepo.save({
+        intentId: "test-intent", status: "completed", updatedAt: new Date().toISOString(),
+        tasks: { "TASK-001": { status: "completed", dependencies: [] } },
+      });
+      config.aiReview = { enabled: true, agent: "reviewer", maxRounds: 3 };
+      const invalid = { ...TaskBuilder.aTask().withId("TASK-002").build(), dependencies: ["TASK-404"] };
+      const reviewUseCase = {
+        execute: vi.fn(async () => {
+          writeTask("test-intent", invalid);
+          return { newTaskFiles: ["TASK-002.json"], newTaskIds: ["TASK-002"] };
+        }),
+      } as unknown as ExecuteReviewUseCase;
+      const reviewScheduler = new TaskScheduler(
+        gw, runner, config, stateRepo, promptService, reporter, undefined, undefined,
+        reviewUseCase, new ValidatePlanUseCase(gw),
+      );
+
+      await expect(reviewScheduler.run("test-intent", { forceReview: true })).resolves.toMatchObject({ status: "paused" });
+      expect(gw.exists(PATHS.taskFile("test-intent", "TASK-002"))).toBe(false);
+      expect(stateRepo.load("test-intent")?.tasks["TASK-002"]).toBeUndefined();
+      expect(stateRepo.load("test-intent")?.reviewError).toContain("nonexistent task");
+    });
+
+    it("cleans only new invalid reviewer files, preserves completed state, and can retry", async () => {
+      const completed = TaskBuilder.aTask().withId("TASK-001").build();
+      const preExisting = TaskBuilder.aTask().withId("TASK-099").build();
+      writeTask("test-intent", completed);
+      writeTask("test-intent", preExisting);
+      gw.writeFile(PATHS.metadata, "{}");
+
+      const completedAt = "2026-09-20T12:00:00.000Z";
+      stateRepo.save({
+        intentId: "test-intent", status: "completed", updatedAt: completedAt,
+        tasks: { "TASK-001": { status: "completed", dependencies: [], completedAt } },
+      });
+      config.aiReview = { enabled: true, agent: "reviewer", maxRounds: 3 };
+
+      let attempts = 0;
+      const reviewUseCase = {
+        execute: vi.fn(async () => {
+          attempts += 1;
+          if (attempts === 1) {
+            gw.writeFile(PATHS.taskFile("test-intent", "TASK-002"), "{ malformed");
+            return { newTaskFiles: ["TASK-002.json"], newTaskIds: ["TASK-002"] };
+          }
+          return { newTaskFiles: [], newTaskIds: [] };
+        }),
+      } as unknown as ExecuteReviewUseCase;
+      const reviewScheduler = new TaskScheduler(
+        gw, runner, config, stateRepo, promptService, reporter, undefined, undefined,
+        reviewUseCase, new ValidatePlanUseCase(gw),
+      );
+
+      await expect(reviewScheduler.run("test-intent", { forceReview: true })).resolves.toMatchObject({ status: "paused" });
+      expect(gw.exists(PATHS.taskFile("test-intent", "TASK-002"))).toBe(false);
+      expect(gw.exists(PATHS.taskFile("test-intent", "TASK-099"))).toBe(true);
+      const paused = stateRepo.load("test-intent");
+      expect(paused?.status).toBe("paused");
+      expect(paused?.reviewError).toContain("not valid JSON");
+      expect(paused?.tasks["TASK-001"].completedAt).toBe(completedAt);
+
+      await expect(reviewScheduler.run("test-intent")).resolves.toMatchObject({ status: "completed" });
+      expect(reviewUseCase.execute).toHaveBeenCalledTimes(2);
+      expect(stateRepo.load("test-intent")?.reviewError).toBeUndefined();
     });
   });
 
