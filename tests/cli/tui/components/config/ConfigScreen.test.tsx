@@ -116,4 +116,91 @@ describe('ConfigScreen component', () => {
 
     expect(mockSaveConfig).toHaveBeenCalled();
   });
+
+  it('renders AI Review defaults and edits the nested configuration', async () => {
+    const mockSaveConfig = vi.fn();
+    const mockConfigService = {
+      loadConfig: () => mockConfig,
+      saveConfig: mockSaveConfig,
+    } as unknown as ConfigService;
+    const container = {
+      configureEnvironmentUseCase: {
+        getAvailableEnvironments: () => ['antigravity'],
+        getAgentsForEnvironment: async () => ['reviewer-a', 'reviewer-b'],
+      },
+    };
+
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen
+        container={container as never}
+        configService={mockConfigService}
+        initialConfig={mockConfig}
+        isInteractive={true}
+      />,
+    );
+
+    await flushAsync();
+    for (let i = 0; i < 6; i++) stdin.write('j');
+    await flushAsync();
+
+    expect(lastFrame() ?? '').toContain('AI Review:');
+    expect(lastFrame() ?? '').toContain('[ Disabled ]');
+    expect(lastFrame() ?? '').toContain('Maximum rounds: 3');
+    expect(lastFrame() ?? '').toContain('AI Review Configuration');
+
+    stdin.write('\r');
+    await flushAsync();
+    expect(lastFrame() ?? '').toContain('AI Review configuration');
+    stdin.write(' ');
+    await flushAsync();
+    stdin.write('\x1B[B');
+    await flushAsync();
+    stdin.write('\x1B[C');
+    await flushAsync();
+
+    expect(lastFrame() ?? '').toContain('Enabled: Yes');
+    expect(lastFrame() ?? '').toContain('Agent: reviewer-a');
+
+    stdin.write('\x1B[B');
+    await flushAsync();
+    await flushAsync();
+    stdin.write('5');
+    await flushAsync();
+    stdin.write('\r');
+    await flushAsync();
+    stdin.write('s');
+    await flushAsync();
+
+    expect(mockSaveConfig).toHaveBeenCalledWith(expect.objectContaining({
+      aiReview: { enabled: true, agent: 'reviewer-a', maxRounds: 5 },
+      hooks: mockConfig.hooks,
+      intentSource: mockConfig.intentSource,
+    }));
+  });
+
+  it('rejects a non-positive AI Review maximum-round value', async () => {
+    const mockConfigService = {
+      loadConfig: () => mockConfig,
+      saveConfig: vi.fn(),
+    } as unknown as ConfigService;
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen configService={mockConfigService} initialConfig={mockConfig} isInteractive={true} />,
+    );
+
+    for (let i = 0; i < 6; i++) stdin.write('j');
+    await flushAsync();
+    stdin.write('\r');
+    await flushAsync();
+    stdin.write('\x1B[B');
+    await flushAsync();
+    stdin.write('\x1B[B');
+    await flushAsync();
+    stdin.write('0');
+    await flushAsync();
+    stdin.write('\r');
+    await flushAsync();
+
+    expect(lastFrame() ?? '').toContain('Maximum review rounds must be a positive');
+    expect(lastFrame() ?? '').toContain('integer.');
+  });
 });

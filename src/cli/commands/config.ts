@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { select, input } from "@inquirer/prompts";
-import { CodeForgeConfig, SupportedLanguage } from "../../config/types.js";
+import { CodeForgeConfig, resolveAiReviewConfig, SupportedLanguage } from "../../config/types.js";
 import { translate } from "../ui/i18n.js";
 import { createAppContainer } from "../../infrastructure/container.js";
 
@@ -28,6 +28,7 @@ export async function configAction(): Promise<ActionResult> {
         { name: "environment", value: "environment" },
         { name: "plannerAgent", value: "plannerAgent" },
         { name: "executorAgent", value: "executorAgent" },
+        { name: "aiReview", value: "aiReview" },
       ],
     });
 
@@ -102,6 +103,53 @@ export async function configAction(): Promise<ActionResult> {
               if (!val) return false;
               c.executorAgent = val;
             }
+            return true;
+          },
+          aiReview: async (c) => {
+            const review = resolveAiReviewConfig(c.aiReview);
+            const enabled = await select({
+              message: translate("config_ai_review_enabled", lang),
+              choices: [
+                { name: translate("config_yes", lang), value: "enabled" },
+                { name: translate("config_no", lang), value: "disabled" },
+                { name: translate("menu_back", lang), value: "back" },
+              ],
+            });
+            if (enabled === "back") return false;
+
+            if (enabled === "disabled") {
+              c.aiReview = { ...review, enabled: false };
+              return true;
+            }
+
+            const agents = await envUseCase.getAgentsForEnvironment(c.environment);
+            if (agents.length === 0) {
+              console.log(translate("config_no_agents", lang, { env: c.environment }));
+              return false;
+            }
+            const agent = await select({
+              message: translate("config_select_reviewer", lang),
+              choices: [
+                ...agents.map((value) => ({ name: value, value })),
+                { name: translate("menu_back", lang), value: "back" },
+              ],
+            });
+            if (agent === "back") return false;
+
+            let maxRounds: number | undefined;
+            while (maxRounds === undefined) {
+              const value = await input({
+                message: translate("config_enter_review_rounds", lang),
+                default: String(review.maxRounds),
+              });
+              const parsed = Number(value);
+              if (Number.isInteger(parsed) && parsed > 0) {
+                maxRounds = parsed;
+              } else {
+                console.log(translate("config_invalid_review_rounds", lang));
+              }
+            }
+            c.aiReview = { enabled: true, agent, maxRounds };
             return true;
           }
         };

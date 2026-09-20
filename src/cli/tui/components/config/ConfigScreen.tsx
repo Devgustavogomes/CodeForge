@@ -14,6 +14,7 @@ import { ConfigFeedback } from './components/ConfigFeedback.js';
 import { ConfigPreview } from './components/ConfigPreview.js';
 import { ConfigureHooksModal } from './ConfigureHooksModal.js';
 import { ConfigureIntentSourceModal } from './ConfigureIntentSourceModal.js';
+import { ConfigureAiReviewModal } from './ConfigureAiReviewModal.js';
 import { useConfigScreen } from './hooks/useConfigScreen.js';
 import { useConfigHotkeys } from './hooks/useConfigHotkeys.js';
 import { theme } from '../../theme.js';
@@ -48,7 +49,8 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     isInteractive:
       isInteractive &&
       !configState.isHooksModalOpen &&
-      !configState.isIntentSourceModalOpen,
+      !configState.isIntentSourceModalOpen &&
+      !configState.isAiReviewModalOpen,
     isEditing: configState.isEditing,
     activeField: configState.activeField,
     setEditValue: configState.setEditValue,
@@ -58,12 +60,15 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     onCycleEnvironment: configState.handleCycleEnvironment,
     onCyclePlannerAgent: configState.handleCyclePlannerAgent,
     onCycleExecutorAgent: configState.handleCycleExecutorAgent,
+    onToggleAiReview: configState.handleToggleAiReview,
+    onCycleAiReviewAgent: configState.handleCycleAiReviewAgent,
     onStartEditing: configState.startEditing,
     onStartCustomEdit: configState.startCustomEdit,
     onCommitEditing: configState.commitEditing,
     onCancelEditing: configState.cancelEditing,
     onClearFeedback: () => configState.setFeedback(null),
     onOpenHooksModal: configState.openHooksModal,
+    onOpenAiReviewModal: configState.openAiReviewModal,
     onOpenIntentSourceModal: configState.openIntentSourceModal,
   });
 
@@ -94,6 +99,11 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
         width="100%"
       />
     );
+  }
+
+  if (configState.isAiReviewModalOpen) {
+    return <ConfigureAiReviewModal initial={config.aiReview} agents={configState.currentAgentOptions}
+      onSave={configState.handleUpdateAiReview} onClose={configState.closeAiReviewModal} />;
   }
 
   return (

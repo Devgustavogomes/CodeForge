@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { AppContainer } from '../../../../../infrastructure/container.js';
 import { NodeWorkspaceGateway } from '../../../../../infrastructure/workspace.js';
 import { ConfigService } from '../../../../../config/ConfigService.js';
-import { CodeForgeConfig } from '../../../../../config/types.js';
+import { CodeForgeConfig, resolveAiReviewConfig } from '../../../../../config/types.js';
 import { FIELD_ORDER, LANGUAGES } from '../components/ConfigField.js';
 import { HookMap } from '../../../../../domain/hook.js';
 import { IntentSourceConfig } from '../../../../../domain/intent-source.js';
@@ -22,7 +22,12 @@ export const DEFAULT_CONFIG: CodeForgeConfig = {
   executorAgent: 'default',
   hooks: {},
   intentSource: { provider: 'filesystem' },
+  aiReview: resolveAiReviewConfig(),
 };
+
+function withAiReviewDefaults(config: CodeForgeConfig): CodeForgeConfig {
+  return { ...config, aiReview: resolveAiReviewConfig(config.aiReview) };
+}
 
 export function useConfigScreen(options: UseConfigScreenOptions = {}) {
   const {
@@ -41,10 +46,10 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
   }, [customConfigService, container]);
 
   const [config, setConfig] = useState<CodeForgeConfig>(() => {
-    if (initialConfig) return initialConfig;
+    if (initialConfig) return withAiReviewDefaults(initialConfig);
     try {
       const loaded = configService.loadConfig();
-      return loaded || DEFAULT_CONFIG;
+      return loaded ? withAiReviewDefaults(loaded) : DEFAULT_CONFIG;
     } catch {
       return DEFAULT_CONFIG;
     }
@@ -60,6 +65,7 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
   const [isDirty, setIsDirty] = useState(false);
   const [isHooksModalOpen, setIsHooksModalOpen] = useState(false);
   const [isIntentSourceModalOpen, setIsIntentSourceModalOpen] = useState(false);
+  const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState(false);
 
   const openHooksModal = useCallback(() => {
     setIsHooksModalOpen(true);
@@ -148,8 +154,11 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     if (config.executorAgent && !list.includes(config.executorAgent)) {
       list.push(config.executorAgent);
     }
+    if (config.aiReview?.agent && !list.includes(config.aiReview.agent)) {
+      list.push(config.aiReview.agent);
+    }
     return Array.from(new Set(list));
-  }, [dynamicAgents, config.plannerAgent, config.executorAgent]);
+  }, [dynamicAgents, config.plannerAgent, config.executorAgent, config.aiReview?.agent]);
 
   const handleSave = useCallback(() => {
     try {
@@ -244,6 +253,28 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     [currentAgentOptions, config.executorAgent],
   );
 
+  const handleToggleAiReview = useCallback(() => {
+    setConfig((prev) => {
+      const review = resolveAiReviewConfig(prev.aiReview);
+      return { ...prev, aiReview: { ...review, enabled: !review.enabled } };
+    });
+    setIsDirty(true);
+    setFeedback({ type: 'info', message: "AI Review status updated. Press 's' to save." });
+  }, []);
+
+  const handleCycleAiReviewAgent = useCallback((direction: 1 | -1) => {
+    const currentAgent = resolveAiReviewConfig(config.aiReview).agent;
+    const currentIndex = currentAgentOptions.indexOf(currentAgent);
+    const safeIndex = currentIndex === -1 ? 0 : currentIndex;
+    const nextAgent = currentAgentOptions[(safeIndex + direction + currentAgentOptions.length) % currentAgentOptions.length];
+    setConfig((prev) => ({
+      ...prev,
+      aiReview: { ...resolveAiReviewConfig(prev.aiReview), agent: nextAgent },
+    }));
+    setIsDirty(true);
+    setFeedback({ type: 'info', message: `Reviewer agent updated to ${nextAgent}. Press 's' to save.` });
+  }, [config.aiReview, currentAgentOptions]);
+
   const startEditing = useCallback(() => {
     if (activeField === 'language') {
       handleCycleLanguage(1);
@@ -259,6 +290,10 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     }
     if (activeField === 'executorAgent') {
       handleCycleExecutorAgent(1);
+      return;
+    }
+    if (activeField === 'aiReview') {
+      setIsAiReviewModalOpen(true);
       return;
     }
     if (activeField === 'saveButton') {
@@ -283,6 +318,7 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     handleCycleEnvironment,
     handleCyclePlannerAgent,
     handleCycleExecutorAgent,
+    handleToggleAiReview,
     handleSave,
     openHooksModal,
     openIntentSourceModal,
@@ -308,9 +344,18 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
         updated.plannerAgent = trimmed || prev.plannerAgent;
       } else if (activeField === 'executorAgent') {
         updated.executorAgent = trimmed || prev.executorAgent;
+      } else if (activeField === 'aiReview') {
+        const maxRounds = Number(trimmed);
+        if (!Number.isInteger(maxRounds) || maxRounds <= 0) return prev;
+        updated.aiReview = { ...resolveAiReviewConfig(prev.aiReview), maxRounds };
       }
       return updated;
     });
+
+    if (activeField === 'aiReview' && (!Number.isInteger(Number(trimmed)) || Number(trimmed) <= 0)) {
+      setFeedback({ type: 'error', message: 'Maximum review rounds must be a positive integer.' });
+      return;
+    }
 
     setIsDirty(true);
     setIsEditing(false);
@@ -338,6 +383,13 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     currentAgentOptions,
     isLoadingAgents,
     isHooksModalOpen,
+    isAiReviewModalOpen,
+    openAiReviewModal: () => setIsAiReviewModalOpen(true),
+    closeAiReviewModal: () => setIsAiReviewModalOpen(false),
+    handleUpdateAiReview: (review: ReturnType<typeof resolveAiReviewConfig>) => {
+      setConfig((prev) => ({ ...prev, aiReview: review }));
+      setIsDirty(true);
+    },
     openHooksModal,
     closeHooksModal,
     handleUpdateHooks,
@@ -347,6 +399,8 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     handleCycleEnvironment,
     handleCyclePlannerAgent,
     handleCycleExecutorAgent,
+    handleToggleAiReview,
+    handleCycleAiReviewAgent,
     startEditing,
     startCustomEdit,
     cancelEditing,

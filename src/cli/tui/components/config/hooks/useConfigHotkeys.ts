@@ -12,12 +12,15 @@ export interface UseConfigHotkeysProps {
   onCycleEnvironment: (dir: 1 | -1) => void;
   onCyclePlannerAgent: (dir: 1 | -1) => void;
   onCycleExecutorAgent: (dir: 1 | -1) => void;
+  onToggleAiReview: () => void;
+  onCycleAiReviewAgent: (dir: 1 | -1) => void;
   onStartEditing: () => void;
   onStartCustomEdit: () => void;
   onCommitEditing: () => void;
   onCancelEditing: () => void;
   onClearFeedback?: () => void;
   onOpenHooksModal?: () => void;
+  onOpenAiReviewModal?: () => void;
   onOpenIntentSourceModal?: () => void;}
 
 export function useConfigHotkeys({
@@ -37,6 +40,7 @@ export function useConfigHotkeys({
   onCancelEditing,
   onClearFeedback,
   onOpenHooksModal,
+  onOpenAiReviewModal,
   onOpenIntentSourceModal,
   }: UseConfigHotkeysProps) {
   const handleOpenSourceModal = onOpenIntentSourceModal;
@@ -86,6 +90,10 @@ export function useConfigHotkeys({
 
       // Space / Arrow Right / Arrow Left -> Cycle discrete options
       if (input === ' ' || key.rightArrow) {
+        if (activeField === 'aiReview') {
+          onOpenAiReviewModal?.();
+          return;
+        }
         if (activeField === 'language') {
           onCycleLanguage(1);
           return;
@@ -117,6 +125,10 @@ export function useConfigHotkeys({
       }
 
       if (key.leftArrow) {
+        if (activeField === 'aiReview') {
+          onOpenAiReviewModal?.();
+          return;
+        }
         if (activeField === 'language') {
           onCycleLanguage(-1);
           return;
@@ -145,6 +157,7 @@ export function useConfigHotkeys({
 
       // 'e' -> Custom edit for text-supported fields
       if (input === 'e' || input === 'E') {
+        if (activeField === 'aiReview') { onOpenAiReviewModal?.(); return; }
         if (
           activeField === 'environment' ||
           activeField === 'plannerAgent' ||

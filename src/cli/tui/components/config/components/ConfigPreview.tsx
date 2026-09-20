@@ -7,6 +7,7 @@ import { AgentPreview } from './previews/AgentPreview.js';
 import { EnvironmentPreview } from './previews/EnvironmentPreview.js';
 import { IntentSourcePreview, } from './previews/IntentSourcePreview.js';
 import { GenericPreview } from './previews/GenericPreview.js';
+import { AiReviewPreview } from './previews/AiReviewPreview.js';
 import { theme } from '../../../theme.js';
 
 export interface ConfigPreviewProps {
@@ -23,7 +24,9 @@ export const PREVIEW_COMPONENTS: Partial<Record<ConfigFieldKey, React.FC<ConfigP
   plannerAgent: AgentPreview,
   executorAgent: AgentPreview,
   environment: EnvironmentPreview,
-  intentSource: IntentSourcePreview,};
+  intentSource: IntentSourcePreview,
+  aiReview: AiReviewPreview,
+};
 
 export const ConfigPreviewShortcuts: React.FC<{ activeField: ConfigFieldKey }> = ({ activeField }) => {
   return (
@@ -38,6 +41,12 @@ export const ConfigPreviewShortcuts: React.FC<{ activeField: ConfigFieldKey }> =
       ) : activeField === 'intentSource' ? (
         <>
           <Text color={theme.colors.muted}>[Enter] Configurar Intent Source</Text>
+          <Text color={theme.colors.muted}>[↑/↓] or [Tab] Select Field</Text>
+          <Text color={theme.colors.muted}>[s] Quick Save to File</Text>
+        </>
+      ) : activeField === 'aiReview' ? (
+        <>
+          <Text color={theme.colors.muted}>[Enter] Configure AI Review</Text>
           <Text color={theme.colors.muted}>[↑/↓] or [Tab] Select Field</Text>
           <Text color={theme.colors.muted}>[s] Quick Save to File</Text>
         </>

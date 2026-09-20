@@ -6,6 +6,7 @@ import { AgentField } from './fields/AgentField.js';
 import { HooksField } from './fields/HooksField.js';
 import { IntentSourceField, } from './fields/IntentSourceField.js';
 import { SaveButtonField } from './fields/SaveButtonField.js';
+import { AiReviewField } from './fields/AiReviewField.js';
 
 export { LANGUAGES };
 
@@ -16,7 +17,7 @@ export type ConfigFieldKey =
   | 'executorAgent'
   | 'hooks'
   | 'intentSource'
-  | 'intentSource'
+  | 'aiReview'
   | 'saveButton';
 
 export const FIELD_ORDER: ConfigFieldKey[] = [
@@ -26,6 +27,7 @@ export const FIELD_ORDER: ConfigFieldKey[] = [
   'executorAgent',
   'hooks',
   'intentSource',
+  'aiReview',
   'saveButton',
 ];
 
@@ -45,7 +47,9 @@ export const FIELD_STRATEGIES: Record<ConfigFieldKey, React.FC<ConfigFieldProps>
   plannerAgent: AgentField,
   executorAgent: AgentField,
   hooks: HooksField,
-  intentSource: IntentSourceField,  saveButton: SaveButtonField,
+  intentSource: IntentSourceField,
+  aiReview: AiReviewField,
+  saveButton: SaveButtonField,
 };
 
 export const ConfigField: React.FC<ConfigFieldProps> = (props) => {

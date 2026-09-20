@@ -4,6 +4,8 @@ import { HOOK_EVENTS, HookEvent, HookMap } from '../../../../../domain/hook.js';
 import { theme } from '../../../theme.js';
 
 export const EVENT_DESCRIPTIONS: Record<HookEvent, string> = {
+  'review.started': 'Executed before the AI review begins',
+  'review.completed': 'Executed after the AI review finishes',
   'run.started': 'Executado antes do início de uma rodada de tarefas',
   'run.completed': 'Executado ao finalizar com sucesso todas as tarefas',
   'run.failed': 'Executado se a rodada falhar ou abortar',
