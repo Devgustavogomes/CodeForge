@@ -18,7 +18,9 @@ export class CodexRunner extends BaseProcessRunner {
     args.push("-");
 
     return this.spawnProcess("codex", args, context, {
-      shell: process.platform === "win32",
+      // Codex ships as an executable on Windows. A shell is unnecessary here
+      // and makes Node emit DEP0190 directly on CodeForge's stderr.
+      shell: false,
       cwd: process.cwd(),
       pipePromptToStdin: true,
     });

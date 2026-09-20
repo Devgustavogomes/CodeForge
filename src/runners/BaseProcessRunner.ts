@@ -40,7 +40,9 @@ export abstract class BaseProcessRunner implements AgentRunner {
 
     const spawnOptions: ProcessSpawnOptions = {
       cwd: typeof options.cwd === "string" ? options.cwd : undefined,
-      env: options.env as NodeJS.ProcessEnv,
+      env: context.quietTerminal
+        ? { ...process.env, ...options.env, CI: "1", NO_COLOR: "1", TERM: "dumb", CLICOLOR: "0", FORCE_COLOR: "0" }
+        : options.env as NodeJS.ProcessEnv,
       timeout: options.timeout,
       shell: options.shell,
       stdio,

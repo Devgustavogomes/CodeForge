@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { GitGateway } from "./GitGateway.js";
 import { WorkspaceGateway } from "../workspace.js";
 
@@ -11,8 +11,9 @@ export class NodeGitGateway implements GitGateway {
 
   getChangedFiles(): string[] {
     try {
-      const diffOutput = execSync("git diff HEAD --name-only", {
+      const diffOutput = execFileSync("git", ["diff", "HEAD", "--name-only"], {
         encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
       }).trim();
 
       if (!diffOutput) {
@@ -30,8 +31,9 @@ export class NodeGitGateway implements GitGateway {
 
   getFileDiff(filePath: string): string | null {
     try {
-      const diff = execSync(`git diff HEAD -- "${filePath}"`, {
+      const diff = execFileSync("git", ["diff", "HEAD", "--", filePath], {
         encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
       }).trim();
       return diff || null;
     } catch {

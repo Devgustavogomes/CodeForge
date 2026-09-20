@@ -3,6 +3,7 @@ export interface TaskContext {
     intentName: string;    taskId?: string;
     model?: string;
     silent?: boolean;
+    quietTerminal?: boolean;
     onLog?: (chunk: string) => void;
 }
 

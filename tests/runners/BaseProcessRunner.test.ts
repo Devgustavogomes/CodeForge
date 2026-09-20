@@ -98,6 +98,20 @@ describe("BaseProcessRunner - Log Streaming", () => {
     expect(capturedOptions?.onStderr).toBeUndefined();
   });
 
+  it("disables terminal formatting for quiet review processes", async () => {
+    let capturedOptions: ProcessSpawnOptions | undefined;
+    const mockExecutor: ProcessExecutor = {
+      exec: vi.fn(),
+      spawn: vi.fn(async (_cmd, _args, options) => {
+        capturedOptions = options;
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    await new TestRunner(mockExecutor).execute(createContext({ silent: true, quietTerminal: true }));
+    expect(capturedOptions?.stdio).toBe("pipe");
+    expect(capturedOptions?.env).toMatchObject({ CI: "1", NO_COLOR: "1", TERM: "dumb" });
+  });
+
   it("sets stdio to pipe when pipePromptToStdin is true and onLog is provided", async () => {
     let capturedOptions: ProcessSpawnOptions | undefined;
     const mockExecutor: ProcessExecutor = {
