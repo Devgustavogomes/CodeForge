@@ -98,14 +98,12 @@ describe("PromptService", () => {
 
     const path = service.createPromptFile("auth", task, "pt-BR");
     const prompt = gw.readFile(path);
-
     expect(prompt).toContain("SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)");
-    expect(prompt).toContain("TASK-001 - Login");
-    expect(prompt).toContain("Objective: Do login");
+    expect(prompt).toContain("Task: TASK-001 - Login");
+    expect(prompt).toContain("--- OBJECTIVE ---\nDo login");
     expect(prompt).toContain("No specific files provided in context.");
-    expect(prompt).toContain("--- OVERALL INTENT ---");
     expect(prompt).toContain("My Intent Content");
-    expect(prompt).toContain("Constraints:\n- No external APIs");
+    expect(prompt).toContain("--- CONSTRAINTS ---\n- No external APIs");
   });
 
   it("injects real file contents if task specifies files", () => {

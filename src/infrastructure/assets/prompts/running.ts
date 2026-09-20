@@ -2,41 +2,47 @@ import { Task } from "../../../domain/task.js";
 
 export function buildRunningPrompt(
   task: Task,
-  intentContent: string,
+  intentRef: string,
   rulesContent: string,
   filesContext: string,
   language: string
 ): string {
+  const userRules = rulesContent && rulesContent.trim().length > 0
+    ? `\n--- PROJECT CODING RULES ---\n${rulesContent.trim()}\n`
+    : "";
+
+  const constraints = task.constraints?.length
+    ? task.constraints.map((c) => `- ${c}`).join("\n")
+    : "- None";
+
+  const acceptance = task.acceptanceCriteria?.length
+    ? task.acceptanceCriteria.map((a) => `- ${a}`).join("\n")
+    : "- None";
+
   return `SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)
+Task: ${task.id} - ${task.title}
+${intentRef}
 
---- EXECUTION RULES ---
-${rulesContent}
+--- OBJECTIVE ---
+${task.objective}
 
-You are tasked with implementing: ${task.id} - ${task.title}
+--- CONTEXT ---
+${task.context}
 
---- TASK DEFINITION ---
-Objective: ${task.objective}
-Context: ${task.context}
-
-Implementation Steps:
+--- IMPLEMENTATION STEPS ---
 ${task.implementation}
 
-Constraints:
-${task.constraints?.length ? "- " + task.constraints.join("\n- ") : "None"}
+--- CONSTRAINTS ---
+${constraints}
 
-Acceptance Criteria:
-${task.acceptanceCriteria?.length ? "- " + task.acceptanceCriteria.join("\n- ") : "None"}
+--- ACCEPTANCE CRITERIA ---
+${acceptance}
 
---- SOURCE CODE CONTEXT ---
+--- TARGET FILES ---
 ${filesContext}
-
---- OVERALL INTENT ---
-${intentContent}
-
---- ACTION REQUIRED ---
-Please implement the code required for this task. Modify or create the files as instructed.
-Do not implement tasks that belong to other steps. Focus only on this specific task.
---- INSTRUCTION ---
-All your output, documentation, and task descriptions MUST be written in ${language}.
-`;
+${userRules}
+--- OPERATIONAL RULES ---
+1. Implement ONLY the assigned task. Satisfy all acceptance criteria.
+2. Do not modify other tasks or task JSON files in .codeforge/tasks/.
+3. All code comments, documentation, and commit messages must be in ${language}.`;
 }
