@@ -7,6 +7,8 @@ export const HOOK_EVENTS = [
   "task.verify",
   "task.completed",
   "task.failed",
+  "review.started",
+  "review.completed",
 ] as const;
 
 export type HookEvent = (typeof HOOK_EVENTS)[number];
@@ -27,10 +29,21 @@ export interface HookDefinition {
 
 export type HookMap = Partial<Record<HookEvent, HookDefinition[]>>;
 
+export type ReviewOutcome = "approved" | "tasks_created";
+
+export interface ReviewResultMetadata {
+  outcome: ReviewOutcome;
+  newTasksCount: number;
+  taskIds: string[];
+}
+
 export interface HookContext {
   event: HookEvent;
-  intentName: string;  taskId?: string;
+  intentName: string;
+  taskId?: string;
   errors?: string[];
+  /** Present for review.completed hooks. */
+  reviewResult?: ReviewResultMetadata;
 }
 
 export interface HookResult {

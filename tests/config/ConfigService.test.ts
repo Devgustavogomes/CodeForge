@@ -29,7 +29,44 @@ describe('ConfigService', () => {
     configService.saveConfig(testConfig);
     const loadedConfig = configService.loadConfig();
 
-    expect(loadedConfig).toEqual(testConfig);
+    expect(loadedConfig).toMatchObject(testConfig);
+    expect(loadedConfig?.aiReview).toEqual({
+      enabled: false,
+      agent: 'default',
+      maxRounds: 3,
+    });
+  });
+
+  it('applies AI review defaults and persists an explicit review configuration', () => {
+    workspace.writeFile(PATHS.config, [
+      'environment: antigravity',
+      'plannerAgent: planner-1',
+      'executorAgent: executor-1',
+      'aiReview:',
+      '  enabled: true',
+      '  agent: $REVIEW_AGENT',
+    ].join('\n'));
+    process.env.REVIEW_AGENT = 'reviewer-1';
+
+    try {
+      expect(configService.loadConfig()?.aiReview).toEqual({
+        enabled: true,
+        agent: 'reviewer-1',
+        maxRounds: 3,
+      });
+
+      configService.saveConfig({
+        aiReview: { enabled: true, agent: 'reviewer-1', maxRounds: 5 },
+      });
+
+      expect(configService.loadConfig()?.aiReview).toEqual({
+        enabled: true,
+        agent: 'reviewer-1',
+        maxRounds: 5,
+      });
+    } finally {
+      delete process.env.REVIEW_AGENT;
+    }
   });
 
   it('should save and load externalTerminal option correctly', () => {

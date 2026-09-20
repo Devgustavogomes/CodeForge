@@ -14,7 +14,9 @@ export const PATHS = {
   runningRules: ".codeforge/rules/running.md",
   docsRules: ".codeforge/rules/docs.md",
   docsUpdateRules: ".codeforge/rules/docs-update.md",
+  reviewRules: ".codeforge/rules/review.md",
   intentFile: (name: string) => `.codeforge/intents/${name}.md`,
   taskFile: (intent: string, id: string) => `.codeforge/tasks/${intent}/${id}.json`,
   executionState: (intent: string) => `.codeforge/executions/${intent}.json`,
+  reviewPrompt: (intent: string) => `.codeforge/executions/${intent}/review.temp.prompt.md`,
 } as const;

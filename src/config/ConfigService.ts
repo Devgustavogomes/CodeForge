@@ -1,5 +1,5 @@
 import yaml from 'yaml';
-import { CodeForgeConfig } from './types.js';
+import { CodeForgeConfig, resolveAiReviewConfig } from './types.js';
 import { WorkspaceGateway } from '../infrastructure/workspace.js';
 import { PATHS } from '../infrastructure/paths.js';
 
@@ -22,9 +22,14 @@ export class ConfigService {
       // Interpolate $VAR and ${VAR} placeholders in string configuration values
       const interpolatedConfig = this.interpolate(parsedConfig) as Record<string, unknown>;
 
+      const rawAiReview = interpolatedConfig.aiReview as Record<string, unknown> | undefined;
       const config: CodeForgeConfig = {
         ...interpolatedConfig,
         language: interpolatedConfig.language ?? 'en',
+        // A config file is a complete configuration boundary: callers should not
+        // have to distinguish a legacy file with no review section from one that
+        // explicitly declares the default review settings.
+        aiReview: resolveAiReviewConfig(rawAiReview),
       } as CodeForgeConfig;
 
       return config;
