@@ -4,12 +4,15 @@ import { useTerminalDimensions } from "../../../hooks/useTerminalDimensions.js";
 import {
   TaskItem,
   ExecutionStatus,
+  ActiveHookState,
+  HookHistoryItem,
 } from "../../../context/ExecutionContext.js";
 import { DashboardPanel } from "../hooks/useRunDashboard.js";
 import { TaskList } from "../TaskList.js";
 import { TaskDetails } from "../TaskDetails.js";
 import { LogStreamView } from "../LogStreamView.js";
 import { DashboardMetricsPanel } from "./DashboardMetricsPanel.js";
+import { HooksPanel } from "./HooksPanel.js";
 
 export interface RunLayoutWideProps {
   tasks: TaskItem[];
@@ -25,6 +28,9 @@ export interface RunLayoutWideProps {
   logs?: Record<string, string[]>;
   taskLogs?: string[];
   onCompleteTask?: () => void;
+  activeHook?: ActiveHookState | null;
+  hookHistory?: HookHistoryItem[];
+  hasConfiguredHooks?: boolean;
 }
 
 export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
@@ -34,7 +40,7 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
     selectedTask,
     focusedPanel,
     intentName,
-        schedulerStatus = "idle",
+    schedulerStatus = "idle",
     startedAt,
     completedAt,
     terminalRows: propTerminalRows,
@@ -43,6 +49,9 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
     logs,
     taskLogs: propTaskLogs,
     onCompleteTask,
+    activeHook,
+    hookHistory,
+    hasConfiguredHooks,
   }) => {
     const terminalDims = useTerminalDimensions();
     const rows = propTerminalRows ?? terminalDims.rows ?? 24;
@@ -53,7 +62,7 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
     // o rodapé em terminais baixos.
     const actionBarRows = actionBar ? 3 : 0;
     const panelRows = Math.max(8, availableRows - actionBarRows);
-    const taskListMaxHeight = Math.max(4, panelRows - 3);
+    const taskListHeight = Math.max(4, Math.floor(panelRows * 0.58));
     const logMaxLines = Math.max(4, panelRows - 7);
 
     const effectiveTaskLogs =
@@ -83,22 +92,33 @@ export const RunLayoutWide: React.FC<RunLayoutWideProps> = memo(
         )}
 
         <Box flexDirection="row" width="100%" flexGrow={1} overflow="hidden">
-          {/* Left Column: 42% TaskList */}
+          {/* Left Column: 42% TaskList + HooksPanel */}
           <Box
             width="42%"
             flexDirection="column"
             paddingRight={1}
             overflow="hidden"
+            flexGrow={1}
           >
-            <TaskList
-              tasks={tasks}
-              selectedTaskId={selectedTaskId}
-              isFocused={focusedPanel === "tasks"}
-              maxHeight={taskListMaxHeight}
-              showFilterBadges={false}
-              borderStyle="round"
-              onCompleteTask={onCompleteTask}
-            />
+            <Box flexShrink={0}>
+              <TaskList
+                tasks={tasks}
+                selectedTaskId={selectedTaskId}
+                isFocused={focusedPanel === "tasks"}
+                maxHeight={Math.max(2, taskListHeight - 2)}
+                showFilterBadges={false}
+                borderStyle="round"
+                onCompleteTask={onCompleteTask}
+              />
+            </Box>
+            <Box flexGrow={1} overflow="hidden">
+              <HooksPanel
+                activeHook={activeHook}
+                hookHistory={hookHistory}
+                hasConfiguredHooks={hasConfiguredHooks}
+                borderStyle="round"
+              />
+            </Box>
           </Box>
 
           {/* Right Column: 58% TaskDetails + LogStreamView */}

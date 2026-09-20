@@ -12,16 +12,29 @@ import {
 import { RunLayoutMinimal } from './components/RunLayoutMinimal.js';
 import { RunLayoutCompact } from './components/RunLayoutCompact.js';
 import { RunLayoutWide } from './components/RunLayoutWide.js';
+import {
+  ActiveHookState,
+  HookHistoryItem,
+} from '../../context/ExecutionContext.js';
 import { RunActionBar } from './components/RunActionBar.js';
+import { HooksPanel } from './components/HooksPanel.js';
 
 export type { DashboardPanel, DashboardMetricsPanelProps };
-export { renderProgressBar, DashboardMetricsPanel, IntentPicker };
+export { renderProgressBar, DashboardMetricsPanel, IntentPicker, HooksPanel };
 
 export interface RunDashboardProps {
   isInteractive?: boolean;
+  activeHook?: ActiveHookState | null;
+  hookHistory?: HookHistoryItem[];
+  hasConfiguredHooks?: boolean;
 }
 
-export const RunDashboard: React.FC<RunDashboardProps> = memo(({ isInteractive = true }) => {
+export const RunDashboard: React.FC<RunDashboardProps> = memo(({
+  isInteractive = true,
+  activeHook: propActiveHook,
+  hookHistory: propHookHistory,
+  hasConfiguredHooks: propHasConfiguredHooks,
+}) => {
   const navigation = useNavigation();
   const terminalDims = useTerminalDimensions();
   const dashboardState = useRunDashboard();
@@ -43,6 +56,13 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({ isInteractive =
     derivedStartedAt,
     derivedCompletedAt,
   } = dashboardState;
+
+  const activeHook = propActiveHook !== undefined ? propActiveHook : dashboardState.activeHook;
+  const hookHistory = propHookHistory !== undefined ? propHookHistory : dashboardState.hookHistory;
+  const hasConfiguredHooks =
+    propHasConfiguredHooks !== undefined
+      ? propHasConfiguredHooks
+      : dashboardState.hasConfiguredHooks;
 
   useRunHotkeys({
     isInteractive: isInteractive && tasks.length > 0,
@@ -118,6 +138,9 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({ isInteractive =
         logs={logs}
         taskLogs={taskLogs}
         onCompleteTask={dashboardState.onCompleteTask}
+        activeHook={activeHook}
+        hookHistory={hookHistory}
+        hasConfiguredHooks={hasConfiguredHooks}
       />
     );
   }
@@ -134,6 +157,9 @@ export const RunDashboard: React.FC<RunDashboardProps> = memo(({ isInteractive =
       logs={logs}
       taskLogs={taskLogs}
       onCompleteTask={dashboardState.onCompleteTask}
+      activeHook={activeHook}
+      hookHistory={hookHistory}
+      hasConfiguredHooks={hasConfiguredHooks}
     />
   );
 });

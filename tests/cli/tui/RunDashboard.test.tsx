@@ -56,4 +56,90 @@ describe('RunDashboard - Integration with ExecutionProvider', () => {
     expect(executionStateRepository.load('core-engine')?.tasks['TASK-002']?.status)
       .toBe('completed');
   });
+
+  it('renders HooksPanel in idle state by default when configured', () => {
+    const { container } = createContainerWithExecution();
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard isInteractive hasConfiguredHooks={true} />,
+      {
+        container,
+        initialIntent: 'core-engine',
+      },
+    );
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Lifecycle Hooks');
+    expect(frame).toContain('Idle (Waiting for lifecycle events)');
+  });
+
+  it('renders HooksPanel in unconfigured state when hasConfiguredHooks is false', () => {
+    const { container } = createContainerWithExecution();
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard isInteractive hasConfiguredHooks={false} />,
+      {
+        container,
+        initialIntent: 'core-engine',
+      },
+    );
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Lifecycle Hooks');
+    expect(frame).toContain('No hooks configured in config.yaml');
+  });
+
+  it('forwards activeHook to layout and renders active hook details', () => {
+    const { container } = createContainerWithExecution();
+    const activeHook = {
+      name: 'pre-check',
+      event: 'task.verify' as const,
+      command: 'npm run test:lint',
+      type: 'gate' as const,
+      startedAt: Date.now() - 2500,
+    };
+
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard isInteractive activeHook={activeHook} />,
+      {
+        container,
+        initialIntent: 'core-engine',
+      },
+    );
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Lifecycle Hooks (Active: 1)');
+    expect(frame).toContain('[task.verify]');
+    expect(frame).toContain('pre-check');
+    expect(frame).toContain('[GATE]');
+    expect(frame).toContain('npm run test:lint');
+  });
+
+  it('forwards hookHistory to layout and renders recent history', () => {
+    const { container } = createContainerWithExecution();
+    const hookHistory = [
+      {
+        id: 'h-1',
+        name: 'notify-slack',
+        event: 'task.started' as const,
+        command: 'curl slack',
+        type: 'notify' as const,
+        ok: true,
+        exitCode: 0,
+        durationMs: 400,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+
+    const { lastFrame } = renderWithProviders(
+      <RunDashboard isInteractive hookHistory={hookHistory} hasConfiguredHooks={true} />,
+      {
+        container,
+        initialIntent: 'core-engine',
+      },
+    );
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Recent:');
+    expect(frame).toContain('notify-slack');
+    expect(frame).toContain('(0.4s)');
+  });
 });

@@ -5,12 +5,15 @@ import { theme } from "../../../theme.js";
 import {
   TaskItem,
   ExecutionStatus,
+  ActiveHookState,
+  HookHistoryItem,
 } from "../../../context/ExecutionContext.js";
 import { DashboardPanel } from "../hooks/useRunDashboard.js";
 import { TaskList } from "../TaskList.js";
 import { TaskDetails } from "../TaskDetails.js";
 import { LogStreamView } from "../LogStreamView.js";
 import { DashboardMetricsPanel } from "./DashboardMetricsPanel.js";
+import { HooksPanel } from "./HooksPanel.js";
 
 export interface RunLayoutCompactProps {
   tasks: TaskItem[];
@@ -26,6 +29,9 @@ export interface RunLayoutCompactProps {
   logs?: Record<string, string[]>;
   taskLogs?: string[];
   onCompleteTask?: () => void;
+  activeHook?: ActiveHookState | null;
+  hookHistory?: HookHistoryItem[];
+  hasConfiguredHooks?: boolean;
 }
 
 export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
@@ -35,7 +41,7 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
     selectedTask,
     focusedPanel,
     intentName,
-        schedulerStatus = "idle",
+    schedulerStatus = "idle",
     startedAt,
     completedAt,
     terminalRows: propTerminalRows,
@@ -44,6 +50,9 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
     logs,
     taskLogs: propTaskLogs,
     onCompleteTask,
+    activeHook,
+    hookHistory,
+    hasConfiguredHooks,
   }) => {
     const terminalDims = useTerminalDimensions();
     const rows = propTerminalRows ?? terminalDims.rows ?? 24;
@@ -52,6 +61,7 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
     // feedback. A reserva evita que os painéis avancem sobre o rodapé.
     const actionBarRows = actionBar ? 3 : 0;
     const panelRows = Math.max(8, availableRows - actionBarRows);
+    const compactTaskListHeight = Math.max(4, Math.floor(panelRows * 0.58));
 
     const effectiveTaskLogs =
       propTaskLogs !== undefined
@@ -112,14 +122,24 @@ export const RunLayoutCompact: React.FC<RunLayoutCompactProps> = memo(
             flexGrow={1}
             overflow="hidden"
           >
-            <TaskList
-              tasks={tasks}
-              selectedTaskId={selectedTaskId}
-              isFocused={true}
-              maxHeight={Math.max(6, panelRows - 6)}
-              borderStyle="round"
-              onCompleteTask={onCompleteTask}
-            />
+            <Box flexShrink={0}>
+              <TaskList
+                tasks={tasks}
+                selectedTaskId={selectedTaskId}
+                isFocused={true}
+                maxHeight={Math.max(2, compactTaskListHeight - 2)}
+                borderStyle="round"
+                onCompleteTask={onCompleteTask}
+              />
+            </Box>
+            <Box flexGrow={1} overflow="hidden">
+              <HooksPanel
+                activeHook={activeHook}
+                hookHistory={hookHistory}
+                hasConfiguredHooks={hasConfiguredHooks}
+                borderStyle="round"
+              />
+            </Box>
           </Box>
         ) : (
           <Box

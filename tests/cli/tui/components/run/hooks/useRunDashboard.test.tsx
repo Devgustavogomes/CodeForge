@@ -37,6 +37,8 @@ function createExecution(overrides: Partial<ExecutionContextValue> = {}): Execut
     resetAllTasks: vi.fn().mockResolvedValue(undefined),
     clearLogs: vi.fn(),
     scheduler: null,
+    activeHook: null,
+    hookHistory: [],
     ...overrides,
   };
 }
@@ -131,5 +133,38 @@ describe('useRunDashboard', () => {
 
     act(() => hook.current.onSelectIntent());
     expect(hook.execution.setActiveIntent).toHaveBeenCalledWith(null);
+  });
+
+  it('exposes activeHook and hookHistory from ExecutionContext', () => {
+    const mockActiveHook = {
+      name: 'lint',
+      event: 'task.verify' as const,
+      command: 'npm run lint',
+      type: 'gate' as const,
+      taskId: 'TASK-1',
+      startedAt: 12345,
+    };
+    const mockHookHistory = [
+      {
+        id: 'hook-1',
+        name: 'test',
+        event: 'task.completed' as const,
+        command: 'npm test',
+        type: 'notify' as const,
+        ok: true,
+        exitCode: 0,
+        outputSummary: 'all passed',
+        durationMs: 120,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+
+    const hook = renderHook(createExecution({
+      activeHook: mockActiveHook,
+      hookHistory: mockHookHistory,
+    }));
+
+    expect(hook.current.activeHook).toEqual(mockActiveHook);
+    expect(hook.current.hookHistory).toEqual(mockHookHistory);
   });
 });

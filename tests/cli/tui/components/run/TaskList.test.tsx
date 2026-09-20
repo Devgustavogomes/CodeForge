@@ -16,6 +16,7 @@ function execution(): ExecutionContextValue {
     setSelectedTaskId: vi.fn(), selectTask: vi.fn(), setActiveIntent: vi.fn(),
     startRun: vi.fn(), retryTask: vi.fn(), retryAllFailed: vi.fn(), completeTask: vi.fn(),
     resetTask: vi.fn(), resetAllTasks: vi.fn(), clearLogs: vi.fn(), scheduler: null,
+    activeHook: null, hookHistory: [],
   };
 }
 
