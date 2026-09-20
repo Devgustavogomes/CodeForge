@@ -43,6 +43,9 @@ describe("ConfigureEnvironmentUseCase", () => {
     useCase.saveConfig(config);
     const loaded = useCase.loadConfig();
 
-    expect(loaded).toEqual(config);
+    expect(loaded).toEqual({
+      ...config,
+      aiReview: { enabled: false, agent: "default", maxRounds: 3 },
+    });
   });
 });

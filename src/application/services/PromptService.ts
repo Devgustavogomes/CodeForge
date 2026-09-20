@@ -3,6 +3,7 @@ import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { buildRunningPrompt } from "../../infrastructure/assets/prompts/running.js";
 import { buildRetryPrompt } from "../../infrastructure/assets/prompts/retry.js";
+import { buildReviewPrompt } from "../../infrastructure/assets/prompts/review.js";
 
 export class PromptService {
   constructor(private gw: WorkspaceGateway) {}
@@ -52,6 +53,38 @@ export class PromptService {
     const promptPath = `${intentExecDir}/${task.id}.temp.prompt.md`;
     const promptContent = this.buildContextPrompt(intentName, task, language, previousErrors);
     this.gw.writeFile(promptPath, promptContent);
+    return promptPath;
+  }
+
+  createReviewPromptFile(
+    intentName: string,
+    completedTasks: Task[],
+    gitDiffSummary: string,
+    existingTaskFiles: string[],
+    language: string,
+  ): string {
+    const intentExecDir = `${PATHS.executionsDir}/${intentName}`;
+    if (!this.gw.exists(intentExecDir)) {
+      this.gw.mkdir(intentExecDir);
+    }
+
+    const intentPath = PATHS.intentFile(intentName);
+    const intentContent = this.gw.exists(intentPath)
+      ? this.gw.readFile(intentPath)
+      : "Intent not found.";
+    const rulesContent = this.gw.exists(PATHS.reviewRules)
+      ? this.gw.readFile(PATHS.reviewRules)
+      : "Review rules not found.";
+    const promptPath = PATHS.reviewPrompt(intentName);
+    this.gw.writeFile(promptPath, buildReviewPrompt(
+      intentName,
+      intentContent,
+      completedTasks,
+      gitDiffSummary,
+      rulesContent,
+      existingTaskFiles,
+      language,
+    ));
     return promptPath;
   }
 

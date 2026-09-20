@@ -1,6 +1,7 @@
 import { planningRule } from "../../infrastructure/assets/rules/planning.js";
 import { runningRule } from "../../infrastructure/assets/rules/running.js";
 import { docsRule, docsUpdateRule } from "../../infrastructure/assets/rules/docs.js";
+import { reviewRule } from "../../infrastructure/assets/rules/review.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 
@@ -64,6 +65,10 @@ export class InitializeWorkspaceUseCase {
     // Write docs-update rules
     this.gw.writeFile(PATHS.docsUpdateRules, docsUpdateRule);
     created.push(PATHS.docsUpdateRules);
+
+    // Write review rules
+    this.gw.writeFile(PATHS.reviewRules, reviewRule);
+    created.push(PATHS.reviewRules);
 
     // Write docs/manifest.json
     if (!this.gw.exists(PATHS.docsManifest)) {
