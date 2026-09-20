@@ -1,9 +1,11 @@
 import { select } from "@inquirer/prompts";
 import { Command } from "commander";
+import { HookDispatcher } from "../../application/ports/HookDispatcher.js";
 import { AppContainer, createAppContainer } from "../../infrastructure/container.js";
 import { CommandHookDispatcher } from "../../infrastructure/hooks/CommandHookDispatcher.js";
 import { NoopHookDispatcher } from "../../infrastructure/hooks/NoopHookDispatcher.js";
 import { ActionResult } from "../types.js";
+import { CliHookReporter } from "../ui/CliHookReporter.js";
 import { translate } from "../ui/i18n.js";
 import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
 
@@ -45,14 +47,6 @@ export async function runAction(
   }
 
   const runner = container.runnerProvider(config.environment);
-  const hooks = config.hooks
-    ? new CommandHookDispatcher(
-        config.hooks,
-        process.cwd(),
-        container.processExecutor,
-      )
-    : new NoopHookDispatcher();
-
   const reporter = new TerminalSchedulerReporter({
     getStatus: (name: string) => {
       const uc = container.getIntentStatusUseCase ?? container.getIntentStatusUseCase;
@@ -60,6 +54,18 @@ export async function runAction(
     },
     language: lang,
   });
+
+  const hooks: HookDispatcher = config.hooks
+    ? new CommandHookDispatcher(
+        config.hooks,
+        process.cwd(),
+        container.processExecutor,
+        new CliHookReporter({
+          terminalReporter: reporter,
+          language: lang,
+        }),
+      )
+    : new NoopHookDispatcher();
 
   const scheduler = container.createTaskScheduler(
     runner,

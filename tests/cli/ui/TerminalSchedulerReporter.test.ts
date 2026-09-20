@@ -277,4 +277,76 @@ describe("TerminalSchedulerReporter", () => {
     expect(outputEs).toContain("Progreso: 1/4 tareas completadas (25%)");
     expect(outputEs).toContain("La ejecución de la intención 'auth-intent' falló después de 0ms.");
   });
+
+  describe("printLine helper for live snapshot coordination", () => {
+    it("clears snapshot, prints line, and re-renders snapshot in interactive mode", () => {
+      const stream = createMockStream(true);
+      const reporter = new TerminalSchedulerReporter({
+        getStatus: () => mockStatusSnapshot,
+        stream: stream as any,
+        color: false,
+        interactive: true,
+      });
+
+      reporter.onStart("auth-intent");
+      // Initially, snapshot is rendered
+      expect(stream.write).toHaveBeenCalledWith("\x1b[?25l");
+
+      // Now call printLine while snapshot is active
+      reporter.printLine("▶ [hook] Executing 'lint' (task.verify): npm run lint");
+
+      const output = stream.getOutput();
+      expect(output).toContain("▶ [hook] Executing 'lint' (task.verify): npm run lint\n");
+
+      // Verify ANSI cursor clearing code was sent before writing the hook line
+      const escape = String.fromCharCode(27);
+      expect(stream.write).toHaveBeenCalledWith(
+        expect.stringMatching(new RegExp(`${escape}\\[\\d+A${escape}\\[0J`)),
+      );
+
+      // Verify snapshot was re-rendered below the printed line
+      expect(output).toContain("Intent: auth-intent | Elapsed: 0ms");
+    });
+
+    it("writes formatted text directly in non-interactive mode without cursor repositioning", () => {
+      const stream = createMockStream(false);
+      const reporter = new TerminalSchedulerReporter({
+        getStatus: () => mockStatusSnapshot,
+        stream: stream as any,
+        color: false,
+        interactive: false,
+      });
+
+      reporter.onStart("auth-intent");
+      reporter.printLine("▶ [hook] Executing 'lint' (task.verify): npm run lint");
+
+      const output = stream.getOutput();
+      expect(output).toContain("▶ [hook] Executing 'lint' (task.verify): npm run lint\n");
+      expect(output).not.toContain("\x1b[?25l");
+      expect(output).not.toMatch(new RegExp(`${String.fromCharCode(27)}\\[\\d+A`));
+    });
+
+    it("does not re-render snapshot after completion in interactive mode", () => {
+      const stream = createMockStream(true);
+      const reporter = new TerminalSchedulerReporter({
+        getStatus: () => ({ ...mockStatusSnapshot, intentStatus: "completed" }),
+        stream: stream as any,
+        color: false,
+        interactive: true,
+      });
+
+      reporter.onStart("auth-intent");
+      reporter.onComplete("auth-intent");
+
+      expect(reporter.isFinished()).toBe(true);
+
+      const writeCallCount = stream.write.mock.calls.length;
+      reporter.printLine("✔ [hook] Hook 'run.completed' completed successfully (10ms)");
+
+      // Should have written the hook line directly without extra clearing or snapshot re-rendering
+      expect(stream.getOutput()).toContain("✔ [hook] Hook 'run.completed' completed successfully (10ms)\n");
+      // Exactly 1 additional call to stream.write for the hook line
+      expect(stream.write.mock.calls.length).toBe(writeCallCount + 1);
+    });
+  });
 });

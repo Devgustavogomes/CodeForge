@@ -12,6 +12,7 @@ import { select } from "@inquirer/prompts";
 import { Command } from "commander";
 import { registerRunCommand, runAction } from "../../../src/cli/commands/run.js";
 import { runInteractiveMenu } from "../../../src/cli/interactive.js";
+import { CliHookReporter } from "../../../src/cli/ui/CliHookReporter.js";
 import { TerminalSchedulerReporter } from "../../../src/cli/ui/TerminalSchedulerReporter.js";
 import * as containerModule from "../../../src/infrastructure/container.js";
 import { CommandHookDispatcher } from "../../../src/infrastructure/hooks/CommandHookDispatcher.js";
@@ -133,8 +134,9 @@ describe("run CLI command", () => {
     expect(mockScheduler.run).toHaveBeenCalledWith("intent-a", "custom-executor");
   });
 
-  it("chooses CommandHookDispatcher when hooks are configured", async () => {
+  it("chooses CommandHookDispatcher and wires CliHookReporter when hooks are configured", async () => {
     const { createTaskScheduler } = setupContainerMock({
+      language: "pt",
       hooks: {
         "task.verify": [
           { name: "lint", command: "npm run lint", type: "gate" },
@@ -150,6 +152,11 @@ describe("run CLI command", () => {
       expect.any(TerminalSchedulerReporter),
       expect.any(CommandHookDispatcher),
     );
+
+    const passedDispatcher = createTaskScheduler.mock.calls[0][3] as CommandHookDispatcher;
+    const reporter = passedDispatcher.getReporter();
+    expect(reporter).toBeInstanceOf(CliHookReporter);
+    expect((reporter as CliHookReporter).getLanguage()).toBe("pt");
   });
 
   it("chooses NoopHookDispatcher when hooks are not configured", async () => {

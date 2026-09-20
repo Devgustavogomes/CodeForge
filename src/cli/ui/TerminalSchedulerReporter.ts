@@ -34,6 +34,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   private intentName?: string;
   private lastLinesCount: number = 0;
   private cursorHidden: boolean = false;
+  private finished: boolean = false;
   private readonly getStatus?: StatusLookup;
   private readonly stream: NodeJS.WritableStream & { isTTY?: boolean };
   private readonly color: boolean;
@@ -66,9 +67,14 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     return this.cursorHidden;
   }
 
+  isFinished(): boolean {
+    return this.finished;
+  }
+
   onStart(intentName: string): void {
     this.intentName = intentName;
     this.startTime = this.clock();
+    this.finished = false;
 
     if (this.interactive && !this.cursorHidden) {
       this.stream.write("\x1b[?25l");
@@ -87,6 +93,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   }
 
   onComplete(intentName: string): void {
+    this.finished = true;
     this.intentName = intentName;
     if (!this.startTime) {
       this.startTime = this.clock();
@@ -97,7 +104,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     this.renderFinal(intentName);
 
     const message = translate("terminal_run_completed", this.language, {
-      intent: intentName,      elapsed: elapsedStr,
+      intent: intentName,
+      elapsed: elapsedStr,
     });
     const styled = this.color ? `\x1b[32m${message}\x1b[0m` : message;
     this.stream.write(`\n${styled}\n`);
@@ -106,6 +114,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   }
 
   onFail(intentName: string): void {
+    this.finished = true;
     this.intentName = intentName;
     if (!this.startTime) {
       this.startTime = this.clock();
@@ -116,7 +125,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     this.renderFinal(intentName);
 
     const message = translate("terminal_run_failed", this.language, {
-      intent: intentName,      elapsed: elapsedStr,
+      intent: intentName,
+      elapsed: elapsedStr,
     });
     const styled = this.color ? `\x1b[31m${message}\x1b[0m` : message;
     this.stream.write(`\n${styled}\n`);
@@ -125,6 +135,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   }
 
   onDeadlock(intentName?: string): void {
+    this.finished = true;
     const resolvedIntent = intentName ?? this.intentName ?? "";
     if (resolvedIntent) {
       this.renderFinal(resolvedIntent);
@@ -134,7 +145,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     }
 
     const message = translate("terminal_run_deadlock", this.language, {
-      intent: resolvedIntent,    });
+      intent: resolvedIntent,
+    });
     const styled = this.color ? `\x1b[31m${message}\x1b[0m` : message;
     this.stream.write(`\n${styled}\n`);
 
@@ -142,6 +154,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   }
 
   onError(error: string | Error): void {
+    this.finished = true;
     if (this.interactive && this.lastLinesCount > 0) {
       this.stream.write(`\x1b[${this.lastLinesCount}A\x1b[0J`);
       this.lastLinesCount = 0;
@@ -151,7 +164,8 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     const noTasksMatch = errorMessage.match(/^No tasks found for (?:intent|intent): (.*)$/);
     const message = noTasksMatch
       ? translate("terminal_run_no_tasks", this.language, {
-          intent: noTasksMatch[1],        })
+          intent: noTasksMatch[1],
+        })
       : translate("terminal_run_error", this.language, { error: errorMessage });
     const styled = this.color ? `\x1b[31m${message}\x1b[0m` : message;
     this.stream.write(`${styled}\n`);
@@ -167,6 +181,24 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     if (this.cursorHidden) {
       this.stream.write("\x1b[?25h");
       this.cursorHidden = false;
+    }
+  }
+
+  /**
+   * Prints a log or hook message cleanly without corrupting the live scheduler snapshot.
+   * In interactive mode, clears the active snapshot, writes the line, and redraws the snapshot.
+   */
+  printLine(text: string): void {
+    const formatted = text.endsWith("\n") ? text : `${text}\n`;
+    if (this.interactive && this.lastLinesCount > 0) {
+      this.stream.write(`\x1b[${this.lastLinesCount}A\x1b[0J`);
+      this.lastLinesCount = 0;
+      this.stream.write(formatted);
+      if (this.intentName && !this.finished) {
+        this.renderSnapshot(this.intentName);
+      }
+    } else {
+      this.stream.write(formatted);
     }
   }
 

@@ -504,7 +504,21 @@ const en = {
   tui_intent_pull_custom_name_placeholder: "Leave empty to derive from title or ID",
   tui_intent_pull_fetching: "Fetching intent from {provider}...",
   tui_intent_pull_shortcuts: "[↑/↓] Select · [Enter] Pull · [m] Manual · [Tab] Name",
-  tui_intent_pull_cancel: "[Esc] Cancel"
+  tui_intent_pull_cancel: "[Esc] Cancel",
+
+  // Lifecycle Hooks
+  cli_hook_starting: "▶ [hook] Executing '{name}' ({event}): {command}",
+  cli_hook_success: "✔ [hook] Hook '{name}' ({event}) completed successfully ({duration}ms)",
+  cli_hook_failed: "✖ [hook] Hook '{name}' ({event}) failed with exit code {exitCode}",
+  tui_hooks_box_title: "Lifecycle Hooks",
+  tui_hooks_active_title: "Active Hook",
+  tui_hooks_command_label: "Command:",
+  tui_hooks_elapsed_label: "Elapsed:",
+  tui_hooks_idle: "○ Idle (Waiting for lifecycle events)",
+  tui_hooks_none_configured: "○ No hooks configured in config.yaml",
+  tui_hooks_recent_title: "Recent:",
+  tui_hooks_badge_gate: "[GATE]",
+  tui_hooks_badge_notify: "[NOTIFY]"
 };
 
 type Dictionary = typeof en;
@@ -1004,7 +1018,21 @@ const pt: Dictionary = {
   tui_intent_pull_custom_name_placeholder: "Deixe em branco para derivar do título ou ID",
   tui_intent_pull_fetching: "Buscando intenção de {provider}...",
   tui_intent_pull_shortcuts: "[↑/↓] Selecionar · [Enter] Puxar · [m] Manual · [Tab] Nome",
-  tui_intent_pull_cancel: "[Esc] Cancelar"
+  tui_intent_pull_cancel: "[Esc] Cancelar",
+
+  // Lifecycle Hooks
+  cli_hook_starting: "▶ [hook] Executando '{name}' ({event}): {command}",
+  cli_hook_success: "✔ [hook] Hook '{name}' ({event}) concluído com sucesso ({duration}ms)",
+  cli_hook_failed: "✖ [hook] Hook '{name}' ({event}) falhou com código de saída {exitCode}",
+  tui_hooks_box_title: "Hooks de Ciclo de Vida",
+  tui_hooks_active_title: "Hook Ativo",
+  tui_hooks_command_label: "Comando:",
+  tui_hooks_elapsed_label: "Decorrido:",
+  tui_hooks_idle: "○ Ocioso (Aguardando eventos do ciclo de vida)",
+  tui_hooks_none_configured: "○ Nenhum hook configurado no config.yaml",
+  tui_hooks_recent_title: "Recentes:",
+  tui_hooks_badge_gate: "[GATE]",
+  tui_hooks_badge_notify: "[NOTIFY]"
 };
 
 const es: Dictionary = {
@@ -1501,7 +1529,21 @@ const es: Dictionary = {
   tui_intent_pull_custom_name_placeholder: "Deje en blanco para derivar del título o ID",
   tui_intent_pull_fetching: "Obteniendo intención de {provider}...",
   tui_intent_pull_shortcuts: "[↑/↓] Seleccionar · [Enter] Obtener · [m] Manual · [Tab] Nombre",
-  tui_intent_pull_cancel: "[Esc] Cancelar"
+  tui_intent_pull_cancel: "[Esc] Cancelar",
+
+  // Lifecycle Hooks
+  cli_hook_starting: "▶ [hook] Ejecutando '{name}' ({event}): {command}",
+  cli_hook_success: "✔ [hook] Hook '{name}' ({event}) completado con éxito ({duration}ms)",
+  cli_hook_failed: "✖ [hook] Hook '{name}' ({event}) falló con código de salida {exitCode}",
+  tui_hooks_box_title: "Hooks de Ciclo de Vida",
+  tui_hooks_active_title: "Hook Activo",
+  tui_hooks_command_label: "Comando:",
+  tui_hooks_elapsed_label: "Transcurrido:",
+  tui_hooks_idle: "○ Inactivo (Esperando eventos de ciclo de vida)",
+  tui_hooks_none_configured: "○ Ningún hook configurado en config.yaml",
+  tui_hooks_recent_title: "Recientes:",
+  tui_hooks_badge_gate: "[GATE]",
+  tui_hooks_badge_notify: "[NOTIFY]"
 };
 
 const dictionaries = { en, pt, es };
