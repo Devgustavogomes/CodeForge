@@ -1,4 +1,5 @@
 import { HookDispatcher } from "../../application/ports/HookDispatcher.js";
+import { HookReporter } from "../../application/ports/HookReporter.js";
 import {
   HookContext,
   HookDefinition,
@@ -28,7 +29,16 @@ export class CommandHookDispatcher implements HookDispatcher {
     private readonly hooks: HookMap,
     private readonly cwd: string = process.cwd(),
     private readonly processExecutor: ProcessExecutor = new NodeProcessExecutor(),
+    private reporter?: HookReporter,
   ) {}
+
+  setReporter(reporter?: HookReporter): void {
+    this.reporter = reporter;
+  }
+
+  getReporter(): HookReporter | undefined {
+    return this.reporter;
+  }
 
   async dispatch(context: HookContext): Promise<HookResult[]> {
     const definitions = this.hooks[context.event] ?? [];
@@ -47,10 +57,23 @@ export class CommandHookDispatcher implements HookDispatcher {
   ): Promise<HookResult> {
     const type: HookType = definition.type ?? "notify";
     const timeoutMs = definition.timeout ?? DEFAULT_TIMEOUT_MS;
+    const startedAt = Date.now();
 
     try {
+      this.reporter?.onHookStart({
+        event: context.event,
+        definition,
+        context,
+        startedAt,
+      });
+    } catch {
+      // Hook execution must never crash or be prevented if a HookReporter throws an exception.
+    }
+
+    let result: HookResult;
+    try {
       const intentName = context.intentName;
-      const result = await this.processExecutor.spawn(definition.run, [], {
+      const processResult = await this.processExecutor.spawn(definition.run, [], {
         shell: true,
         cwd: this.cwd,
         stdio: ["pipe", "pipe", "pipe"],
@@ -65,7 +88,7 @@ export class CommandHookDispatcher implements HookDispatcher {
         pipeStdinContent: JSON.stringify(context),
       });
 
-      const rawOutput = [result.stdout, result.stderr]
+      const rawOutput = [processResult.stdout, processResult.stderr]
         .filter((s) => s && s.length > 0)
         .join("\n");
 
@@ -74,16 +97,16 @@ export class CommandHookDispatcher implements HookDispatcher {
           ? rawOutput.slice(-MAX_OUTPUT_CHARS)
           : rawOutput;
 
-      return {
+      result = {
         name: definition.name,
         type,
-        ok: result.exitCode === 0,
-        exitCode: result.exitCode,
+        ok: processResult.exitCode === 0,
+        exitCode: processResult.exitCode,
         output: output.trim(),
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      return {
+      result = {
         name: definition.name,
         type,
         ok: false,
@@ -91,5 +114,20 @@ export class CommandHookDispatcher implements HookDispatcher {
         output: `Hook "${definition.name}" could not be started: ${message}`,
       };
     }
+
+    const durationMs = Math.max(0, Date.now() - startedAt);
+    try {
+      this.reporter?.onHookEnd({
+        event: context.event,
+        definition,
+        context,
+        result,
+        durationMs,
+      });
+    } catch {
+      // Hook execution must never crash or be prevented if a HookReporter throws an exception.
+    }
+
+    return result;
   }
 }

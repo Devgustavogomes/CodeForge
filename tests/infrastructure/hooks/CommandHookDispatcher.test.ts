@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { CommandHookDispatcher } from "../../../src/infrastructure/hooks/CommandHookDispatcher.js";
 import { HookContext, HookMap } from "../../../src/domain/hook.js";
+import { HookReporter } from "../../../src/application/ports/HookReporter.js";
 import { FakeProcessExecutor, ProcessSpawnOptions } from "../../helpers/fake-process-executor.js";
 
 function contextFor(overrides: Partial<HookContext> = {}): HookContext {
@@ -55,8 +56,9 @@ function createDefaultExecutor(): FakeProcessExecutor {
 function dispatcherFor(
   hooks: HookMap,
   executor: FakeProcessExecutor = createDefaultExecutor(),
+  reporter?: HookReporter,
 ): CommandHookDispatcher {
-  return new CommandHookDispatcher(hooks, process.cwd(), executor);
+  return new CommandHookDispatcher(hooks, process.cwd(), executor, reporter);
 }
 
 describe("CommandHookDispatcher", () => {
@@ -174,5 +176,199 @@ describe("CommandHookDispatcher", () => {
 
     expect(results.map((r) => r.name)).toEqual(["first", "second", "third"]);
     expect(results.map((r) => r.output)).toEqual(["1", "2", "3"]);
+  });
+
+  describe("HookReporter", () => {
+    it("notifies onHookStart and onHookEnd in order with accurate data for successful hook", async () => {
+      const reporter: HookReporter = {
+        onHookStart: vi.fn(),
+        onHookEnd: vi.fn(),
+      };
+      const dispatcher = dispatcherFor(
+        { "task.verify": [{ name: "green", run: "exit 0" }] },
+        createDefaultExecutor(),
+        reporter,
+      );
+
+      const [result] = await dispatcher.dispatch(contextFor());
+
+      expect(result.ok).toBe(true);
+      expect(reporter.onHookStart).toHaveBeenCalledTimes(1);
+      expect(reporter.onHookEnd).toHaveBeenCalledTimes(1);
+
+      expect(reporter.onHookStart).toHaveBeenCalledWith({
+        event: "task.verify",
+        definition: { name: "green", run: "exit 0" },
+        context: contextFor(),
+        startedAt: expect.any(Number),
+      });
+
+      expect(reporter.onHookEnd).toHaveBeenCalledWith({
+        event: "task.verify",
+        definition: { name: "green", run: "exit 0" },
+        context: contextFor(),
+        result: {
+          name: "green",
+          type: "notify",
+          ok: true,
+          exitCode: 0,
+          output: "",
+        },
+        durationMs: expect.any(Number),
+      });
+
+      const startOrder = vi.mocked(reporter.onHookStart).mock.invocationCallOrder[0];
+      const endOrder = vi.mocked(reporter.onHookEnd).mock.invocationCallOrder[0];
+      expect(startOrder).toBeLessThan(endOrder);
+
+      const endCall = vi.mocked(reporter.onHookEnd).mock.calls[0][0];
+      expect(endCall.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("notifies onHookStart and onHookEnd for failed hook with exit code", async () => {
+      const reporter: HookReporter = {
+        onHookStart: vi.fn(),
+        onHookEnd: vi.fn(),
+      };
+      const dispatcher = dispatcherFor(
+        { "task.verify": [{ name: "red", run: "exit 3" }] },
+        createDefaultExecutor(),
+        reporter,
+      );
+
+      const [result] = await dispatcher.dispatch(contextFor());
+
+      expect(result.ok).toBe(false);
+      expect(reporter.onHookStart).toHaveBeenCalledTimes(1);
+      expect(reporter.onHookEnd).toHaveBeenCalledTimes(1);
+      expect(reporter.onHookEnd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: expect.objectContaining({
+            name: "red",
+            ok: false,
+            exitCode: 3,
+          }),
+        }),
+      );
+    });
+
+    it("notifies onHookEnd when process spawn throws an error", async () => {
+      const reporter: HookReporter = {
+        onHookStart: vi.fn(),
+        onHookEnd: vi.fn(),
+      };
+      const executor = new FakeProcessExecutor();
+      executor.spawn = vi.fn().mockRejectedValue(new Error("binary not found"));
+
+      const dispatcher = dispatcherFor(
+        { "task.verify": [{ name: "failing", run: "notfound" }] },
+        executor,
+        reporter,
+      );
+
+      const [result] = await dispatcher.dispatch(contextFor());
+
+      expect(result.ok).toBe(false);
+      expect(result.exitCode).toBeNull();
+      expect(result.output).toContain("binary not found");
+
+      expect(reporter.onHookStart).toHaveBeenCalledTimes(1);
+      expect(reporter.onHookEnd).toHaveBeenCalledTimes(1);
+      expect(reporter.onHookEnd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: expect.objectContaining({
+            name: "failing",
+            ok: false,
+            exitCode: null,
+            output: expect.stringContaining("binary not found"),
+          }),
+          durationMs: expect.any(Number),
+        }),
+      );
+    });
+
+    it("allows dynamically attaching a reporter via setReporter", async () => {
+      const reporter: HookReporter = {
+        onHookStart: vi.fn(),
+        onHookEnd: vi.fn(),
+      };
+      const dispatcher = dispatcherFor({
+        "task.verify": [{ name: "green", run: "exit 0" }],
+      });
+
+      expect(dispatcher.getReporter()).toBeUndefined();
+      dispatcher.setReporter(reporter);
+      expect(dispatcher.getReporter()).toBe(reporter);
+
+      await dispatcher.dispatch(contextFor());
+
+      expect(reporter.onHookStart).toHaveBeenCalledTimes(1);
+      expect(reporter.onHookEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it("isolates errors when reporter.onHookStart throws", async () => {
+      const reporter: HookReporter = {
+        onHookStart: vi.fn().mockImplementation(() => {
+          throw new Error("error in onHookStart");
+        }),
+        onHookEnd: vi.fn(),
+      };
+      const dispatcher = dispatcherFor(
+        { "task.verify": [{ name: "green", run: "exit 0" }] },
+        createDefaultExecutor(),
+        reporter,
+      );
+
+      await expect(dispatcher.dispatch(contextFor())).resolves.toBeDefined();
+      expect(reporter.onHookStart).toHaveBeenCalledTimes(1);
+      expect(reporter.onHookEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it("isolates errors when reporter.onHookEnd throws", async () => {
+      const reporter: HookReporter = {
+        onHookStart: vi.fn(),
+        onHookEnd: vi.fn().mockImplementation(() => {
+          throw new Error("error in onHookEnd");
+        }),
+      };
+      const dispatcher = dispatcherFor(
+        { "task.verify": [{ name: "green", run: "exit 0" }] },
+        createDefaultExecutor(),
+        reporter,
+      );
+
+      const [result] = await dispatcher.dispatch(contextFor());
+
+      expect(result.ok).toBe(true);
+      expect(reporter.onHookStart).toHaveBeenCalledTimes(1);
+      expect(reporter.onHookEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it("notifies hooks in sequence across multiple configured hooks", async () => {
+      const calls: string[] = [];
+      const reporter: HookReporter = {
+        onHookStart: vi.fn((info) => calls.push(`start:${info.definition.name}`)),
+        onHookEnd: vi.fn((info) => calls.push(`end:${info.definition.name}`)),
+      };
+      const dispatcher = dispatcherFor(
+        {
+          "task.verify": [
+            { name: "first", run: "echo 1" },
+            { name: "second", run: "echo 2" },
+          ],
+        },
+        createDefaultExecutor(),
+        reporter,
+      );
+
+      await dispatcher.dispatch(contextFor());
+
+      expect(calls).toEqual([
+        "start:first",
+        "end:first",
+        "start:second",
+        "end:second",
+      ]);
+    });
   });
 });

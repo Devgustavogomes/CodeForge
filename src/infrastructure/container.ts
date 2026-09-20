@@ -27,6 +27,7 @@ import { NodeGitGateway } from "./git/NodeGitGateway.js";
 import { TaskScheduler } from "../scheduler/TaskScheduler.js";
 import { SchedulerReporter } from "../application/ports/SchedulerReporter.js";
 import { HookDispatcher } from "../application/ports/HookDispatcher.js";
+import { HookReporter } from "../application/ports/HookReporter.js";
 import { IntentSourceFactory } from "./intent-sources/IntentSourceFactory.js";
 
 export interface AppContainerDependencies {
@@ -42,6 +43,7 @@ export interface AppContainerDependencies {
   runnerProvider?: (environment: string) => AgentRunner;
   gitGateway?: GitGateway;
   intentSourceFactory?: typeof IntentSourceFactory;
+  hookReporter?: HookReporter;
 
   initializeWorkspaceUseCase?: InitializeWorkspaceUseCase;
   initUseCase?: InitializeWorkspaceUseCase;
@@ -92,12 +94,15 @@ export interface AppContainer {
   deleteTaskUseCase: DeleteTaskUseCase;
   deleteDocUseCase: DeleteDocUseCase;
 
+  hookReporter?: HookReporter;
+
   // Helpers
   createTaskScheduler(
     runner: AgentRunner,
     config: CodeForgeConfig,
     reporter?: SchedulerReporter,
     hooks?: HookDispatcher,
+    hookReporter?: HookReporter,
   ): TaskScheduler;
 }
 
@@ -209,6 +214,8 @@ export function createAppContainer(
   const intentSourceFactory =
     overrides?.intentSourceFactory ?? IntentSourceFactory;
 
+  const hookReporter = overrides?.hookReporter;
+
   return {
     gw: workspaceGateway,
     workspaceGateway,
@@ -221,6 +228,7 @@ export function createAppContainer(
     promptService,
     runnerProvider,
     intentSourceFactory,
+    hookReporter,
 
     initializeWorkspaceUseCase,
     initUseCase: initializeWorkspaceUseCase,
@@ -294,6 +302,7 @@ export function createAppContainer(
       config: CodeForgeConfig,
       reporter?: SchedulerReporter,
       hooks?: HookDispatcher,
+      schedulerHookReporter?: HookReporter,
     ): TaskScheduler {
       return new TaskScheduler(
         workspaceGateway,
@@ -303,6 +312,7 @@ export function createAppContainer(
         promptService,
         reporter,
         hooks,
+        schedulerHookReporter ?? hookReporter,
       );
     },
   };

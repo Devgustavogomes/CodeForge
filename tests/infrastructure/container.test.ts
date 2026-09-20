@@ -151,6 +151,26 @@ describe("AppContainer composition root", () => {
     const scheduler = container.createTaskScheduler(mockRunner, config);
     expect(scheduler).toBeDefined();
   });
+
+  it("creates TaskScheduler via helper method with optional hookReporter", () => {
+    const memoryGw = new InMemoryWorkspaceGateway();
+    const mockHookReporter = { onHookStart: vi.fn(), onHookEnd: vi.fn() };
+    const container = createAppContainer(memoryGw, { hookReporter: mockHookReporter });
+
+    const mockRunner: AgentRunner = {
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
+    const config = {
+      environment: "antigravity",
+      plannerAgent: "default",
+      executorAgent: "default",
+      language: "en" as const,
+    };
+
+    const scheduler = container.createTaskScheduler(mockRunner, config);
+    expect(scheduler).toBeDefined();
+    expect(scheduler.getHookReporter()).toBe(mockHookReporter);
+  });
 });
 
 describe("Constructor injection in use cases", () => {
