@@ -3,6 +3,7 @@ import { TaskScheduler, SchedulerStatus } from '../../../../scheduler/TaskSchedu
 import { AppContainer } from '../../../../infrastructure/container.js';
 import { HookEvent, HookType } from '../../../../domain/hook.js';
 import { HookReporter } from '../../../../application/ports/HookReporter.js';
+import { ReviewResultMetadata } from '../../../../domain/hook.js';
 import { TaskItem } from './taskLoader.js';
 
 export type ExecutionStatus = SchedulerStatus;
@@ -54,6 +55,12 @@ export interface ExecutionContextValue {
   scheduler: TaskScheduler | null;
   startedAt?: string;
   completedAt?: string;
+  /** TUI-specific review lifecycle state reported by the scheduler. */
+  reviewStartedAt?: string;
+  reviewResult?: ReviewResultMetadata;
+  reviewError?: string;
+  /** Runs an on-demand review without executing already completed tasks. */
+  startReview: (intentName?: string) => Promise<void>;
 }
 
 export interface ExecutionProviderProps {

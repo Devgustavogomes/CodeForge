@@ -8,6 +8,7 @@ import { TaskScheduler } from '../../../../scheduler/TaskScheduler.js';
 import { AppContainer } from '../../../../infrastructure/container.js';
 import { CommandHookDispatcher } from '../../../../infrastructure/hooks/CommandHookDispatcher.js';
 import { NoopHookDispatcher } from '../../../../infrastructure/hooks/NoopHookDispatcher.js';
+import { ReviewResultMetadata } from '../../../../domain/hook.js';
 
 export interface ExecutionReporterCallbacks {
   onStart?: (intentName: string) => void;
@@ -17,6 +18,9 @@ export interface ExecutionReporterCallbacks {
   onDeadlock?: (intentName?: string) => void;
   onError?: (error: string | Error) => void;
   onLog?: (taskId: string, chunk: string) => void;
+  onReviewStart?: (intentName: string) => void;
+  onReviewEnd?: (intentName: string, result: ReviewResultMetadata) => void;
+  onReviewError?: (intentName: string, error: string) => void;
 }
 
 export interface HookReporterCallbacks {
@@ -38,6 +42,9 @@ export function createExecutionReporter(
     onDeadlock: (intentName?: string) => callbacks.onDeadlock?.(intentName),
     onError: (error: string | Error) => callbacks.onError?.(error),
     onLog: (taskId: string, chunk: string) => callbacks.onLog?.(taskId, chunk),
+    onReviewStart: (intentName) => callbacks.onReviewStart?.(intentName),
+    onReviewEnd: (intentName, result) => callbacks.onReviewEnd?.(intentName, result),
+    onReviewError: (intentName, error) => callbacks.onReviewError?.(intentName, error.message),
   };
 }
 

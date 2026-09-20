@@ -16,6 +16,11 @@ describe("logBuffer", () => {
     expect(clean).toContain("Error: Failed\nNew line\r\n");
   });
 
+  it("removes terminal control sequences from agent output", () => {
+    const output = "before\x1b]8;;https://example.com\x07link\x1b]8;;\x1b\\\x1b[?25l\x1b[2J\x08after";
+    expect(sanitizeLogChunk(output)).toBe("beforelinkafter");
+  });
+
   it("appends lines and truncates lines exceeding character limit", () => {
     const veryLong = "a".repeat(6000);
     const lines = appendLogLines([], veryLong, 10);

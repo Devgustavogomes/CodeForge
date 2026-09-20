@@ -8,9 +8,11 @@ export const MAX_LINE_CHARS = 5000;
  */
 export function sanitizeLogChunk(chunk: string): string {
   return chunk
-    .replace(/\x1b\[[0-9;]*[A-HJKSTf-n]/g, '')
-    .replace(/\x1b\[\?[0-9]+[a-zA-Z]/g, '')
-    .replace(/\x1b\([a-zA-Z]/g, '')
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b[()][0-9A-Za-z]/g, '')
+    .replace(/\x1b[@-_]/g, '')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
     .replace(/\r(?!\n)/g, '\n');
 }
 

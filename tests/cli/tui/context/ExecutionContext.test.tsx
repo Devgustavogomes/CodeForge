@@ -190,6 +190,61 @@ describe('ExecutionContext', () => {
     unmount();
   });
 
+  it('represents review feedback and refreshes reviewer-created tasks', async () => {
+    const task1 = TaskBuilder.aTask().withId('TASK-001').withTitle('Completed task').build();
+    const task2 = TaskBuilder.aTask().withId('TASK-002').withTitle('Reviewer task').build();
+    writeTask('test-intent', task1);
+    writeTask('test-intent', task2);
+    let contextValue!: ExecutionContextValue;
+    const TestConsumer = () => { contextValue = useExecution(); return null; };
+    const { unmount } = renderWithProviders(<TestConsumer />, {
+      container, scheduler, initialIntent: 'test-intent', flushIntervalMs: 0,
+    });
+    await flushAsync(1);
+
+    scheduler.getReporter()?.onReviewStart?.('test-intent', { agent: 'mock', round: 1, maxRounds: 3 });
+    await vi.waitFor(() => expect(contextValue.schedulerStatus).toBe('reviewing'));
+    expect(contextValue.reviewStartedAt).toBeDefined();
+
+    const state = stateRepo.init('test-intent', [task1, task2]);
+    state.tasks['TASK-001'].status = 'completed';
+    state.tasks['TASK-002'].status = 'pending';
+    state.status = 'paused';
+    stateRepo.save(state);
+    scheduler.getReporter()?.onReviewEnd?.('test-intent', {
+      outcome: 'tasks_created', newTasksCount: 1, taskIds: ['TASK-002'],
+    });
+    await vi.waitFor(() => {
+      expect(contextValue.tasks.find((task) => task.id === 'TASK-002')?.status).toBe('pending');
+      expect(contextValue.reviewResult?.taskIds).toEqual(['TASK-002']);
+    });
+
+    scheduler.getReporter()?.onReviewError?.('test-intent', { message: 'review timed out', round: 1 });
+    await vi.waitFor(() => expect(contextValue.reviewError).toBe('review timed out'));
+    expect(contextValue.schedulerStatus).toBe('paused');
+    unmount();
+  });
+
+  it('shows an interrupted persisted review as retryable when reopening an intent', async () => {
+    const task = TaskBuilder.aTask().withId('TASK-001').build();
+    writeTask('test-intent', task);
+    const state = stateRepo.init('test-intent', [task]);
+    state.tasks[task.id].status = 'completed';
+    state.status = 'reviewing';
+    stateRepo.save(state);
+    let contextValue!: ExecutionContextValue;
+    const TestConsumer = () => { contextValue = useExecution(); return null; };
+
+    const { unmount } = renderWithProviders(<TestConsumer />, {
+      container, scheduler, initialIntent: 'test-intent',
+    });
+    await flushAsync(1);
+
+    expect(contextValue.schedulerStatus).toBe('paused');
+    expect(contextValue.reviewError).toContain('Press [v] to retry');
+    unmount();
+  });
+
   it('updates activeHook on hook start and moves it to hookHistory on hook completion', async () => {
     let contextValue!: ExecutionContextValue;
     const TestConsumer = () => {
