@@ -159,4 +159,27 @@ describe("TaskScheduler hook dispatch", () => {
     expect(hooks.contexts).toEqual([]);
     expect(new ExecutionStateRepository(gw).load("intent")?.status).toBe("completed");
   });
+
+  it("configures hook reporter on injected hook dispatcher", () => {
+    const runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
+    const mockDispatcher: HookDispatcher = {
+      dispatch: vi.fn().mockResolvedValue([]),
+      setReporter: vi.fn(),
+    };
+    const scheduler = new TaskScheduler(
+      gw,
+      runner,
+      config,
+      new ExecutionStateRepository(gw),
+      new PromptService(gw),
+      undefined,
+      mockDispatcher,
+    );
+
+    const mockHookReporter = { onHookStart: vi.fn(), onHookEnd: vi.fn() };
+    scheduler.setHookReporter(mockHookReporter);
+
+    expect(mockDispatcher.setReporter).toHaveBeenCalledWith(mockHookReporter);
+    expect(scheduler.getHookReporter()).toBe(mockHookReporter);
+  });
 });

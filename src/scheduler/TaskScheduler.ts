@@ -8,6 +8,7 @@ import { PromptService } from "../application/services/PromptService.js";
 import { PATHS } from "../infrastructure/paths.js";
 import { SchedulerReporter } from "../application/ports/SchedulerReporter.js";
 import { HookDispatcher } from "../application/ports/HookDispatcher.js";
+import { HookReporter } from "../application/ports/HookReporter.js";
 import { HookContext, HookEvent } from "../domain/hook.js";
 import { CodeForgeConfig } from "../config/types.js";
 
@@ -19,9 +20,9 @@ export type SchedulerStatus =
   | "deadlock";
 
 export type SchedulerRunResult =
-  | { status: "completed"; intentName: string;}
-  | { status: "failed"; intentName: string; reason?: string;}
-  | { status: "deadlock"; intentName: string;};
+  | { status: "completed"; intentName: string }
+  | { status: "failed"; intentName: string; reason?: string }
+  | { status: "deadlock"; intentName: string };
 
 export class TaskScheduler {
   private status: SchedulerStatus = "idle";
@@ -34,7 +35,12 @@ export class TaskScheduler {
     private promptService: PromptService,
     private reporter?: SchedulerReporter,
     private hooks?: HookDispatcher,
-  ) {}
+    private hookReporter?: HookReporter,
+  ) {
+    if (this.hookReporter && this.hooks?.setReporter) {
+      this.hooks.setReporter(this.hookReporter);
+    }
+  }
 
   getStatus(): SchedulerStatus {
     return this.status;
@@ -46,6 +52,40 @@ export class TaskScheduler {
 
   setReporter(reporter?: SchedulerReporter): void {
     this.reporter = reporter;
+  }
+
+  getHookDispatcher(): HookDispatcher | undefined {
+    return this.hooks;
+  }
+
+  setHookDispatcher(hooks?: HookDispatcher): void {
+    this.hooks = hooks;
+    if (this.hookReporter && this.hooks?.setReporter) {
+      this.hooks.setReporter(this.hookReporter);
+    }
+  }
+
+  getHookReporter(): HookReporter | undefined {
+    if (this.hookReporter) {
+      return this.hookReporter;
+    }
+    if (
+      this.hooks &&
+      "getReporter" in this.hooks &&
+      typeof (this.hooks as { getReporter?: unknown }).getReporter === "function"
+    ) {
+      return (
+        this.hooks as { getReporter: () => HookReporter | undefined }
+      ).getReporter();
+    }
+    return undefined;
+  }
+
+  setHookReporter(reporter?: HookReporter): void {
+    this.hookReporter = reporter;
+    if (this.hooks?.setReporter) {
+      this.hooks.setReporter(reporter);
+    }
   }
 
   private createResult(
