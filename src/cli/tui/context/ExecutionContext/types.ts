@@ -1,12 +1,39 @@
 import React from 'react';
 import { TaskScheduler, SchedulerStatus } from '../../../../scheduler/TaskScheduler.js';
 import { AppContainer } from '../../../../infrastructure/container.js';
+import { HookEvent, HookType } from '../../../../domain/hook.js';
+import { HookReporter } from '../../../../application/ports/HookReporter.js';
 import { TaskItem } from './taskLoader.js';
 
 export type ExecutionStatus = SchedulerStatus;
-export type { SchedulerStatus, TaskItem };
+export type { SchedulerStatus, TaskItem, HookEvent, HookType };
+
+export interface ActiveHookState {
+  name: string;
+  event: HookEvent;
+  command: string;
+  type: HookType;
+  taskId?: string;
+  startedAt: number;
+}
+
+export interface HookHistoryItem {
+  id: string;
+  name: string;
+  event: HookEvent;
+  command: string;
+  type: HookType;
+  ok: boolean;
+  exitCode: number | null;
+  outputSummary?: string;
+  durationMs: number;
+  timestamp: string;
+}
 
 export interface ExecutionContextValue {
+  activeHook: ActiveHookState | null;
+  hookHistory: HookHistoryItem[];
+  hasConfiguredHooks?: boolean;
   activeIntent: string | null;  tasks: TaskItem[];
   selectedTaskId: string | null;
   selectedTask: TaskItem | null;
@@ -36,4 +63,5 @@ export interface ExecutionProviderProps {
   initialIntent?: string;  autoStart?: boolean;
   maxLogLines?: number;
   flushIntervalMs?: number;
+  hookReporter?: HookReporter;
 }

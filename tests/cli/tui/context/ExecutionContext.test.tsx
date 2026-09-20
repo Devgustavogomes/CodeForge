@@ -189,4 +189,216 @@ describe('ExecutionContext', () => {
 
     unmount();
   });
+
+  it('updates activeHook on hook start and moves it to hookHistory on hook completion', async () => {
+    let contextValue!: ExecutionContextValue;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      return null;
+    };
+
+    const { unmount } = renderWithProviders(<TestConsumer />, {
+      container,
+      scheduler,
+      flushIntervalMs: 0,
+    });
+
+    await flushAsync(1);
+    expect(contextValue.activeHook).toBeNull();
+    expect(contextValue.hookHistory).toEqual([]);
+
+    const hookReporter = scheduler.getHookReporter();
+    expect(hookReporter).toBeDefined();
+
+    // Start hook
+    hookReporter?.onHookStart({
+      event: 'task.verify',
+      definition: {
+        name: 'lint',
+        run: 'npm run lint',
+        type: 'gate',
+      },
+      context: {
+        event: 'task.verify',
+        intentName: 'test-intent',
+        taskId: 'TASK-001',
+      },
+      startedAt: 12345,
+    });
+
+    await vi.waitFor(() => {
+      expect(contextValue.activeHook).toEqual({
+        name: 'lint',
+        event: 'task.verify',
+        command: 'npm run lint',
+        type: 'gate',
+        taskId: 'TASK-001',
+        startedAt: 12345,
+      });
+      expect(contextValue.hookHistory).toEqual([]);
+    });
+
+    // Complete hook
+    hookReporter?.onHookEnd({
+      event: 'task.verify',
+      definition: {
+        name: 'lint',
+        run: 'npm run lint',
+        type: 'gate',
+      },
+      context: {
+        event: 'task.verify',
+        intentName: 'test-intent',
+        taskId: 'TASK-001',
+      },
+      result: {
+        name: 'lint',
+        type: 'gate',
+        ok: true,
+        exitCode: 0,
+        output: 'All lint checks passed',
+      },
+      durationMs: 350,
+    });
+
+    await vi.waitFor(() => {
+      expect(contextValue.activeHook).toBeNull();
+      expect(contextValue.hookHistory).toHaveLength(1);
+      const item = contextValue.hookHistory[0];
+      expect(item.name).toBe('lint');
+      expect(item.event).toBe('task.verify');
+      expect(item.command).toBe('npm run lint');
+      expect(item.type).toBe('gate');
+      expect(item.ok).toBe(true);
+      expect(item.exitCode).toBe(0);
+      expect(item.outputSummary).toBe('All lint checks passed');
+      expect(item.durationMs).toBe(350);
+      expect(typeof item.id).toBe('string');
+      expect(item.id.length).toBeGreaterThan(0);
+      expect(typeof item.timestamp).toBe('string');
+    });
+
+    unmount();
+  });
+
+  it('caps hookHistory at maximum 10 items as a rolling buffer', async () => {
+    let contextValue!: ExecutionContextValue;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      return null;
+    };
+
+    const { unmount } = renderWithProviders(<TestConsumer />, {
+      container,
+      scheduler,
+      flushIntervalMs: 0,
+    });
+
+    await flushAsync(1);
+    const hookReporter = scheduler.getHookReporter();
+    expect(hookReporter).toBeDefined();
+
+    // Trigger 15 hook completions
+    for (let i = 0; i < 15; i++) {
+      hookReporter?.onHookEnd({
+        event: 'task.completed',
+        definition: {
+          name: `hook-${i}`,
+          run: `echo ${i}`,
+          type: 'notify',
+        },
+        context: {
+          event: 'task.completed',
+          intentName: 'test-intent',
+          taskId: `TASK-${i}`,
+        },
+        result: {
+          name: `hook-${i}`,
+          type: 'notify',
+          ok: true,
+          exitCode: 0,
+          output: `Output ${i}`,
+        },
+        durationMs: 100 + i,
+      });
+    }
+
+    await vi.waitFor(() => {
+      expect(contextValue.hookHistory).toHaveLength(10);
+      // Most recent should be at index 0 (hook-14)
+      expect(contextValue.hookHistory[0].name).toBe('hook-14');
+      // 10th item should be hook-5
+      expect(contextValue.hookHistory[9].name).toBe('hook-5');
+    });
+
+    unmount();
+  });
+
+  it('clears activeHook and hookHistory on reset when intent changes', async () => {
+    let contextValue!: ExecutionContextValue;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      return null;
+    };
+
+    const { unmount } = renderWithProviders(<TestConsumer />, {
+      container,
+      scheduler,
+      initialIntent: 'test-intent',
+      flushIntervalMs: 0,
+    });
+
+    await flushAsync(1);
+    const hookReporter = scheduler.getHookReporter();
+
+    // Add a completed hook to history
+    hookReporter?.onHookEnd({
+      event: 'run.started',
+      definition: {
+        name: 'notify-start',
+        run: 'echo start',
+      },
+      context: {
+        event: 'run.started',
+        intentName: 'test-intent',
+      },
+      result: {
+        name: 'notify-start',
+        type: 'notify',
+        ok: true,
+        exitCode: 0,
+        output: '',
+      },
+      durationMs: 50,
+    });
+
+    // Start another hook so activeHook is populated
+    hookReporter?.onHookStart({
+      event: 'task.verify',
+      definition: {
+        name: 'test-hook',
+        run: 'echo test',
+      },
+      context: {
+        event: 'task.verify',
+        intentName: 'test-intent',
+      },
+      startedAt: Date.now(),
+    });
+
+    await vi.waitFor(() => {
+      expect(contextValue.activeHook).not.toBeNull();
+      expect(contextValue.hookHistory).toHaveLength(1);
+    });
+
+    // Reset intent selection
+    contextValue.setActiveIntent(null);
+
+    await vi.waitFor(() => {
+      expect(contextValue.activeHook).toBeNull();
+      expect(contextValue.hookHistory).toEqual([]);
+    });
+
+    unmount();
+  });
 });

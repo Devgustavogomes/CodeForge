@@ -8,7 +8,11 @@ import {
   DEFAULT_MAX_LOG_LINES,
   LogEventBuffer,
 } from './ExecutionContext/logBuffer.js';
-import { createExecutionReporter, createSchedulerInstance } from './ExecutionContext/executionReporter.js';
+import {
+  createExecutionReporter,
+  createHookReporter,
+  createSchedulerInstance,
+} from './ExecutionContext/executionReporter.js';
 import { useTaskOperations } from './ExecutionContext/taskOperations.js';
 import {
   ExecutionStatus,
@@ -16,11 +20,21 @@ import {
   TaskItem,
   ExecutionContextValue,
   ExecutionProviderProps,
+  ActiveHookState,
+  HookHistoryItem,
 } from './ExecutionContext/types.js';
 
 export const DEFAULT_LOG_FLUSH_INTERVAL_MS = 60;
 
-export type { ExecutionStatus, SchedulerStatus, TaskItem, ExecutionContextValue, ExecutionProviderProps };
+export type {
+  ExecutionStatus,
+  SchedulerStatus,
+  TaskItem,
+  ExecutionContextValue,
+  ExecutionProviderProps,
+  ActiveHookState,
+  HookHistoryItem,
+};
 export {
   sanitizeLogChunk,
   appendTaskLog,
@@ -28,6 +42,9 @@ export {
   DEFAULT_MAX_LOG_LINES,
   LogEventBuffer,
   areTasksEqual,
+  createExecutionReporter,
+  createHookReporter,
+  createSchedulerInstance,
 };
 
 export const ExecutionContext = createContext<ExecutionContextValue | null>(null);
@@ -37,9 +54,10 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   scheduler: propScheduler,
   container: propContainer,
   initialIntent,
-    autoStart = false,
+  autoStart = false,
   maxLogLines = DEFAULT_MAX_LOG_LINES,
   flushIntervalMs = DEFAULT_LOG_FLUSH_INTERVAL_MS,
+  hookReporter: propHookReporter,
 }) => {
   const contextContainer = useContext(ContainerContext) ?? undefined;
   const appContainer = useMemo(
@@ -84,6 +102,21 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     () => (effectiveInitial ? appContainer.executionStateRepository.load(effectiveInitial)?.completedAt : undefined),
   );
   const [logs, setLogs] = useState<Record<string, string[]>>({});
+  const [activeHook, setActiveHook] = useState<ActiveHookState | null>(null);
+  const [hookHistory, setHookHistory] = useState<HookHistoryItem[]>([]);
+  const hookHistoryCounterRef = useRef(0);
+
+  const hasConfiguredHooks = useMemo(() => {
+    try {
+      const config = appContainer.configService.loadConfig();
+      if (!config?.hooks) return false;
+      return Object.values(config.hooks).some(
+        (hooks) => Array.isArray(hooks) && hooks.length > 0,
+      );
+    } catch {
+      return false;
+    }
+  }, [appContainer]);
 
   const logBufferRef = useRef<LogEventBuffer | null>(null);
   if (!logBufferRef.current) {
@@ -126,6 +159,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
 
   const setActiveIntent = useCallback((intentName: string | null) => {
     setActiveIntentState(intentName);
+    setActiveHook(null);
+    setHookHistory([]);
     if (intentName) {
       refreshTasks(intentName);
       const state = appContainer.executionStateRepository.load(intentName);
@@ -180,8 +215,48 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     onLog: (taskId, chunk) => appendLog(taskId, chunk),
   }), [refreshTasks, flushLogs, appendLog]);
 
-  const scheduler = useMemo(() => createSchedulerInstance(appContainer, reporter, propScheduler), [propScheduler, appContainer, reporter]);
-  useEffect(() => { if (scheduler) scheduler.setReporter(reporter); }, [scheduler, reporter]);
+  const hookReporter = useMemo(() => createHookReporter({
+    onHookStart: (info) => {
+      setActiveHook({
+        name: info.definition.name,
+        event: info.event,
+        command: info.definition.run,
+        type: info.definition.type ?? 'notify',
+        taskId: info.context.taskId,
+        startedAt: info.startedAt,
+      });
+      propHookReporter?.onHookStart(info);
+    },
+    onHookEnd: (info) => {
+      setActiveHook(null);
+      hookHistoryCounterRef.current += 1;
+      const historyItem: HookHistoryItem = {
+        id: `hook-${Date.now()}-${hookHistoryCounterRef.current}`,
+        name: info.definition.name,
+        event: info.event,
+        command: info.definition.run,
+        type: info.result.type ?? info.definition.type ?? 'notify',
+        ok: info.result.ok,
+        exitCode: info.result.exitCode,
+        outputSummary: info.result.output?.trim() || undefined,
+        durationMs: info.durationMs,
+        timestamp: new Date().toISOString(),
+      };
+      setHookHistory((prev) => [historyItem, ...prev].slice(0, 10));
+      propHookReporter?.onHookEnd(info);
+    },
+  }), [propHookReporter]);
+
+  const scheduler = useMemo(
+    () => createSchedulerInstance(appContainer, reporter, propScheduler, hookReporter),
+    [propScheduler, appContainer, reporter, hookReporter],
+  );
+  useEffect(() => {
+    if (scheduler) {
+      scheduler.setReporter(reporter);
+      scheduler.setHookReporter(hookReporter);
+    }
+  }, [scheduler, reporter, hookReporter]);
 
   const startRun = useCallback(async (intentName?: string): Promise<void> => {
     const intent = intentName || activeIntent;
@@ -224,14 +299,16 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   const selectedTask = useMemo(() => (selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) || null : null), [tasks, selectedTaskId]);
 
   const value: ExecutionContextValue = useMemo(() => ({
-    activeIntent,    tasks, selectedTaskId, selectedTask, status: schedulerStatus,
+    activeIntent, tasks, selectedTaskId, selectedTask, status: schedulerStatus,
     schedulerStatus, logs, getTaskLogs, setSelectedTaskId, selectTask,
-    setActiveIntent,    startRun, retryTask, retryAllFailed, completeTask,
+    setActiveIntent, startRun, retryTask, retryAllFailed, completeTask,
     resetTask, resetAllTasks, refreshTasks, clearLogs, scheduler, startedAt, completedAt,
+    activeHook, hookHistory, hasConfiguredHooks,
   }), [
     activeIntent, tasks, selectedTaskId, selectedTask, schedulerStatus, logs, getTaskLogs,
     selectTask, setActiveIntent, startRun, retryTask, retryAllFailed, completeTask,
     resetTask, resetAllTasks, refreshTasks, clearLogs, scheduler, startedAt, completedAt,
+    activeHook, hookHistory, hasConfiguredHooks,
   ]);
 
   return <ExecutionContext.Provider value={value}>{children}</ExecutionContext.Provider>;

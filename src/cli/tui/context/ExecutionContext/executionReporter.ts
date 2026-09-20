@@ -1,4 +1,9 @@
 import { SchedulerReporter } from '../../../../application/ports/SchedulerReporter.js';
+import {
+  HookReporter,
+  ActiveHookInfo,
+  CompletedHookInfo,
+} from '../../../../application/ports/HookReporter.js';
 import { TaskScheduler } from '../../../../scheduler/TaskScheduler.js';
 import { AppContainer } from '../../../../infrastructure/container.js';
 import { CommandHookDispatcher } from '../../../../infrastructure/hooks/CommandHookDispatcher.js';
@@ -12,6 +17,11 @@ export interface ExecutionReporterCallbacks {
   onDeadlock?: (intentName?: string) => void;
   onError?: (error: string | Error) => void;
   onLog?: (taskId: string, chunk: string) => void;
+}
+
+export interface HookReporterCallbacks {
+  onHookStart?: (info: ActiveHookInfo) => void;
+  onHookEnd?: (info: CompletedHookInfo) => void;
 }
 
 /**
@@ -32,15 +42,31 @@ export function createExecutionReporter(
 }
 
 /**
+ * Creates a HookReporter instance bridging hook lifecycle events to callbacks.
+ */
+export function createHookReporter(
+  callbacks: HookReporterCallbacks,
+): HookReporter {
+  return {
+    onHookStart: (info: ActiveHookInfo) => callbacks.onHookStart?.(info),
+    onHookEnd: (info: CompletedHookInfo) => callbacks.onHookEnd?.(info),
+  };
+}
+
+/**
  * Instantiates or configures the TaskScheduler for execution.
  */
 export function createSchedulerInstance(
   appContainer: AppContainer,
   reporter: SchedulerReporter,
   propScheduler?: TaskScheduler,
+  hookReporter?: HookReporter,
 ): TaskScheduler {
   if (propScheduler) {
     propScheduler.setReporter(reporter);
+    if (hookReporter) {
+      propScheduler.setHookReporter(hookReporter);
+    }
     return propScheduler;
   }
   const config = appContainer.configService.loadConfig() ?? {
@@ -50,8 +76,27 @@ export function createSchedulerInstance(
     language: 'en',
   };
   const runner = appContainer.runnerProvider(config.environment);
+  const effectiveHookReporter = hookReporter ?? appContainer.hookReporter;
   const hooks = config.hooks
-    ? new CommandHookDispatcher(config.hooks, process.cwd(), appContainer.processExecutor)
+    ? new CommandHookDispatcher(
+        config.hooks,
+        process.cwd(),
+        appContainer.processExecutor,
+        effectiveHookReporter,
+      )
     : new NoopHookDispatcher();
-  return appContainer.createTaskScheduler(runner, config, reporter, hooks);
+  if (effectiveHookReporter && hooks instanceof CommandHookDispatcher) {
+    hooks.setReporter(effectiveHookReporter);
+  }
+  const scheduler = appContainer.createTaskScheduler(
+    runner,
+    config,
+    reporter,
+    hooks,
+    effectiveHookReporter,
+  );
+  if (effectiveHookReporter) {
+    scheduler.setHookReporter(effectiveHookReporter);
+  }
+  return scheduler;
 }
