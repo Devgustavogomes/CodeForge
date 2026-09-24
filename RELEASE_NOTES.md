@@ -37,17 +37,3 @@
 - **Robust Terminal Signal Handling**: Added clean SIGINT/SIGTERM handlers and alternate screen buffer restoration across all exit flows.
 - **Comprehensive Test Suite**: 385 automated tests across 40 test files covering intent sources, URL parsing, hook dispatchers, verification gates, scheduler lifecycle, delete use cases, and runners.
 
----
-
-## 📦 What's Changed
-
-* feat(tui): implement terminal user interface with Ink and React by @Devgustavogomes
-* feat(cli): add cross-platform external terminal launcher with `--inline` option by @Devgustavogomes
-* feat(spec-source): implement Linear, GitHub, and ClickUp remote intent source adapters by @Devgustavogomes
-* feat(scheduler): introduce lifecycle hooks and `task.verify` gate verification by @Devgustavogomes
-* feat(scheduler): integrate AI review phase with silence-as-approval design by @Devgustavogomes
-* refactor(prompts): streamline prompt templates, isolate project rules, and enforce token efficiency by @Devgustavogomes
-* refactor(application): migrate specification model and commands to intents by @Devgustavogomes
-* feat(cli): add delete commands for intents, tasks, and docs by @Devgustavogomes
-* feat(config): support env file loading and dynamic variable interpolation by @Devgustavogomes
-* docs: revamp README with positioning guide and modularize deep technical reference into docs/ by @Devgustavogomes
