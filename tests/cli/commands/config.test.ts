@@ -47,4 +47,41 @@ describe("config CLI AI review settings", () => {
       aiReview: { enabled: true, agent: "reviewer-b", maxRounds: 4 },
     }));
   });
+
+  it("adds, edits, and deletes hooks for an event", async () => {
+    const config = { language: "en" as const, environment: "codex", plannerAgent: "p", executorAgent: "e", hooks: {} };
+    const saved: unknown[] = [];
+    const saveConfig = vi.fn((value) => saved.push(structuredClone(value)));
+    const container = { configureEnvironmentUseCase: { loadConfig: () => config, saveConfig } } as any;
+    vi.mocked(select)
+      .mockResolvedValueOnce("hooks").mockResolvedValueOnce("task.verify")
+      .mockResolvedValueOnce("add").mockResolvedValueOnce("gate")
+      .mockResolvedValueOnce("edit:0").mockResolvedValueOnce("notify")
+      .mockResolvedValueOnce("delete:0").mockResolvedValueOnce("yes")
+      .mockResolvedValueOnce("back").mockResolvedValueOnce("back").mockResolvedValueOnce("back");
+    vi.mocked(input)
+      .mockResolvedValueOnce("npm test").mockResolvedValueOnce("tests")
+      .mockResolvedValueOnce("npm run test").mockResolvedValueOnce("tests updated");
+
+    await configAction(container);
+
+    expect(saved).toHaveLength(3);
+    expect((saved[0] as any).hooks["task.verify"]).toEqual([{ name: "tests", run: "npm test", type: "gate" }]);
+    expect((saved[1] as any).hooks["task.verify"]).toEqual([{ name: "tests updated", run: "npm run test", type: "notify" }]);
+    expect((saved[2] as any).hooks["task.verify"]).toEqual([]);
+  });
+
+  it("configures an intent source with the provider's default environment variable", async () => {
+    const config = { language: "en" as const, environment: "codex", plannerAgent: "p", executorAgent: "e" };
+    const saveConfig = vi.fn();
+    const container = { configureEnvironmentUseCase: { loadConfig: () => config, saveConfig } } as any;
+    vi.mocked(select).mockResolvedValueOnce("intentSource").mockResolvedValueOnce("github").mockResolvedValueOnce("back");
+    vi.mocked(input).mockResolvedValueOnce("owner/repo").mockResolvedValueOnce("").mockResolvedValueOnce("$GITHUB_TOKEN");
+
+    await configAction(container);
+
+    expect(saveConfig).toHaveBeenCalledWith(expect.objectContaining({
+      intentSource: { provider: "github", project: "owner/repo", apiKey: "$GITHUB_TOKEN" },
+    }));
+  });
 });
