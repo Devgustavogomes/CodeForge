@@ -87,7 +87,9 @@ export class ClickUpIntentSource extends BaseRemoteIntentSource {
 
       const tasks = data.tasks ?? [];
       let references: IntentReference[] = tasks.map((task) => ({
-        id: task.custom_id || task.id,
+        // Use the API ID so a selection from list() can always be fetched,
+        // even when no Workspace ID is configured for custom task IDs.
+        id: task.id,
         title: task.name,
         // The ClickUp tasks endpoint does not always populate `url`; build it as a fallback.
         url: task.url || `https://app.clickup.com/t/${task.id}`,
@@ -114,9 +116,13 @@ export class ClickUpIntentSource extends BaseRemoteIntentSource {
   async fetch(id: string): Promise<FetchedIntent> {
     const apiKey = this.getApiKey("CLICKUP_API_KEY");
     const { taskId, teamId: urlTeamId } = this.extractTaskInfo(id);
+    const isCustomId = Boolean(urlTeamId) || /^[A-Za-z][A-Za-z0-9_]*-\d+$/.test(taskId);
     const teamId = urlTeamId || ((this.config?.teamId || this.config?.team) as string | undefined);
-    const queryParam = teamId ? `?custom_task_ids=true&team_id=${teamId}` : "";
-    const url = `https://api.clickup.com/api/v2/task/${taskId}${queryParam}`;
+    if (isCustomId && !teamId) {
+      throw new Error("ClickUp custom task IDs require a Workspace ID. Configure 'team' in .codeforge/config.yaml or use the task's API ID.");
+    }
+    const queryParam = isCustomId ? `?custom_task_ids=true&team_id=${encodeURIComponent(teamId!)}` : "";
+    const url = `https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}${queryParam}`;
 
     try {
       const response = await this.fetchWithTimeout(url, {

@@ -180,7 +180,7 @@ describe("LinearIntentSource", () => {
       expect.any(String),
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: "Bearer direct-api-token",
+          Authorization: "direct-api-token",
         }),
       })
     );
@@ -205,6 +205,11 @@ describe("LinearIntentSource", () => {
 
     const source = new LinearIntentSource();
     const result = await source.list();
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "https://api.linear.app/graphql",
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "dummy-key" }) }),
+    );
 
     expect(result).toEqual([
       { id: "ENG-100", title: "First Issue", url: "https://linear.app/1", status: "Todo" },
@@ -405,7 +410,7 @@ describe("ClickUpIntentSource", () => {
     const result = await source.list();
 
     expect(result).toEqual([
-      { id: "CU-1", title: "Task 1", url: "https://app.clickup.com/t/task1", status: "open" },
+      { id: "task1", title: "Task 1", url: "https://app.clickup.com/t/task1", status: "open" },
     ]);
   });
 
@@ -441,6 +446,27 @@ describe("ClickUpIntentSource", () => {
         project: "Backend",
       },
     });
+  });
+
+  it("fetches a listed task by its API ID even when a Workspace ID is configured", async () => {
+    process.env.CLICKUP_API_KEY = "dummy-key";
+    const request = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ tasks: [{ id: "86abc", custom_id: "CU-1", name: "Task 1" }] }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "86abc", custom_id: "CU-1", name: "Task 1" }),
+      } as Response);
+    const source = new ClickUpIntentSource({ provider: "clickup", project: "123", team: "456" });
+
+    const [reference] = await source.list();
+    const intent = await source.fetch(reference.id);
+
+    expect(reference.id).toBe("86abc");
+    expect(intent.id).toBe("CU-1");
+    expect(request.mock.calls[1][0]).toBe("https://api.clickup.com/api/v2/task/86abc");
   });
 
   it("handles 404 when fetching ClickUp task", async () => {

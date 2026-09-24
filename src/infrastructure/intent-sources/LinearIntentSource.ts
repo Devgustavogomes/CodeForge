@@ -58,7 +58,7 @@ export class LinearIntentSource extends BaseRemoteIntentSource {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: apiKey,
         },
         body: JSON.stringify({
           query,
@@ -138,7 +138,7 @@ export class LinearIntentSource extends BaseRemoteIntentSource {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: apiKey,
         },
         body: JSON.stringify({
           query,
