@@ -55,6 +55,10 @@ describe("GeneratePlanUseCase", () => {
         "dependencies", "constraints", "acceptanceCriteria",
       ]) expect(prompt).toContain(`"${key}"`);
       expect(prompt).toContain("Write generated prose in en; preserve JSON keys and technical code terms.");
+      expect(prompt).toContain("--- TASK SIZE & GRANULARITY ---");
+      expect(prompt).toContain("Unit of work");
+      expect(prompt).toContain("Granularity");
+      expect(prompt).toContain("Aim for a coherent slice");
       if (rules?.trim()) expect(prompt).toContain("Prefer vertical slices.");
       else expect(prompt).not.toContain("PROJECT PLANNING RULES");
 
