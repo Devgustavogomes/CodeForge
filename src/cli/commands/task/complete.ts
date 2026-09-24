@@ -1,6 +1,5 @@
 import { Command } from "commander";
 import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
-import { translate } from "../../ui/i18n.js";
 import { ActionResult } from "../../types.js";
 import {
   isPromptCancellation,

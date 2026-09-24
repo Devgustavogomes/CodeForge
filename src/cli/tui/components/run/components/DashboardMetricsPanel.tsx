@@ -12,7 +12,8 @@ import { ReviewResultMetadata } from '../../../../../domain/hook.js';
 export { renderProgressBar };
 
 function reviewErrorSummary(error: string): string {
-  const firstLine = error.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').split(/\r?\n/)[0].trim();
+  const escape = String.fromCharCode(27);
+  const firstLine = error.replace(new RegExp(`${escape}\\[[0-9;]*[a-zA-Z]`, 'g'), '').split(/\r?\n/)[0].trim();
   return firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine;
 }
 

@@ -1,4 +1,4 @@
-import { confirm, select } from "@inquirer/prompts";
+import { select } from "@inquirer/prompts";
 import { Command } from "commander";
 import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { ActionResult } from "../../types.js";
