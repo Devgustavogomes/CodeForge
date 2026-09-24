@@ -5,54 +5,32 @@ export function buildPlanningPrompt(
   tasksDir: string,
   language: string,
 ): string {
-  const userRules = rulesContent && rulesContent.trim().length > 0
+  const userRules = rulesContent?.trim()
     ? `\n--- PROJECT PLANNING RULES ---\n${rulesContent.trim()}\n`
     : "";
 
-  return `SYSTEM PROMPT: CodeForge Planner
-You decompose the intent into an atomic, dependency-aware execution plan (DAG) of Task JSON files.
+  return `Decompose intent '${intentName}' into atomic tasks. Preserve scope; do not invent features or write source code. Write generated prose in ${language}; preserve JSON keys and technical code terms.
 
---- OPERATIONAL CONTRACT ---
-1. Output format: Save one JSON file per task in '${tasksDir}/TASK-XXX.json' (e.g. TASK-001.json, TASK-002.json).
-2. Dependencies: Must form a Directed Acyclic Graph (DAG) referencing valid Task IDs. Tasks with no dependencies run first.
-3. Scope: Strictly implement what the Intent specifies. Do not invent new features. Do not implement source code.
-4. Language: All titles, objectives, context, implementation steps, and acceptance criteria MUST be in ${language}.
-
---- TASK JSON SCHEMA ---
-\`\`\`json
-{
-  "id": "TASK-001",
-  "title": "Concise descriptive title",
-  "objective": "What this task accomplishes",
-  "context": "Context needed from existing code or intent decisions",
-  "implementation": "Step-by-step implementation instructions",
-  "files": ["path/to/file.ts"],
-  "dependencies": [],
-  "constraints": ["Rules or boundaries the task must respect"],
-  "acceptanceCriteria": ["Verifiable completion criteria"]
-}
-\`\`\`
+Write each task as one JSON object to '${tasksDir}/TASK-XXX.json'. Required fields:
+{"id":"TASK-001","title":"...","objective":"...","context":"...","implementation":"...","files":["..."],"dependencies":[],"constraints":["..."],"acceptanceCriteria":["..."]}
+Dependencies must reference valid task IDs and form a DAG.
 ${userRules}
---- INTENT: ${intentName} ---
+--- INTENT ---
 ${intentContent}
 
---- ACTION REQUIRED ---
-Generate the task JSON files in '${tasksDir}'.`;
+Create the task JSON files in '${tasksDir}'.`;
 }
 
 export function buildPlanningFixPrompt(
   intentName: string,
   errors: string[],
   language: string,
+  tasksDir: string,
 ): string {
   const errorsList = errors.map((e) => `- ${e}`).join("\n");
-  return `SYSTEM PROMPT: CodeForge Planner (Plan Validation Fix)
-Validation failed for plan '${intentName}' with the following errors:
+  return `Fix the invalid plan for intent '${intentName}'. Preserve intent scope; do not invent features or write source code. Write generated prose in ${language}; preserve JSON keys and technical code terms.
 
-${errorsList}
+Write each task as one JSON object to '${tasksDir}/TASK-XXX.json' with exactly these fields: {"id":"TASK-001","title":"...","objective":"...","context":"...","implementation":"...","files":["..."],"dependencies":[],"constraints":["..."],"acceptanceCriteria":["..."]}. Dependencies must reference valid task IDs and form a DAG.
 
---- ACTION REQUIRED ---
-1. Fix the invalid task JSON files in the tasks directory.
-2. Ensure valid DAG dependencies and correct Task schema.
-3. All task text must be written in ${language}.`;
+Validation errors:\n${errorsList}`;
 }

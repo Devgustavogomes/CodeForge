@@ -22,35 +22,24 @@ export function buildRetryPrompt(
     ? task.acceptanceCriteria.map((a) => `- ${a}`).join("\n")
     : "- None";
 
-  return `SYSTEM PROMPT FOR AI AGENT (CodeForge Task Retry & Fix)
-Task: ${task.id} - ${task.title}
+  return `CodeForge task retry | ${task.id}: ${task.title}
 ${intentRef}
 
 --- PREVIOUS ATTEMPT FAILURE & ERRORS ---
-The previous execution of this task failed with the following error(s):
 ${formattedErrors}
-
---- OBJECTIVE ---
-${task.objective}
-
---- CONTEXT ---
-${task.context}
-
---- IMPLEMENTATION STEPS ---
-${task.implementation}
-
---- CONSTRAINTS ---
+Objective: ${task.objective}
+Context: ${task.context}
+Implementation steps: ${task.implementation}
+Constraints:
 ${constraints}
-
---- ACCEPTANCE CRITERIA ---
+Acceptance criteria:
 ${acceptance}
-
---- TARGET FILES ---
+Target files:
 ${filesContext}
 ${userRules}
---- ACTION REQUIRED (ERROR RESOLUTION & COMPLETION) ---
-1. Fix the root cause of the previous error(s) without discarding valid work.
-2. Complete all remaining implementation steps to satisfy all acceptance criteria.
-3. Implement ONLY the assigned task. Do not modify task JSON files.
-4. All code comments, documentation, and commit messages must be in ${language}.`;
+Rules:
+- Fix the error causes while preserving valid work, then complete this task's remaining steps.
+- Implement only this assigned task and satisfy its acceptance criteria.
+- Do not edit task JSON files in .codeforge/tasks/.
+- Write generated prose in ${language}; preserve JSON keys and technical code terms.`;
 }

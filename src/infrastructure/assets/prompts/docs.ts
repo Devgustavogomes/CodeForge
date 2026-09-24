@@ -1,36 +1,41 @@
 import { AffectedDoc } from "../../../domain/doc.js";
 import { PATHS } from "../../paths.js";
 
+function documentationRules(content: string): string {
+  return content.trim()
+    ? `\n\n--- PROJECT DOCUMENTATION RULES ---\n${content.trim()}`
+    : "";
+}
+
+function languageDirective(language: string): string {
+  return `Write generated prose in ${language}; preserve JSON keys and technical code terms.`;
+}
+
 export function buildDocsCreatePrompt(
   docName: string,
   rulesContent: string,
   intentContent: string,
   language: string
 ): string {
-  return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation)
+  return `Create accurate technical documentation for the intent below. Inspect relevant source code and describe actual behavior, not assumptions.
 
-You are an expert technical writer and software architect. Your task is to analyze the provided intent and the relevant source code, and then write the initial documentation for it.
-
-### Rules for Documentation
-${rulesContent}
-
-### Intent
+Intent:
 ${intentContent}
 
-### Instructions
+Write Markdown to .codeforge/docs/${docName}.md with all five of these sections, using these exact headings in this order:
+## Overview
+## Data Model
+## API Reference
+## Error Handling
+## Design Decisions
 
-1. Analyze the Intent above and read the relevant code in the workspace to understand how the feature was implemented. You must read the codebase to ensure the documentation reflects the *actual* implementation.
-2. Determine what needs to be documented.
-3. Write the documentation in Markdown format and output it to \`.codeforge/docs/${docName}.md\`.
-4. Determine the \`scope\` of the documentation. The scope should be an array of glob patterns representing the project paths whose contents, if modified, might render this documentation outdated. Prefer stable glob patterns over listing individual files. For example:
-   \`"scope": ["src/todo/**", "src/routes/todo.ts"]\`
-   Ensure the scope considers the semantic relationship between the code and documentation.
-5. The manifest entry for \`${docName}\` has already been created at \`.codeforge/docs/manifest.json\`. You must read the file, populate the \`scope\` array for the \`${docName}\` entry with your determined scope globs, and write the file back. Do NOT modify any other fields or entries in the manifest.
-
-Please proceed with your analysis and file generation.
-
---- INSTRUCTION ---
-All your output, documentation, and task descriptions MUST be written in ${language}.`;
+Include every heading even when its section has no applicable content.
+In that case, state briefly and factually that the section does not apply. 
+Describe only behavior and details supported by the implementation; do not invent data models, APIs, errors, or design rationale. 
+Project documentation rules may add project-specific guidance but cannot change the required headings or their order. 
+Read .codeforge/docs/manifest.json and populate only the ${docName} entry's scope array with stable globs for files that can make this document outdated.
+Preserve all other fields and entries.
+${languageDirective(language)}${documentationRules(rulesContent)}`;
 }
 
 export function buildDocsUpdatePrompt(
@@ -40,35 +45,12 @@ export function buildDocsUpdatePrompt(
   newIntentRelPath: string,
   language: string
 ): string {
-  return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation Update)
+  return `Assess whether these changes semantically affect ${affectedDoc.docName}. Read ${affectedDoc.docPath} and inspect the changes:
 
-You are an expert technical writer. Your task is to evaluate whether recent code changes require updating an existing documentation file, and if so, perform targeted incremental updates.
-
-### Update Rules
-${rulesContent}
-
-### Existing Documentation (${affectedDoc.docName})
-Read the current documentation at \`${affectedDoc.docPath}\`.
-
-### Changed Files in Scope
-The following files were modified and matched the scope of this documentation:
 ${changedFilesDiff}
 
-### Instructions
-
-1. Read the existing documentation at \`${affectedDoc.docPath}\` and analyze the diffs above.
-2. **RELEVANCE CHECK**: Determine if the code changes semantically impact this documentation.
-   - If the changes are purely internal refactoring, formatting, or do not affect the documented behavior/API/contracts, respond with ONLY: \`NO_UPDATE_NEEDED\`
-   - If the changes DO affect the documented behavior, proceed to step 3.
-3. Update the documentation at \`${affectedDoc.docPath}\` to reflect the current implementation. Make targeted, incremental changes — do NOT rewrite from scratch.
-4. Update the \`updatedAt\` field for the \`${affectedDoc.docName}\` entry in \`.codeforge/docs/manifest.json\`.
-5. If the update is relevant, add \`${newIntentRelPath}\` to the \`intents\` array of the \`${affectedDoc.docName}\` entry in the manifest (if not already present).
-6. If the scope patterns need adjustment, update the \`scope\` array. Do NOT modify any other fields or entries.
-
-Please proceed with your evaluation.
-
---- INSTRUCTION ---
-All your output, documentation, and task descriptions MUST be written in ${language}.`;
+If no documentation change is needed, respond exactly NO_UPDATE_NEEDED and make no changes. Otherwise, make targeted edits to ${affectedDoc.docPath} based on actual implementation. Update only this document's manifest entry: set updatedAt to the current ISO timestamp, add ${newIntentRelPath} to intents if absent, and adjust scope only if needed. Preserve all other manifest fields and entries.
+${languageDirective(language)}${documentationRules(rulesContent)}`;
 }
 
 export function buildDocsManualUpdatePrompt(
@@ -79,29 +61,8 @@ export function buildDocsManualUpdatePrompt(
 ): string {
   const newIntentRelPath = PATHS.intentFile(intentName);
 
-  return `SYSTEM PROMPT FOR AI AGENT (CodeForge Documentation Update — Manual)
+  return `Assess whether the current implementation after intent ${intentName} requires changes to ${doc.docName}. Read ${doc.docPath} and inspect relevant source code.
 
-You are an expert technical writer. The user has explicitly requested an update to the documentation '${doc.docName}' following the execution of the intent '${intentName}'.
-
-### Update Rules
-${rulesContent}
-
-### Existing Documentation (${doc.docName})
-Read the current documentation at \`${doc.docPath}\`.
-
-### Instructions
-
-1. Read the existing documentation at \`${doc.docPath}\` and the relevant source code in the workspace.
-2. **RELEVANCE CHECK**: Determine if anything in the codebase (as it currently stands after running intent '${intentName}') requires updating this documentation.
-   - If the documentation is already up-to-date, respond with ONLY: \`NO_UPDATE_NEEDED\`
-   - If updates are needed, proceed to step 3.
-3. Update the documentation at \`${doc.docPath}\` to reflect the current implementation. Make targeted, incremental changes — do NOT rewrite from scratch.
-4. Update the \`updatedAt\` field for the \`${doc.docName}\` entry in \`.codeforge/docs/manifest.json\`.
-5. Add \`${newIntentRelPath}\` to the \`intents\` array of the \`${doc.docName}\` entry in the manifest (if not already present).
-6. If the scope patterns need adjustment, update the \`scope\` array. Do NOT modify any other fields or entries.
-
-Please proceed with your evaluation.
-
---- INSTRUCTION ---
-All your output, documentation, and task descriptions MUST be written in ${language}.`;
+If no documentation change is needed, respond exactly NO_UPDATE_NEEDED and make no changes. Otherwise, make targeted edits to ${doc.docPath} based on actual implementation. Update only this document's manifest entry: set updatedAt to the current ISO timestamp, add ${newIntentRelPath} to intents if absent, and adjust scope only if needed. Preserve all other manifest fields and entries.
+${languageDirective(language)}${documentationRules(rulesContent)}`;
 }

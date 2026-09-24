@@ -15,7 +15,7 @@ export class PromptService {
     previousErrors?: string[]
   ): string {
     const intentPath = PATHS.intentFile(intentName);
-    const intentContent = this.gw.exists(intentPath) ? this.gw.readFile(intentPath) : "Intent not found.";
+    const intentRef = `Intent: ${intentName} (${intentPath})`;
 
     let filesContext = "";
     if (task.files && task.files.length > 0) {
@@ -31,13 +31,13 @@ export class PromptService {
     }
 
     const runningRulesPath = PATHS.runningRules;
-    const runningRulesContent = this.gw.exists(runningRulesPath) ? this.gw.readFile(runningRulesPath) : "Execution rules not found.";
+    const runningRulesContent = this.gw.exists(runningRulesPath) ? this.gw.readFile(runningRulesPath) : "";
 
     if (previousErrors && previousErrors.length > 0) {
-      return buildRetryPrompt(task, intentContent, runningRulesContent, filesContext, previousErrors, language);
+      return buildRetryPrompt(task, intentRef, runningRulesContent, filesContext, previousErrors, language);
     }
 
-    return buildRunningPrompt(task, intentContent, runningRulesContent, filesContext, language);
+    return buildRunningPrompt(task, intentRef, runningRulesContent, filesContext, language);
   }
 
   createPromptFile(
@@ -74,7 +74,7 @@ export class PromptService {
       : "Intent not found.";
     const rulesContent = this.gw.exists(PATHS.reviewRules)
       ? this.gw.readFile(PATHS.reviewRules)
-      : "Review rules not found.";
+      : "";
     const promptPath = PATHS.reviewPrompt(intentName);
     this.gw.writeFile(promptPath, buildReviewPrompt(
       intentName,

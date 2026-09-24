@@ -19,30 +19,21 @@ export function buildRunningPrompt(
     ? task.acceptanceCriteria.map((a) => `- ${a}`).join("\n")
     : "- None";
 
-  return `SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)
-Task: ${task.id} - ${task.title}
+  return `CodeForge task execution | ${task.id}: ${task.title}
 ${intentRef}
 
---- OBJECTIVE ---
-${task.objective}
-
---- CONTEXT ---
-${task.context}
-
---- IMPLEMENTATION STEPS ---
-${task.implementation}
-
---- CONSTRAINTS ---
+Objective: ${task.objective}
+Context: ${task.context}
+Implementation steps: ${task.implementation}
+Constraints:
 ${constraints}
-
---- ACCEPTANCE CRITERIA ---
+Acceptance criteria:
 ${acceptance}
-
---- TARGET FILES ---
+Target files:
 ${filesContext}
 ${userRules}
---- OPERATIONAL RULES ---
-1. Implement ONLY the assigned task. Satisfy all acceptance criteria.
-2. Do not modify other tasks or task JSON files in .codeforge/tasks/.
-3. All code comments, documentation, and commit messages must be in ${language}.`;
+Rules:
+- Implement only this assigned task and satisfy its acceptance criteria.
+- Do not edit task JSON files in .codeforge/tasks/.
+- Write generated prose in ${language}; preserve JSON keys and technical code terms.`;
 }

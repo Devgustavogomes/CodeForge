@@ -81,7 +81,7 @@ describe("PromptService", () => {
     expect(gw.exists(dir)).toBe(false);
   });
 
-  it("builds prompt correctly including intent content and task fields", () => {
+  it("builds prompt with a lean intent reference and task fields", () => {
     gw.writeFile(".codeforge/intents/auth.md", "My Intent Content");
 
     const task: Task = {
@@ -98,12 +98,12 @@ describe("PromptService", () => {
 
     const path = service.createPromptFile("auth", task, "pt-BR");
     const prompt = gw.readFile(path);
-    expect(prompt).toContain("SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)");
-    expect(prompt).toContain("Task: TASK-001 - Login");
-    expect(prompt).toContain("--- OBJECTIVE ---\nDo login");
-    expect(prompt).toContain("No specific files provided in context.");
-    expect(prompt).toContain("My Intent Content");
-    expect(prompt).toContain("--- CONSTRAINTS ---\n- No external APIs");
+    expect(prompt).toContain("CodeForge task execution | TASK-001: Login");
+    expect(prompt).toContain("Intent: auth (.codeforge/intents/auth.md)");
+    expect(prompt).toContain("Objective: Do login");
+    expect(prompt).toContain("Target files:\nNo specific files provided in context.");
+    expect(prompt).not.toContain("My Intent Content");
+    expect(prompt).toContain("Constraints:\n- No external APIs");
   });
 
   it("injects real file contents if task specifies files", () => {
@@ -159,19 +159,59 @@ describe("PromptService", () => {
     const path = service.createPromptFile("auth", task, "pt-BR", errors);
     const prompt = gw.readFile(path);
 
-    expect(prompt).toContain(
-      "SYSTEM PROMPT FOR AI AGENT (CodeForge Task Retry & Fix)"
-    );
+    expect(prompt).toContain("CodeForge task retry | TASK-003: Retry Task");
+    expect(prompt).toContain("Intent: auth (.codeforge/intents/auth.md)");
     expect(prompt).toContain("--- PREVIOUS ATTEMPT FAILURE & ERRORS ---");
-    expect(prompt).toContain(
-      "The previous execution of this task failed with the following error(s):"
-    );
     expect(prompt).toContain("- Error: Command failed with exit code 1");
     expect(prompt).toContain("- TS2304: Cannot find name 'x'");
-    expect(prompt).toContain(
-      "--- ACTION REQUIRED (ERROR RESOLUTION & COMPLETION) ---"
-    );
-    expect(prompt).not.toContain("SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)");
+    expect(prompt).toContain("Objective: Fix bugs");
+    expect(prompt).toContain("Acceptance criteria:\n- All tests must pass");
+    expect(prompt).not.toContain("Intent content");
+    expect(prompt).not.toContain("rules not found");
+  });
+
+  it("omits project rules when running rules are missing or empty", () => {
+    const task: Task = {
+      id: "TASK-005",
+      title: "Optional rules",
+      objective: "Keep prompt creation resilient",
+      context: "",
+      implementation: "",
+      files: [],
+      dependencies: [],
+      constraints: [],
+      acceptanceCriteria: [],
+    };
+
+    const missingRulesPath = service.createPromptFile("auth", task, "pt-BR");
+    expect(gw.readFile(missingRulesPath)).not.toContain("PROJECT CODING RULES");
+
+    gw.writeFile(PATHS.runningRules, "  \n  ");
+    const emptyRulesPath = service.createPromptFile("auth", task, "pt-BR", ["compile failed"]);
+    const retryPrompt = gw.readFile(emptyRulesPath);
+    expect(retryPrompt).not.toContain("PROJECT CODING RULES");
+    expect(retryPrompt).toContain("--- PREVIOUS ATTEMPT FAILURE & ERRORS ---\n- compile failed");
+    expect(retryPrompt).toContain("Write generated prose in pt-BR; preserve JSON keys and technical code terms.");
+  });
+
+  it("appends non-empty running rules to both execution prompt paths", () => {
+    gw.writeFile(PATHS.runningRules, "Prefer small functions.");
+    const task: Task = {
+      id: "TASK-006",
+      title: "Use custom rules",
+      objective: "Follow coding conventions",
+      context: "",
+      implementation: "",
+      files: [],
+      dependencies: [],
+      constraints: [],
+      acceptanceCriteria: [],
+    };
+
+    const runningPath = service.createPromptFile("auth", task, "en");
+    const retryPath = service.createPromptFile("auth", task, "en", ["previous error"]);
+    expect(gw.readFile(runningPath)).toContain("--- PROJECT CODING RULES ---\nPrefer small functions.");
+    expect(gw.readFile(retryPath)).toContain("--- PROJECT CODING RULES ---\nPrefer small functions.");
   });
 
   it("selects buildRunningPrompt when previousErrors is omitted or empty", () => {
@@ -192,18 +232,38 @@ describe("PromptService", () => {
     // Omitted previousErrors
     const pathOmitted = service.createPromptFile("auth", task, "pt-BR");
     const promptOmitted = gw.readFile(pathOmitted);
-    expect(promptOmitted).toContain(
-      "SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)"
-    );
-    expect(promptOmitted).not.toContain("--- PREVIOUS ATTEMPT FAILURE & ERRORS ---");
+    expect(promptOmitted).toContain("CodeForge task execution | TASK-004: Normal Task");
+    expect(promptOmitted).toContain("Write generated prose in pt-BR; preserve JSON keys and technical code terms.");
+    expect(promptOmitted).toContain("Intent: auth (.codeforge/intents/auth.md)");
+    expect(promptOmitted).not.toContain("Intent content");
+    expect(promptOmitted).not.toContain("PROJECT CODING RULES");
 
     // Empty previousErrors array
     const pathEmpty = service.createPromptFile("auth", task, "pt-BR", []);
     const promptEmpty = gw.readFile(pathEmpty);
-    expect(promptEmpty).toContain(
-      "SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)"
-    );
-    expect(promptEmpty).not.toContain("--- PREVIOUS ATTEMPT FAILURE & ERRORS ---");
+    expect(promptEmpty).toContain("CodeForge task execution | TASK-004: Normal Task");
+    expect(promptEmpty).not.toContain("Previous attempt errors:");
+  });
+
+  it("omits missing and empty review criteria while retaining the immutable review contract", () => {
+    const missingPath = service.createReviewPromptFile("review", [], "diff", [], "en");
+    const missingPrompt = gw.readFile(missingPath);
+    expect(missingPrompt).toContain("Create zero files when approved; silence is the only approval signal.");
+    expect(missingPrompt).toContain('"dependencies":[]');
+    expect(missingPrompt).toContain("full task graph acyclic");
+    expect(missingPrompt).not.toContain("PROJECT REVIEW CRITERIA");
+    expect(missingPrompt).not.toContain("Review rules not found");
+
+    gw.writeFile(PATHS.reviewRules, "  \n ");
+    const emptyPath = service.createReviewPromptFile("review", [], "diff", [], "en");
+    expect(gw.readFile(emptyPath)).not.toContain("PROJECT REVIEW CRITERIA");
+  });
+
+  it("appends non-empty review criteria separately from the immutable contract", () => {
+    gw.writeFile(PATHS.reviewRules, "Check domain invariants.");
+    const path = service.createReviewPromptFile("review", [], "diff", [], "en");
+    const prompt = gw.readFile(path);
+    expect(prompt).toContain("Create no other files and do not fix source code yourself");
+    expect(prompt).toContain("--- PROJECT REVIEW CRITERIA ---\nCheck domain invariants.");
   });
 });
-
