@@ -36,13 +36,13 @@ interface WizardStepDefinition {
 
 /**
  * Definition of the 6 subsequent onboarding steps displayed in the top step bar.
- * Matches the TUI TabBar visual style: [1] Source [2] Environment [3] Agents [4] CLI [5] Hooks [6] Summary.
+ * Matches the TUI TabBar visual style: [1] Source [2] Environment [3] CLI [4] Agents [5] Hooks [6] Summary.
  */
 const WIZARD_STEPS: readonly WizardStepDefinition[] = [
   { id: 'intent_source', numberKey: '1', labelKey: 'onboarding_step_source', defaultLabel: 'Source' },
   { id: 'environment', numberKey: '2', labelKey: 'onboarding_step_environment', defaultLabel: 'Environment' },
-  { id: 'agents', numberKey: '3', labelKey: 'onboarding_step_agents', defaultLabel: 'Agents' },
-  { id: 'cli_install', numberKey: '4', labelKey: 'onboarding_step_cli', defaultLabel: 'CLI' },
+  { id: 'cli_install', numberKey: '3', labelKey: 'onboarding_step_cli', defaultLabel: 'CLI' },
+  { id: 'agents', numberKey: '4', labelKey: 'onboarding_step_agents', defaultLabel: 'Agents' },
   { id: 'hooks', numberKey: '5', labelKey: 'onboarding_step_hooks', defaultLabel: 'Hooks' },
   { id: 'summary', numberKey: '6', labelKey: 'onboarding_step_summary', defaultLabel: 'Summary' },
 ] as const;

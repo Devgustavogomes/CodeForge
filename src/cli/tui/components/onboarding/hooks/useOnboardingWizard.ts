@@ -7,8 +7,8 @@ export const ONBOARDING_STEPS = [
   'welcome',
   'intent_source',
   'environment',
-  'agents',
   'cli_install',
+  'agents',
   'hooks',
   'summary',
 ] as const;
