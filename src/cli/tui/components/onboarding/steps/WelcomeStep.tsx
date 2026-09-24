@@ -46,6 +46,7 @@ const pipelineSteps = [
   { label: 'DAG', isHighlight: false },
   { label: 'Parallel Execution', isHighlight: false },
   { label: 'Verify', isHighlight: false },
+  { label: 'AI Review', isHighlight: false },
   { label: 'Docs', isHighlight: false },
   { label: 'Ship', isHighlight: true },
 ];

@@ -374,7 +374,7 @@ const en = {
   tui_docs_edge_doc_not_found: "Documentation \"{doc}\" not found.",
 
   // Onboarding - Welcome
-  onboarding_welcome_tagline: "Deterministic workflows for AI coding agents.",
+  onboarding_welcome_tagline: "Automatic workflow for AI coding agents.",
   onboarding_welcome_start: "[Enter] Start Setup",
   onboarding_welcome_exit: "[q/Esc] Quit",
 
@@ -899,7 +899,7 @@ const pt: Dictionary = {
   tui_docs_edge_doc_not_found: "Documento \"{doc}\" não encontrado.",
 
   // Onboarding - Welcome
-  onboarding_welcome_tagline: "Deterministic workflows for AI coding agents.",
+  onboarding_welcome_tagline: "Automatic workflow for AI coding agents.",
   onboarding_welcome_start: "[Enter] Começar Configuração",
   onboarding_welcome_exit: "[q/Esc] Sair",
 
@@ -1421,7 +1421,7 @@ const es: Dictionary = {
   tui_docs_edge_doc_not_found: "Documento \"{doc}\" no encontrado.",
 
   // Onboarding - Welcome
-  onboarding_welcome_tagline: "Deterministic workflows for AI coding agents.",
+  onboarding_welcome_tagline: "Automatic workflow for AI coding agents.",
   onboarding_welcome_start: "[Enter] Iniciar Configuración",
   onboarding_welcome_exit: "[q/Esc] Salir",
 
