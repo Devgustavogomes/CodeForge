@@ -256,6 +256,41 @@ describe("TaskScheduler", () => {
   });
 
   describe("review output recovery", () => {
+    it("announces review, pauses for new tasks, and executes them on the next run", async () => {
+      writeTask("test-intent", TaskBuilder.aTask().withId("TASK-001").build());
+      gw.writeFile(PATHS.metadata, "{}");
+      config.aiReview = { enabled: true, agent: "reviewer", maxRounds: 3 };
+      reporter.onReviewStart = vi.fn();
+      reporter.onReviewEnd = vi.fn();
+      const reviewUseCase = {
+        execute: vi.fn()
+          .mockImplementationOnce(async () => {
+            writeTask("test-intent", TaskBuilder.aTask().withId("TASK-002").withDependencies(["TASK-001"]).build());
+            return { newTaskFiles: ["TASK-002.json"], newTaskIds: ["TASK-002"] };
+          })
+          .mockResolvedValue({ newTaskFiles: [], newTaskIds: [] }),
+      } as unknown as ExecuteReviewUseCase;
+      const reviewScheduler = new TaskScheduler({
+        gw, runner, config, stateRepo, promptService, reporter, reviewUseCase,
+        validatePlanUseCase: new ValidatePlanUseCase(gw),
+      });
+
+      const first = await reviewScheduler.run("test-intent");
+      expect(first).toMatchObject({ status: "pending", newTasks: ["TASK-002"] });
+      expect(reporter.onReviewStart).toHaveBeenCalledWith("test-intent", { agent: "reviewer", round: 1, maxRounds: 3 });
+      expect(reporter.onReviewEnd).toHaveBeenCalledWith("test-intent", {
+        outcome: "tasks_created", newTasksCount: 1, taskIds: ["TASK-002"],
+      });
+      expect(runner.hasExecuted("TASK-002")).toBe(false);
+
+      const second = await reviewScheduler.run("test-intent");
+      expect(second.status).toBe("completed");
+      expect(runner.hasExecuted("TASK-002")).toBe(true);
+      expect(reporter.onReviewEnd).toHaveBeenCalledWith("test-intent", {
+        outcome: "approved", newTasksCount: 0, taskIds: [],
+      });
+    });
+
     it("removes reviewer tasks with invalid dependencies before they enter execution state", async () => {
       const completed = TaskBuilder.aTask().withId("TASK-001").build();
       writeTask("test-intent", completed);
