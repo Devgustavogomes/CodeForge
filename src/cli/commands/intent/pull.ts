@@ -48,8 +48,11 @@ export async function intentPullAction(
       let items: IntentReference[] = [];
       try {
         items = await intentSource.list();
-      } catch {
-        items = [];
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(translate("intent_pull_failed", lang, { error: message }));
+        process.exitCode = 1;
+        return { success: false };
       }
 
       if (items && items.length > 0) {
