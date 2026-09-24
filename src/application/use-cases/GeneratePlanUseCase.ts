@@ -2,8 +2,12 @@ import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { ValidatePlanUseCase } from "./ValidatePlanUseCase.js";
-import { buildPlanningFixPrompt, buildPlanningPrompt } from "../../infrastructure/assets/prompts/planning.js";
+import {
+  buildPlanningFixPrompt,
+  buildPlanningPrompt,
+} from "../../infrastructure/assets/prompts/planning.js";
 import { CodeForgeConfig } from "../../config/types.js";
+import { executeWithTempPrompt } from "../services/PromptService.js";
 
 export type GeneratePlanResult =
   | { kind: "not-initialized" }
@@ -13,14 +17,15 @@ export type GeneratePlanResult =
   | { kind: "valid"; autoRun?: boolean };
 
 export class GeneratePlanUseCase {
-  private validateUseCase: ValidatePlanUseCase;
+  private readonly validateUseCase: ValidatePlanUseCase;
 
   constructor(
     private readonly workspace: WorkspaceGateway,
     private readonly runner: AgentRunner,
     private readonly config: CodeForgeConfig,
+    validateUseCase?: ValidatePlanUseCase,
   ) {
-    this.validateUseCase = new ValidatePlanUseCase(this.workspace);
+    this.validateUseCase = validateUseCase ?? new ValidatePlanUseCase(workspace);
   }
 
   async execute(intentName: string, model: string): Promise<GeneratePlanResult> {
@@ -45,27 +50,32 @@ export class GeneratePlanUseCase {
       this.workspace.mkdir(intentTasksDir);
     }
 
-    const prompt = buildPlanningPrompt(intentName, intentContent, rulesContent, intentTasksDir, this.config.language);
+    const prompt = buildPlanningPrompt(
+      intentName,
+      intentContent,
+      rulesContent,
+      intentTasksDir,
+      this.config.language,
+    );
 
-    const plansDir = PATHS.plansDir;
-    if (!this.workspace.exists(plansDir)) {
-      this.workspace.mkdir(plansDir);
-    }
-    const promptPath = `${plansDir}/${intentName}.temp.prompt.md`;
-    this.workspace.writeFile(promptPath, prompt);
-
+    const promptPath = `${PATHS.plansDir}/${intentName}.temp.prompt.md`;
     const context: TaskContext = {
       promptFilePath: promptPath,
-      intentName,      model: model,
+      intentName,
+      model,
       silent: true,
     };
 
-    try {
+    return executeWithTempPrompt(this.workspace, promptPath, prompt, async () => {
       await this.runner.execute(context);
       let valResult = this.validateUseCase.execute(intentName);
 
       if (valResult.kind === "invalid") {
-        const fixPrompt = buildPlanningFixPrompt(intentName, valResult.errors, this.config.language);
+        const fixPrompt = buildPlanningFixPrompt(
+          intentName,
+          valResult.errors,
+          this.config.language,
+        );
         this.workspace.writeFile(promptPath, fixPrompt);
 
         await this.runner.execute(context);
@@ -77,10 +87,6 @@ export class GeneratePlanUseCase {
       }
 
       return valResult as GeneratePlanResult;
-    } finally {
-      if (this.workspace.exists(promptPath)) {
-        this.workspace.deleteFile(promptPath);
-      }
-    }
+    });
   }
 }

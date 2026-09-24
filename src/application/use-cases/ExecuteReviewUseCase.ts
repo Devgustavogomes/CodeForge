@@ -5,6 +5,7 @@ import { PATHS } from "../../infrastructure/paths.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { AgentRunner } from "../../runners/AgentRunner.js";
 import { PromptService } from "../services/PromptService.js";
+import { formatGitDiffSummary } from "../services/diff-formatter.js";
 
 export interface ExecuteReviewInput {
   intentName: string;
@@ -72,18 +73,6 @@ export class ExecuteReviewUseCase {
   }
 
   private getGitDiffSummary(): string {
-    if (!this.git.hasRepository()) {
-      return "Git repository not available.";
-    }
-    const changedFiles = this.git.getChangedFiles();
-    if (changedFiles.length === 0) {
-      return "No changed files reported by Git.";
-    }
-    return changedFiles.map((file) => {
-      const diff = this.git.getFileDiff(file);
-      return diff
-        ? `### File: ${file}\n\`\`\`diff\n${diff}\n\`\`\``
-        : `### File: ${file}\n(Diff unavailable)`;
-    }).join("\n\n");
+    return formatGitDiffSummary(this.git);
   }
 }
