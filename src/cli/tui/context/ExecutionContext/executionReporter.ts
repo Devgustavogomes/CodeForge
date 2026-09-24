@@ -70,7 +70,7 @@ export function createSchedulerInstance(
   propScheduler?: TaskScheduler,
   hookReporter?: HookReporter,
   selectedConfig?: CodeForgeConfig,
-): TaskScheduler {
+): TaskScheduler | null {
   if (propScheduler) {
     propScheduler.setReporter(reporter);
     if (hookReporter) {
@@ -78,34 +78,38 @@ export function createSchedulerInstance(
     }
     return propScheduler;
   }
-  const config = selectedConfig ?? appContainer.configService.loadConfig() ?? {
-    environment: 'antigravity',
-    plannerAgent: 'default',
-    executorAgent: 'default',
-    language: 'en',
-  };
-  const runner = appContainer.runnerProvider(config.environment);
-  const effectiveHookReporter = hookReporter ?? appContainer.hookReporter;
-  const hooks = config.hooks
-    ? new CommandHookDispatcher(
-        config.hooks,
-        process.cwd(),
-        appContainer.processExecutor,
-        effectiveHookReporter,
-      )
-    : new NoopHookDispatcher();
-  if (effectiveHookReporter && hooks instanceof CommandHookDispatcher) {
-    hooks.setReporter(effectiveHookReporter);
+  try {
+    const config = selectedConfig ?? appContainer.configService.loadConfig() ?? {
+      environment: 'antigravity',
+      plannerAgent: 'default',
+      executorAgent: 'default',
+      language: 'en',
+    };
+    const runner = appContainer.runnerProvider(config.environment);
+    const effectiveHookReporter = hookReporter ?? appContainer.hookReporter;
+    const hooks = config.hooks
+      ? new CommandHookDispatcher(
+          config.hooks,
+          process.cwd(),
+          appContainer.processExecutor,
+          effectiveHookReporter,
+        )
+      : new NoopHookDispatcher();
+    if (effectiveHookReporter && hooks instanceof CommandHookDispatcher) {
+      hooks.setReporter(effectiveHookReporter);
+    }
+    const scheduler = appContainer.createTaskScheduler(
+      runner,
+      config,
+      reporter,
+      hooks,
+      effectiveHookReporter,
+    );
+    if (effectiveHookReporter) {
+      scheduler.setHookReporter(effectiveHookReporter);
+    }
+    return scheduler;
+  } catch {
+    return null;
   }
-  const scheduler = appContainer.createTaskScheduler(
-    runner,
-    config,
-    reporter,
-    hooks,
-    effectiveHookReporter,
-  );
-  if (effectiveHookReporter) {
-    scheduler.setHookReporter(effectiveHookReporter);
-  }
-  return scheduler;
 }
