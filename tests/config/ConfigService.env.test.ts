@@ -318,7 +318,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
         ].join('\n')
       );
 
-      const useCase = new ConfigureEnvironmentUseCase(workspace);
+      const useCase = new ConfigureEnvironmentUseCase(configService);
       useCase.saveConfig({
         environment: 'antigravity',
         plannerAgent: 'p2',

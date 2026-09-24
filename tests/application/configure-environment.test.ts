@@ -3,6 +3,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { ConfigureEnvironmentUseCase } from "../../src/application/use-cases/ConfigureEnvironmentUseCase.js";
 import { CodeForgeConfig } from "../../src/config/types.js";
 import { FakeProcessExecutor } from "../helpers/fake-process-executor.js";
+import { ConfigService } from "../../src/config/ConfigService.js";
+import { RunnerFactory } from "../../src/runners/RunnerFactory.js";
 
 describe("ConfigureEnvironmentUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
@@ -17,7 +19,10 @@ describe("ConfigureEnvironmentUseCase", () => {
       stdout: "gemini-1.5-pro\ngemini-1.5-flash\n",
       exitCode: 0,
     });
-    useCase = new ConfigureEnvironmentUseCase(gateway, fakeExecutor);
+    const configService = new ConfigService(gateway);
+    const runnerProvider = (env: string) =>
+      RunnerFactory.createRunner(env, fakeExecutor);
+    useCase = new ConfigureEnvironmentUseCase(configService, runnerProvider);
   });
 
   it("returns available environments list", () => {
