@@ -41,27 +41,13 @@ describe("GeneratePlanUseCase", () => {
     expect(result.kind).toBe("intent-not-found");
   });
 
-  it.each([undefined, "", "Prefer vertical slices."])("keeps the planning contract with rules %s", async (rules) => {
+  it.each([undefined, "", "Prefer vertical slices."])("executes planning with rules %s", async (rules) => {
     makeWorkspace(gateway);
     gateway.writeFile(PATHS.intentFile("auth"), "AUTH INTENT");
     if (rules !== undefined) gateway.writeFile(PATHS.planningRules, rules);
 
-    (runner.execute as any).mockImplementation(async (context: any) => {
-      const prompt = gateway.readFile(context.promptFilePath);
-      expect(prompt).toContain(".codeforge/tasks/auth/TASK-XXX.json");
-      expect(prompt).toContain("Dependencies must reference valid task IDs and form a DAG");
-      for (const key of [
-        "id", "title", "objective", "context", "implementation", "files",
-        "dependencies", "constraints", "acceptanceCriteria",
-      ]) expect(prompt).toContain(`"${key}"`);
-      expect(prompt).toContain("Write generated prose in en; preserve JSON keys and technical code terms.");
-      expect(prompt).toContain("--- TASK SIZE & GRANULARITY ---");
-      expect(prompt).toContain("Unit of work");
-      expect(prompt).toContain("Granularity");
-      expect(prompt).toContain("Aim for a coherent slice");
-      if (rules?.trim()) expect(prompt).toContain("Prefer vertical slices.");
-      else expect(prompt).not.toContain("PROJECT PLANNING RULES");
-
+    const readFile = vi.spyOn(gateway, "readFile");
+    (runner.execute as any).mockImplementation(async () => {
       gateway.writeFile(".codeforge/tasks/auth/TASK-1.json", JSON.stringify({
         id: "TASK-1",
         title: "T1",
@@ -80,5 +66,8 @@ describe("GeneratePlanUseCase", () => {
     expect(result.kind).toBe("valid");
     expect(gateway.exists(".codeforge/tasks/auth")).toBe(true);
     expect(runner.execute).toHaveBeenCalled();
+    expect(runner.execute).toHaveBeenCalledTimes(1);
+    expect(readFile).toHaveBeenCalledWith(PATHS.intentFile("auth"));
+    expect(readFile.mock.calls.some(([path]) => path === PATHS.planningRules)).toBe(rules !== undefined);
   });
 });

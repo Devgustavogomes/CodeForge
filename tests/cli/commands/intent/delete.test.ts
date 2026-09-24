@@ -97,8 +97,8 @@ describe("intent delete CLI command", () => {
     const result = await intentDeleteAction();
 
     expect(result).toEqual({ back: true });
-    expect(confirm).not.toHaveBeenCalled();
-    expect(deleteIntentUseCase.execute).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(0);
+    expect(deleteIntentUseCase.execute).toHaveBeenCalledTimes(0);
     expect(process.exitCode).toBeUndefined();
   });
 
@@ -110,7 +110,7 @@ describe("intent delete CLI command", () => {
     const result = await intentDeleteAction("alpha");
 
     expect(result).toEqual({ back: true });
-    expect(deleteIntentUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteIntentUseCase.execute).toHaveBeenCalledTimes(0);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("cancelled"));
     expect(process.exitCode).toBeUndefined();
   });
@@ -125,7 +125,7 @@ describe("intent delete CLI command", () => {
     const result = await intentDeleteAction();
 
     expect(result).toEqual({ back: true });
-    expect(deleteIntentUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteIntentUseCase.execute).toHaveBeenCalledTimes(0);
     expect(process.exitCode).toBeUndefined();
   });
 
@@ -137,7 +137,7 @@ describe("intent delete CLI command", () => {
     const result = await intentDeleteAction(undefined, { force: true });
 
     expect(select).toHaveBeenCalledOnce();
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(0);
     expect(deleteIntentUseCase.execute).toHaveBeenCalledWith("alpha");
     expect(result).toEqual({ success: true });
   });
@@ -204,7 +204,7 @@ describe("intent delete CLI command", () => {
       "-f",
     ]);
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(0);
     expect(deleteIntentUseCase.execute).toHaveBeenNthCalledWith(1, "alpha");
     expect(deleteIntentUseCase.execute).toHaveBeenNthCalledWith(2, "beta");
   });

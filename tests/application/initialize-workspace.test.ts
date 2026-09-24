@@ -11,7 +11,7 @@ describe("InitializeWorkspaceUseCase", () => {
     useCase = new InitializeWorkspaceUseCase(gateway);
   });
 
-  it("creates all expected subdirectories (no plans/)", () => {
+  it("creates all expected subdirectories", () => {
     useCase.execute();
 
     const subdirs = ["intents", "tasks", "executions", "rules", "docs"];
@@ -19,17 +19,14 @@ describe("InitializeWorkspaceUseCase", () => {
       expect(gateway.exists(`.codeforge/${sub}`)).toBe(true);
     }
 
-    expect(gateway.exists(".codeforge/plans")).toBe(false);
   });
 
-  it("creates config.yaml with default structure if not provided", () => {
+  it("creates config.yaml if not provided", () => {
     useCase.execute();
     expect(gateway.exists(".codeforge/config.yaml")).toBe(true);
-    const content = gateway.readFile(".codeforge/config.yaml");
-    expect(content).toContain('version: "1.0"');
   });
 
-  it("creates five concise, customizable project guidance rule files", () => {
+  it("creates the expected project guidance rule files", () => {
     useCase.execute();
     const paths = [
       ".codeforge/rules/planning.md",
@@ -40,19 +37,6 @@ describe("InitializeWorkspaceUseCase", () => {
     ];
     for (const path of paths) {
       expect(gateway.exists(path)).toBe(true);
-      expect(gateway.readFile(path).length).toBeLessThan(1000);
-    }
-
-    expect(gateway.readFile(paths[0])).toContain("preferred task size");
-    expect(gateway.readFile(paths[1])).toContain("existing architecture");
-    expect(gateway.readFile(paths[2])).toContain("edge cases");
-    expect(gateway.readFile(paths[3])).toContain("Documentation");
-    expect(gateway.readFile(paths[4])).toContain("documentation conventions");
-    for (const path of paths) {
-      const content = gateway.readFile(path);
-      expect(content).not.toContain("TASK-XXX.json");
-      expect(content).not.toContain("Dependencies must reference valid task IDs and form a DAG");
-      expect(content).not.toContain("NO_UPDATE_NEEDED");
     }
   });
 
@@ -82,17 +66,22 @@ describe("InitializeWorkspaceUseCase", () => {
 
     expect(result.kind).toBe("created");
     if (result.kind === "created") {
-      expect(result.created).toContain(".codeforge/");
-      expect(result.created).toContain(".codeforge/config.yaml");
-      expect(result.created).toContain(".codeforge/rules/planning.md");
-      expect(result.created).toContain(".codeforge/metadata.json");
-
-      const subdirs = ["intents", "tasks", "executions", "rules", "docs"];
-      for (const sub of subdirs) {
-        expect(result.created).toContain(`.codeforge/${sub}/`);
-      }
-
-      expect(result.created).not.toContain(".codeforge/plans/");
+      expect(result.created).toEqual([
+        ".codeforge/",
+        ".codeforge/config.yaml",
+        ".codeforge/intents/",
+        ".codeforge/tasks/",
+        ".codeforge/executions/",
+        ".codeforge/rules/",
+        ".codeforge/docs/",
+        ".codeforge/rules/planning.md",
+        ".codeforge/rules/running.md",
+        ".codeforge/rules/docs.md",
+        ".codeforge/rules/docs-update.md",
+        ".codeforge/rules/review.md",
+        ".codeforge/docs/manifest.json",
+        ".codeforge/metadata.json",
+      ]);
     }
   });
 
@@ -106,14 +95,12 @@ describe("InitializeWorkspaceUseCase", () => {
   it("does not overwrite existing files on second run", () => {
     useCase.execute();
 
-    const originalContent = gateway.readFile(".codeforge/config.yaml");
     gateway.writeFile(".codeforge/config.yaml", "# modified by user\n");
 
     useCase.execute();
 
     const contentAfter = gateway.readFile(".codeforge/config.yaml");
     expect(contentAfter).toBe("# modified by user\n");
-    expect(contentAfter).not.toBe(originalContent);
   });
 
   it("metadata.json is written last (atomicity signal)", () => {

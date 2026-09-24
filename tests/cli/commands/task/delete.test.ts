@@ -140,8 +140,8 @@ describe("task delete CLI command", () => {
     const result = await taskDeleteAction();
 
     expect(result).toEqual({ back: true });
-    expect(taskOperationsUseCase.getAvailableTasks).not.toHaveBeenCalled();
-    expect(deleteTaskUseCase.execute).not.toHaveBeenCalled();
+    expect(taskOperationsUseCase.getAvailableTasks).toHaveBeenCalledTimes(0);
+    expect(deleteTaskUseCase.execute).toHaveBeenCalledTimes(0);
   });
 
   it("returns without deleting when Back is selected for the task", async () => {
@@ -151,7 +151,7 @@ describe("task delete CLI command", () => {
     const result = await taskDeleteAction("alpha");
 
     expect(result).toEqual({ back: true });
-    expect(deleteTaskUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteTaskUseCase.execute).toHaveBeenCalledTimes(0);
   });
 
   it("returns without deleting when confirmation is rejected", async () => {
@@ -162,7 +162,7 @@ describe("task delete CLI command", () => {
     const result = await taskDeleteAction("alpha", "TASK-001");
 
     expect(result).toEqual({ back: true });
-    expect(deleteTaskUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteTaskUseCase.execute).toHaveBeenCalledTimes(0);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("cancelled"));
     expect(process.exitCode).toBeUndefined();
   });
@@ -177,7 +177,7 @@ describe("task delete CLI command", () => {
     const result = await taskDeleteAction("alpha", "TASK-001");
 
     expect(result).toEqual({ back: true });
-    expect(deleteTaskUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteTaskUseCase.execute).toHaveBeenCalledTimes(0);
     expect(process.exitCode).toBeUndefined();
   });
 
@@ -193,7 +193,7 @@ describe("task delete CLI command", () => {
     });
 
     expect(select).toHaveBeenCalledTimes(2);
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(0);
     expect(deleteTaskUseCase.execute).toHaveBeenCalledWith(
       "alpha",
       "TASK-001",
@@ -233,7 +233,7 @@ describe("task delete CLI command", () => {
 
     expect(result).toEqual({ success: false });
     expect(error).toHaveBeenCalledWith(expect.stringContaining(text));
-    expect(deleteTaskUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteTaskUseCase.execute).toHaveBeenCalledTimes(0);
     expect(process.exitCode).toBe(1);
   });
 
@@ -284,7 +284,7 @@ describe("task delete CLI command", () => {
       "-f",
     ]);
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(0);
     expect(deleteTaskUseCase.execute).toHaveBeenNthCalledWith(
       1,
       "alpha",

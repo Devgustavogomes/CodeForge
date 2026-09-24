@@ -139,7 +139,7 @@ describe("TaskOperationsUseCase", () => {
       expect(result).toEqual({ kind: "completed", allCompleted: false });
 
       const state = repo.load("test-intent")!;
-      expect(state).not.toBeNull();
+      expect(state).toBeDefined();
       expect(state.tasks["TASK-001"].status).toBe("completed");
       expect(state.tasks["TASK-001"].completedAt).toBeDefined();
       expect(state.tasks["TASK-002"].status).toBe("pending");
@@ -381,7 +381,7 @@ describe("TaskOperationsUseCase", () => {
       });
 
       const state = repo.load("test-intent")!;
-      expect(state).not.toBeNull();
+      expect(state).toBeDefined();
       expect(state.tasks["TASK-001"].status).toBe("pending");
     });
   });

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import yaml from 'yaml';
 import { ConfigService } from '../../src/config/ConfigService.js';
 import { ConfigureEnvironmentUseCase } from '../../src/application/use-cases/ConfigureEnvironmentUseCase.js';
 import { PATHS } from '../../src/infrastructure/paths.js';
@@ -142,7 +143,7 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
 
       const config = configService.loadConfig();
 
-      expect(config).not.toBeNull();
+      expect(config).toBeTruthy();
       expect(config?.environment).toBe('antigravity');
     });
 
@@ -280,16 +281,22 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
         language: 'pt',
       });
 
-      const rawSavedContent = workspace.readFile(PATHS.config);
-
-      // Raw $VAR should be preserved in YAML file, not lost
-      expect(rawSavedContent).toContain('apiKey: $LINEAR_API_KEY');
-      expect(rawSavedContent).toContain('envPath: .env.local');
-      expect(rawSavedContent).toContain('provider: linear');
-      expect(rawSavedContent).toContain('gate-check');
-      expect(rawSavedContent).toContain('environment: antigravity');
-      expect(rawSavedContent).toContain('plannerAgent: new-planner');
-      expect(rawSavedContent).toContain('language: pt');
+      const savedConfig = yaml.parse(workspace.readFile(PATHS.config));
+      expect(savedConfig.intentSource).toEqual({
+        provider: 'linear',
+        team: 'ENG',
+        apiKey: '$LINEAR_API_KEY',
+      });
+      expect(savedConfig.envPath).toBe('.env.local');
+      expect(savedConfig.hooks['task.verify']).toEqual([
+        { name: 'gate-check', run: 'npm test' },
+      ]);
+      expect(savedConfig).toMatchObject({
+        environment: 'antigravity',
+        plannerAgent: 'new-planner',
+        executorAgent: 'new-executor',
+        language: 'pt',
+      });
 
       const reloaded = configService.loadConfig();
       expect(reloaded?.environment).toBe('antigravity');
@@ -334,8 +341,8 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
       expect(reloaded?.hooks?.['task.verify']).toBeDefined();
       expect(reloaded?.intentSource?.provider).toBe('github');
 
-      const rawContent = workspace.readFile(PATHS.config);
-      expect(rawContent).toContain('apiKey: $GITHUB_TOKEN');
+      const savedConfig = yaml.parse(workspace.readFile(PATHS.config));
+      expect(savedConfig.intentSource.apiKey).toBe('$GITHUB_TOKEN');
     });
   });
 });

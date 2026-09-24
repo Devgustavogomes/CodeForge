@@ -107,7 +107,7 @@ describe("run CLI command", () => {
 
     const result = await runAction("intent-a");
 
-    expect(runInteractiveMenu).not.toHaveBeenCalled();
+    expect(runInteractiveMenu).toHaveBeenCalledTimes(0);
     expect(createTaskScheduler).toHaveBeenCalledTimes(1);
     expect(mockScheduler.run).toHaveBeenCalledWith("intent-a", "test-agent");
     expect(result).toEqual({ success: true });
@@ -209,8 +209,8 @@ describe("run CLI command", () => {
     const result = await runAction();
 
     expect(result).toEqual({ back: true });
-    expect(createTaskScheduler).not.toHaveBeenCalled();
-    expect(mockScheduler.run).not.toHaveBeenCalled();
+    expect(createTaskScheduler).toHaveBeenCalledTimes(0);
+    expect(mockScheduler.run).toHaveBeenCalledTimes(0);
     expect(process.exitCode).toBeUndefined();
   });
 
@@ -221,7 +221,7 @@ describe("run CLI command", () => {
     const result = await runAction();
 
     expect(consoleError).toHaveBeenCalledWith("\n[x] No intents found.\n");
-    expect(createTaskScheduler).not.toHaveBeenCalled();
+    expect(createTaskScheduler).toHaveBeenCalledTimes(0);
     expect(result).toEqual({ success: false });
     expect(process.exitCode).toBe(1);
   });
@@ -300,6 +300,6 @@ describe("run CLI command", () => {
     await program.parseAsync(["node", "codeforge", "run", "auth-intent"]);
 
     expect(mockScheduler.run).toHaveBeenCalledWith("auth-intent", "test-agent");
-    expect(runInteractiveMenu).not.toHaveBeenCalled();
+    expect(runInteractiveMenu).toHaveBeenCalledTimes(0);
   });
 });

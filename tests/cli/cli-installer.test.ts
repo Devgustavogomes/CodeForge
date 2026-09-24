@@ -95,7 +95,7 @@ describe("CliInstaller", () => {
       });
 
       expect(result).toEqual({ required: false, available: true, command: null });
-      expect(spawnMock).not.toHaveBeenCalled();
+      expect(spawnMock).toHaveBeenCalledTimes(0);
     });
 
     it.each([

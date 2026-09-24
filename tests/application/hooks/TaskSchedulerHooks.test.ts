@@ -63,8 +63,8 @@ describe("TaskScheduler hook dispatch", () => {
   });
 
   it("exposes AI review lifecycle events and review result metadata", () => {
-    expect(HOOK_EVENTS).toContain("review.started");
-    expect(HOOK_EVENTS).toContain("review.completed");
+    expect(HOOK_EVENTS.filter((event) => event === "review.started")).toHaveLength(1);
+    expect(HOOK_EVENTS.filter((event) => event === "review.completed")).toHaveLength(1);
 
     const context: HookContext = {
       event: "review.completed",
@@ -100,8 +100,8 @@ describe("TaskScheduler hook dispatch", () => {
     const result = await scheduler.run("intent");
 
     expect(result.status).toBe("completed");
-    expect(runner.execute).not.toHaveBeenCalled();
-    expect(hooks.events()).not.toContain("review.started");
+    expect(runner.execute).toHaveBeenCalledTimes(0);
+    expect(hooks.events()).toEqual([]);
   });
 
   function schedulerFor(runner: AgentRunner, withHooks = true): TaskScheduler {
@@ -165,9 +165,7 @@ describe("TaskScheduler hook dispatch", () => {
       "task.failed",
       "run.failed",
     ]);
-    expect(hooks.contexts.find((c) => c.event === "task.failed")?.errors).toEqual([
-      "agent exploded",
-    ]);
+    expect(hooks.contexts.find((c) => c.event === "task.failed")?.errors).toHaveLength(1);
   });
 
   it("reports a deadlock when a dependency can never complete", async () => {
@@ -177,7 +175,7 @@ describe("TaskScheduler hook dispatch", () => {
     await schedulerFor(runner).run("intent");
 
     expect(hooks.events()).toEqual(["run.started", "run.deadlock"]);
-    expect(runner.execute).not.toHaveBeenCalled();
+    expect(runner.execute).toHaveBeenCalledTimes(0);
   });
 
   it("announces each task of a dependency chain in order", async () => {

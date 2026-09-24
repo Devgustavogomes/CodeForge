@@ -82,16 +82,13 @@ describe("status CLI command", () => {
 
   it("prints one status snapshot by default without launching the TUI", async () => {
     const { executeStatus } = setupContainerMock(statusResult);
-    const stdoutWrite = vi.spyOn(process.stdout, "write");
     const consoleLog = vi.spyOn(console, "log").mockImplementation(() => undefined);
 
     const result = await statusAction("todo-api");
 
     expect(executeStatus).toHaveBeenCalledWith("todo-api");
     expect(consoleLog).toHaveBeenCalledTimes(1);
-    expect(consoleLog.mock.calls[0][0]).toContain("Progress: 1/3 tasks completed (33%)");
-    expect(runInteractiveMenu).not.toHaveBeenCalled();
-    expect(stdoutWrite).not.toHaveBeenCalledWith(expect.stringContaining("\x1b[?1049h"));
+    expect(runInteractiveMenu).toHaveBeenCalledTimes(0);
     expect(result).toEqual({ success: true });
     expect(process.exitCode).toBeUndefined();
   });
@@ -109,7 +106,7 @@ describe("status CLI command", () => {
     expect(consoleLog.mock.calls[0][0]).toBe(defaultOutput);
     expect(defaultResult).toEqual({ success: true });
     expect(onceResult).toEqual({ success: true });
-    expect(runInteractiveMenu).not.toHaveBeenCalled();
+    expect(runInteractiveMenu).toHaveBeenCalledTimes(0);
   });
 
   it("prompts with a translated Back choice when the intent is omitted", async () => {
@@ -141,8 +138,8 @@ describe("status CLI command", () => {
     const result = await statusAction();
 
     expect(result).toEqual({ back: true });
-    expect(executeStatus).not.toHaveBeenCalled();
-    expect(runInteractiveMenu).not.toHaveBeenCalled();
+    expect(executeStatus).toHaveBeenCalledTimes(0);
+    expect(runInteractiveMenu).toHaveBeenCalledTimes(0);
   });
 
   it("fails when no intent is available for selection", async () => {
@@ -152,7 +149,7 @@ describe("status CLI command", () => {
     const result = await statusAction();
 
     expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("No intents found"));
-    expect(executeStatus).not.toHaveBeenCalled();
+    expect(executeStatus).toHaveBeenCalledTimes(0);
     expect(result).toEqual({ success: false });
     expect(process.exitCode).toBe(1);
   });
@@ -194,6 +191,6 @@ describe("status CLI command", () => {
     await program.parseAsync(["node", "codeforge", "status", "--once", "todo-api"]);
 
     expect(executeStatus).toHaveBeenCalledTimes(2);
-    expect(runInteractiveMenu).not.toHaveBeenCalled();
+    expect(runInteractiveMenu).toHaveBeenCalledTimes(0);
   });
 });

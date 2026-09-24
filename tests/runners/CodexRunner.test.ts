@@ -13,9 +13,13 @@ describe('CodexRunner', () => {
       silent: true, quietTerminal: true, onLog,
     });
 
-    expect(spawn).toHaveBeenCalledWith('codex', expect.any(Array), expect.objectContaining({
+    expect(spawn).toHaveBeenCalledWith('codex', [
+      '--ask-for-approval', 'never', 'exec', '--sandbox', 'workspace-write',
+      '--model', 'gpt-5.6-terra', '-',
+    ], expect.objectContaining({
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
+      pipePromptFile: 'review.md',
       onStdout: onLog,
       onStderr: onLog,
     }));

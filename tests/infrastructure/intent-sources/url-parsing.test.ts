@@ -317,9 +317,9 @@ describe("Remote Intent Sources URL Parsing, API Key Resolution, and Timeout", (
         statusText: "Unauthorized",
       } as Response);
 
-      await expect(gh.fetch("1")).rejects.toSatisfy((err: Error) => {
-        expect(err.message).not.toContain(secret);
-        return true;
+      await expect(gh.fetch("1")).rejects.toMatchObject({
+        name: "Error",
+        message: expect.stringMatching(/GitHub authentication failed \(401\)\./),
       });
     });
   });

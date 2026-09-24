@@ -155,6 +155,32 @@ describe("BaseProcessRunner - Log Streaming", () => {
     expect(capturedOptions?.onStderr).toBe(onLog);
   });
 
+  it("forwards the configured process timeout", async () => {
+    let capturedOptions: ProcessSpawnOptions | undefined;
+    const mockExecutor: ProcessExecutor = {
+      exec: vi.fn(),
+      spawn: vi.fn(async (_cmd, _args, options) => {
+        capturedOptions = options;
+        return { stdout: "", stderr: "", exitCode: 0 };
+      }),
+    };
+    const runner = new TestRunner(mockExecutor);
+    runner.setSpawnOptions({ timeout: 1500 });
+
+    await runner.execute(createContext());
+
+    expect(capturedOptions?.timeout).toBe(1500);
+  });
+
+  it("rejects when a cancelled process exits without an exit code", async () => {
+    const mockExecutor: ProcessExecutor = {
+      exec: vi.fn(),
+      spawn: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: null })),
+    };
+
+    await expect(new TestRunner(mockExecutor).execute(createContext())).rejects.toThrow();
+  });
+
   it("streams stdout and stderr chunks in real-time through onLog using NodeProcessExecutor", async () => {
     const receivedLogs: string[] = [];
     const onLog = (chunk: string): void => {

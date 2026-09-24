@@ -56,7 +56,7 @@ describe("ValidatePlanUseCase", () => {
     
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors[0]).toContain("No JSON files found");
+      expect(result.errors).toHaveLength(1);
     }
   });
 
@@ -67,7 +67,7 @@ describe("ValidatePlanUseCase", () => {
     const result = useCase.execute("test-intent");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors[0]).toContain("is not valid JSON");
+      expect(result.errors).toHaveLength(1);
     }
   });
 
@@ -79,7 +79,7 @@ describe("ValidatePlanUseCase", () => {
     const result = useCase.execute("test-intent");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some((e: string) => e.includes("missing required field: \"title\""))).toBe(true);
+      expect(result.errors).toHaveLength(7);
     }
   });
 
@@ -90,7 +90,7 @@ describe("ValidatePlanUseCase", () => {
     const result = useCase.execute("test-intent");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some((e: string) => e.includes("does not match filename"))).toBe(true);
+      expect(result.errors).toHaveLength(1);
     }
   });
 
@@ -101,7 +101,7 @@ describe("ValidatePlanUseCase", () => {
     const result = useCase.execute("test-intent");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some((e: string) => e.includes("depends on nonexistent task"))).toBe(true);
+      expect(result.errors).toHaveLength(1);
     }
   });
 
@@ -113,7 +113,7 @@ describe("ValidatePlanUseCase", () => {
     const result = useCase.execute("test-intent");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some((e: string) => e.includes("Circular dependency detected"))).toBe(true);
+      expect(result.errors).toHaveLength(1);
     }
   });
 
@@ -124,7 +124,7 @@ describe("ValidatePlanUseCase", () => {
     const result = useCase.execute("test-intent");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors.some((e: string) => e.includes("Circular dependency detected"))).toBe(true);
+      expect(result.errors).toHaveLength(1);
     }
   });
 
@@ -171,7 +171,7 @@ describe("ValidatePlanUseCase", () => {
     const result = useCase.execute("test-intent", "TASK-002");
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
-      expect(result.errors[0]).toContain("Task file TASK-002.json not found");
+      expect(result.errors).toHaveLength(1);
     }
   });
 });

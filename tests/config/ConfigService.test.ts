@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import yaml from 'yaml';
 import { ConfigService } from '../../src/config/ConfigService.js';
 import { CodeForgeConfig } from '../../src/config/types.js';
 import { PATHS } from '../../src/infrastructure/paths.js';
@@ -106,11 +107,14 @@ describe('ConfigService', () => {
       expect(loadedConfig?.intentSource?.project).toBe('org/repo');
       expect(loadedConfig?.intentSource?.apiKey).toBe('token-123');
 
-      const rawSavedContent = workspace.readFile(PATHS.config);
-      expect(rawSavedContent).toContain('apiKey: $GITHUB_TOKEN');
+      const savedConfig = yaml.parse(workspace.readFile(PATHS.config));
+      expect(savedConfig.intentSource).toEqual({
+        provider: 'github',
+        project: 'org/repo',
+        apiKey: '$GITHUB_TOKEN',
+      });
     } finally {
       delete process.env.GITHUB_TOKEN;
     }
   });
 });
-

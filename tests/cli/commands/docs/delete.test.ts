@@ -101,8 +101,8 @@ describe("docs delete CLI command", () => {
     const result = await docsDeleteAction();
 
     expect(result).toEqual({ back: true });
-    expect(confirm).not.toHaveBeenCalled();
-    expect(deleteDocUseCase.execute).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(0);
+    expect(deleteDocUseCase.execute).toHaveBeenCalledTimes(0);
   });
 
   it("returns without deleting when confirmation is rejected", async () => {
@@ -113,7 +113,7 @@ describe("docs delete CLI command", () => {
     const result = await docsDeleteAction("api");
 
     expect(result).toEqual({ back: true });
-    expect(deleteDocUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteDocUseCase.execute).toHaveBeenCalledTimes(0);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("cancelled"));
     expect(process.exitCode).toBeUndefined();
   });
@@ -128,7 +128,7 @@ describe("docs delete CLI command", () => {
     const result = await docsDeleteAction();
 
     expect(result).toEqual({ back: true });
-    expect(deleteDocUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteDocUseCase.execute).toHaveBeenCalledTimes(0);
     expect(process.exitCode).toBeUndefined();
   });
 
@@ -140,7 +140,7 @@ describe("docs delete CLI command", () => {
     const result = await docsDeleteAction(undefined, { force: true });
 
     expect(select).toHaveBeenCalledOnce();
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(0);
     expect(deleteDocUseCase.execute).toHaveBeenCalledWith("api");
     expect(result).toEqual({ success: true });
   });
@@ -161,7 +161,7 @@ describe("docs delete CLI command", () => {
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining("No documents are available"),
     );
-    expect(deleteDocUseCase.execute).not.toHaveBeenCalled();
+    expect(deleteDocUseCase.execute).toHaveBeenCalledTimes(0);
     expect(process.exitCode).toBe(1);
   });
 
@@ -227,7 +227,7 @@ describe("docs delete CLI command", () => {
       "-f",
     ]);
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledTimes(0);
     expect(deleteDocUseCase.execute).toHaveBeenNthCalledWith(1, "api");
     expect(deleteDocUseCase.execute).toHaveBeenNthCalledWith(2, "guide");
   });

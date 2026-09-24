@@ -177,7 +177,6 @@ describe("PullIntentUseCase - Title-Based Naming and Fallbacks", () => {
     if (result.kind === "success") {
       expect(result.overwritten).toBe(true);
       const content = gw.readFile(result.filePath);
-      expect(content).not.toContain("Pre-existing intent content");
       expect(content).toBe(
         "# [ENG-101] Add User Authentication\n\n" +
           "> **Source:** linear | **URL:** https://linear.app/issue/ENG-101\n\n" +

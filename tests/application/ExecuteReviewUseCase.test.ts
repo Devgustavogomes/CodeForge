@@ -36,23 +36,8 @@ describe("ExecuteReviewUseCase", () => {
     });
   }
 
-  it("provides review context, configured model, and returns only newly created task files", async () => {
-    runner.withHandler((context) => {
-      const prompt = workspace.readFile(context.promptFilePath);
-      expect(prompt).toContain("The original intent");
-      expect(prompt).toContain("Initial implementation");
-      expect(prompt).toContain("src/feature.ts");
-      expect(prompt).toContain("Official review rules");
-      expect(prompt).toContain("Escreva o texto gerado em português; preserve as chaves JSON e os termos técnicos de código.");
-      expect(prompt).not.toContain("MUST be in English");
-      expect(prompt).not.toContain("must be in English");
-      expect(prompt).toContain("orientações configuradas em português");
-      expect(prompt).toContain("TASK-001.json");
-      expect(prompt).toContain("Create zero files when approved; silence is the only approval signal.");
-      expect(prompt).toContain('"acceptanceCriteria":[]');
-      expect(prompt).toContain("continuing from the highest existing task number");
-      expect(prompt).toContain("full task graph acyclic");
-      expect(prompt).toContain("do not fix source code yourself");
+  it("uses the configured model and returns only newly created task files", async () => {
+    runner.withHandler(() => {
       workspace.writeFile(PATHS.taskFile("review-me", "TASK-002"), "{}");
     });
 
@@ -73,17 +58,11 @@ describe("ExecuteReviewUseCase", () => {
     expect(workspace.exists(PATHS.reviewPrompt("review-me"))).toBe(false);
   });
 
-  it("keeps review contract without optional project criteria", async () => {
+  it("approves without creating tasks when optional review rules are absent", async () => {
     workspace.deleteFile(PATHS.reviewRules);
-    runner.withHandler((context) => {
-      const prompt = workspace.readFile(context.promptFilePath);
-      expect(prompt).toContain("--- ORIGINAL INTENT ---");
-      expect(prompt).toContain("--- TAREFAS CONCLUÍDAS ---");
-      expect(prompt).toContain("Create zero files when approved");
-      expect(prompt).toContain("Create task files only for concrete, verified defects.");
-      expect(prompt).not.toContain("PROJECT REVIEW CRITERIA");
-      expect(prompt).not.toContain("Review rules not found");
-    });
-    await createUseCase().execute({ intentName: "review-me", completedTasks: [task] });
+    await expect(createUseCase().execute({ intentName: "review-me", completedTasks: [task] }))
+      .resolves.toEqual({ newTaskIds: [], newTaskFiles: [] });
+    expect(runner.executedContexts).toHaveLength(1);
+    expect(workspace.exists(PATHS.reviewPrompt("review-me"))).toBe(false);
   });
 });

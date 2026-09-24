@@ -49,9 +49,16 @@ describe("ExecutionStateRepository", () => {
     repo.save(state);
 
     const loadedState = repo.load("intent1");
-    expect(loadedState).not.toBeNull();
-    expect(loadedState?.intentId).toBe("intent1");
-    expect(loadedState?.tasks["T1"].status).toBe("pending");
+    expect(loadedState).toMatchObject({
+      intentId: "intent1",
+      status: "running",
+      tasks: {
+        T1: {
+          status: "pending",
+          dependencies: [],
+        },
+      },
+    });
   });
 
   it("should return null if loading non-existent state", () => {

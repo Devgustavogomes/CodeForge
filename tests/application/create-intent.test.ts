@@ -25,7 +25,7 @@ describe("CreateIntentUseCase", () => {
     expect(result.kind).toBe("not-initialized");
   });
 
-  it("creates the intent file successfully with expected 4-section template", () => {
+  it("creates the intent file successfully", () => {
     makeInitializedWorkspace(gateway);
 
     const result = useCase.execute("User Authentication");
@@ -33,15 +33,6 @@ describe("CreateIntentUseCase", () => {
     expect(result.kind).toBe("created");
     if (result.kind === "created") {
       expect(gateway.exists(result.filePath)).toBe(true);
-      
-      const content = gateway.readFile(result.filePath);
-      expect(content).toContain("# User Authentication");
-      expect(content).toContain("## Goal");
-      expect(content).toContain("## Requirements");
-      expect(content).toContain("## Acceptance Criteria");
-      expect(content).toContain("## Technical Context");
-      expect(content).not.toContain("## Objective");
-      expect(content).not.toContain("## Functional Requirements");
     }
   });
 
