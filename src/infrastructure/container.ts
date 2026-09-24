@@ -98,6 +98,8 @@ export interface AppContainer {
   deleteDocUseCase: DeleteDocUseCase;
   executeReviewUseCase: ExecuteReviewUseCase;
 
+  createGeneratePlanUseCase(config: CodeForgeConfig): GeneratePlanUseCase;
+
   hookReporter?: HookReporter;
 
   // Helpers
@@ -264,6 +266,14 @@ export function createAppContainer(
         executorAgent: "default",
         language: "en",
       };
+      const runner = runnerProvider(config.environment);
+      return new GeneratePlanUseCase(workspaceGateway, runner, config, validatePlanUseCase);
+    },
+
+    createGeneratePlanUseCase(config: CodeForgeConfig): GeneratePlanUseCase {
+      if (overrides?.generatePlanUseCase) {
+        return overrides.generatePlanUseCase;
+      }
       const runner = runnerProvider(config.environment);
       return new GeneratePlanUseCase(workspaceGateway, runner, config, validatePlanUseCase);
     },
