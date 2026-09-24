@@ -28,6 +28,7 @@ describe('runInteractiveMenu', () => {
       await runInteractiveMenu();
 
       expect(render).toHaveBeenCalledTimes(1);
+      expect(render).toHaveBeenCalledWith(expect.anything(), { incrementalRendering: true });
       expect(waitUntilExitMock).toHaveBeenCalledTimes(1);
       expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('\x1b[?1049h'));
       expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('\x1b[?1049l'));

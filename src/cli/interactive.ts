@@ -44,7 +44,7 @@ export async function runInteractiveMenu(options: RunInteractiveOptions = {}): P
         cleanup();
       },
     }),
-    // Avoid erasing the entire viewport for every log, timer, or input update.
+    // Preserve incremental updates to avoid flicker during timers and logs.
     { incrementalRendering: true }
   );
 

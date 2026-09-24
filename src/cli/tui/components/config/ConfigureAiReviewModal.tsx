@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { Modal } from '../common/Modal.js';
 import { theme } from '../../theme.js';
 import { AiReviewConfig, resolveAiReviewConfig } from '../../../../config/types.js';
+import { useNavigation } from '../../context/NavigationContext.js';
 
 interface Props {
   initial?: AiReviewConfig;
@@ -12,6 +13,11 @@ interface Props {
 }
 
 export const ConfigureAiReviewModal: React.FC<Props> = ({ initial, agents, onSave, onClose }) => {
+  const { setTextInputActive } = useNavigation();
+  useEffect(() => {
+    setTextInputActive(true);
+    return () => setTextInputActive(false);
+  }, [setTextInputActive]);
   const [review, setReview] = useState(() => resolveAiReviewConfig(initial));
   const [field, setField] = useState(0);
   const [rounds, setRounds] = useState(String(review.maxRounds));

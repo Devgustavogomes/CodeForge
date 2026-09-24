@@ -217,7 +217,8 @@ const AppContent: React.FC<{
       <Box
         flexDirection="column"
         width="100%"
-        minHeight={rows > 2 ? rows - 1 : undefined}
+        height={rows > 2 ? rows - 1 : undefined}
+        overflow="hidden"
       >
         <OnboardingWizard
           container={container}

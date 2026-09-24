@@ -52,7 +52,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
 
     if (schedulerStatus === 'reviewing') {
       return (
-        <Box flexDirection="column" paddingX={1} marginBottom={1} width="100%">
+        <Box flexDirection="column" paddingX={1} marginBottom={1} width="100%" flexShrink={0}>
           <Box justifyContent="space-between" width="100%" overflow="hidden">
             <Box gap={1} flexShrink={1} overflow="hidden"><Spinner color={theme.colors.primary} /><Text bold color={theme.colors.primary} wrap="truncate-end">AI Review in progress</Text></Box>
             <Text color={theme.colors.primary} bold>Elapsed: <TimerView startTime={reviewStartedAt ?? startedAt} isRunning /></Text>
@@ -71,6 +71,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           paddingY={0}
           marginBottom={1}
           width="100%"
+          flexShrink={0}
         >
           <Box justifyContent="space-between" width="100%">
             <Text bold color={theme.colors.success}>
@@ -109,6 +110,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
           paddingY={0}
           marginBottom={1}
           width="100%"
+          flexShrink={0}
         >
           <Box justifyContent="space-between" width="100%">
             <Text bold color={theme.colors.error}>
@@ -159,6 +161,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
         paddingY={0}
         marginBottom={0}
         width="100%"
+        flexShrink={0}
       >
         <Box justifyContent="space-between" width="100%" overflow="hidden">
           <Box gap={1} flexShrink={1} overflow="hidden">
