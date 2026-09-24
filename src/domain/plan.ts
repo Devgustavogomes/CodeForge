@@ -1,6 +1,6 @@
 import type { Task } from "./task.js";
 
 export interface Plan {
-  specId: string;
+  intentId: string;
   tasks: Task[];
 }

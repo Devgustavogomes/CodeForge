@@ -1,21 +1,23 @@
-import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { ConfigService } from "../../config/ConfigService.js";
 import { RunnerFactory } from "../../runners/RunnerFactory.js";
 import { CodeForgeConfig } from "../../config/types.js";
+import { AgentRunner } from "../../runners/AgentRunner.js";
+
+export type RunnerProvider = (environment: string) => AgentRunner;
 
 export class ConfigureEnvironmentUseCase {
-  private readonly configService: ConfigService;
-
-  constructor(private readonly gw: WorkspaceGateway) {
-    this.configService = new ConfigService(this.gw);
-  }
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly runnerProvider: RunnerProvider = (environment: string) =>
+      RunnerFactory.createRunner(environment),
+  ) {}
 
   getAvailableEnvironments(): string[] {
     return RunnerFactory.getAvailableEnvironments();
   }
 
   async getAgentsForEnvironment(environment: string): Promise<string[]> {
-    const runner = RunnerFactory.createRunner(environment);
+    const runner = this.runnerProvider(environment);
     if (runner.getAvailableAgents) {
       return runner.getAvailableAgents();
     }
@@ -23,7 +25,12 @@ export class ConfigureEnvironmentUseCase {
   }
 
   saveConfig(config: CodeForgeConfig): void {
-    this.configService.saveConfig(config);
+    const existingConfig = this.loadConfig();
+    const mergedConfig: CodeForgeConfig = {
+      ...(existingConfig || {}),
+      ...config,
+    };
+    this.configService.saveConfig(mergedConfig);
   }
 
   loadConfig(): CodeForgeConfig | null {

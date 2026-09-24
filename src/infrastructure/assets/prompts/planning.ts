@@ -1,42 +1,58 @@
 export function buildPlanningPrompt(
-  specName: string,
-  specContent: string,
+  intentName: string,
+  intentContent: string,
   rulesContent: string,
   tasksDir: string,
   language: string,
 ): string {
-  return `SYSTEM PROMPT FOR AI AGENT:
-You have been requested to plan the spec '${specName}'.
+  const userRules = rulesContent?.trim()
+    ? `\n--- PROJECT PLANNING RULES ---\n${rulesContent.trim()}\n`
+    : "";
 
---- RULES ---
-${rulesContent}
+  return `Decompose intent '${intentName}' into atomic tasks. Preserve scope; do not invent features or write source code. Write generated prose in ${language}; preserve JSON keys and technical code terms.
 
---- SPEC: ${specName} ---
-${specContent}
+--- TASK SIZE & GRANULARITY ---
+### Unit of work
+A Task must be:
+- Implementable — the agent can complete it in a single context window.
+- Coherent — it represents a meaningful unit of work, not an arbitrary split.
+- Verifiable — it has clear acceptance criteria that can be checked.
 
---- INSTRUCTION ---
-All your output, documentation, and task descriptions MUST be written in ${language}.
+### Granularity
+Do NOT create Tasks that are too small:
+\`\`\`
+❌ TASK-001 → create file
+❌ TASK-002 → create class
+❌ TASK-003 → add method
+\`\`\`
 
---- ACTION REQUIRED ---
-1. Generate the JSON files and save them in ${tasksDir}
-2. Stop execution and wait for the system to validate the plan.`;
+Do NOT create Tasks that are too large:
+\`\`\`
+❌ TASK-001 → implement the entire feature
+\`\`\`
+
+Aim for a coherent slice. For example, implementing a use case may include its controller, DTO, use case class, repository call — if they form a single coherent unit.
+
+Write each task as one JSON object to '${tasksDir}/TASK-XXX.json'. Required fields:
+{"id":"TASK-001","title":"...","objective":"...","context":"...","implementation":"...","files":["..."],"dependencies":[],"constraints":["..."],"acceptanceCriteria":["..."]}
+Dependencies must reference valid task IDs and form a DAG.
+${userRules}
+--- INTENT ---
+${intentContent}
+
+Create the task JSON files in '${tasksDir}'.`;
 }
 
 export function buildPlanningFixPrompt(
-  specName: string,
+  intentName: string,
   errors: string[],
   language: string,
+  tasksDir: string,
 ): string {
   const errorsList = errors.map((e) => `- ${e}`).join("\n");
-  return `SYSTEM PROMPT FOR AI AGENT:
-The validation for your generated plan for '${specName}' failed with the following errors:
+  return `Fix the invalid plan for intent '${intentName}'. Preserve intent scope; do not invent features or write source code. Write generated prose in ${language}; preserve JSON keys and technical code terms.
 
-${errorsList}
+Write each task as one JSON object to '${tasksDir}/TASK-XXX.json' with exactly these fields: {"id":"TASK-001","title":"...","objective":"...","context":"...","implementation":"...","files":["..."],"dependencies":[],"constraints":["..."],"acceptanceCriteria":["..."]}. Dependencies must reference valid task IDs and form a DAG.
 
---- INSTRUCTION ---
-All your output, documentation, and task descriptions MUST be written in ${language}.
-
---- ACTION REQUIRED ---
-1. Fix the errors in the JSON files.
-2. Stop execution and wait for the system to validate the plan again.`;
+Validation errors:\n${errorsList}`;
 }

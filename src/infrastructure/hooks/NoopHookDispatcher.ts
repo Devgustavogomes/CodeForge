@@ -1,5 +1,6 @@
 import { HookDispatcher } from "../../application/ports/HookDispatcher.js";
 import { HookContext, HookResult } from "../../domain/hook.js";
+import { HookReporter } from "../../application/ports/HookReporter.js";
 
 /**
  * Used when a workspace configures no hooks. Keeps call sites free of null
@@ -8,5 +9,9 @@ import { HookContext, HookResult } from "../../domain/hook.js";
 export class NoopHookDispatcher implements HookDispatcher {
   async dispatch(_context: HookContext): Promise<HookResult[]> {
     return [];
+  }
+
+  setReporter(_reporter?: HookReporter): void {
+    // No-op
   }
 }

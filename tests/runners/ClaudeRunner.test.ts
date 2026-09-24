@@ -23,8 +23,8 @@ class FakeChildProcess extends EventEmitter {
 
 function contextFor(overrides: Partial<TaskContext> = {}): TaskContext {
   return {
-    promptFilePath: ".codeforge/executions/spec/TASK-001.temp.prompt.md",
-    specName: "spec",
+    promptFilePath: ".codeforge/executions/intent/TASK-001.temp.prompt.md",
+    intentName: "intent",
     taskId: "TASK-001",
     silent: true,
     ...overrides,
@@ -55,7 +55,7 @@ describe("ClaudeRunner", () => {
 
     expect(spawnMock).toHaveBeenCalledTimes(1);
     expect(spawnMock.mock.calls[0][0]).toBe("claude");
-    expect(spawnArgs()).toContain("-p");
+    expect(spawnArgs()).toEqual(["-p"]);
   });
 
   it("selects the model with the long --model flag", async () => {
@@ -64,25 +64,19 @@ describe("ClaudeRunner", () => {
     expect(spawnArgs()).toEqual(["--model", "sonnet", "-p"]);
   });
 
-  it("never passes -m, which the claude CLI does not accept", async () => {
-    await new ClaudeRunner().execute(contextFor({ model: "sonnet" }));
-
-    expect(spawnArgs()).not.toContain("-m");
-  });
-
   it("omits the model flag when no model is configured", async () => {
     await new ClaudeRunner().execute(contextFor());
 
     expect(spawnArgs()).toEqual(["-p"]);
   });
 
-  it("streams the prompt file over stdin instead of passing its path as the prompt", async () => {
+  it("streams the configured prompt file over stdin", async () => {
     const context = contextFor();
 
     await new ClaudeRunner().execute(context);
 
     expect(createReadStreamMock).toHaveBeenCalledWith(context.promptFilePath);
-    expect(spawnArgs()).not.toContain(context.promptFilePath);
+    expect(spawnArgs()).toEqual(["-p"]);
   });
 
   it("rejects when the claude process exits non-zero", async () => {

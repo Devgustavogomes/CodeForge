@@ -2,15 +2,27 @@ import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach } from "vitest";
 import { ConfigureEnvironmentUseCase } from "../../src/application/use-cases/ConfigureEnvironmentUseCase.js";
 import { CodeForgeConfig } from "../../src/config/types.js";
+import { FakeProcessExecutor } from "../helpers/fake-process-executor.js";
+import { ConfigService } from "../../src/config/ConfigService.js";
+import { RunnerFactory } from "../../src/runners/RunnerFactory.js";
 
 describe("ConfigureEnvironmentUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let fakeExecutor: FakeProcessExecutor;
   let useCase: ConfigureEnvironmentUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
     gateway.mkdir(".codeforge");
-    useCase = new ConfigureEnvironmentUseCase(gateway);
+    fakeExecutor = new FakeProcessExecutor();
+    fakeExecutor.registerResponse(/agy models/, {
+      stdout: "gemini-1.5-pro\ngemini-1.5-flash\n",
+      exitCode: 0,
+    });
+    const configService = new ConfigService(gateway);
+    const runnerProvider = (env: string) =>
+      RunnerFactory.createRunner(env, fakeExecutor);
+    useCase = new ConfigureEnvironmentUseCase(configService, runnerProvider);
   });
 
   it("returns available environments list", () => {
@@ -22,6 +34,7 @@ describe("ConfigureEnvironmentUseCase", () => {
   it("returns agents for an environment", async () => {
     const agents = await useCase.getAgentsForEnvironment("antigravity");
     expect(Array.isArray(agents)).toBe(true);
+    expect(agents).toEqual(["gemini-1.5-pro", "gemini-1.5-flash"]);
   });
 
   it("saves and loads configuration", () => {
@@ -35,6 +48,9 @@ describe("ConfigureEnvironmentUseCase", () => {
     useCase.saveConfig(config);
     const loaded = useCase.loadConfig();
 
-    expect(loaded).toEqual(config);
+    expect(loaded).toEqual({
+      ...config,
+      aiReview: { enabled: false, agent: "default", maxRounds: 3 },
+    });
   });
 });

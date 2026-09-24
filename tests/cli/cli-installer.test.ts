@@ -1,8 +1,29 @@
-import { describe, it, expect } from "vitest";
-import { CliInstaller, CLI_INSTALL_COMMANDS } from "../../src/cli/installer/CliInstaller.js";
-import { getCodeForgeBanner, CODEFORGE_ASCII } from "../../src/cli/ui/banner.js";
+import { ChildProcess } from "node:child_process";
+import { EventEmitter } from "node:events";
+import { describe, it, expect, vi } from "vitest";
+import {
+  CliInstaller,
+  CLI_INSTALL_COMMANDS,
+  CliInstallerDependencies,
+} from "../../src/cli/installer/CliInstaller.js";
 
 describe("CliInstaller", () => {
+  function controlledProcess(
+    event: "close" | "error",
+    value: number | Error,
+  ): { child: ChildProcess; dependencies: CliInstallerDependencies; spawn: ReturnType<typeof vi.fn> } {
+    const child = new EventEmitter() as ChildProcess;
+    const spawnMock = vi.fn(() => {
+      queueMicrotask(() => child.emit(event, value));
+      return child;
+    });
+    return {
+      child,
+      spawn: spawnMock,
+      dependencies: { spawn: spawnMock },
+    };
+  }
+
   it("detects Windows platform correctly", () => {
     expect(CliInstaller.isWindows("win32")).toBe(true);
     expect(CliInstaller.isWindows("darwin")).toBe(false);
@@ -66,6 +87,78 @@ describe("CliInstaller", () => {
       expect(CliInstaller.getInstallCommand("unknown", "win32")).toBeNull();
     });
 
+    it("não cria processo quando o ambiente não exige CLI externa", async () => {
+      const spawnMock = vi.fn();
+
+      const result = await CliInstaller.detectCli("local", "linux", {
+        spawn: spawnMock,
+      });
+
+      expect(result).toEqual({ required: false, available: true, command: null });
+      expect(spawnMock).toHaveBeenCalledTimes(0);
+    });
+
+    it.each([
+      ["win32", "codex"],
+      ["darwin", "claude"],
+      ["linux", "agy"],
+    ] as const)("detecta a CLI no PATH em %s", async (platform, executable) => {
+      const process = controlledProcess("close", 0);
+
+      const result = await CliInstaller.detectCli(
+        executable === "agy" ? "antigravity" : executable,
+        platform,
+        process.dependencies,
+      );
+
+      expect(result).toMatchObject({ required: true, available: true, executable });
+      expect(process.spawn).toHaveBeenCalledWith(
+        platform === "win32" ? "where.exe" : "which",
+        [executable],
+        expect.objectContaining({ shell: false, stdio: "ignore" }),
+      );
+    });
+
+    it("registra a ausência quando o executável termina com erro", async () => {
+      const process = controlledProcess("close", 127);
+
+      const result = await CliInstaller.detectCli("claude", "linux", process.dependencies);
+
+      expect(result).toMatchObject({ required: true, available: false, executable: "claude" });
+      expect(result.error).toBeUndefined();
+    });
+
+    it("retorna o erro controlado quando não consegue iniciar a detecção", async () => {
+      const error = new Error("spawn indisponível");
+      const process = controlledProcess("error", error);
+
+      const result = await CliInstaller.detectCli("cursor", "win32", process.dependencies);
+
+      expect(result).toMatchObject({ required: true, available: false, executable: "agent", error });
+    });
+
+    it("instala com sucesso por meio da dependência controlada", async () => {
+      const process = controlledProcess("close", 0);
+
+      const result = await CliInstaller.installCli("codex", "linux", process.dependencies);
+
+      expect(result).toEqual({ success: true });
+      expect(process.spawn).toHaveBeenCalledWith(
+        CLI_INSTALL_COMMANDS.codex.unixScript,
+        [],
+        { shell: true, stdio: "inherit" },
+      );
+    });
+
+    it("propaga falha da instalação sem executar processo real", async () => {
+      const process = controlledProcess("close", 1);
+
+      const result = await CliInstaller.installCli("codex", "win32", process.dependencies);
+
+      expect(result.success).toBe(false);
+      expect(result.error?.message).toBe("Process exited with code 1");
+    });
+
     it("fails gracefully when attempting to install an unknown environment", async () => {
       const result = await CliInstaller.installCli("unknown");
       expect(result.success).toBe(false);
@@ -74,10 +167,3 @@ describe("CliInstaller", () => {
   });
 });
 
-describe("Banner", () => {
-  it("generates banner containing CODEFORGE ASCII and description", () => {
-    const banner = getCodeForgeBanner();
-    expect(banner).toContain(CODEFORGE_ASCII);
-    expect(banner).toContain("Deterministic AI Workflow Engine");
-  });
-});

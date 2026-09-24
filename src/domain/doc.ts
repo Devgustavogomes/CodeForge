@@ -1,6 +1,6 @@
 export interface DocsManifestEntry {
   path: string;
-  specs: string[];
+  intents: string[];
   scope: string[];
   createdAt: string;
   updatedAt: string;
@@ -14,6 +14,6 @@ export interface DocsManifest {
 export interface AffectedDoc {
   docName: string;
   docPath: string;
-  specPaths: string[];
+  intentPaths: string[];
   matchedFiles: string[];
 }

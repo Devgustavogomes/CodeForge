@@ -6,9 +6,9 @@ import { Task } from "../../src/domain/task.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge");
-  gateway.mkdir(".codeforge/specs");
+  gateway.mkdir(".codeforge/intents");
   gateway.mkdir(".codeforge/executions");
-  gateway.mkdir(".codeforge/tasks/test-spec");
+  gateway.mkdir(".codeforge/tasks/test-intent");
   gateway.writeFile(".codeforge/metadata.json", JSON.stringify({ initialized: true }));
   gateway.writeFile(".codeforge/config.yaml", 'version: "1.0"\n');
 }
@@ -25,40 +25,41 @@ function writeTask(gateway: InMemoryWorkspaceGateway, id: string, deps: string[]
     constraints: [],
     acceptanceCriteria: []
   };
-  gateway.writeFile(`.codeforge/tasks/test-spec/${id}.json`, JSON.stringify(task));
+  gateway.writeFile(`.codeforge/tasks/test-intent/${id}.json`, JSON.stringify(task));
 }
 
-function setupExecutionState(gateway: InMemoryWorkspaceGateway, specName: string, tasks: Partial<Task>[]) {
+function setupExecutionState(gateway: InMemoryWorkspaceGateway, intentName: string, tasks: Partial<Task>[]) {
   const repo = new ExecutionStateRepository(gateway);
-  const state = repo.init(specName, tasks as Task[]);
+  const state = repo.init(intentName, tasks as Task[]);
   repo.save(state);
   return state;
 }
 
 describe("TaskOperationsUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
+  let repo: ExecutionStateRepository;
   let useCase: TaskOperationsUseCase;
 
   beforeEach(() => {
     gateway = new InMemoryWorkspaceGateway();
-    useCase = new TaskOperationsUseCase(gateway);
+    repo = new ExecutionStateRepository(gateway);
+    useCase = new TaskOperationsUseCase(gateway, repo);
   });
 
   describe("retryTask", () => {
     it("resets a running task back to pending", () => {
       makeWorkspace(gateway);
       writeTask(gateway, "TASK-001", []);
-      
-      // Simulate TaskScheduler initialization
-      const state = setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
-      state.tasks["TASK-001"].status = "running";
-      new ExecutionStateRepository(gateway).save(state);
 
-      const result = useCase.retryTask("test-spec", "TASK-001");
+      // Simulate TaskScheduler initialization
+      const state = setupExecutionState(gateway, "test-intent", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      state.tasks["TASK-001"].status = "running";
+      repo.save(state);
+
+      const result = useCase.retryTask("test-intent", "TASK-001");
       expect(result.kind).toBe("retried");
 
-      const statePath = ".codeforge/executions/test-spec.json";
-      const newState = JSON.parse(gateway.readFile(statePath));
+      const newState = repo.load("test-intent")!;
       expect(newState.tasks["TASK-001"].status).toBe("pending");
     });
 
@@ -66,17 +67,16 @@ describe("TaskOperationsUseCase", () => {
       makeWorkspace(gateway);
       writeTask(gateway, "TASK-001", []);
 
-      const state = setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      const state = setupExecutionState(gateway, "test-intent", [{ id: "TASK-001", title: "T", dependencies: [] }]);
       state.status = "failed";
       state.completedAt = new Date().toISOString();
       state.tasks["TASK-001"].status = "failed";
-      new ExecutionStateRepository(gateway).save(state);
+      repo.save(state);
 
-      const result = useCase.retryTask("test-spec", "TASK-001");
+      const result = useCase.retryTask("test-intent", "TASK-001");
       expect(result.kind).toBe("retried");
 
-      const statePath = ".codeforge/executions/test-spec.json";
-      const newState = JSON.parse(gateway.readFile(statePath));
+      const newState = repo.load("test-intent")!;
       expect(newState.tasks["TASK-001"].status).toBe("pending");
       expect(newState.status).toBe("pending");
       expect(newState.completedAt).toBeUndefined();
@@ -87,9 +87,9 @@ describe("TaskOperationsUseCase", () => {
       writeTask(gateway, "TASK-001", []);
       writeTask(gateway, "TASK-002", ["TASK-001"]);
 
-      setupExecutionState(gateway, "test-spec", [{ id: "TASK-002", title: "T", dependencies: ["TASK-001"] }]);
+      setupExecutionState(gateway, "test-intent", [{ id: "TASK-002", title: "T", dependencies: ["TASK-001"] }]);
 
-      const result = useCase.retryTask("test-spec", "TASK-002");
+      const result = useCase.retryTask("test-intent", "TASK-002");
       expect(result.kind).toBe("already-pending");
     });
 
@@ -97,19 +97,19 @@ describe("TaskOperationsUseCase", () => {
       makeWorkspace(gateway);
       writeTask(gateway, "TASK-001", []);
 
-      setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
-      useCase.markTaskCompleted("test-spec", "TASK-001");
+      setupExecutionState(gateway, "test-intent", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      useCase.markTaskCompleted("test-intent", "TASK-001");
 
-      const result = useCase.retryTask("test-spec", "TASK-001");
+      const result = useCase.retryTask("test-intent", "TASK-001");
       expect(result.kind).toBe("already-completed");
     });
 
     it("fails when task does not exist", () => {
       makeWorkspace(gateway);
       writeTask(gateway, "TASK-001", []);
-      setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      setupExecutionState(gateway, "test-intent", [{ id: "TASK-001", title: "T", dependencies: [] }]);
 
-      const result = useCase.retryTask("test-spec", "TASK-999");
+      const result = useCase.retryTask("test-intent", "TASK-999");
       expect(result.kind).toBe("not-found");
     });
   });
@@ -118,32 +118,51 @@ describe("TaskOperationsUseCase", () => {
     it("marks task as completed", () => {
       makeWorkspace(gateway);
       writeTask(gateway, "TASK-001", []);
-      setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      setupExecutionState(gateway, "test-intent", [{ id: "TASK-001", title: "T", dependencies: [] }]);
 
-      const result = useCase.markTaskCompleted("test-spec", "TASK-001");
-      expect(result.kind).toBe("completed");
-      if (result.kind === "completed") {
-        expect(result.allCompleted).toBe(true);
-      }
+      const result = useCase.markTaskCompleted("test-intent", "TASK-001");
+      expect(result).toEqual({ kind: "completed", allCompleted: true });
+
+      const updatedState = repo.load("test-intent")!;
+      expect(updatedState.tasks["TASK-001"].status).toBe("completed");
+      expect(updatedState.status).toBe("completed");
+    });
+
+    it("auto-initializes execution state and marks task completed when state does not exist yet", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+      writeTask(gateway, "TASK-002", ["TASK-001"]);
+
+      expect(repo.load("test-intent")).toBeNull();
+
+      const result = useCase.markTaskCompleted("test-intent", "TASK-001");
+      expect(result).toEqual({ kind: "completed", allCompleted: false });
+
+      const state = repo.load("test-intent")!;
+      expect(state).toBeDefined();
+      expect(state.tasks["TASK-001"].status).toBe("completed");
+      expect(state.tasks["TASK-001"].completedAt).toBeDefined();
+      expect(state.tasks["TASK-002"].status).toBe("pending");
+      expect(state.status).toBe("pending");
     });
   });
 
-  describe("retrySpec", () => {
-    it("returns spec-not-found when spec does not exist", () => {
+  describe("retryIntent / retryIntent", () => {
+    it("returns intent-not-found when intent does not exist", () => {
       makeWorkspace(gateway);
-      const result = useCase.retrySpec("nonexistent");
-      expect(result).toEqual({ kind: "spec-not-found" });
+      const result = useCase.retryIntent("nonexistent");
+      expect(result).toEqual({ kind: "intent-not-found" });
     });
 
     it("returns no-execution when execution state does not exist", () => {
       makeWorkspace(gateway);
-      const result = useCase.retrySpec("test-spec");
-      expect(result).toEqual({ kind: "no-execution", specName: "test-spec" });
+      const result = useCase.retryIntent("test-intent");
+      expect(result).toEqual({ kind: "no-execution", intentName: "test-intent", intentName: "test-intent" });
     });
 
     it("returns all-completed when all tasks are completed", () => {
       makeWorkspace(gateway);
-      const state = setupExecutionState(gateway, "test-spec", [
+      const state = setupExecutionState(gateway, "test-intent", [
         { id: "TASK-001", title: "T1", dependencies: [] },
         { id: "TASK-002", title: "T2", dependencies: [] },
       ]);
@@ -152,13 +171,13 @@ describe("TaskOperationsUseCase", () => {
       state.tasks["TASK-002"].status = "completed";
       new ExecutionStateRepository(gateway).save(state);
 
-      const result = useCase.retrySpec("test-spec");
-      expect(result).toEqual({ kind: "all-completed", specName: "test-spec" });
+      const result = useCase.retryIntent("test-intent");
+      expect(result).toEqual({ kind: "all-completed", intentName: "test-intent", intentName: "test-intent" });
     });
 
     it("returns no-failed-tasks with pendingCount when no tasks failed", () => {
       makeWorkspace(gateway);
-      const state = setupExecutionState(gateway, "test-spec", [
+      const state = setupExecutionState(gateway, "test-intent", [
         { id: "TASK-001", title: "T1", dependencies: [] },
         { id: "TASK-002", title: "T2", dependencies: [] },
       ]);
@@ -166,17 +185,18 @@ describe("TaskOperationsUseCase", () => {
       state.tasks["TASK-002"].status = "pending";
       new ExecutionStateRepository(gateway).save(state);
 
-      const result = useCase.retrySpec("test-spec");
+      const result = useCase.retryIntent("test-intent");
       expect(result).toEqual({
         kind: "no-failed-tasks",
-        specName: "test-spec",
+        intentName: "test-intent",
+        intentName: "test-intent",
         pendingCount: 1,
       });
     });
 
-    it("resets failed tasks to pending, clears startedAt/completedAt, preserves errors, and updates spec status", () => {
+    it("resets failed tasks to pending, clears startedAt/completedAt, preserves errors, and updates intent status", () => {
       makeWorkspace(gateway);
-      const state = setupExecutionState(gateway, "test-spec", [
+      const state = setupExecutionState(gateway, "test-intent", [
         { id: "TASK-001", title: "T1", dependencies: [] },
         { id: "TASK-002", title: "T2", dependencies: [] },
         { id: "TASK-003", title: "T3", dependencies: [] },
@@ -198,15 +218,16 @@ describe("TaskOperationsUseCase", () => {
 
       new ExecutionStateRepository(gateway).save(state);
 
-      const result = useCase.retrySpec("test-spec");
+      const result = useCase.retryIntent("test-intent");
       expect(result).toEqual({
         kind: "retried",
-        specName: "test-spec",
+        intentName: "test-intent",
+        intentName: "test-intent",
         retriedTasks: ["TASK-001"],
       });
 
       const repo = new ExecutionStateRepository(gateway);
-      const updatedState = repo.load("test-spec")!;
+      const updatedState = repo.load("test-intent")!;
       expect(updatedState.status).toBe("pending");
       expect(updatedState.completedAt).toBeUndefined();
       expect(updatedState.startedAt).toBe("2026-09-01T09:00:00.000Z");
@@ -227,35 +248,35 @@ describe("TaskOperationsUseCase", () => {
   });
 
   describe("resetTasks", () => {
-    it("returns spec-not-found when spec does not exist", () => {
+    it("returns intent-not-found when intent does not exist", () => {
       makeWorkspace(gateway);
       const result = useCase.resetTasks("nonexistent");
-      expect(result).toEqual({ kind: "spec-not-found" });
+      expect(result).toEqual({ kind: "intent-not-found" });
 
       const resultSingle = useCase.resetTasks("nonexistent", "TASK-001");
-      expect(resultSingle).toEqual({ kind: "spec-not-found" });
+      expect(resultSingle).toEqual({ kind: "intent-not-found" });
     });
 
     it("returns no-execution when execution state does not exist", () => {
       makeWorkspace(gateway);
-      const result = useCase.resetTasks("test-spec");
-      expect(result).toEqual({ kind: "no-execution", specName: "test-spec" });
+      const result = useCase.resetTasks("test-intent");
+      expect(result).toEqual({ kind: "no-execution", intentName: "test-intent", intentName: "test-intent" });
 
-      const resultSingle = useCase.resetTasks("test-spec", "TASK-001");
-      expect(resultSingle).toEqual({ kind: "no-execution", specName: "test-spec" });
+      const resultSingle = useCase.resetTasks("test-intent", "TASK-001");
+      expect(resultSingle).toEqual({ kind: "no-execution", intentName: "test-intent", intentName: "test-intent" });
     });
 
     it("returns task-not-found when specified taskId does not exist", () => {
       makeWorkspace(gateway);
-      setupExecutionState(gateway, "test-spec", [{ id: "TASK-001", title: "T", dependencies: [] }]);
+      setupExecutionState(gateway, "test-intent", [{ id: "TASK-001", title: "T", dependencies: [] }]);
 
-      const result = useCase.resetTasks("test-spec", "TASK-999");
+      const result = useCase.resetTasks("test-intent", "TASK-999");
       expect(result).toEqual({ kind: "task-not-found", taskId: "TASK-999" });
     });
 
-    it("resets a single task, removing startedAt, completedAt, errors, and resets spec completedAt", () => {
+    it("resets a single task, removing startedAt, completedAt, errors, and resets intent completedAt", () => {
       makeWorkspace(gateway);
-      const state = setupExecutionState(gateway, "test-spec", [
+      const state = setupExecutionState(gateway, "test-intent", [
         { id: "TASK-001", title: "T1", dependencies: [] },
         { id: "TASK-002", title: "T2", dependencies: [] },
       ]);
@@ -274,15 +295,16 @@ describe("TaskOperationsUseCase", () => {
 
       new ExecutionStateRepository(gateway).save(state);
 
-      const result = useCase.resetTasks("test-spec", "TASK-001");
+      const result = useCase.resetTasks("test-intent", "TASK-001");
       expect(result).toEqual({
         kind: "reset-single",
-        specName: "test-spec",
+        intentName: "test-intent",
+        intentName: "test-intent",
         taskId: "TASK-001",
       });
 
       const repo = new ExecutionStateRepository(gateway);
-      const updatedState = repo.load("test-spec")!;
+      const updatedState = repo.load("test-intent")!;
       expect(updatedState.status).toBe("pending");
       expect(updatedState.completedAt).toBeUndefined();
       expect(updatedState.startedAt).toBe("2026-09-01T09:00:00.000Z");
@@ -297,9 +319,9 @@ describe("TaskOperationsUseCase", () => {
       expect(updatedState.tasks["TASK-002"].completedAt).toBe("2026-09-01T10:05:00.000Z");
     });
 
-    it("resets all tasks when taskId is omitted, clearing all timestamps/errors and spec startedAt/completedAt", () => {
+    it("resets all tasks when taskId is omitted, clearing all timestamps/errors and intent startedAt/completedAt", () => {
       makeWorkspace(gateway);
-      const state = setupExecutionState(gateway, "test-spec", [
+      const state = setupExecutionState(gateway, "test-intent", [
         { id: "TASK-001", title: "T1", dependencies: [] },
         { id: "TASK-002", title: "T2", dependencies: [] },
       ]);
@@ -319,15 +341,16 @@ describe("TaskOperationsUseCase", () => {
 
       new ExecutionStateRepository(gateway).save(state);
 
-      const result = useCase.resetTasks("test-spec");
+      const result = useCase.resetTasks("test-intent");
       expect(result).toEqual({
         kind: "reset-all",
-        specName: "test-spec",
+        intentName: "test-intent",
+        intentName: "test-intent",
         count: 2,
       });
 
       const repo = new ExecutionStateRepository(gateway);
-      const updatedState = repo.load("test-spec")!;
+      const updatedState = repo.load("test-intent")!;
       expect(updatedState.status).toBe("pending");
       expect(updatedState.startedAt).toBeUndefined();
       expect(updatedState.completedAt).toBeUndefined();
@@ -341,6 +364,25 @@ describe("TaskOperationsUseCase", () => {
       expect(updatedState.tasks["TASK-002"].startedAt).toBeUndefined();
       expect(updatedState.tasks["TASK-002"].completedAt).toBeUndefined();
       expect(updatedState.tasks["TASK-002"].errors).toBeUndefined();
+    });
+
+    it("auto-initializes execution state and resets task when state does not exist yet", () => {
+      makeWorkspace(gateway);
+      writeTask(gateway, "TASK-001", []);
+
+      expect(repo.load("test-intent")).toBeNull();
+
+      const result = useCase.resetTasks("test-intent", "TASK-001");
+      expect(result).toEqual({
+        kind: "reset-single",
+        intentName: "test-intent",
+        intentName: "test-intent",
+        taskId: "TASK-001",
+      });
+
+      const state = repo.load("test-intent")!;
+      expect(state).toBeDefined();
+      expect(state.tasks["TASK-001"].status).toBe("pending");
     });
   });
 });

@@ -1,10 +1,11 @@
 import { planningRule } from "../../infrastructure/assets/rules/planning.js";
 import { runningRule } from "../../infrastructure/assets/rules/running.js";
 import { docsRule, docsUpdateRule } from "../../infrastructure/assets/rules/docs.js";
+import { reviewRule } from "../../infrastructure/assets/rules/review.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 
-const SUBDIRECTORIES = ["specs", "tasks", "executions", "rules", "docs"];
+const SUBDIRECTORIES = ["intents", "tasks", "executions", "rules", "docs"];
 
 interface WorkspaceMetadata {
   initialized: boolean;
@@ -22,11 +23,11 @@ export class InitializeWorkspaceUseCase {
   execute(): InitResult {
     if (this.gw.exists(PATHS.metadata)) {
       const raw = this.gw.readFile(PATHS.metadata);
-    const metadata = JSON.parse(raw) as WorkspaceMetadata;
-    if (metadata.initialized) {
-      return { kind: "already-initialized" };
+      const metadata = JSON.parse(raw) as WorkspaceMetadata;
+      if (metadata.initialized) {
+        return { kind: "already-initialized" };
+      }
     }
-  }
 
     const created: string[] = [];
 
@@ -49,21 +50,20 @@ export class InitializeWorkspaceUseCase {
       }
     }
 
-    // Write planning rules
-    this.gw.writeFile(PATHS.planningRules, planningRule);
-    created.push(PATHS.planningRules);
-
-    // Write running rules
-    this.gw.writeFile(PATHS.runningRules, runningRule);
-    created.push(PATHS.runningRules);
-
-    // Write docs rules
-    this.gw.writeFile(PATHS.docsRules, docsRule);
-    created.push(PATHS.docsRules);
-
-    // Write docs-update rules
-    this.gw.writeFile(PATHS.docsUpdateRules, docsUpdateRule);
-    created.push(PATHS.docsUpdateRules);
+    // Seed optional, project-specific guidance without replacing user edits.
+    const ruleTemplates: [string, string][] = [
+      [PATHS.planningRules, planningRule],
+      [PATHS.runningRules, runningRule],
+      [PATHS.docsRules, docsRule],
+      [PATHS.docsUpdateRules, docsUpdateRule],
+      [PATHS.reviewRules, reviewRule],
+    ];
+    for (const [rulePath, content] of ruleTemplates) {
+      if (!this.gw.exists(rulePath)) {
+        this.gw.writeFile(rulePath, content);
+        created.push(rulePath);
+      }
+    }
 
     // Write docs/manifest.json
     if (!this.gw.exists(PATHS.docsManifest)) {
@@ -84,4 +84,3 @@ export class InitializeWorkspaceUseCase {
     return { kind: "created", created };
   }
 }
-

@@ -1,0 +1,75 @@
+import React from 'react';
+import { TaskScheduler } from '../../../../scheduler/TaskScheduler.js';
+import { SchedulerStatus } from '../../../../scheduler/types.js';
+import { AppContainer } from '../../../../infrastructure/container.js';
+import { HookEvent, HookType } from '../../../../domain/hook.js';
+import { HookReporter } from '../../../../application/ports/HookReporter.js';
+import { ReviewResultMetadata } from '../../../../domain/hook.js';
+import { TaskItem } from './taskLoader.js';
+
+export type ExecutionStatus = SchedulerStatus;
+export type { SchedulerStatus, TaskItem, HookEvent, HookType };
+
+export interface ActiveHookState {
+  name: string;
+  event: HookEvent;
+  command: string;
+  type: HookType;
+  taskId?: string;
+  startedAt: number;
+}
+
+export interface HookHistoryItem {
+  id: string;
+  name: string;
+  event: HookEvent;
+  command: string;
+  type: HookType;
+  ok: boolean;
+  exitCode: number | null;
+  outputSummary?: string;
+  durationMs: number;
+  timestamp: string;
+}
+
+export interface ExecutionContextValue {
+  activeHook: ActiveHookState | null;
+  hookHistory: HookHistoryItem[];
+  hasConfiguredHooks?: boolean;
+  activeIntent: string | null;  tasks: TaskItem[];
+  selectedTaskId: string | null;
+  selectedTask: TaskItem | null;
+  status: ExecutionStatus;
+  schedulerStatus: ExecutionStatus;
+  logs: Record<string, string[]>;
+  getTaskLogs: (taskId: string) => string[];
+  setSelectedTaskId: (taskId: string | null) => void;
+  selectTask: (taskId: string | null) => void;
+  setActiveIntent: (intentName: string | null) => void;  startRun: (intentName?: string) => Promise<void>;
+  retryTask: (taskId: string, intentName?: string) => Promise<void>;
+  retryAllFailed: (intentName?: string) => Promise<void>;
+  completeTask: (taskId: string, intentName?: string) => Promise<void>;
+  resetTask: (taskId: string, intentName?: string) => Promise<void>;
+  resetAllTasks: (intentName?: string) => Promise<void>;
+  refreshTasks?: (intent: string) => void;
+  clearLogs: (taskId?: string) => void;
+  scheduler: TaskScheduler | null;
+  startedAt?: string;
+  completedAt?: string;
+  /** TUI-specific review lifecycle state reported by the scheduler. */
+  reviewStartedAt?: string;
+  reviewResult?: ReviewResultMetadata;
+  reviewError?: string;
+  /** Runs an on-demand review without executing already completed tasks. */
+  startReview: (intentName?: string) => Promise<void>;
+}
+
+export interface ExecutionProviderProps {
+  children: React.ReactNode;
+  scheduler?: TaskScheduler;
+  container?: AppContainer;
+  initialIntent?: string;  autoStart?: boolean;
+  maxLogLines?: number;
+  flushIntervalMs?: number;
+  hookReporter?: HookReporter;
+}

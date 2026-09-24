@@ -1,0 +1,293 @@
+import React from "react";
+import { Box, Text } from "ink";
+import { TaskItem, useExecution } from "../../context/ExecutionContext.js";
+import { theme } from "../../theme.js";
+import { formatDuration, STATUS_CONFIG } from "./TaskList.js";
+
+export interface TaskDetailsProps {
+  task?: TaskItem | null;
+  borderColor?: string;
+  borderStyle?: "round" | "single" | "none";
+  compact?: boolean;
+  maxFilesShown?: number;
+  maxErrorLines?: number;
+}
+
+/**
+ * Error entries often contain an entire command output or stack trace. The run
+ * dashboard only has room for a diagnostic summary, so keep it on one line and
+ * leave the complete output in the log panel below.
+ */
+export function formatErrorSummary(error: string): string {
+  const summary = error.replace(/\s+/g, " ").trim();
+  return summary || "Unknown error";
+}
+
+export function areTaskDetailsPropsEqual(
+  prev: TaskDetailsProps,
+  next: TaskDetailsProps,
+): boolean {
+  if (prev.borderColor !== next.borderColor) return false;
+  if (prev.borderStyle !== next.borderStyle) return false;
+  if (prev.compact !== next.compact) return false;
+  if (prev.maxFilesShown !== next.maxFilesShown) return false;
+  if (prev.maxErrorLines !== next.maxErrorLines) return false;
+  if (prev.task === next.task) return true;
+  if (!prev.task || !next.task) return false;
+  return (
+    prev.task.id === next.task.id &&
+    prev.task.status === next.task.status &&
+    prev.task.title === next.task.title &&
+    prev.task.startedAt === next.task.startedAt &&
+    prev.task.completedAt === next.task.completedAt &&
+    (prev.task.errors?.length ?? 0) === (next.task.errors?.length ?? 0) &&
+    prev.task.errors?.at(-1) === next.task.errors?.at(-1)
+  );
+}
+
+const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
+  ({
+    task,
+    borderColor,
+    borderStyle = "round",
+    compact = false,
+    maxFilesShown = 4,
+    maxErrorLines = 4,
+  }) => {
+    const effectiveBorderColor =
+      borderColor ??
+      (task?.status === "failed"
+        ? theme.colors.error
+        : task?.status === "running"
+          ? theme.colors.borderActive
+          : theme.colors.borderSubtle);
+
+    if (!task) {
+      return (
+        <Box
+          flexDirection="column"
+          borderStyle={borderStyle === "none" ? undefined : borderStyle}
+          borderColor={borderStyle === "none" ? undefined : theme.colors.borderSubtle}
+          paddingX={borderStyle === "none" ? 0 : 1}
+          width="100%"
+        >
+          <Text bold color={theme.colors.muted}>
+            Task Details
+          </Text>
+          <Box paddingY={0}>
+            <Text dimColor>No task selected.</Text>
+          </Box>
+        </Box>
+      );
+    }
+
+    const statusCfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.pending;
+    const duration = formatDuration(task.startedAt, task.completedAt);
+    const files = task.files ?? [];
+    const dependencies = task.dependencies ?? [];
+    const errors = task.errors ?? [];
+    const latestError = errors.at(-1);
+
+    const displayedFiles = files.slice(0, maxFilesShown);
+    const remainingFilesCount = files.length - displayedFiles.length;
+
+    // Ultra-compact header mode used in Run dashboard to maximize log space
+    if (compact) {
+      return (
+        <Box
+          flexDirection="column"
+          width="100%"
+          paddingX={0}
+          paddingY={0}
+          marginBottom={0}
+        >
+          <Box justifyContent="space-between" width="100%">
+            <Box gap={1} flexShrink={1}>
+              <Text bold color={theme.colors.primary}>
+                {task.id}
+              </Text>
+              <Text color={theme.colors.borderSubtle}>│</Text>
+              <Text bold color={theme.colors.text} wrap="truncate-end">
+                {task.title}
+              </Text>
+            </Box>
+            <Box gap={1} flexShrink={0} paddingLeft={1}>
+              <Text color={statusCfg.color} bold>
+                [{task.status.toUpperCase()}]
+              </Text>
+              <Text color={theme.colors.borderSubtle}>│</Text>
+              <Text dimColor>{duration}</Text>
+            </Box>
+          </Box>
+
+          {Boolean(task.objective) && (
+            <Box marginTop={0}>
+              <Text dimColor wrap="wrap">
+                <Text color={theme.colors.muted}>Objective: </Text>
+                {task.objective}
+              </Text>
+            </Box>
+          )}
+
+          {latestError && (
+            <Box marginTop={0} width="100%" overflow="hidden">
+              <Text color={theme.colors.error} wrap="truncate-end">
+                <Text bold>
+                  ✗ {errors.length > 1 ? `${errors.length} errors` : "Error"}{" "}
+                </Text>
+                <Text dimColor>(see logs): </Text>
+                {formatErrorSummary(latestError)}
+              </Text>
+            </Box>
+          )}
+
+          {errors.length === 0 && files.length > 0 && (
+            <Box marginTop={0}>
+              <Text dimColor wrap="truncate-end">
+                <Text color={theme.colors.muted}>Files ({files.length}): </Text>
+                {displayedFiles.join(", ")}
+                {remainingFilesCount > 0 ? ` (+${remainingFilesCount})` : ""}
+              </Text>
+            </Box>
+          )}
+        </Box>
+      );
+    }
+
+    // Full / Standalone mode
+    const isNoneBorder = borderStyle === "none";
+
+    return (
+      <Box
+        flexDirection="column"
+        borderStyle={isNoneBorder ? undefined : borderStyle}
+        borderColor={isNoneBorder ? undefined : effectiveBorderColor}
+        paddingX={isNoneBorder ? 0 : 1}
+        width="100%"
+      >
+        {/* Title & Status Badge */}
+        <Box justifyContent="space-between" width="100%">
+          <Box gap={1} flexShrink={1}>
+            <Text bold color={theme.colors.primary}>
+              {task.id}
+            </Text>
+            <Text color={theme.colors.borderSubtle}>│</Text>
+            <Text bold color={theme.colors.text} wrap="wrap">
+              {task.title}
+            </Text>
+          </Box>
+          <Box flexShrink={0} paddingLeft={1}>
+            <Text color={statusCfg.color} bold>
+              [{task.status.toUpperCase()}]
+            </Text>
+          </Box>
+        </Box>
+
+        {/* Objective */}
+        {Boolean(task.objective) && (
+          <Box
+            flexDirection="column"
+            borderStyle="round"
+            borderColor={theme.colors.borderSubtle}
+            paddingX={1}
+            marginY={0}
+          >
+            <Text bold color={theme.colors.accent}>
+              Objective:
+            </Text>
+            <Text color={theme.colors.text} wrap="wrap">
+              {task.objective}
+            </Text>
+          </Box>
+        )}
+
+        {/* Dependencies & Timing Diagnostics */}
+        <Box justifyContent="space-between" width="100%">
+          <Box gap={1} flexShrink={1}>
+            <Text bold color={theme.colors.accent}>
+              Deps:
+            </Text>
+            <Text color={theme.colors.muted} wrap="wrap">
+              {dependencies.length > 0 ? dependencies.join(", ") : "None"}
+            </Text>
+          </Box>
+
+          <Box gap={1} flexShrink={0} paddingLeft={1}>
+            <Text bold color={theme.colors.muted}>
+              Duration:
+            </Text>
+            <Text color={theme.colors.text}>{duration}</Text>
+            {task.startedAt && (
+              <Text dimColor>
+                ({new Date(task.startedAt).toLocaleTimeString()})
+              </Text>
+            )}
+          </Box>
+        </Box>
+
+        {/* Files */}
+        {files.length > 0 && (
+          <Box flexDirection="column">
+            <Text bold color={theme.colors.accent}>
+              Files ({files.length}):
+            </Text>
+            {displayedFiles.map((file, idx) => (
+              <Text key={idx} dimColor wrap="wrap">
+                • {file}
+              </Text>
+            ))}
+            {remainingFilesCount > 0 && (
+              <Text dimColor>
+                ...and {remainingFilesCount} more file
+                {remainingFilesCount > 1 ? "s" : ""}
+              </Text>
+            )}
+          </Box>
+        )}
+
+        {/* Error Tail */}
+        {errors.length > 0 && (
+          <Box
+            flexDirection="column"
+            borderStyle="round"
+            borderColor={theme.colors.error}
+            backgroundColor={theme.colors.error}
+            paddingX={1}
+            marginTop={0}
+          >
+            <Text bold color={theme.colors.text}>
+              ✗ Error Diagnostic:
+            </Text>
+            {errors.slice(-maxErrorLines).map((err, idx) => (
+              <Text key={idx} color={theme.colors.text} wrap="wrap">
+                {err}
+              </Text>
+            ))}
+          </Box>
+        )}
+      </Box>
+    );
+  },
+  areTaskDetailsPropsEqual,
+);
+
+TaskDetailsPresenter.displayName = "TaskDetailsPresenter";
+
+const TaskDetailsWithContext: React.FC<TaskDetailsProps> = (props) => {
+  const exec = useExecution();
+  return (
+    <TaskDetailsPresenter
+      {...props}
+      task={props.task !== undefined ? props.task : exec.selectedTask}
+    />
+  );
+};
+
+export const TaskDetails: React.FC<TaskDetailsProps> = (props) => {
+  if (props.task !== undefined) {
+    return <TaskDetailsPresenter {...props} />;
+  }
+  return <TaskDetailsWithContext {...props} />;
+};
+
+TaskDetails.displayName = "TaskDetails";

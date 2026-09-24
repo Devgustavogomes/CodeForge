@@ -70,6 +70,9 @@ describe("ConfigService hooks", () => {
 
     configService.saveConfig(testConfig);
 
-    expect(configService.loadConfig()).toEqual(testConfig);
+    expect(configService.loadConfig()).toEqual({
+      ...testConfig,
+      aiReview: { enabled: false, agent: "default", maxRounds: 3 },
+    });
   });
 });

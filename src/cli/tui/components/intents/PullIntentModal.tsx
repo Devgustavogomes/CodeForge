@@ -1,0 +1,107 @@
+import React from 'react';
+import { Box, Text } from 'ink';
+import { Modal } from '../common/Modal.js';
+import { theme } from '../../theme.js';
+import {
+  usePullIntentModal,
+  UsePullIntentModalOptions,
+} from './hooks/usePullIntentModal.js';
+import { PullItemList } from './components/PullItemList.js';
+import { PullManualForm } from './components/PullManualForm.js';
+
+export interface PullIntentModalProps extends UsePullIntentModalOptions {
+  width?: number | string;
+}
+
+/**
+ * Clean orchestrator component for pulling intents from remote providers.
+ * Provider is read from config (not user-selectable) — matching CLI behavior.
+ * Delegates data fetching, navigation, and input handling to usePullIntentModal.
+ */
+export const PullIntentModal: React.FC<PullIntentModalProps> = ({
+  isOpen = true,
+  onClose,
+  onSuccess,
+  container,
+  pullIntentUseCase,
+    defaultProvider,
+  width = '100%',
+}) => {
+  const modal = usePullIntentModal({
+    isOpen,
+    onClose,
+    onSuccess,
+    container,
+    pullIntentUseCase: pullIntentUseCase,
+    defaultProvider,
+  });
+
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <Modal
+      title="Pull Intent"
+      isOpen={isOpen}
+      onClose={modal.handleClose}
+      width={width}
+      borderColor={theme.colors.primary}
+    >
+      <Box flexDirection="column" width="100%">
+        {/* Provider info (read-only from config) */}
+        <Box marginBottom={0}>
+          <Text bold>Source: </Text>
+          <Text color={theme.colors.primary} bold>{modal.selectedProvider}</Text>
+        </Box>
+
+        <PullItemList
+          items={modal.items}
+          selectedItemIndex={modal.selectedItemIndex}
+          isManualInput={modal.isManualInput}
+          isFetchingItems={modal.isFetchingItems}
+          selectedProvider={modal.selectedProvider}
+          isFocused={modal.activeField === 'id'}
+        />
+
+        <PullManualForm
+          intentId={modal.intentId}
+          customName={modal.customName}
+          activeField={modal.activeField}
+          selectedProvider={modal.selectedProvider}
+          showIdInput={modal.isManualInput || modal.items.length === 0}
+        />
+
+        {modal.errorMessage && (
+          <Box marginBottom={0}>
+            <Text color={theme.colors.error} bold wrap="truncate-end">
+              ✗ {modal.errorMessage}
+            </Text>
+          </Box>
+        )}
+
+        {modal.isLoading && (
+          <Box marginBottom={0}>
+            <Text color={theme.colors.warning}>
+              Fetching intent from {modal.selectedProvider}...
+            </Text>
+          </Box>
+        )}
+
+        <Box
+          marginTop={1}
+          borderStyle="single"
+          borderColor={theme.colors.borderSubtle}
+          paddingX={1}
+          justifyContent="space-between"
+          width="100%"
+        >
+          <Text dimColor>[↑/↓] Select · [Enter] Pull · [m] Manual · [Tab] Name</Text>
+          <Text bold color={theme.colors.error}>
+            [Esc] Cancel
+          </Text>
+        </Box>
+      </Box>
+    </Modal>
+  );
+};export default PullIntentModal;

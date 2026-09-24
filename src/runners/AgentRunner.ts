@@ -1,12 +1,14 @@
 export interface TaskContext {
     promptFilePath: string;
-    specName: string;
-    taskId?: string;
+    intentName: string;    taskId?: string;
     model?: string;
     silent?: boolean;
+    quietTerminal?: boolean;
+    onLog?: (chunk: string) => void;
 }
 
 export interface AgentRunner {
     execute(context: TaskContext): Promise<void>;
+    runTask?(context: TaskContext): Promise<void>;
     getAvailableAgents?(): Promise<string[]>;
 }

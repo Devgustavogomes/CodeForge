@@ -3,18 +3,19 @@ import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { buildRunningPrompt } from "../../infrastructure/assets/prompts/running.js";
 import { buildRetryPrompt } from "../../infrastructure/assets/prompts/retry.js";
+import { buildReviewPrompt } from "../../infrastructure/assets/prompts/review.js";
 
 export class PromptService {
   constructor(private gw: WorkspaceGateway) {}
 
   private buildContextPrompt(
-    specName: string,
+    intentName: string,
     task: Task,
     language: string,
     previousErrors?: string[]
   ): string {
-    const specPath = PATHS.specFile(specName);
-    const specContent = this.gw.exists(specPath) ? this.gw.readFile(specPath) : "Spec not found.";
+    const intentPath = PATHS.intentFile(intentName);
+    const intentRef = `Intent: ${intentName} (${intentPath})`;
 
     let filesContext = "";
     if (task.files && task.files.length > 0) {
@@ -30,28 +31,60 @@ export class PromptService {
     }
 
     const runningRulesPath = PATHS.runningRules;
-    const runningRulesContent = this.gw.exists(runningRulesPath) ? this.gw.readFile(runningRulesPath) : "Execution rules not found.";
+    const runningRulesContent = this.gw.exists(runningRulesPath) ? this.gw.readFile(runningRulesPath) : "";
 
     if (previousErrors && previousErrors.length > 0) {
-      return buildRetryPrompt(task, specContent, runningRulesContent, filesContext, previousErrors, language);
+      return buildRetryPrompt(task, intentRef, runningRulesContent, filesContext, previousErrors, language);
     }
 
-    return buildRunningPrompt(task, specContent, runningRulesContent, filesContext, language);
+    return buildRunningPrompt(task, intentRef, runningRulesContent, filesContext, language);
   }
 
   createPromptFile(
-    specName: string,
+    intentName: string,
     task: Task,
     language: string,
     previousErrors?: string[]
   ): string {
-    const specExecDir = `${PATHS.executionsDir}/${specName}`;
-    if (!this.gw.exists(specExecDir)) {
-      this.gw.mkdir(specExecDir);
+    const intentExecDir = `${PATHS.executionsDir}/${intentName}`;
+    if (!this.gw.exists(intentExecDir)) {
+      this.gw.mkdir(intentExecDir);
     }
-    const promptPath = `${specExecDir}/${task.id}.temp.prompt.md`;
-    const promptContent = this.buildContextPrompt(specName, task, language, previousErrors);
+    const promptPath = `${intentExecDir}/${task.id}.temp.prompt.md`;
+    const promptContent = this.buildContextPrompt(intentName, task, language, previousErrors);
     this.gw.writeFile(promptPath, promptContent);
+    return promptPath;
+  }
+
+  createReviewPromptFile(
+    intentName: string,
+    completedTasks: Task[],
+    gitDiffSummary: string,
+    existingTaskFiles: string[],
+    language: string,
+  ): string {
+    const intentExecDir = `${PATHS.executionsDir}/${intentName}`;
+    if (!this.gw.exists(intentExecDir)) {
+      this.gw.mkdir(intentExecDir);
+    }
+
+    const intentPath = PATHS.intentFile(intentName);
+    const intentContent = this.gw.exists(intentPath)
+      ? this.gw.readFile(intentPath)
+      : "Intent not found.";
+    const rulesContent = this.gw.exists(PATHS.reviewRules)
+      ? this.gw.readFile(PATHS.reviewRules)
+      : "";
+    const promptPath = PATHS.reviewPrompt(intentName);
+    this.gw.writeFile(promptPath, buildReviewPrompt(
+      intentName,
+      intentContent,
+      completedTasks,
+      gitDiffSummary,
+      rulesContent,
+      existingTaskFiles,
+      language,
+    ));
     return promptPath;
   }
 
@@ -69,10 +102,38 @@ export class PromptService {
     }
   }
 
-  deletePromptDir(specName: string): void {
-    const specExecDir = `${PATHS.executionsDir}/${specName}`;
-    if (this.gw.exists(specExecDir)) {
-      this.gw.deleteDir(specExecDir);
+  deletePromptDir(intentName: string): void {
+    const intentExecDir = `${PATHS.executionsDir}/${intentName}`;
+    if (this.gw.exists(intentExecDir)) {
+      this.gw.deleteDir(intentExecDir);
+    }
+  }
+}
+
+/**
+ * Ensures prompt directory exists, writes temporary prompt file, executes callback, and guarantees cleanup.
+ */
+export async function executeWithTempPrompt<T>(
+  gw: WorkspaceGateway,
+  promptPath: string,
+  promptContent: string,
+  action: () => Promise<T>,
+): Promise<T> {
+  const normalized = promptPath.replace(/\\/g, "/");
+  const lastSlash = normalized.lastIndexOf("/");
+  if (lastSlash !== -1) {
+    const dir = normalized.substring(0, lastSlash);
+    if (!gw.exists(dir)) {
+      gw.mkdir(dir);
+    }
+  }
+
+  gw.writeFile(promptPath, promptContent);
+  try {
+    return await action();
+  } finally {
+    if (gw.exists(promptPath)) {
+      gw.deleteFile(promptPath);
     }
   }
 }

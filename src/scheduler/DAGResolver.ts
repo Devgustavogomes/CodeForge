@@ -1,9 +1,9 @@
-import { SpecExecutionState } from "../domain/execution.js";
+import { IntentExecutionState } from "../domain/execution.js";
 
 export class DAGResolver {
-  getReadyTasks(state: SpecExecutionState): string[] {
+  getReadyTasks(state: IntentExecutionState): string[] {
     const readyTasks: string[] = [];
-    
+
     for (const [taskId, taskState] of Object.entries(state.tasks)) {
       if (taskState.status !== "pending") {
         continue;
@@ -19,7 +19,7 @@ export class DAGResolver {
         readyTasks.push(taskId);
       }
     }
-    
+
     return readyTasks;
   }
 }

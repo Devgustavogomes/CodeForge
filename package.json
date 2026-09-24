@@ -28,12 +28,15 @@
   "dependencies": {
     "@inquirer/prompts": "^8.7.0",
     "commander": "^14.0.0",
+    "ink": "^7.1.1",
     "minimatch": "^10.2.6",
+    "react": "^19.2.8",
     "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^24.0.10",
+    "@types/node": "^24.13.6",
+    "@types/react": "^19.2.18",
     "eslint": "^10.9.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",

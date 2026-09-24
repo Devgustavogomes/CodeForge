@@ -4,15 +4,18 @@ import { AgentRunner, TaskContext } from "../../runners/AgentRunner.js";
 import { CodeForgeConfig } from "../../config/types.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { minimatch } from "minimatch";
-import { buildDocsUpdatePrompt, buildDocsManualUpdatePrompt } from "../../infrastructure/assets/prompts/docs.js";
+import {
+  buildDocsUpdatePrompt,
+  buildDocsManualUpdatePrompt,
+} from "../../infrastructure/assets/prompts/docs.js";
 import { AffectedDoc } from "../../domain/doc.js";
 import { DocsManifestRepository } from "../../infrastructure/repositories/DocsManifestRepository.js";
-import fs from "node:fs";
+import { executeWithTempPrompt } from "../services/PromptService.js";
+import { formatGitDiffSummary } from "../services/diff-formatter.js";
 
 export type DocsUpdateResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
-  | { kind: "rules-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "no-git" }
   | { kind: "no-changed-files" }
   | { kind: "no-affected-docs" }
@@ -20,30 +23,33 @@ export type DocsUpdateResult =
 
 export type ManualDocUpdateResult =
   | { kind: "not-initialized" }
-  | { kind: "spec-not-found" }
-  | { kind: "rules-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "doc-not-found" }
   | { kind: "doc"; doc: AffectedDoc };
 
 export class UpdateDocUseCase {
+  private readonly manifestRepo: DocsManifestRepository;
+
   constructor(
     private readonly gw: WorkspaceGateway,
     private readonly git: GitGateway,
     private readonly runner: AgentRunner,
-    private readonly config: CodeForgeConfig
-  ) {}
+    private readonly config: CodeForgeConfig,
+    manifestRepo?: DocsManifestRepository,
+  ) {
+    this.manifestRepo = manifestRepo ?? new DocsManifestRepository(gw);
+  }
 
-  public getAffectedDocs(specName: string): DocsUpdateResult {
+  public getAffectedDocs(intentName: string): DocsUpdateResult {
     if (!this.gw.exists(PATHS.metadata)) return { kind: "not-initialized" };
-    const specPath = PATHS.specFile(specName);
-    if (!this.gw.exists(specPath)) return { kind: "spec-not-found" };
-    if (!this.gw.exists(PATHS.docsUpdateRules)) return { kind: "rules-not-found" };
+    const intentPath = PATHS.intentFile(intentName);
+    if (!this.gw.exists(intentPath)) return { kind: "intent-not-found" };
     if (!this.git.hasRepository()) return { kind: "no-git" };
 
     const changedFiles = this.git.getChangedFiles();
     if (changedFiles.length === 0) return { kind: "no-changed-files" };
 
-    const manifest = new DocsManifestRepository(this.gw).load();
+    const manifest = this.manifestRepo.load();
     const affectedDocs: AffectedDoc[] = [];
 
     for (const [docName, entry] of Object.entries(manifest.documents)) {
@@ -63,7 +69,7 @@ export class UpdateDocUseCase {
         affectedDocs.push({
           docName,
           docPath: entry.path,
-          specPaths: entry.specs,
+          intentPaths: entry.intents,
           matchedFiles,
         });
       }
@@ -74,13 +80,12 @@ export class UpdateDocUseCase {
     return { kind: "affected-docs", affectedDocs };
   }
 
-  public getManualDoc(specName: string, docName: string): ManualDocUpdateResult {
+  public getManualDoc(intentName: string, docName: string): ManualDocUpdateResult {
     if (!this.gw.exists(PATHS.metadata)) return { kind: "not-initialized" };
-    const specPath = PATHS.specFile(specName);
-    if (!this.gw.exists(specPath)) return { kind: "spec-not-found" };
-    if (!this.gw.exists(PATHS.docsUpdateRules)) return { kind: "rules-not-found" };
+    const intentPath = PATHS.intentFile(intentName);
+    if (!this.gw.exists(intentPath)) return { kind: "intent-not-found" };
 
-    const manifest = new DocsManifestRepository(this.gw).load();
+    const manifest = this.manifestRepo.load();
     const manifestEntry = manifest.documents[docName];
 
     const docFilePath = `${PATHS.docsDir}/${docName}.md`;
@@ -91,53 +96,52 @@ export class UpdateDocUseCase {
     const doc: AffectedDoc = {
       docName,
       docPath: manifestEntry?.path ?? `.codeforge/docs/${docName}.md`,
-      specPaths: manifestEntry?.specs ?? [],
+      intentPaths: manifestEntry?.intents ?? [],
       matchedFiles: [],
     };
 
     return { kind: "doc", doc };
   }
 
-  public async execute(specName: string, doc: AffectedDoc, isManual: boolean = false): Promise<void> {
-    const rulesContent = this.gw.readFile(PATHS.docsUpdateRules);
+  public async execute(
+    intentName: string,
+    doc: AffectedDoc,
+    isManual: boolean = false,
+  ): Promise<void> {
+    const rulesContent = this.gw.exists(PATHS.docsUpdateRules)
+      ? this.gw.readFile(PATHS.docsUpdateRules)
+      : "";
     let promptStr: string;
 
     if (isManual) {
-      promptStr = buildDocsManualUpdatePrompt(doc, rulesContent, specName, this.config.language);
+      promptStr = buildDocsManualUpdatePrompt(
+        doc,
+        rulesContent,
+        intentName,
+        this.config.language,
+      );
     } else {
-      let changedFilesDiff = "";
-      for (const file of doc.matchedFiles) {
-        const diff = this.git.getFileDiff(file);
-        if (diff) {
-          changedFilesDiff += `\n### File: ${file}\n\`\`\`diff\n${diff}\n\`\`\`\n`;
-        } else {
-          changedFilesDiff += `\n### File: ${file}\n(Could not read diff)\n`;
-        }
-      }
-      const newSpecRelPath = PATHS.specFile(specName);
-      promptStr = buildDocsUpdatePrompt(doc, rulesContent, changedFilesDiff, newSpecRelPath, this.config.language);
+      const changedFilesDiff = formatGitDiffSummary(this.git, doc.matchedFiles);
+      const newIntentRelPath = PATHS.intentFile(intentName);
+      promptStr = buildDocsUpdatePrompt(
+        doc,
+        rulesContent,
+        changedFilesDiff,
+        newIntentRelPath,
+        this.config.language,
+      );
     }
 
-    const docsDir = ".codeforge/docs";
-    if (!this.gw.exists(docsDir)) {
-      this.gw.mkdir(docsDir);
-    }
-    const promptPath = `${docsDir}/${doc.docName}-update.temp.prompt.md`;
-    this.gw.writeFile(promptPath, promptStr);
-
+    const promptPath = `${PATHS.docsDir}/${doc.docName}-update.temp.prompt.md`;
     const context: TaskContext = {
       promptFilePath: promptPath,
-      specName,
+      intentName,
       model: this.config.plannerAgent,
       silent: true,
     };
 
-    try {
-      await this.runner.execute(context);
-    } finally {
-      if (fs.existsSync(promptPath)) {
-        fs.unlinkSync(promptPath);
-      }
-    }
+    await executeWithTempPrompt(this.gw, promptPath, promptStr, () =>
+      this.runner.execute(context),
+    );
   }
 }

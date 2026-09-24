@@ -2,41 +2,38 @@ import { Task } from "../../../domain/task.js";
 
 export function buildRunningPrompt(
   task: Task,
-  specContent: string,
+  intentRef: string,
   rulesContent: string,
   filesContext: string,
   language: string
 ): string {
-  return `SYSTEM PROMPT FOR AI AGENT (CodeForge Execution)
+  const userRules = rulesContent && rulesContent.trim().length > 0
+    ? `\n--- PROJECT CODING RULES ---\n${rulesContent.trim()}\n`
+    : "";
 
---- EXECUTION RULES ---
-${rulesContent}
+  const constraints = task.constraints?.length
+    ? task.constraints.map((c) => `- ${c}`).join("\n")
+    : "- None";
 
-You are tasked with implementing: ${task.id} - ${task.title}
+  const acceptance = task.acceptanceCriteria?.length
+    ? task.acceptanceCriteria.map((a) => `- ${a}`).join("\n")
+    : "- None";
 
---- TASK DEFINITION ---
+  return `CodeForge task execution | ${task.id}: ${task.title}
+${intentRef}
+
 Objective: ${task.objective}
 Context: ${task.context}
-
-Implementation Steps:
-${task.implementation}
-
+Implementation steps: ${task.implementation}
 Constraints:
-${task.constraints?.length ? "- " + task.constraints.join("\n- ") : "None"}
-
-Acceptance Criteria:
-${task.acceptanceCriteria?.length ? "- " + task.acceptanceCriteria.join("\n- ") : "None"}
-
---- SOURCE CODE CONTEXT ---
+${constraints}
+Acceptance criteria:
+${acceptance}
+Target files:
 ${filesContext}
-
---- OVERALL SPECIFICATION ---
-${specContent}
-
---- ACTION REQUIRED ---
-Please implement the code required for this task. Modify or create the files as instructed.
-Do not implement tasks that belong to other steps. Focus only on this specific task.
---- INSTRUCTION ---
-All your output, documentation, and task descriptions MUST be written in ${language}.
-`;
+${userRules}
+Rules:
+- Implement only this assigned task and satisfy its acceptance criteria.
+- Do not edit task JSON files in .codeforge/tasks/.
+- Write generated prose in ${language}; preserve JSON keys and technical code terms.`;
 }

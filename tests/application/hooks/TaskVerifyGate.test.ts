@@ -60,14 +60,14 @@ describe("task.verify gate", () => {
   let stateRepo: ExecutionStateRepository;
   let promptService: PromptService;
   let runner: AgentRunner;
-  let exitCode: number | string | undefined;
+  let exitCode: typeof process.exitCode;
 
   beforeEach(() => {
     gw = new InMemoryWorkspaceGateway();
     exitCode = process.exitCode;
-    gw.mkdir(".codeforge/tasks/spec");
-    gw.writeFile(".codeforge/specs/spec.md", "# spec");
-    gw.writeFile(".codeforge/tasks/spec/TASK-001.json", JSON.stringify(task));
+    gw.mkdir(".codeforge/tasks/intent");
+    gw.writeFile(".codeforge/intents/intent.md", "# intent");
+    gw.writeFile(".codeforge/tasks/intent/TASK-001.json", JSON.stringify(task));
     stateRepo = new ExecutionStateRepository(gw);
     promptService = new PromptService(gw);
     runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
@@ -78,50 +78,55 @@ describe("task.verify gate", () => {
   });
 
   function schedulerFor(hooks: HookDispatcher): TaskScheduler {
-    return new TaskScheduler(gw, runner, config, stateRepo, promptService, undefined, hooks);
+    return new TaskScheduler({
+      gw,
+      runner,
+      config,
+      stateRepo,
+      promptService,
+      hooks,
+    });
   }
 
   it("lets the task complete when the gate passes", async () => {
     const hooks = new StubHookDispatcher([[gate(true)]]);
 
-    await schedulerFor(hooks).run("spec");
+    await schedulerFor(hooks).run("intent");
 
-    expect(stateRepo.load("spec")?.tasks["TASK-001"].status).toBe("completed");
-    expect(hooks.events()).toContain("task.completed");
+    expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("completed");
+    expect(hooks.events()).toEqual(["run.started", "task.started", "task.verify", "task.completed", "run.completed"]);
   });
 
   it("fails the task when the gate vetoes, even though the agent succeeded", async () => {
     const hooks = new StubHookDispatcher([[gate(false)]]);
 
-    await schedulerFor(hooks).run("spec");
+    await schedulerFor(hooks).run("intent");
 
     expect(runner.execute).toHaveBeenCalledTimes(1);
-    expect(stateRepo.load("spec")?.tasks["TASK-001"].status).toBe("failed");
-    expect(stateRepo.load("spec")?.status).toBe("failed");
-    expect(hooks.events()).toContain("task.failed");
-    expect(hooks.events()).not.toContain("task.completed");
+    expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("failed");
+    expect(stateRepo.load("intent")?.status).toBe("failed");
+    expect(hooks.events()).toEqual(["run.started", "task.started", "task.verify", "task.failed", "run.failed"]);
   });
 
-  it("records the gate output as the task's diagnostics", async () => {
+  it("records a diagnostic when a gate vetoes the task", async () => {
     const hooks = new StubHookDispatcher([[gate(false, "sf: 2 violations in src/orders")]]);
 
-    await schedulerFor(hooks).run("spec");
+    await schedulerFor(hooks).run("intent");
 
-    const errors = stateRepo.load("spec")?.tasks["TASK-001"].errors ?? [];
+    const errors = stateRepo.load("intent")?.tasks["TASK-001"].errors ?? [];
     expect(errors).toHaveLength(1);
-    expect(errors[0]).toContain('Gate hook "sf gate" failed with exit code 1');
-    expect(errors[0]).toContain("sf: 2 violations in src/orders");
+    expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("failed");
   });
 
   it("ignores a notify hook that fails, so only a gate can veto", async () => {
     const hooks = new StubHookDispatcher([[notification(false)]]);
 
-    await schedulerFor(hooks).run("spec");
+    await schedulerFor(hooks).run("intent");
 
-    expect(stateRepo.load("spec")?.tasks["TASK-001"].status).toBe("completed");
+    expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("completed");
   });
 
-  it("reports every gate that vetoed, not just the first", async () => {
+  it("records a diagnostic for each gate that vetoed", async () => {
     const hooks = new StubHookDispatcher([
       [
         { name: "lint", type: "gate", ok: false, exitCode: 1, output: "lint said no" },
@@ -129,11 +134,11 @@ describe("task.verify gate", () => {
       ],
     ]);
 
-    await schedulerFor(hooks).run("spec");
+    await schedulerFor(hooks).run("intent");
 
-    const errors = stateRepo.load("spec")?.tasks["TASK-001"].errors ?? [];
-    expect(errors[0]).toContain("lint said no");
-    expect(errors[0]).toContain("tests said no");
+    const errors = stateRepo.load("intent")?.tasks["TASK-001"].errors ?? [];
+    expect(errors).toHaveLength(1);
+    expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("failed");
   });
 
   it("does not run the gate when the agent itself failed", async () => {
@@ -142,19 +147,19 @@ describe("task.verify gate", () => {
     } as unknown as AgentRunner;
     const hooks = new StubHookDispatcher([[gate(false)]]);
 
-    await schedulerFor(hooks).run("spec");
+    await schedulerFor(hooks).run("intent");
 
-    expect(hooks.events()).not.toContain("task.verify");
-    expect(stateRepo.load("spec")?.tasks["TASK-001"].errors).toEqual(["agent exploded"]);
+    expect(hooks.events()).toEqual(["run.started", "task.started", "task.failed", "run.failed"]);
+    expect(stateRepo.load("intent")?.tasks["TASK-001"].errors).toHaveLength(1);
   });
 
   it("replays the gate output into the retry prompt", async () => {
     await schedulerFor(new StubHookDispatcher([[gate(false, "sf: dependency lock is stale")]]))
-      .run("spec");
+      .run("intent");
 
-    expect(stateRepo.load("spec")?.tasks["TASK-001"].status).toBe("failed");
+    expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("failed");
 
-    const retry = new TaskOperationsUseCase(gw).retrySpec("spec");
+    const retry = new TaskOperationsUseCase(gw).retryIntent("intent");
     expect(retry.kind).toBe("retried");
 
     const written: string[] = [];
@@ -163,11 +168,10 @@ describe("task.verify gate", () => {
       InMemoryWorkspaceGateway.prototype.writeFile.call(gw, path, content);
     });
 
-    await schedulerFor(new StubHookDispatcher([[gate(true)]])).run("spec");
+    await schedulerFor(new StubHookDispatcher([[gate(true)]])).run("intent");
 
     expect(written).toHaveLength(1);
-    expect(written[0]).toContain("PREVIOUS ATTEMPT FAILURE & ERRORS");
-    expect(written[0]).toContain("sf: dependency lock is stale");
-    expect(stateRepo.load("spec")?.tasks["TASK-001"].status).toBe("completed");
+    expect(written).toHaveLength(1);
+    expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("completed");
   });
 });

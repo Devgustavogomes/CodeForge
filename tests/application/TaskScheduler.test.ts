@@ -1,37 +1,56 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TaskScheduler } from "../../src/scheduler/TaskScheduler.js";
+import { SchedulerRunResult } from "../../src/scheduler/types.js";
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
-import { AgentRunner } from "../../src/runners/AgentRunner.js";
+import { InMemoryAgentRunner } from "../helpers/in-memory-agent-runner.js";
+import { TaskBuilder } from "../helpers/task-builder.js";
 import { CodeForgeConfig } from "../../src/config/types.js";
 import { ExecutionStateRepository } from "../../src/infrastructure/repositories/ExecutionStateRepository.js";
 import { PromptService } from "../../src/application/services/PromptService.js";
 import { SchedulerReporter } from "../../src/application/ports/SchedulerReporter.js";
+import { HookDispatcher } from "../../src/application/ports/HookDispatcher.js";
+import { HookContext, HookResult } from "../../src/domain/hook.js";
 import { Task } from "../../src/domain/task.js";
-import { SpecExecutionState } from "../../src/domain/execution.js";
+import { IntentExecutionState } from "../../src/domain/execution.js";
+import { ExecuteReviewUseCase } from "../../src/application/use-cases/ExecuteReviewUseCase.js";
+import { ValidatePlanUseCase } from "../../src/application/use-cases/ValidatePlanUseCase.js";
+import { PATHS } from "../../src/infrastructure/paths.js";
+
+class StubHookDispatcher implements HookDispatcher {
+  constructor(private readonly results: HookResult[] = []) {}
+
+  async dispatch(context: HookContext): Promise<HookResult[]> {
+    if (context.event === "task.verify") {
+      return this.results;
+    }
+    return [];
+  }
+}
 
 describe("TaskScheduler", () => {
   let gw: InMemoryWorkspaceGateway;
-  let runner: AgentRunner;
+  let runner: InMemoryAgentRunner;
   let config: CodeForgeConfig;
   let stateRepo: ExecutionStateRepository;
   let promptService: PromptService;
   let reporter: SchedulerReporter;
   let scheduler: TaskScheduler;
+  let originalExitCode: typeof process.exitCode;
 
   beforeEach(() => {
+    originalExitCode = process.exitCode;
+    process.exitCode = undefined;
+
     gw = new InMemoryWorkspaceGateway();
-    runner = { execute: vi.fn().mockResolvedValue(undefined) } as any;
-    config = { environment: "test", plannerAgent: "p", executorAgent: "e", language: "en" } as any;
-    stateRepo = {
-      load: vi.fn(),
-      init: vi.fn(),
-      save: vi.fn(),
-    } as any;
-    promptService = {
-      createPromptFile: vi.fn().mockReturnValue("prompt.md"),
-      deletePromptFile: vi.fn(),
-      deletePromptDir: vi.fn(),
-    } as any;
+    runner = new InMemoryAgentRunner();
+    config = {
+      environment: "test",
+      plannerAgent: "planner-mock",
+      executorAgent: "executor-mock",
+      language: "en",
+    };
+    stateRepo = new ExecutionStateRepository(gw);
+    promptService = new PromptService(gw);
     reporter = {
       onStart: vi.fn(),
       onComplete: vi.fn(),
@@ -39,306 +58,541 @@ describe("TaskScheduler", () => {
       onUpdate: vi.fn(),
       onError: vi.fn(),
       onDeadlock: vi.fn(),
+      onLog: vi.fn(),
     };
 
-    scheduler = new TaskScheduler(gw, runner, config, stateRepo as any, promptService as any, reporter);
-
-    gw.mkdir(".codeforge/tasks/test-spec");
-  });
-
-  it("should stop if no tasks are found", async () => {
-    await scheduler.run("test-spec");
-    expect(reporter.onError).toHaveBeenCalledWith(expect.any(Error));
-  });
-
-  it("should initialize state if it does not exist and execute tasks", async () => {
-    const task: Task = {
-      id: "TASK-001",
-      title: "Test Task",
-      objective: "O",
-      context: "C",
-      implementation: "I",
-      files: [],
-      dependencies: [],
-      constraints: [],
-      acceptanceCriteria: []
-    };
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
-
-    const mockState: SpecExecutionState = {
-      specId: "test-spec",
-      status: "pending",
-      updatedAt: new Date().toISOString(),
-      tasks: {
-        "TASK-001": { status: "pending", dependencies: [] }
-      }
-    };
-
-    let callCount = 0;
-    (stateRepo.load as any).mockImplementation(() => {
-      callCount++;
-      if (callCount === 1) return null; // Initial check
-      if (callCount === 2) return mockState; // First loop
-      if (callCount >= 3) {
-        mockState.status = "completed";
-        mockState.tasks["TASK-001"].status = "completed";
-        return mockState;
-      }
+    scheduler = new TaskScheduler({
+      gw,
+      runner,
+      config,
+      stateRepo,
+      promptService,
+      reporter,
     });
 
-    (stateRepo.init as any).mockReturnValue(mockState);
-
-    await scheduler.run("test-spec");
-
-    expect(stateRepo.init).toHaveBeenCalledWith("test-spec", [task]);
-    expect(stateRepo.save).toHaveBeenCalled();
-    expect(promptService.createPromptFile).toHaveBeenCalledWith("test-spec", task, "en", undefined);
-    expect(runner.execute).toHaveBeenCalled();
-    expect(promptService.deletePromptFile).toHaveBeenCalledWith("prompt.md");
+    gw.mkdir(".codeforge/tasks/test-intent");
   });
 
-  it("should return immediately if state is already completed", async () => {
-    const task: Task = { id: "TASK-001", dependencies: [] } as any;
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
-
-    const mockState: SpecExecutionState = {
-      specId: "test-spec",
-      status: "completed",
-      updatedAt: new Date().toISOString(),
-      tasks: {}
-    };
-
-    (stateRepo.load as any).mockReturnValue(mockState);
-
-    await scheduler.run("test-spec");
-
-    expect(reporter.onComplete).toHaveBeenCalledWith("test-spec");
-    expect(runner.execute).not.toHaveBeenCalled();
+  afterEach(() => {
+    process.exitCode = originalExitCode;
   });
 
-  it("should mark execution as failed when a task fails", async () => {
-    const task: Task = {
-      id: "TASK-001",
-      title: "Test Task",
-      objective: "O",
-      context: "C",
-      implementation: "I",
-      files: [],
-      dependencies: [],
-      constraints: [],
-      acceptanceCriteria: []
-    };
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
+  function writeTask(intentName: string, task: Task): void {
+    gw.mkdir(`.codeforge/tasks/${intentName}`);
+    gw.writeFile(`.codeforge/tasks/${intentName}/${task.id}.json`, JSON.stringify(task));
+  }
 
-    const mockState: SpecExecutionState = {
-      specId: "test-spec",
-      status: "pending",
-      updatedAt: new Date().toISOString(),
-      tasks: {
-        "TASK-001": { status: "pending", dependencies: [] }
-      }
-    };
+  describe("SchedulerRunResult and exit code purity", () => {
+    it("should return failed and not mutate process.exitCode if no tasks are found", async () => {
+      const result = await scheduler.run("test-intent");
 
-    (stateRepo.init as any).mockReturnValue(mockState);
-    (stateRepo.load as any).mockReturnValue(mockState);
-    (runner.execute as any).mockRejectedValue(new Error("Runner failed"));
+      expect(result).toEqual<SchedulerRunResult>({
+        status: "failed",
+        intentName: "test-intent",
+        reason: "No tasks found for intent: test-intent",
+      });
+      expect(result.intentName).toBe("test-intent");
+      expect(reporter.onError).toHaveBeenCalledWith(expect.any(Error));
+      expect(process.exitCode).toBeUndefined();
+    });
 
-    await scheduler.run("test-spec");
+    it("should return completed and not mutate process.exitCode on successful run", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").withTitle("Task 1").build();
+      writeTask("test-intent", task);
 
-    expect(mockState.tasks["TASK-001"].status).toBe("failed");
-    expect(mockState.status).toBe("failed");
-    expect(reporter.onFail).toHaveBeenCalledWith("test-spec");
-    expect(reporter.onComplete).not.toHaveBeenCalled();
-    expect(promptService.deletePromptDir).toHaveBeenCalledWith("test-spec");
-    expect(process.exitCode).toBe(1);
+      const result = await scheduler.run("test-intent");
+
+      expect(result).toEqual<SchedulerRunResult>({
+        status: "completed",
+        intentName: "test-intent",
+      });
+      expect(result.intentName).toBe("test-intent");
+      expect(process.exitCode).toBeUndefined();
+      expect(reporter.onComplete).toHaveBeenCalledWith("test-intent");
+
+      const finalState = stateRepo.load("test-intent");
+      expect(finalState?.status).toBe("completed");
+      expect(finalState?.tasks["TASK-001"].status).toBe("completed");
+      expect(runner.hasExecuted("TASK-001")).toBe(true);
+    });
+
+    it("should return failed and not mutate process.exitCode when a task fails", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      runner.withErrorForTask("TASK-001", new Error("Agent failed"));
+
+      const result = await scheduler.run("test-intent");
+
+      expect(result).toEqual<SchedulerRunResult>({
+        status: "failed",
+        intentName: "test-intent",
+        reason: "One or more tasks failed.",
+      });
+      expect(result.intentName).toBe("test-intent");
+      expect(process.exitCode).toBeUndefined();
+      expect(reporter.onFail).toHaveBeenCalledWith("test-intent");
+
+      const finalState = stateRepo.load("test-intent");
+      expect(finalState?.status).toBe("failed");
+      expect(finalState?.tasks["TASK-001"].status).toBe("failed");
+      expect(finalState?.tasks["TASK-001"].errors).toEqual(["Agent failed"]);
+    });
+
+    it("should return deadlock and not mutate process.exitCode when circular dependency occurs", async () => {
+      const task1 = TaskBuilder.aTask().withId("TASK-001").withDependencies(["TASK-002"]).build();
+      const task2 = TaskBuilder.aTask().withId("TASK-002").withDependencies(["TASK-001"]).build();
+      writeTask("test-intent", task1);
+      writeTask("test-intent", task2);
+
+      const result = await scheduler.run("test-intent");
+
+      expect(result).toEqual<SchedulerRunResult>({
+        status: "deadlock",
+        intentName: "test-intent",
+      });
+      expect(result.intentName).toBe("test-intent");
+      expect(process.exitCode).toBeUndefined();
+      expect(reporter.onDeadlock).toHaveBeenCalledWith("test-intent");
+
+      const finalState = stateRepo.load("test-intent");
+      expect(finalState?.status).toBe("failed");
+    });
   });
 
-  it("should mark execution as failed and call onDeadlock when deadlock occurs", async () => {
-    const task1: Task = { id: "TASK-001", dependencies: ["TASK-002"] } as any;
-    const task2: Task = { id: "TASK-002", dependencies: ["TASK-001"] } as any;
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task1));
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-002.json`, JSON.stringify(task2));
+  describe("state transitions", () => {
+    it("should transition tasks from pending to running to completed", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
 
-    const mockState: SpecExecutionState = {
-      specId: "test-spec",
-      status: "pending",
-      updatedAt: new Date().toISOString(),
-      tasks: {
-        "TASK-001": { status: "pending", dependencies: ["TASK-002"] },
-        "TASK-002": { status: "pending", dependencies: ["TASK-001"] },
-      }
-    };
+      let observedRunningState: string | undefined;
+      runner.withHandler(async (context) => {
+        const midState = stateRepo.load("test-intent");
+        observedRunningState = context.taskId ? midState?.tasks[context.taskId]?.status : undefined;
+      });
 
-    (stateRepo.init as any).mockReturnValue(mockState);
-    (stateRepo.load as any).mockReturnValue(mockState);
+      const result = await scheduler.run("test-intent");
 
-    await scheduler.run("test-spec");
+      expect(observedRunningState).toBe("running");
+      expect(result.status).toBe("completed");
 
-    expect(mockState.status).toBe("failed");
-    expect(reporter.onDeadlock).toHaveBeenCalledWith("test-spec");
-    expect(promptService.deletePromptDir).toHaveBeenCalledWith("test-spec");
-    expect(process.exitCode).toBe(1);
+      const finalState = stateRepo.load("test-intent");
+      expect(finalState?.tasks["TASK-001"].status).toBe("completed");
+      expect(finalState?.tasks["TASK-001"].startedAt).toBeDefined();
+      expect(finalState?.tasks["TASK-001"].completedAt).toBeDefined();
+    });
+
+    it("should transition tasks from pending to running to failed on runner error", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      let observedRunningState: string | undefined;
+      runner.withHandler(async (context) => {
+        const midState = stateRepo.load("test-intent");
+        observedRunningState = context.taskId ? midState?.tasks[context.taskId]?.status : undefined;
+        throw new Error("Execution exploded");
+      });
+
+      const result = await scheduler.run("test-intent");
+
+      expect(observedRunningState).toBe("running");
+      expect(result.status).toBe("failed");
+
+      const finalState = stateRepo.load("test-intent");
+      expect(finalState?.tasks["TASK-001"].status).toBe("failed");
+      expect(finalState?.tasks["TASK-001"].errors).toEqual(["Execution exploded"]);
+    });
+
+    it("should return immediately if state is already completed", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      const existingState: IntentExecutionState = {
+        intentId: "test-intent",
+        status: "completed",
+        updatedAt: new Date().toISOString(),
+        tasks: {
+          "TASK-001": { status: "completed", dependencies: [] },
+        },
+      };
+      stateRepo.save(existingState);
+
+      const result = await scheduler.run("test-intent");
+
+      expect(result).toEqual<SchedulerRunResult>({
+        status: "completed",
+        intentName: "test-intent",
+      });
+      expect(result.intentName).toBe("test-intent");
+      expect(reporter.onComplete).toHaveBeenCalledWith("test-intent");
+      expect(runner.executedContexts).toHaveLength(0);
+    });
+
+    it("should fail immediately if previous state has no pending tasks and has failed tasks", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      const existingState: IntentExecutionState = {
+        intentId: "test-intent",
+        status: "failed",
+        updatedAt: new Date().toISOString(),
+        tasks: {
+          "TASK-001": { status: "failed", dependencies: [] },
+        },
+      };
+      stateRepo.save(existingState);
+
+      const result = await scheduler.run("test-intent");
+
+      expect(result).toEqual<SchedulerRunResult>({
+        status: "failed",
+        intentName: "test-intent",
+        reason: "Intent execution has failed tasks.",
+      });
+      expect(result.intentName).toBe("test-intent");
+      expect(runner.executedContexts).toHaveLength(0);
+      expect(process.exitCode).toBeUndefined();
+    });
   });
 
-  it("should run dependent task as soon as dependency completes without waiting for slow parallel task", async () => {
-    const taskA: Task = { id: "TASK-A", dependencies: [] } as any;
-    const taskB: Task = { id: "TASK-B", dependencies: [] } as any;
-    const taskC: Task = { id: "TASK-C", dependencies: ["TASK-B"] } as any;
+  describe("review output recovery", () => {
+    it("announces review, pauses for new tasks, and executes them on the next run", async () => {
+      writeTask("test-intent", TaskBuilder.aTask().withId("TASK-001").build());
+      gw.writeFile(PATHS.metadata, "{}");
+      config.aiReview = { enabled: true, agent: "reviewer", maxRounds: 3 };
+      reporter.onReviewStart = vi.fn();
+      reporter.onReviewEnd = vi.fn();
+      const reviewUseCase = {
+        execute: vi.fn()
+          .mockImplementationOnce(async () => {
+            writeTask("test-intent", TaskBuilder.aTask().withId("TASK-002").withDependencies(["TASK-001"]).build());
+            return { newTaskFiles: ["TASK-002.json"], newTaskIds: ["TASK-002"] };
+          })
+          .mockResolvedValue({ newTaskFiles: [], newTaskIds: [] }),
+      } as unknown as ExecuteReviewUseCase;
+      const reviewScheduler = new TaskScheduler({
+        gw, runner, config, stateRepo, promptService, reporter, reviewUseCase,
+        validatePlanUseCase: new ValidatePlanUseCase(gw),
+      });
 
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-A.json`, JSON.stringify(taskA));
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-B.json`, JSON.stringify(taskB));
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-C.json`, JSON.stringify(taskC));
+      const first = await reviewScheduler.run("test-intent");
+      expect(first).toMatchObject({ status: "pending", newTasks: ["TASK-002"] });
+      expect(reporter.onReviewStart).toHaveBeenCalledWith("test-intent", { agent: "reviewer", round: 1, maxRounds: 3 });
+      expect(reporter.onReviewEnd).toHaveBeenCalledWith("test-intent", {
+        outcome: "tasks_created", newTasksCount: 1, taskIds: ["TASK-002"],
+      });
+      expect(runner.hasExecuted("TASK-002")).toBe(false);
 
-    const state: SpecExecutionState = {
-      specId: "test-spec",
-      status: "pending",
-      updatedAt: new Date().toISOString(),
-      tasks: {
-        "TASK-A": { status: "pending", dependencies: [] },
-        "TASK-B": { status: "pending", dependencies: [] },
-        "TASK-C": { status: "pending", dependencies: ["TASK-B"] },
-      },
-    };
+      const second = await reviewScheduler.run("test-intent");
+      expect(second.status).toBe("completed");
+      expect(runner.hasExecuted("TASK-002")).toBe(true);
+      expect(reporter.onReviewEnd).toHaveBeenCalledWith("test-intent", {
+        outcome: "approved", newTasksCount: 0, taskIds: [],
+      });
+    });
 
-    (stateRepo.init as any).mockReturnValue(state);
-    (stateRepo.load as any).mockReturnValue(state);
+    it("removes reviewer tasks with invalid dependencies before they enter execution state", async () => {
+      const completed = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", completed);
+      gw.writeFile(PATHS.metadata, "{}");
+      stateRepo.save({
+        intentId: "test-intent", status: "completed", updatedAt: new Date().toISOString(),
+        tasks: { "TASK-001": { status: "completed", dependencies: [] } },
+      });
+      config.aiReview = { enabled: true, agent: "reviewer", maxRounds: 3 };
+      const invalid = { ...TaskBuilder.aTask().withId("TASK-002").build(), dependencies: ["TASK-404"] };
+      const reviewUseCase = {
+        execute: vi.fn(async () => {
+          writeTask("test-intent", invalid);
+          return { newTaskFiles: ["TASK-002.json"], newTaskIds: ["TASK-002"] };
+        }),
+      } as unknown as ExecuteReviewUseCase;
+      const reviewScheduler = new TaskScheduler({
+        gw,
+        runner,
+        config,
+        stateRepo,
+        promptService,
+        reporter,
+        reviewUseCase,
+        validatePlanUseCase: new ValidatePlanUseCase(gw),
+      });
 
-    let taskACompleted = false;
-    let taskCStartedBeforeTaskAFinished = false;
+      await expect(reviewScheduler.run("test-intent", { forceReview: true })).resolves.toMatchObject({ status: "paused" });
+      expect(gw.exists(PATHS.taskFile("test-intent", "TASK-002"))).toBe(false);
+      expect(stateRepo.load("test-intent")?.tasks["TASK-002"]).toBeUndefined();
+      expect(stateRepo.load("test-intent")?.reviewError).toEqual(expect.any(String));
+    });
 
-    (runner.execute as any).mockImplementation(async (context: any) => {
-      if (context.taskId === "TASK-A") {
-        await new Promise((resolve) => setTimeout(resolve, 80));
-        taskACompleted = true;
-      } else if (context.taskId === "TASK-B") {
-        await new Promise((resolve) => setTimeout(resolve, 20));
-      } else if (context.taskId === "TASK-C") {
-        if (!taskACompleted) {
-          taskCStartedBeforeTaskAFinished = true;
+    it("cleans only new invalid reviewer files, preserves completed state, and can retry", async () => {
+      const completed = TaskBuilder.aTask().withId("TASK-001").build();
+      const preExisting = TaskBuilder.aTask().withId("TASK-099").build();
+      writeTask("test-intent", completed);
+      writeTask("test-intent", preExisting);
+      gw.writeFile(PATHS.metadata, "{}");
+
+      const completedAt = "2026-09-20T12:00:00.000Z";
+      stateRepo.save({
+        intentId: "test-intent", status: "completed", updatedAt: completedAt,
+        tasks: { "TASK-001": { status: "completed", dependencies: [], completedAt } },
+      });
+      config.aiReview = { enabled: true, agent: "reviewer", maxRounds: 3 };
+
+      let attempts = 0;
+      const reviewUseCase = {
+        execute: vi.fn(async () => {
+          attempts += 1;
+          if (attempts === 1) {
+            gw.writeFile(PATHS.taskFile("test-intent", "TASK-002"), "{ malformed");
+            return { newTaskFiles: ["TASK-002.json"], newTaskIds: ["TASK-002"] };
+          }
+          return { newTaskFiles: [], newTaskIds: [] };
+        }),
+      } as unknown as ExecuteReviewUseCase;
+      const reviewScheduler = new TaskScheduler({
+        gw,
+        runner,
+        config,
+        stateRepo,
+        promptService,
+        reporter,
+        reviewUseCase,
+        validatePlanUseCase: new ValidatePlanUseCase(gw),
+      });
+
+      await expect(reviewScheduler.run("test-intent", { forceReview: true })).resolves.toMatchObject({ status: "paused" });
+      expect(gw.exists(PATHS.taskFile("test-intent", "TASK-002"))).toBe(false);
+      expect(gw.exists(PATHS.taskFile("test-intent", "TASK-099"))).toBe(true);
+      const paused = stateRepo.load("test-intent");
+      expect(paused?.status).toBe("paused");
+      expect(paused?.reviewError).toEqual(expect.any(String));
+      expect(paused?.tasks["TASK-001"].completedAt).toBe(completedAt);
+
+      await expect(reviewScheduler.run("test-intent")).resolves.toMatchObject({ status: "completed" });
+      expect(reviewUseCase.execute).toHaveBeenCalledTimes(2);
+      expect(stateRepo.load("test-intent")?.reviewError).toBeUndefined();
+    });
+  });
+
+  describe("gate hook verification handling", () => {
+    it("should complete task and scheduler when gate hook passes", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      const hooks = new StubHookDispatcher([
+        { name: "lint", type: "gate", ok: true, exitCode: 0, output: "clean" },
+      ]);
+      const schedulerWithHooks = new TaskScheduler({
+        gw,
+        runner,
+        config,
+        stateRepo,
+        promptService,
+        reporter,
+        hooks,
+      });
+
+      const result = await schedulerWithHooks.run("test-intent");
+
+      expect(result.status).toBe("completed");
+      expect(stateRepo.load("test-intent")?.tasks["TASK-001"].status).toBe("completed");
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it("should fail task and scheduler when gate hook fails", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      const hooks = new StubHookDispatcher([
+        { name: "unit-tests", type: "gate", ok: false, exitCode: 1, output: "1 test failed" },
+      ]);
+      const schedulerWithHooks = new TaskScheduler({
+        gw,
+        runner,
+        config,
+        stateRepo,
+        promptService,
+        reporter,
+        hooks,
+      });
+
+      const result = await schedulerWithHooks.run("test-intent");
+
+      expect(result.status).toBe("failed");
+      const finalTask = stateRepo.load("test-intent")?.tasks["TASK-001"];
+      expect(finalTask?.status).toBe("failed");
+      expect(finalTask?.errors).toHaveLength(1);
+      expect(finalTask?.errors?.[0]).toEqual(expect.any(String));
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it("should not veto task when notify hook exits non-zero", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      const hooks = new StubHookDispatcher([
+        { name: "slack-notify", type: "notify", ok: false, exitCode: 2, output: "network error" },
+      ]);
+      const schedulerWithHooks = new TaskScheduler({
+        gw,
+        runner,
+        config,
+        stateRepo,
+        promptService,
+        reporter,
+        hooks,
+      });
+
+      const result = await schedulerWithHooks.run("test-intent");
+
+      expect(result.status).toBe("completed");
+      expect(stateRepo.load("test-intent")?.tasks["TASK-001"].status).toBe("completed");
+    });
+  });
+
+  describe("DAG execution ordering and error diagnostics", () => {
+    it("should run dependent task as soon as dependency completes without waiting for slow parallel task", async () => {
+      const taskA = TaskBuilder.aTask().withId("TASK-A").build();
+      const taskB = TaskBuilder.aTask().withId("TASK-B").build();
+      const taskC = TaskBuilder.aTask().withId("TASK-C").withDependencies(["TASK-B"]).build();
+
+      writeTask("test-intent", taskA);
+      writeTask("test-intent", taskB);
+      writeTask("test-intent", taskC);
+
+      let taskACompleted = false;
+      let taskCStartedBeforeTaskAFinished = false;
+
+      runner.withHandler(async (context) => {
+        if (context.taskId === "TASK-A") {
+          await new Promise((resolve) => setTimeout(resolve, 80));
+          taskACompleted = true;
+        } else if (context.taskId === "TASK-B") {
+          await new Promise((resolve) => setTimeout(resolve, 15));
+        } else if (context.taskId === "TASK-C") {
+          if (!taskACompleted) {
+            taskCStartedBeforeTaskAFinished = true;
+          }
         }
-      }
+      });
+
+      const result = await scheduler.run("test-intent");
+
+      expect(result.status).toBe("completed");
+      expect(taskCStartedBeforeTaskAFinished).toBe(true);
+
+      const finalState = stateRepo.load("test-intent");
+      expect(finalState?.tasks["TASK-A"].status).toBe("completed");
+      expect(finalState?.tasks["TASK-B"].status).toBe("completed");
+      expect(finalState?.tasks["TASK-C"].status).toBe("completed");
     });
 
-    await scheduler.run("test-spec");
+    it("should pass previousErrors to promptService.createPromptFile when task has previous errors in state", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
 
-    expect(taskCStartedBeforeTaskAFinished).toBe(true);
-    expect(state.tasks["TASK-A"].status).toBe("completed");
-    expect(state.tasks["TASK-B"].status).toBe("completed");
-    expect(state.tasks["TASK-C"].status).toBe("completed");
-    expect(reporter.onComplete).toHaveBeenCalledWith("test-spec");
+      const initialState = stateRepo.init("test-intent", [task]);
+      initialState.tasks["TASK-001"].errors = [
+        "Prior failure: build error",
+        "Prior failure: test failed",
+      ];
+      stateRepo.save(initialState);
+
+      const createPromptSpy = vi.spyOn(promptService, "createPromptFile");
+
+      const result = await scheduler.run("test-intent");
+
+      expect(result.status).toBe("completed");
+      expect(createPromptSpy).toHaveBeenCalledWith(
+        "test-intent",
+        expect.objectContaining({ id: "TASK-001" }),
+        "en",
+        ["Prior failure: build error", "Prior failure: test failed"],
+      );
+    });
+
+    it("should remove errors property from task state upon successful execution", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      const initialState = stateRepo.init("test-intent", [task]);
+      initialState.tasks["TASK-001"].errors = ["Previous error to be cleared"];
+      stateRepo.save(initialState);
+
+      const result = await scheduler.run("test-intent");
+
+      expect(result.status).toBe("completed");
+      const finalTask = stateRepo.load("test-intent")?.tasks["TASK-001"];
+      expect(finalTask?.status).toBe("completed");
+      expect(finalTask?.errors).toBeUndefined();
+      expect("errors" in (finalTask ?? {})).toBe(false);
+    });
+
+    it("should accumulate errors in task state and mark task as failed when execution fails", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
+
+      const initialState = stateRepo.init("test-intent", [task]);
+      initialState.tasks["TASK-001"].errors = ["First error"];
+      stateRepo.save(initialState);
+
+      runner.withErrorForTask("TASK-001", new Error("Second error occurred"));
+
+      const result = await scheduler.run("test-intent");
+
+      expect(result.status).toBe("failed");
+      const finalTask = stateRepo.load("test-intent")?.tasks["TASK-001"];
+      expect(finalTask?.status).toBe("failed");
+      expect(finalTask?.errors).toEqual(["First error", "Second error occurred"]);
+      expect(reporter.onFail).toHaveBeenCalledWith("test-intent");
+      expect(process.exitCode).toBeUndefined();
+    });
   });
 
-  it("should pass previousErrors to promptService.createPromptFile when task has previous errors in state", async () => {
-    const task: Task = {
-      id: "TASK-001",
-      title: "Test Task",
-      objective: "O",
-      context: "C",
-      implementation: "I",
-      files: [],
-      dependencies: [],
-      constraints: [],
-      acceptanceCriteria: [],
-    };
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
+  describe("streaming logs and status", () => {
+    it("should pass onLog callback in TaskContext and forward chunk to reporter.onLog", async () => {
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
 
-    const mockState: SpecExecutionState = {
-      specId: "test-spec",
-      status: "pending",
-      updatedAt: new Date().toISOString(),
-      tasks: {
-        "TASK-001": {
-          status: "pending",
-          dependencies: [],
-          errors: ["Prior failure: build error", "Prior failure: test failed"],
-        },
-      },
-    };
+      runner.withHandler((context) => {
+        context.onLog?.("chunk 1");
+        context.onLog?.("chunk 2");
+      });
 
-    (stateRepo.load as any).mockReturnValue(mockState);
+      const result = await scheduler.run("test-intent");
 
-    await scheduler.run("test-spec");
+      expect(result.status).toBe("completed");
+      expect(reporter.onLog).toHaveBeenCalledWith("TASK-001", "chunk 1");
+      expect(reporter.onLog).toHaveBeenCalledWith("TASK-001", "chunk 2");
+    });
 
-    expect(promptService.createPromptFile).toHaveBeenCalledWith(
-      "test-spec",
-      task,
-      "en",
-      ["Prior failure: build error", "Prior failure: test failed"],
-    );
-  });
+    it("should execute successfully even if reporter does not define onLog", async () => {
+      delete reporter.onLog;
+      const task = TaskBuilder.aTask().withId("TASK-001").build();
+      writeTask("test-intent", task);
 
-  it("should remove errors property from task state upon successful execution", async () => {
-    const task: Task = {
-      id: "TASK-001",
-      title: "Test Task",
-      objective: "O",
-      context: "C",
-      implementation: "I",
-      files: [],
-      dependencies: [],
-      constraints: [],
-      acceptanceCriteria: [],
-    };
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
+      runner.withHandler((context) => {
+        context.onLog?.("chunk without reporter listener");
+      });
 
-    const mockState: SpecExecutionState = {
-      specId: "test-spec",
-      status: "pending",
-      updatedAt: new Date().toISOString(),
-      tasks: {
-        "TASK-001": {
-          status: "pending",
-          dependencies: [],
-          errors: ["Previous error to be cleared"],
-        },
-      },
-    };
+      const result = await scheduler.run("test-intent");
+      expect(result.status).toBe("completed");
+    });
 
-    (stateRepo.load as any).mockReturnValue(mockState);
+    it("should allow getting and setting reporter and tracking scheduler status", async () => {
+      expect(scheduler.getStatus()).toBe("idle");
+      expect(scheduler.getReporter()).toBe(reporter);
 
-    await scheduler.run("test-spec");
-
-    expect(mockState.tasks["TASK-001"].status).toBe("completed");
-    expect(mockState.tasks["TASK-001"].errors).toBeUndefined();
-    expect("errors" in mockState.tasks["TASK-001"]).toBe(false);
-    expect(stateRepo.save).toHaveBeenCalledWith(mockState);
-  });
-
-  it("should accumulate errors in task state and mark task as failed when execution fails", async () => {
-    const task: Task = {
-      id: "TASK-001",
-      title: "Test Task",
-      objective: "O",
-      context: "C",
-      implementation: "I",
-      files: [],
-      dependencies: [],
-      constraints: [],
-      acceptanceCriteria: [],
-    };
-    gw.writeFile(`.codeforge/tasks/test-spec/TASK-001.json`, JSON.stringify(task));
-
-    const mockState: SpecExecutionState = {
-      specId: "test-spec",
-      status: "pending",
-      updatedAt: new Date().toISOString(),
-      tasks: {
-        "TASK-001": {
-          status: "pending",
-          dependencies: [],
-          errors: ["First error"],
-        },
-      },
-    };
-
-    (stateRepo.load as any).mockReturnValue(mockState);
-    (runner.execute as any).mockRejectedValue(new Error("Second error occurred"));
-
-    await scheduler.run("test-spec");
-
-    expect(mockState.tasks["TASK-001"].status).toBe("failed");
-    expect(mockState.tasks["TASK-001"].errors).toEqual(["First error", "Second error occurred"]);
-    expect(mockState.status).toBe("failed");
-    expect(reporter.onFail).toHaveBeenCalledWith("test-spec");
+      const newReporter: SchedulerReporter = {
+        onStart: vi.fn(),
+        onComplete: vi.fn(),
+        onFail: vi.fn(),
+        onUpdate: vi.fn(),
+        onError: vi.fn(),
+        onDeadlock: vi.fn(),
+      };
+      scheduler.setReporter(newReporter);
+      expect(scheduler.getReporter()).toBe(newReporter);
+    });
   });
 });

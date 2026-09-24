@@ -1,4 +1,5 @@
 import { Task } from "../../domain/task.js";
+import { TaskExecutionState } from "../../domain/execution.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
@@ -14,73 +15,116 @@ export type RetryResult =
   | { kind: "retried" };
 
 export type AvailableTasksResult =
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "no-tasks" }
   | { kind: "tasks"; tasks: { id: string; title: string }[] };
 
 export type TaskInfoResult =
-  | { kind: "spec-not-found" }
+  | { kind: "intent-not-found" }
   | { kind: "task-not-found" }
   | { kind: "invalid-json"; message: string }
   | { kind: "info"; task: Task };
 
-export type RetrySpecResult =
-  | { kind: "spec-not-found" }
-  | { kind: "no-execution"; specName: string }
-  | { kind: "all-completed"; specName: string }
-  | { kind: "no-failed-tasks"; specName: string; pendingCount: number }
-  | { kind: "retried"; specName: string; retriedTasks: string[] };
+export type RetryIntentResult =
+  | { kind: "intent-not-found" }
+  | { kind: "no-execution"; intentName: string }
+  | { kind: "all-completed"; intentName: string }
+  | { kind: "no-failed-tasks"; intentName: string; pendingCount: number }
+  | { kind: "retried"; intentName: string; retriedTasks: string[] };
 
 export type ResetTaskResult =
-  | { kind: "spec-not-found" }
-  | { kind: "no-execution"; specName: string }
+  | { kind: "intent-not-found" }
+  | { kind: "no-execution"; intentName: string }
   | { kind: "task-not-found"; taskId: string }
-  | { kind: "reset-single"; specName: string; taskId: string }
-  | { kind: "reset-all"; specName: string; count: number };
+  | { kind: "reset-single"; intentName: string; taskId: string }
+  | { kind: "reset-all"; intentName: string; count: number };
+
+function resetTaskToPending(task: TaskExecutionState): void {
+  task.status = "pending";
+  delete task.startedAt;
+  delete task.completedAt;
+  delete task.errors;
+}
 
 export class TaskOperationsUseCase {
-  constructor(private readonly gw: WorkspaceGateway) {}
+  private readonly stateRepo: ExecutionStateRepository;
 
-  markTaskCompleted(
-    specName: string,
-    taskId: string,
-  ): MarkCompleteResult {
-    const repo = new ExecutionStateRepository(this.gw);
-    const state = repo.load(specName);
+  constructor(
+    private readonly gw: WorkspaceGateway,
+    stateRepo?: ExecutionStateRepository,
+  ) {
+    this.stateRepo = stateRepo ?? new ExecutionStateRepository(gw);
+  }
+
+  private loadTasksFromDisk(intentName: string): Task[] {
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
+    if (!this.gw.exists(tasksDir)) {
+      return [];
+    }
+    const files = this.gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
+    const tasks: Task[] = [];
+    for (const file of files) {
+      try {
+        const content = this.gw.readFile(`${tasksDir}/${file}`);
+        tasks.push(JSON.parse(content) as Task);
+      } catch {
+        // ignore invalid files
+      }
+    }
+    return tasks;
+  }
+
+  private ensureExecutionState(intentName: string) {
+    const existing = this.stateRepo.load(intentName);
+    if (existing) return existing;
+
+    const diskTasks = this.loadTasksFromDisk(intentName);
+    if (diskTasks.length === 0) return null;
+
+    const newState = this.stateRepo.init(intentName, diskTasks);
+    newState.status = "pending";
+    this.stateRepo.save(newState);
+    return newState;
+  }
+
+  markTaskCompleted(intentName: string, taskId: string): MarkCompleteResult {
+    let state = this.stateRepo.load(intentName);
 
     if (!state) {
-      return { kind: "not-found" };
+      const diskTasks = this.loadTasksFromDisk(intentName);
+      if (diskTasks.length > 0 && diskTasks.some((t) => t.id === taskId)) {
+        state = this.stateRepo.init(intentName, diskTasks);
+        state.status = "pending";
+        this.stateRepo.save(state);
+      } else {
+        return { kind: "not-found" };
+      }
     }
+
     if (!state.tasks[taskId]) {
       return { kind: "not-found" };
     }
 
     state.tasks[taskId].status = "completed";
+    state.tasks[taskId].completedAt = new Date().toISOString();
 
-    // Check if all tasks are now completed
     const allCompleted = Object.values(state.tasks).every(
       (t) => t.status === "completed",
     );
 
     if (allCompleted) {
       state.status = "completed";
+      state.completedAt = new Date().toISOString();
     }
 
-    repo.save(state);
+    this.stateRepo.save(state);
     return { kind: "completed", allCompleted };
   }
 
-  retryTask(
-    specName: string,
-    taskId: string,
-  ): RetryResult {
-    const repo = new ExecutionStateRepository(this.gw);
-    const state = repo.load(specName);
+  retryTask(intentName: string, taskId: string): RetryResult {
+    const state = this.stateRepo.load(intentName);
 
-    if (!state) {
-      return { kind: "not-found" };
-    }
-    if (!state.tasks[taskId]) {
+    if (!state || !state.tasks[taskId]) {
       return { kind: "not-found" };
     }
 
@@ -99,16 +143,14 @@ export class TaskOperationsUseCase {
       state.status = "pending";
       delete state.completedAt;
     }
-    repo.save(state);
+    this.stateRepo.save(state);
     return { kind: "retried" };
   }
 
-  getAvailableTasks(
-    specName: string,
-  ): AvailableTasksResult {
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  getAvailableTasks(intentName: string): AvailableTasksResult {
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+      return { kind: "intent-not-found" };
     }
 
     const taskFiles = this.gw.listDir(tasksDir).filter((f) => f.endsWith(".json"));
@@ -130,13 +172,10 @@ export class TaskOperationsUseCase {
     return { kind: "tasks", tasks };
   }
 
-  getTaskInfo(
-    specName: string,
-    taskId: string,
-  ): TaskInfoResult {
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
+  getTaskInfo(intentName: string, taskId: string): TaskInfoResult {
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+      return { kind: "intent-not-found" };
     }
 
     const taskPath = `${tasksDir}/${taskId}.json`;
@@ -153,17 +192,16 @@ export class TaskOperationsUseCase {
     }
   }
 
-  retrySpec(specName: string): RetrySpecResult {
-    const specPath = PATHS.specFile(specName);
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
-    if (!this.gw.exists(specPath) && !this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+  retryIntent(intentName: string): RetryIntentResult {
+    const intentPath = PATHS.intentFile(intentName);
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
+    if (!this.gw.exists(intentPath) && !this.gw.exists(tasksDir)) {
+      return { kind: "intent-not-found" };
     }
 
-    const repo = new ExecutionStateRepository(this.gw);
-    const state = repo.load(specName);
+    const state = this.stateRepo.load(intentName);
     if (!state) {
-      return { kind: "no-execution", specName };
+      return { kind: "no-execution", intentName };
     }
 
     const taskEntries = Object.entries(state.tasks);
@@ -174,13 +212,13 @@ export class TaskOperationsUseCase {
         taskEntries.length > 0 &&
         taskEntries.every(([_, t]) => t.status === "completed");
       if (allCompleted) {
-        return { kind: "all-completed", specName };
+        return { kind: "all-completed", intentName };
       }
 
       const pendingCount = taskEntries.filter(
         ([_, t]) => t.status === "pending",
       ).length;
-      return { kind: "no-failed-tasks", specName, pendingCount };
+      return { kind: "no-failed-tasks", intentName, pendingCount };
     }
 
     const retriedTasks: string[] = [];
@@ -193,22 +231,25 @@ export class TaskOperationsUseCase {
 
     state.status = "pending";
     delete state.completedAt;
-    repo.save(state);
+    this.stateRepo.save(state);
 
-    return { kind: "retried", specName, retriedTasks };
+    return { kind: "retried", intentName, retriedTasks };
   }
 
-  resetTasks(specName: string, taskId?: string): ResetTaskResult {
-    const specPath = PATHS.specFile(specName);
-    const tasksDir = `${PATHS.tasksDir}/${specName}`;
-    if (!this.gw.exists(specPath) && !this.gw.exists(tasksDir)) {
-      return { kind: "spec-not-found" };
+  resetTask(intentName: string, taskId: string): ResetTaskResult {
+    return this.resetTasks(intentName, taskId);
+  }
+
+  resetTasks(intentName: string, taskId?: string): ResetTaskResult {
+    const intentPath = PATHS.intentFile(intentName);
+    const tasksDir = `${PATHS.tasksDir}/${intentName}`;
+    if (!this.gw.exists(intentPath) && !this.gw.exists(tasksDir)) {
+      return { kind: "intent-not-found" };
     }
 
-    const repo = new ExecutionStateRepository(this.gw);
-    const state = repo.load(specName);
+    const state = this.ensureExecutionState(intentName);
     if (!state) {
-      return { kind: "no-execution", specName };
+      return { kind: "no-execution", intentName };
     }
 
     if (taskId !== undefined) {
@@ -217,31 +258,24 @@ export class TaskOperationsUseCase {
         return { kind: "task-not-found", taskId };
       }
 
-      task.status = "pending";
-      delete task.startedAt;
-      delete task.completedAt;
-      delete task.errors;
-
+      resetTaskToPending(task);
       state.status = "pending";
       delete state.completedAt;
-      repo.save(state);
+      this.stateRepo.save(state);
 
-      return { kind: "reset-single", specName, taskId };
+      return { kind: "reset-single", intentName, taskId };
     }
 
     const taskList = Object.values(state.tasks);
     for (const task of taskList) {
-      task.status = "pending";
-      delete task.startedAt;
-      delete task.completedAt;
-      delete task.errors;
+      resetTaskToPending(task);
     }
 
     state.status = "pending";
     delete state.startedAt;
     delete state.completedAt;
-    repo.save(state);
+    this.stateRepo.save(state);
 
-    return { kind: "reset-all", specName, count: taskList.length };
+    return { kind: "reset-all", intentName, count: taskList.length };
   }
 }

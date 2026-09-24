@@ -1,42 +1,16 @@
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ListSpecsUseCase } from "../../src/application/use-cases/ListSpecsUseCase.js";
 import { GeneratePlanUseCase } from "../../src/application/use-cases/GeneratePlanUseCase.js";
 import { AgentRunner } from "../../src/runners/AgentRunner.js";
 import { CodeForgeConfig } from "../../src/config/types.js";
+import { PATHS } from "../../src/infrastructure/paths.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge");
-  gateway.mkdir(".codeforge/specs");
+  gateway.mkdir(PATHS.intentsDir);
   gateway.mkdir(".codeforge/rules");
   gateway.writeFile(".codeforge/metadata.json", JSON.stringify({ initialized: true }));
 }
-
-describe("ListSpecsUseCase", () => {
-  let gateway: InMemoryWorkspaceGateway;
-  let useCase: ListSpecsUseCase;
-
-  beforeEach(() => {
-    gateway = new InMemoryWorkspaceGateway();
-    useCase = new ListSpecsUseCase(gateway);
-  });
-
-  it("returns empty array if specs directory does not exist", () => {
-    expect(useCase.execute()).toEqual([]);
-  });
-
-  it("returns only .md files without extension sorted", () => {
-    makeWorkspace(gateway);
-    
-    gateway.writeFile(".codeforge/specs/auth.md", "");
-    gateway.writeFile(".codeforge/specs/db.md", "");
-    gateway.writeFile(".codeforge/specs/readme.txt", "");
-
-    const specs = useCase.execute();
-    expect(specs).toHaveLength(2);
-    expect(specs).toEqual(["auth", "db"]);
-  });
-});
 
 describe("GeneratePlanUseCase", () => {
   let gateway: InMemoryWorkspaceGateway;
@@ -61,18 +35,18 @@ describe("GeneratePlanUseCase", () => {
     expect(result.kind).toBe("not-initialized");
   });
 
-  it("returns specNotFound if spec does not exist", async () => {
+  it("returns intentNotFound if intent does not exist", async () => {
     makeWorkspace(gateway);
-    const result = await useCase.execute("missing-spec", "mock-planner");
-    expect(result.kind).toBe("spec-not-found");
+    const result = await useCase.execute("missing-intent", "mock-planner");
+    expect(result.kind).toBe("intent-not-found");
   });
 
-  it("creates tasks folder, executes runner, and returns result", async () => {
+  it.each([undefined, "", "Prefer vertical slices."])("executes planning with rules %s", async (rules) => {
     makeWorkspace(gateway);
-    gateway.writeFile(".codeforge/specs/auth.md", "AUTH SPEC");
-    gateway.writeFile(".codeforge/rules/planning.md", "PLANNING RULES");
+    gateway.writeFile(PATHS.intentFile("auth"), "AUTH INTENT");
+    if (rules !== undefined) gateway.writeFile(PATHS.planningRules, rules);
 
-    // Mock runner creates a valid task file when executed
+    const readFile = vi.spyOn(gateway, "readFile");
     (runner.execute as any).mockImplementation(async () => {
       gateway.writeFile(".codeforge/tasks/auth/TASK-1.json", JSON.stringify({
         id: "TASK-1",
@@ -92,5 +66,8 @@ describe("GeneratePlanUseCase", () => {
     expect(result.kind).toBe("valid");
     expect(gateway.exists(".codeforge/tasks/auth")).toBe(true);
     expect(runner.execute).toHaveBeenCalled();
+    expect(runner.execute).toHaveBeenCalledTimes(1);
+    expect(readFile).toHaveBeenCalledWith(PATHS.intentFile("auth"));
+    expect(readFile.mock.calls.some(([path]) => path === PATHS.planningRules)).toBe(rules !== undefined);
   });
 });

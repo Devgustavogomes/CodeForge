@@ -1,79 +1,117 @@
-import { NodeWorkspaceGateway } from "../../infrastructure/workspace.js";
 import { Command } from "commander";
-import { select } from "@inquirer/prompts";
-import { ListSpecsUseCase } from "../../application/use-cases/ListSpecsUseCase.js";
-import { ConfigService } from "../../config/ConfigService.js";
-import { RunnerFactory } from "../../runners/RunnerFactory.js";
-import { TaskScheduler } from "../../scheduler/TaskScheduler.js";
-import { PATHS } from "../../infrastructure/paths.js";
-import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
-import { translate } from "../ui/i18n.js";
-import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
-import { PromptService } from "../../application/services/PromptService.js";
+import { HookDispatcher } from "../../application/ports/HookDispatcher.js";
+import { AppContainer, createAppContainer } from "../../infrastructure/container.js";
 import { CommandHookDispatcher } from "../../infrastructure/hooks/CommandHookDispatcher.js";
 import { NoopHookDispatcher } from "../../infrastructure/hooks/NoopHookDispatcher.js";
+import { ActionResult } from "../types.js";
+import { CliHookReporter } from "../ui/CliHookReporter.js";
+import { translate } from "../ui/i18n.js";
+import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
+import { promptSelectIntent } from "../common/prompts.js";
+
+export interface RunCommandOptions {
+  review?: boolean;
+  skipReview?: boolean;
+}
+
+export async function runAction(
+  intent?: string,
+  container: AppContainer = createAppContainer(),
+  options: RunCommandOptions = {},
+): Promise<ActionResult> {
+  const config = container.configService.loadConfig() ?? {
+    environment: "antigravity",
+    plannerAgent: "default",
+    executorAgent: "default",
+    language: "en",
+  };
+  const lang = config.language || "en";
+
+  let intentName = intent;
+
+  if (!intentName) {
+    const selected = await promptSelectIntent(container, lang, {
+      emptyErrorKey: "err_no_intents_run",
+      messageKey: "run_select_intent",
+    });
+
+    if (selected === undefined) {
+      return { success: false };
+    }
+    if (selected === null) {
+      return { back: true };
+    }
+    intentName = selected;
+  }
+
+  const runner = container.runnerProvider(config.environment);
+  const reporter = new TerminalSchedulerReporter({
+    getStatus: (name: string) => {
+      const uc = container.getIntentStatusUseCase;
+      return uc.execute(name);
+    },
+    language: lang,
+  });
+
+  const hooks: HookDispatcher = config.hooks
+    ? new CommandHookDispatcher(
+        config.hooks,
+        process.cwd(),
+        container.processExecutor,
+        new CliHookReporter({
+          terminalReporter: reporter,
+          language: lang,
+        }),
+      )
+    : new NoopHookDispatcher();
+
+  const scheduler = container.createTaskScheduler(
+    runner,
+    config,
+    reporter,
+    hooks,
+  );
+
+  try {
+    const reviewOptions = {
+      forceReview: options.review === true,
+      skipReview: options.skipReview === true,
+    };
+    const hasReviewOverride = reviewOptions.forceReview || reviewOptions.skipReview;
+    const runResult = hasReviewOverride
+      ? await scheduler.run(intentName, config.executorAgent, reviewOptions)
+      : await scheduler.run(intentName, config.executorAgent);
+
+    if (runResult.status === "completed" || runResult.status === "pending") {
+      process.exitCode = 0;
+      return { success: true };
+    }
+
+    if (runResult.status === "failed") {
+      const status = container.getIntentStatusUseCase.execute(intentName);
+      if (status.kind === "status" && status.tasks.some((task) => task.status === "failed")) {
+        console.log(translate("terminal_run_retry_hint", lang, { intent: intentName }));
+      }
+    }
+    process.exitCode = 1;
+    return { success: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(translate("terminal_run_error", lang, { error: message }));
+    process.exitCode = 1;
+    return { success: false };
+  } finally {
+    reporter.cleanup();
+  }
+}
 
 export function registerRunCommand(program: Command): void {
   program
-    .command("run [spec]")
-    .description("Execute tasks for a given spec autonomously")
-    .action(async (spec?: string) => {
-      const gw = new NodeWorkspaceGateway(process.cwd());
-
-      const configService = new ConfigService(gw);
-      const config = configService.loadConfig();
-      const lang = config?.language || "en";
-
-      if (!gw.exists(PATHS.metadata)) {
-        console.error(translate("err_not_initialized", lang));
-        process.exitCode = 1;
-        return;
-      }
-
-      if (!config) {
-        console.error(translate("err_not_configured", lang));
-        process.exitCode = 1;
-        return;
-      }
-
-      let specName = spec;
-
-      if (!specName) {
-        const listSpecsUseCase = new ListSpecsUseCase(gw);
-        const specs = listSpecsUseCase.execute();
-
-        if (specs.length === 0) {
-          console.error(translate("err_no_specs_run", lang));
-          process.exitCode = 1;
-          return;
-        }
-
-        specName = await select({
-          message: translate("run_select_spec", lang),
-          choices: [
-            { name: translate("menu_back", lang), value: "back" },
-            ...specs.map((s) => ({ name: s, value: s }))
-          ],
-        });
-
-        if (specName === "back") {
-          if (process.env.CODEFORGE_INTERACTIVE) {
-            process.exit(200);
-          } else {
-            process.exit(0);
-          }
-        }
-      }
-
-      const runner = RunnerFactory.createRunner(config.environment);
-      const reporter = new TerminalSchedulerReporter(gw);
-      const stateRepo = new ExecutionStateRepository(gw);
-      const promptService = new PromptService(gw);
-      const hooks = config.hooks
-        ? new CommandHookDispatcher(config.hooks, process.cwd())
-        : new NoopHookDispatcher();
-      const scheduler = new TaskScheduler(gw, runner, config, stateRepo, promptService, reporter, hooks);
-
-      await scheduler.run(specName, config.executorAgent);
+    .command("run [intent]")
+    .description("Execute tasks for a given intent autonomously")
+    .option("--review", "Force AI review for this run")
+    .option("--skip-review", "Skip AI review for this run")
+    .action(async (intent: string | undefined, options: RunCommandOptions) => {
+      await runAction(intent, undefined, options);
     });
 }

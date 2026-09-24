@@ -2,14 +2,14 @@ import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CreateDocUseCase } from "../../src/application/use-cases/CreateDocUseCase.js";
 import { UpdateDocUseCase } from "../../src/application/use-cases/UpdateDocUseCase.js";
-import { buildDocsCreatePrompt } from "../../src/infrastructure/assets/prompts/docs.js";
 import { GitGateway } from "../../src/infrastructure/git/GitGateway.js";
 import { AgentRunner } from "../../src/runners/AgentRunner.js";
 import { CodeForgeConfig } from "../../src/config/types.js";
+import { PATHS } from "../../src/infrastructure/paths.js";
 
 function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
   gateway.mkdir(".codeforge");
-  gateway.mkdir(".codeforge/specs");
+  gateway.mkdir(PATHS.intentsDir);
   gateway.mkdir(".codeforge/docs");
   gateway.mkdir(".codeforge/rules");
   gateway.writeFile(
@@ -18,12 +18,12 @@ function makeWorkspace(gateway: InMemoryWorkspaceGateway): void {
   );
 }
 
-function writeSpec(
+function writeIntent(
   gateway: InMemoryWorkspaceGateway,
   name: string,
-  content = "SPEC CONTENT",
+  content = "INTENT CONTENT",
 ): void {
-  gateway.writeFile(`.codeforge/specs/${name}.md`, content);
+  gateway.writeFile(PATHS.intentFile(name), content);
 }
 
 function writeDocsRules(
@@ -66,22 +66,15 @@ describe("CreateDocUseCase", () => {
     expect(result).toEqual({ kind: "not-initialized" });
   });
 
-  it("returns specNotFound when the spec file does not exist", async () => {
+  it("returns intentNotFound when the intent file does not exist", async () => {
     makeWorkspace(gateway);
-    const result = await useCase.execute("my-doc", "missing-spec");
-    expect(result).toEqual({ kind: "spec-not-found" });
-  });
-
-  it("returns rulesNotFound when .codeforge/rules/docs.md is missing", async () => {
-    makeWorkspace(gateway);
-    writeSpec(gateway, "auth");
-    const result = await useCase.execute("my-doc", "auth");
-    expect(result).toEqual({ kind: "rules-not-found" });
+    const result = await useCase.execute("my-doc", "missing-intent");
+    expect(result).toEqual({ kind: "intent-not-found" });
   });
 
   it("returns alreadyExists when the doc file already exists on disk", async () => {
     makeWorkspace(gateway);
-    writeSpec(gateway, "auth");
+    writeIntent(gateway, "auth");
     writeDocsRules(gateway);
 
     gateway.writeFile(".codeforge/docs/my-doc.md", "# Existing doc");
@@ -92,7 +85,7 @@ describe("CreateDocUseCase", () => {
 
   it("returns alreadyExists when the doc is already registered in manifest.json", async () => {
     makeWorkspace(gateway);
-    writeSpec(gateway, "auth");
+    writeIntent(gateway, "auth");
     writeDocsRules(gateway);
 
     const manifest = {
@@ -100,7 +93,7 @@ describe("CreateDocUseCase", () => {
       documents: {
         "my-doc": {
           path: ".codeforge/docs/my-doc.md",
-          specs: [".codeforge/specs/auth.md"],
+          intents: [PATHS.intentFile("auth")],
           scope: [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -118,7 +111,7 @@ describe("CreateDocUseCase", () => {
 
   it("creates and writes a manifest entry for the new doc and executes runner", async () => {
     makeWorkspace(gateway);
-    writeSpec(gateway, "auth");
+    writeIntent(gateway, "auth");
     writeDocsRules(gateway);
 
     const result = await useCase.execute("my-doc", "auth");
@@ -131,16 +124,16 @@ describe("CreateDocUseCase", () => {
       gateway.readFile(".codeforge/docs/manifest.json"),
     );
     expect(manifest.documents["my-doc"]).toBeDefined();
-    expect(manifest.documents["my-doc"].specs).toContain(
-      ".codeforge/specs/auth.md",
+    expect(manifest.documents["my-doc"].intents).toEqual(
+      expect.arrayContaining([PATHS.intentFile("auth")]),
     );
     expect(manifest.documents["my-doc"].path).toBe(".codeforge/docs/my-doc.md");
   });
 
   it("preserves existing manifest entries when adding a new doc", async () => {
     makeWorkspace(gateway);
-    writeSpec(gateway, "auth");
-    writeSpec(gateway, "billing");
+    writeIntent(gateway, "auth");
+    writeIntent(gateway, "billing");
     writeDocsRules(gateway);
 
     await useCase.execute("doc-one", "auth");
@@ -152,16 +145,6 @@ describe("CreateDocUseCase", () => {
 
     expect(manifest.documents["doc-one"]).toBeDefined();
     expect(manifest.documents["doc-two"]).toBeDefined();
-  });
-});
-
-describe("buildDocsCreatePrompt", () => {
-  it("returns a prompt containing spec and rules content", () => {
-    const prompt = buildDocsCreatePrompt("my-doc", "MY DOCS RULES", "MY SPEC CONTENT", "en");
-
-    expect(prompt).toContain("MY SPEC CONTENT");
-    expect(prompt).toContain("MY DOCS RULES");
-    expect(prompt).toContain("my-doc");
   });
 });
 
@@ -200,22 +183,22 @@ describe("UpdateDocUseCase", () => {
       expect(result).toEqual({ kind: "not-initialized" });
     });
 
-    it("returns specNotFound when the spec file does not exist", () => {
+    it("returns intentNotFound when the intent file does not exist", () => {
       makeWorkspace(gateway);
-      const result = useCase.getAffectedDocs("missing-spec");
-      expect(result).toEqual({ kind: "spec-not-found" });
+      const result = useCase.getAffectedDocs("missing-intent");
+      expect(result).toEqual({ kind: "intent-not-found" });
     });
 
-    it("returns rulesNotFound when docs-update.md rules are missing", () => {
+    it("continues when docs-update.md rules are missing", () => {
       makeWorkspace(gateway);
-      writeSpec(gateway, "auth");
+      writeIntent(gateway, "auth");
       const result = useCase.getAffectedDocs("auth");
-      expect(result).toEqual({ kind: "rules-not-found" });
+      expect(result).toEqual({ kind: "no-changed-files" });
     });
 
     it("returns noGit when there is no .git directory (hasRepository returns false)", () => {
       makeWorkspace(gateway);
-      writeSpec(gateway, "auth");
+      writeIntent(gateway, "auth");
       writeDocsUpdateRules(gateway);
       mockGit.hasRepository = () => false;
 
@@ -225,7 +208,7 @@ describe("UpdateDocUseCase", () => {
 
     it("returns noAffectedDocs when manifest has no entries with scope", () => {
       makeWorkspace(gateway);
-      writeSpec(gateway, "auth");
+      writeIntent(gateway, "auth");
       writeDocsUpdateRules(gateway);
       mockGit.getChangedFiles = () => ["src/some-file.ts"];
 
@@ -234,7 +217,7 @@ describe("UpdateDocUseCase", () => {
         documents: {
           "api-reference": {
             path: ".codeforge/docs/api-reference.md",
-            specs: [".codeforge/specs/auth.md"],
+            intents: [PATHS.intentFile("auth")],
             scope: [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -257,22 +240,22 @@ describe("UpdateDocUseCase", () => {
       expect(result).toEqual({ kind: "not-initialized" });
     });
 
-    it("returns specNotFound when the spec file does not exist", () => {
+    it("returns intentNotFound when the intent file does not exist", () => {
       makeWorkspace(gateway);
-      const result = useCase.getManualDoc("missing-spec", "api-reference");
-      expect(result).toEqual({ kind: "spec-not-found" });
+      const result = useCase.getManualDoc("missing-intent", "api-reference");
+      expect(result).toEqual({ kind: "intent-not-found" });
     });
 
-    it("returns rulesNotFound when docs-update.md rules are missing", () => {
+    it("continues when docs-update.md rules are missing", () => {
       makeWorkspace(gateway);
-      writeSpec(gateway, "auth");
+      writeIntent(gateway, "auth");
       const result = useCase.getManualDoc("auth", "api-reference");
-      expect(result).toEqual({ kind: "rules-not-found" });
+      expect(result).toEqual({ kind: "doc-not-found" });
     });
 
     it("returns docNotFound when doc is absent from manifest and disk", () => {
       makeWorkspace(gateway);
-      writeSpec(gateway, "auth");
+      writeIntent(gateway, "auth");
       writeDocsUpdateRules(gateway);
 
       const result = useCase.getManualDoc("auth", "non-existent-doc");
@@ -281,7 +264,7 @@ describe("UpdateDocUseCase", () => {
 
     it("succeeds when the doc is registered in manifest.json", () => {
       makeWorkspace(gateway);
-      writeSpec(gateway, "auth");
+      writeIntent(gateway, "auth");
       writeDocsUpdateRules(gateway);
 
       const manifest = {
@@ -289,7 +272,7 @@ describe("UpdateDocUseCase", () => {
         documents: {
           "api-reference": {
             path: ".codeforge/docs/api-reference.md",
-            specs: [".codeforge/specs/auth.md"],
+            intents: [PATHS.intentFile("auth")],
             scope: ["src/**"],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -308,6 +291,19 @@ describe("UpdateDocUseCase", () => {
       expect(result.doc.docName).toBe("api-reference");
       expect(result.doc.docPath).toBe(".codeforge/docs/api-reference.md");
       expect(result.doc.matchedFiles).toEqual([]);
+    });
+  });
+
+  describe("execute without rules", () => {
+    it.each(["missing", "empty"]) ("runs a manual update when rules are %s", async (rulesState) => {
+      makeWorkspace(gateway);
+      const doc = { docName: "api", docPath: ".codeforge/docs/api.md", intentPaths: [], matchedFiles: [] };
+      if (rulesState === "empty") writeDocsUpdateRules(gateway, "  \n");
+      mockRunner.execute = vi.fn().mockResolvedValue(undefined) as any;
+
+      await useCase.execute("auth", doc, true);
+
+      expect(mockRunner.execute).toHaveBeenCalledTimes(1);
     });
   });
 });
