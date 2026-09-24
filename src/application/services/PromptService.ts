@@ -109,3 +109,31 @@ export class PromptService {
     }
   }
 }
+
+/**
+ * Ensures prompt directory exists, writes temporary prompt file, executes callback, and guarantees cleanup.
+ */
+export async function executeWithTempPrompt<T>(
+  gw: WorkspaceGateway,
+  promptPath: string,
+  promptContent: string,
+  action: () => Promise<T>,
+): Promise<T> {
+  const normalized = promptPath.replace(/\\/g, "/");
+  const lastSlash = normalized.lastIndexOf("/");
+  if (lastSlash !== -1) {
+    const dir = normalized.substring(0, lastSlash);
+    if (!gw.exists(dir)) {
+      gw.mkdir(dir);
+    }
+  }
+
+  gw.writeFile(promptPath, promptContent);
+  try {
+    return await action();
+  } finally {
+    if (gw.exists(promptPath)) {
+      gw.deleteFile(promptPath);
+    }
+  }
+}
