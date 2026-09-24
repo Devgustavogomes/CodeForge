@@ -26,6 +26,7 @@ export interface ConfigScreenProps {
   container?: AppContainer;
   configService?: ConfigService;
   initialConfig?: CodeForgeConfig;
+  sharedConfig?: CodeForgeConfig;
   onSave?: (config: CodeForgeConfig) => void;
   isInteractive?: boolean;
 }
@@ -34,6 +35,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
   container,
   configService,
   initialConfig,
+  sharedConfig,
   onSave,
   isInteractive = true,
 }) => {
@@ -42,6 +44,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
     container,
     configService,
     initialConfig,
+    sharedConfig,
     onSave,
   });
 
@@ -80,7 +83,7 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({
       <ConfigureHooksModal
         isOpen={true}
         onClose={configState.closeHooksModal}
-        config={config}
+        config={configState.savedConfig}
         configService={configService ?? container?.configService}
         onUpdateHooks={configState.handleUpdateHooks}
         width="100%"

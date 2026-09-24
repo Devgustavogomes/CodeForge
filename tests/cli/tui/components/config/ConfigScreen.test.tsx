@@ -73,6 +73,98 @@ describe('ConfigScreen component', () => {
     );
   });
 
+  it('auto-saves hooks against saved config while keeping other edits local until explicit save', async () => {
+    let diskConfig = { ...mockConfig };
+    const activeConfigs: CodeForgeConfig[] = [];
+    const mockSaveConfig = vi.fn((next: CodeForgeConfig) => { diskConfig = next; });
+    const onSave = vi.fn((next: CodeForgeConfig) => activeConfigs.push(next));
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen configService={{ loadConfig: () => mockConfig, saveConfig: mockSaveConfig } as unknown as ConfigService}
+        initialConfig={mockConfig} isInteractive={true} onSave={onSave} />,
+    );
+
+    // Make an unsaved language change, then add a hook.
+    stdin.write(' '); await flushAsync();
+    for (let i = 0; i < 4; i++) stdin.write('j');
+    await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    stdin.write('npm integration'); await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    expect(mockSaveConfig).toHaveBeenCalledTimes(1);
+
+    expect(diskConfig.language).toBe(mockConfig.language);
+    expect(diskConfig.hooks['run.started']).toEqual(expect.arrayContaining([
+      expect.objectContaining({ run: 'npm integration' }),
+    ]));
+    expect(activeConfigs).toHaveLength(1);
+    expect(activeConfigs[0].language).toBe(mockConfig.language);
+    expect(activeConfigs[0].hooks).toEqual(diskConfig.hooks);
+    expect(lastFrame() ?? '').toContain('Unsaved Changes');
+
+    stdin.write('s'); await flushAsync();
+    expect(diskConfig.language).not.toBe(mockConfig.language);
+    expect(activeConfigs).toHaveLength(2);
+    expect(activeConfigs[1].language).toBe(diskConfig.language);
+  });
+
+  it('keeps a failed hook add in the form and allows retry', async () => {
+    const mockSaveConfig = vi.fn()
+      .mockImplementationOnce(() => { throw new Error('disk full'); })
+      .mockImplementationOnce(() => undefined);
+    const onSave = vi.fn();
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen configService={{ loadConfig: () => mockConfig, saveConfig: mockSaveConfig } as unknown as ConfigService}
+        initialConfig={mockConfig} isInteractive={true} onSave={onSave} />,
+    );
+
+    for (let i = 0; i < 4; i++) stdin.write('j');
+    await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    stdin.write('npm retry'); await flushAsync();
+    stdin.write('\r'); await flushAsync();
+
+    expect(lastFrame() ?? '').toContain('Adicionar Novo Hook');
+    expect(lastFrame() ?? '').toContain('Erro ao salvar hook: disk full');
+    expect(mockSaveConfig).toHaveBeenCalledTimes(1);
+    expect(onSave).not.toHaveBeenCalled();
+
+    stdin.write('\r'); await flushAsync();
+    expect(mockSaveConfig).toHaveBeenCalledTimes(2);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a failed hook delete unchanged until persistence succeeds', async () => {
+    const mockSaveConfig = vi.fn().mockImplementationOnce(() => { throw new Error('read only'); });
+    const onSave = vi.fn();
+    const { lastFrame, stdin } = renderWithProviders(
+      <ConfigScreen configService={{ loadConfig: () => mockConfig, saveConfig: mockSaveConfig } as unknown as ConfigService}
+        initialConfig={mockConfig} isInteractive={true} onSave={onSave} />,
+    );
+
+    for (let i = 0; i < 4; i++) stdin.write('j');
+    await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    stdin.write('\r'); await flushAsync();
+    stdin.write('j'); await flushAsync();
+    stdin.write('d'); await flushAsync();
+    stdin.write('y'); await flushAsync();
+
+    expect(lastFrame() ?? '').toContain('test');
+    expect(lastFrame() ?? '').toContain('Erro ao remover hook: read only');
+    expect(onSave).not.toHaveBeenCalled();
+
+    // The same command remains selected and can be retried.
+    mockSaveConfig.mockImplementationOnce(() => undefined);
+    stdin.write('d'); await flushAsync();
+    stdin.write('y'); await flushAsync();
+    expect(mockSaveConfig).toHaveBeenCalledTimes(2);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
   it('opens ConfigureIntentSourceModal on intentSource field with Enter and persists changes', async () => {
     const mockSaveConfig = vi.fn();
     const mockConfigService = {

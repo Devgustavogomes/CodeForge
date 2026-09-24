@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { AppContainer } from '../../../../../infrastructure/container.js';
 import { NodeWorkspaceGateway } from '../../../../../infrastructure/workspace.js';
 import { ConfigService } from '../../../../../config/ConfigService.js';
@@ -12,6 +12,7 @@ export interface UseConfigScreenOptions {
   container?: AppContainer;
   configService?: ConfigService;
   initialConfig?: CodeForgeConfig;
+  sharedConfig?: CodeForgeConfig;
   onSave?: (config: CodeForgeConfig) => void;
 }
 
@@ -34,6 +35,7 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     container = (globalThis as unknown as { __codeforge_container?: AppContainer }).__codeforge_container!,
     configService: customConfigService,
     initialConfig,
+    sharedConfig,
     onSave,
   } = options;
 
@@ -54,6 +56,15 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
       return DEFAULT_CONFIG;
     }
   });
+  const [savedConfig, setSavedConfig] = useState<CodeForgeConfig>(() => {
+    if (initialConfig) return withAiReviewDefaults(initialConfig);
+    try {
+      const loaded = configService.loadConfig();
+      return loaded ? withAiReviewDefaults(loaded) : DEFAULT_CONFIG;
+    } catch {
+      return DEFAULT_CONFIG;
+    }
+  });
 
   const [focusedFieldIndex, setFocusedFieldIndex] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -63,9 +74,25 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     message: string;
   } | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  // State updates are applied after the current event. A hydration effect may
+  // already be queued with the previous clean value, so track edits eagerly.
+  const dirtyRef = useRef(false);
+  const markDirty = useCallback(() => {
+    dirtyRef.current = true;
+    setIsDirty(true);
+  }, []);
   const [isHooksModalOpen, setIsHooksModalOpen] = useState(false);
   const [isIntentSourceModalOpen, setIsIntentSourceModalOpen] = useState(false);
   const [isAiReviewModalOpen, setIsAiReviewModalOpen] = useState(false);
+
+  // App reloads shared config when this tab is entered. Adopt that snapshot only
+  // while the form is clean, so unrelated renders never discard user edits.
+  useEffect(() => {
+    if (!dirtyRef.current && sharedConfig) {
+      setConfig(withAiReviewDefaults(sharedConfig));
+      setSavedConfig(withAiReviewDefaults(sharedConfig));
+    }
+  }, [sharedConfig, isDirty]);
 
   const openHooksModal = useCallback(() => {
     setIsHooksModalOpen(true);
@@ -76,11 +103,11 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
   }, []);
 
   const handleUpdateHooks = useCallback((newHooks: HookMap) => {
-    setConfig((prev) => ({
-      ...prev,
-      hooks: newHooks,
-    }));
-  }, []);
+    const savedWithHooks = { ...savedConfig, hooks: newHooks };
+    setSavedConfig(savedWithHooks);
+    setConfig((current) => ({ ...current, hooks: newHooks }));
+    onSave?.(savedWithHooks);
+  }, [savedConfig, onSave]);
 
   const openIntentSourceModal = useCallback(() => {
     setIsIntentSourceModalOpen(true);
@@ -163,6 +190,8 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
   const handleSave = useCallback(() => {
     try {
       configService.saveConfig(config);
+      setSavedConfig(config);
+      dirtyRef.current = false;
       setIsDirty(false);
       setFeedback({
         type: 'success',
@@ -187,13 +216,13 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
       const nextLang = LANGUAGES[nextIndex];
 
       setConfig((prev) => ({ ...prev, language: nextLang }));
-      setIsDirty(true);
+      markDirty();
       setFeedback({
         type: 'info',
         message: `Language updated to ${nextLang}. Press 's' to save.`,
       });
     },
-    [config.language],
+    [config.language, markDirty],
   );
 
   const handleCycleEnvironment = useCallback(
@@ -206,13 +235,13 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
       const nextEnv = availableEnvironments[nextIndex];
 
       setConfig((prev) => ({ ...prev, environment: nextEnv }));
-      setIsDirty(true);
+      markDirty();
       setFeedback({
         type: 'info',
         message: `Environment updated to ${nextEnv}. Press 's' to save.`,
       });
     },
-    [availableEnvironments, config.environment],
+    [availableEnvironments, config.environment, markDirty],
   );
 
   const handleCyclePlannerAgent = useCallback(
@@ -225,13 +254,13 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
       const nextAgent = currentAgentOptions[nextIndex];
 
       setConfig((prev) => ({ ...prev, plannerAgent: nextAgent }));
-      setIsDirty(true);
+      markDirty();
       setFeedback({
         type: 'info',
         message: `Planner agent updated to ${nextAgent}. Press 's' to save.`,
       });
     },
-    [currentAgentOptions, config.plannerAgent],
+    [currentAgentOptions, config.plannerAgent, markDirty],
   );
 
   const handleCycleExecutorAgent = useCallback(
@@ -244,13 +273,13 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
       const nextAgent = currentAgentOptions[nextIndex];
 
       setConfig((prev) => ({ ...prev, executorAgent: nextAgent }));
-      setIsDirty(true);
+      markDirty();
       setFeedback({
         type: 'info',
         message: `Executor agent updated to ${nextAgent}. Press 's' to save.`,
       });
     },
-    [currentAgentOptions, config.executorAgent],
+    [currentAgentOptions, config.executorAgent, markDirty],
   );
 
   const handleToggleAiReview = useCallback(() => {
@@ -258,9 +287,9 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
       const review = resolveAiReviewConfig(prev.aiReview);
       return { ...prev, aiReview: { ...review, enabled: !review.enabled } };
     });
-    setIsDirty(true);
+    markDirty();
     setFeedback({ type: 'info', message: "AI Review status updated. Press 's' to save." });
-  }, []);
+  }, [markDirty]);
 
   const handleCycleAiReviewAgent = useCallback((direction: 1 | -1) => {
     const currentAgent = resolveAiReviewConfig(config.aiReview).agent;
@@ -271,9 +300,9 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
       ...prev,
       aiReview: { ...resolveAiReviewConfig(prev.aiReview), agent: nextAgent },
     }));
-    setIsDirty(true);
+    markDirty();
     setFeedback({ type: 'info', message: `Reviewer agent updated to ${nextAgent}. Press 's' to save.` });
-  }, [config.aiReview, currentAgentOptions]);
+  }, [config.aiReview, currentAgentOptions, markDirty]);
 
   const startEditing = useCallback(() => {
     if (activeField === 'language') {
@@ -357,16 +386,17 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
       return;
     }
 
-    setIsDirty(true);
+    markDirty();
     setIsEditing(false);
     setFeedback({
       type: 'info',
       message: `Updated ${activeField}. Press 's' to persist to config.yaml.`,
     });
-  }, [activeField, editValue]);
+  }, [activeField, editValue, markDirty]);
 
   return {
     config,
+    savedConfig,
     setConfig,
     focusedFieldIndex,
     setFocusedFieldIndex,
@@ -388,7 +418,7 @@ export function useConfigScreen(options: UseConfigScreenOptions = {}) {
     closeAiReviewModal: () => setIsAiReviewModalOpen(false),
     handleUpdateAiReview: (review: ReturnType<typeof resolveAiReviewConfig>) => {
       setConfig((prev) => ({ ...prev, aiReview: review }));
-      setIsDirty(true);
+      markDirty();
     },
     openHooksModal,
     closeHooksModal,

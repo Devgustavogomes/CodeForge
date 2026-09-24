@@ -118,8 +118,6 @@ export function useConfigureHooksModal({
       [selectedEvent]: currentList,
     };
 
-    setHooks(updatedHooks);
-
     if (persistenceMode === 'controlled') {
       setFeedbackMessage('✔ Hook mantido para a confirmação final');
     } else if (configService) {
@@ -132,11 +130,13 @@ export function useConfigureHooksModal({
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         setFeedbackMessage(`✗ Erro ao salvar hook: ${msg}`);
+        return false;
       }
     } else {
       setFeedbackMessage('✔ Hook salvo com sucesso no config.yaml');
     }
 
+    setHooks(updatedHooks);
     onUpdateHooks?.(updatedHooks);
 
     const targetIndex =
@@ -173,8 +173,6 @@ export function useConfigureHooksModal({
         [selectedEvent]: currentList,
       };
 
-      setHooks(updatedHooks);
-
       if (persistenceMode === 'controlled') {
         setFeedbackMessage('✔ Alteração mantida para a confirmação final');
       } else if (configService) {
@@ -187,11 +185,13 @@ export function useConfigureHooksModal({
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           setFeedbackMessage(`✗ Erro ao remover hook: ${msg}`);
+          return;
         }
       } else {
         setFeedbackMessage('✔ Hook removido com sucesso');
       }
 
+      setHooks(updatedHooks);
       onUpdateHooks?.(updatedHooks);
 
       commandsView.setDeleteConfirmIndex(null);

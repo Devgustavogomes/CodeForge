@@ -80,14 +80,12 @@ export function useHookFormState({
     isActive: isActive && activeFormField === 'run',
     syncNavigation: false,
     onChange: () => setFormErrorMessage(null),
-    onSubmit: () => onSaveRef.current(),
   });
 
   const nameInput = useTextInput({
     initialValue: '',
     isActive: isActive && activeFormField === 'name',
     syncNavigation: false,
-    onSubmit: () => onSaveRef.current(),
   });
 
   const run = runInput.value;
