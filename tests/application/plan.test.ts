@@ -41,13 +41,23 @@ describe("GeneratePlanUseCase", () => {
     expect(result.kind).toBe("intent-not-found");
   });
 
-  it("creates tasks folder, executes runner, and returns result", async () => {
+  it.each([undefined, "", "Prefer vertical slices."])("keeps the planning contract with rules %s", async (rules) => {
     makeWorkspace(gateway);
     gateway.writeFile(PATHS.intentFile("auth"), "AUTH INTENT");
-    gateway.writeFile(".codeforge/rules/planning.md", "PLANNING RULES");
+    if (rules !== undefined) gateway.writeFile(PATHS.planningRules, rules);
 
-    // Mock runner creates a valid task file when executed
-    (runner.execute as any).mockImplementation(async () => {
+    (runner.execute as any).mockImplementation(async (context: any) => {
+      const prompt = gateway.readFile(context.promptFilePath);
+      expect(prompt).toContain(".codeforge/tasks/auth/TASK-XXX.json");
+      expect(prompt).toContain("Dependencies must reference valid task IDs and form a DAG");
+      for (const key of [
+        "id", "title", "objective", "context", "implementation", "files",
+        "dependencies", "constraints", "acceptanceCriteria",
+      ]) expect(prompt).toContain(`"${key}"`);
+      expect(prompt).toContain("Write generated prose in en; preserve JSON keys and technical code terms.");
+      if (rules?.trim()) expect(prompt).toContain("Prefer vertical slices.");
+      else expect(prompt).not.toContain("PROJECT PLANNING RULES");
+
       gateway.writeFile(".codeforge/tasks/auth/TASK-1.json", JSON.stringify({
         id: "TASK-1",
         title: "T1",

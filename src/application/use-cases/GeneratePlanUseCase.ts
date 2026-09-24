@@ -75,6 +75,7 @@ export class GeneratePlanUseCase {
           intentName,
           valResult.errors,
           this.config.language,
+          intentTasksDir,
         );
         this.workspace.writeFile(promptPath, fixPrompt);
 
