@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { TaskScheduler, SchedulerRunResult } from "../../src/scheduler/TaskScheduler.js";
+import { TaskScheduler } from "../../src/scheduler/TaskScheduler.js";
+import { SchedulerRunResult } from "../../src/scheduler/types.js";
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { InMemoryAgentRunner } from "../helpers/in-memory-agent-runner.js";
 import { TaskBuilder } from "../helpers/task-builder.js";
@@ -60,14 +61,14 @@ describe("TaskScheduler", () => {
       onLog: vi.fn(),
     };
 
-    scheduler = new TaskScheduler(
+    scheduler = new TaskScheduler({
       gw,
       runner,
       config,
       stateRepo,
       promptService,
       reporter,
-    );
+    });
 
     gw.mkdir(".codeforge/tasks/test-intent");
   });
@@ -271,10 +272,16 @@ describe("TaskScheduler", () => {
           return { newTaskFiles: ["TASK-002.json"], newTaskIds: ["TASK-002"] };
         }),
       } as unknown as ExecuteReviewUseCase;
-      const reviewScheduler = new TaskScheduler(
-        gw, runner, config, stateRepo, promptService, reporter, undefined, undefined,
-        reviewUseCase, new ValidatePlanUseCase(gw),
-      );
+      const reviewScheduler = new TaskScheduler({
+        gw,
+        runner,
+        config,
+        stateRepo,
+        promptService,
+        reporter,
+        reviewUseCase,
+        validatePlanUseCase: new ValidatePlanUseCase(gw),
+      });
 
       await expect(reviewScheduler.run("test-intent", { forceReview: true })).resolves.toMatchObject({ status: "paused" });
       expect(gw.exists(PATHS.taskFile("test-intent", "TASK-002"))).toBe(false);
@@ -307,10 +314,16 @@ describe("TaskScheduler", () => {
           return { newTaskFiles: [], newTaskIds: [] };
         }),
       } as unknown as ExecuteReviewUseCase;
-      const reviewScheduler = new TaskScheduler(
-        gw, runner, config, stateRepo, promptService, reporter, undefined, undefined,
-        reviewUseCase, new ValidatePlanUseCase(gw),
-      );
+      const reviewScheduler = new TaskScheduler({
+        gw,
+        runner,
+        config,
+        stateRepo,
+        promptService,
+        reporter,
+        reviewUseCase,
+        validatePlanUseCase: new ValidatePlanUseCase(gw),
+      });
 
       await expect(reviewScheduler.run("test-intent", { forceReview: true })).resolves.toMatchObject({ status: "paused" });
       expect(gw.exists(PATHS.taskFile("test-intent", "TASK-002"))).toBe(false);
@@ -334,7 +347,7 @@ describe("TaskScheduler", () => {
       const hooks = new StubHookDispatcher([
         { name: "lint", type: "gate", ok: true, exitCode: 0, output: "clean" },
       ]);
-      const schedulerWithHooks = new TaskScheduler(
+      const schedulerWithHooks = new TaskScheduler({
         gw,
         runner,
         config,
@@ -342,7 +355,7 @@ describe("TaskScheduler", () => {
         promptService,
         reporter,
         hooks,
-      );
+      });
 
       const result = await schedulerWithHooks.run("test-intent");
 
@@ -358,7 +371,7 @@ describe("TaskScheduler", () => {
       const hooks = new StubHookDispatcher([
         { name: "unit-tests", type: "gate", ok: false, exitCode: 1, output: "1 test failed" },
       ]);
-      const schedulerWithHooks = new TaskScheduler(
+      const schedulerWithHooks = new TaskScheduler({
         gw,
         runner,
         config,
@@ -366,7 +379,7 @@ describe("TaskScheduler", () => {
         promptService,
         reporter,
         hooks,
-      );
+      });
 
       const result = await schedulerWithHooks.run("test-intent");
 
@@ -385,7 +398,7 @@ describe("TaskScheduler", () => {
       const hooks = new StubHookDispatcher([
         { name: "slack-notify", type: "notify", ok: false, exitCode: 2, output: "network error" },
       ]);
-      const schedulerWithHooks = new TaskScheduler(
+      const schedulerWithHooks = new TaskScheduler({
         gw,
         runner,
         config,
@@ -393,7 +406,7 @@ describe("TaskScheduler", () => {
         promptService,
         reporter,
         hooks,
-      );
+      });
 
       const result = await schedulerWithHooks.run("test-intent");
 

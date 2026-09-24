@@ -78,7 +78,14 @@ describe("task.verify gate", () => {
   });
 
   function schedulerFor(hooks: HookDispatcher): TaskScheduler {
-    return new TaskScheduler(gw, runner, config, stateRepo, promptService, undefined, hooks);
+    return new TaskScheduler({
+      gw,
+      runner,
+      config,
+      stateRepo,
+      promptService,
+      hooks,
+    });
   }
 
   it("lets the task complete when the gate passes", async () => {

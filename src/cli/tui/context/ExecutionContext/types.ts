@@ -1,5 +1,6 @@
 import React from 'react';
-import { TaskScheduler, SchedulerStatus } from '../../../../scheduler/TaskScheduler.js';
+import { TaskScheduler } from '../../../../scheduler/TaskScheduler.js';
+import { SchedulerStatus } from '../../../../scheduler/types.js';
 import { AppContainer } from '../../../../infrastructure/container.js';
 import { HookEvent, HookType } from '../../../../domain/hook.js';
 import { HookReporter } from '../../../../application/ports/HookReporter.js';

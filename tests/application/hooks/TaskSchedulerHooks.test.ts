@@ -88,10 +88,14 @@ describe("TaskScheduler hook dispatch", () => {
     state.status = "completed";
     repository.save(state);
     const runner = { execute: vi.fn() } as unknown as AgentRunner;
-    const scheduler = new TaskScheduler(
-      gw, runner, { ...config, aiReview: { enabled: true, agent: "default", maxRounds: 3 } },
-      repository, new PromptService(gw), undefined, hooks,
-    );
+    const scheduler = new TaskScheduler({
+      gw,
+      runner,
+      config: { ...config, aiReview: { enabled: true, agent: "default", maxRounds: 3 } },
+      stateRepo: repository,
+      promptService: new PromptService(gw),
+      hooks,
+    });
 
     const result = await scheduler.run("intent");
 
@@ -101,15 +105,14 @@ describe("TaskScheduler hook dispatch", () => {
   });
 
   function schedulerFor(runner: AgentRunner, withHooks = true): TaskScheduler {
-    return new TaskScheduler(
+    return new TaskScheduler({
       gw,
       runner,
       config,
-      new ExecutionStateRepository(gw),
-      new PromptService(gw),
-      undefined,
-      withHooks ? hooks : undefined,
-    );
+      stateRepo: new ExecutionStateRepository(gw),
+      promptService: new PromptService(gw),
+      hooks: withHooks ? hooks : undefined,
+    });
   }
 
   function writeTask(task: Task): void {
@@ -205,15 +208,14 @@ describe("TaskScheduler hook dispatch", () => {
       dispatch: vi.fn().mockResolvedValue([]),
       setReporter: vi.fn(),
     };
-    const scheduler = new TaskScheduler(
+    const scheduler = new TaskScheduler({
       gw,
       runner,
       config,
-      new ExecutionStateRepository(gw),
-      new PromptService(gw),
-      undefined,
-      mockDispatcher,
-    );
+      stateRepo: new ExecutionStateRepository(gw),
+      promptService: new PromptService(gw),
+      hooks: mockDispatcher,
+    });
 
     const mockHookReporter = { onHookStart: vi.fn(), onHookEnd: vi.fn() };
     scheduler.setHookReporter(mockHookReporter);

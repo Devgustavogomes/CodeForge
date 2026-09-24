@@ -332,26 +332,26 @@ export function createAppContainer(
       hooks?: HookDispatcher,
       schedulerHookReporter?: HookReporter,
     ): TaskScheduler {
-      return new TaskScheduler(
-        workspaceGateway,
+      return new TaskScheduler({
+        gw: workspaceGateway,
         runner,
         config,
         stateRepo,
         promptService,
         reporter,
         hooks,
-        schedulerHookReporter ?? hookReporter,
-        // Keep these trailing optional constructor dependencies so direct scheduler
-        // construction in integrations remains source-compatible.
-        overrides?.executeReviewUseCase ?? new ExecuteReviewUseCase(
-          workspaceGateway,
-          gitGateway,
-          runner,
-          promptService,
-          config,
-        ),
+        hookReporter: schedulerHookReporter ?? hookReporter,
+        reviewUseCase:
+          overrides?.executeReviewUseCase ??
+          new ExecuteReviewUseCase(
+            workspaceGateway,
+            gitGateway,
+            runner,
+            promptService,
+            config,
+          ),
         validatePlanUseCase,
-      );
+      });
     },
   };
 }
