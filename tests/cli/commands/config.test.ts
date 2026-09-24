@@ -84,4 +84,25 @@ describe("config CLI AI review settings", () => {
       intentSource: { provider: "github", project: "owner/repo", apiKey: "$GITHUB_TOKEN" },
     }));
   });
+
+  it("shows the new provider's API key reference instead of the old resolved secret", async () => {
+    const config = {
+      language: "en" as const, environment: "codex", plannerAgent: "p", executorAgent: "e",
+      intentSource: { provider: "github", apiKey: "resolved-github-secret" },
+    };
+    const saveConfig = vi.fn();
+    const container = {
+      configureEnvironmentUseCase: { loadConfig: () => config, saveConfig },
+      configService: { loadConfig: () => ({ intentSource: { provider: "github", apiKey: "$GITHUB_TOKEN" } }) },
+    } as any;
+    vi.mocked(select).mockResolvedValueOnce("intentSource").mockResolvedValueOnce("linear").mockResolvedValueOnce("back");
+    vi.mocked(input).mockResolvedValueOnce("").mockResolvedValueOnce("").mockResolvedValueOnce("$LINEAR_API_KEY");
+
+    await configAction(container);
+
+    expect(input).toHaveBeenLastCalledWith(expect.objectContaining({ default: "$LINEAR_API_KEY" }));
+    expect(saveConfig).toHaveBeenCalledWith(expect.objectContaining({
+      intentSource: { provider: "linear", apiKey: "$LINEAR_API_KEY" },
+    }));
+  });
 });

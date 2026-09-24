@@ -88,7 +88,7 @@ async function configureHooks(config: CodeForgeConfig, lang: SupportedLanguage, 
   }
 }
 
-async function configureIntentSource(config: CodeForgeConfig, lang: SupportedLanguage): Promise<boolean> {
+async function configureIntentSource(config: CodeForgeConfig, lang: SupportedLanguage, rawSource = config.intentSource): Promise<boolean> {
   const label = labels[lang];
   const provider = await select({
     message: label.provider,
@@ -99,7 +99,7 @@ async function configureIntentSource(config: CodeForgeConfig, lang: SupportedLan
     default: config.intentSource?.provider ?? "filesystem",
   });
   if (provider === "back") return false;
-  const current = config.intentSource?.provider === provider ? config.intentSource : undefined;
+  const current = rawSource?.provider === provider ? rawSource : undefined;
   const project = (await input({ message: label.project, default: current?.project ?? "" })).trim();
   const team = (await input({ message: label.team, default: current?.team ?? "" })).trim();
   const apiKey = (await input({
@@ -268,7 +268,11 @@ export async function configAction(
             await configureHooks(c, lang, () => envUseCase.saveConfig(c));
             return false;
           },
-          intentSource: async (c) => configureIntentSource(c, lang),
+          intentSource: async (c) => configureIntentSource(
+            c,
+            lang,
+            container.configService?.loadConfig({ interpolate: false })?.intentSource ?? c.intentSource,
+          ),
         };
 
         if (handlers[key]) {

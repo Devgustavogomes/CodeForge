@@ -8,7 +8,7 @@ export class ConfigService {
 
   constructor(private readonly workspace: WorkspaceGateway) {}
 
-  public loadConfig(): CodeForgeConfig | null {
+  public loadConfig(options: { interpolate?: boolean } = {}): CodeForgeConfig | null {
     try {
       if (!this.workspace.exists(this.configPath)) {
         return null;
@@ -20,7 +20,9 @@ export class ConfigService {
       this.loadEnv(parsedConfig.envPath as string | undefined);
 
       // Interpolate $VAR and ${VAR} placeholders in string configuration values
-      const interpolatedConfig = this.interpolate(parsedConfig) as Record<string, unknown>;
+      const interpolatedConfig = options.interpolate === false
+        ? parsedConfig
+        : this.interpolate(parsedConfig) as Record<string, unknown>;
 
       const rawAiReview = interpolatedConfig.aiReview as Record<string, unknown> | undefined;
       const config: CodeForgeConfig = {
@@ -162,7 +164,8 @@ export class ConfigService {
         }
       }
 
-      // Preserve raw apiKey reference if it contains $VAR in the existing file
+      // Preserve a reference when an unrelated save passes its resolved value.
+      // An explicit new reference or key must replace the old one.
       const existingIntentSource = (existingRawConfig.intentSource) as Record<string, unknown> | undefined;
       const mergedIntentSource = mergedConfig.intentSource as Record<string, unknown> | undefined;
       if (
@@ -170,7 +173,9 @@ export class ConfigService {
         typeof existingIntentSource.apiKey === 'string' &&
         existingIntentSource.apiKey.includes('$') &&
         mergedIntentSource &&
-        typeof mergedIntentSource.apiKey === 'string'
+        typeof mergedIntentSource.apiKey === 'string' &&
+        existingIntentSource.provider === mergedIntentSource.provider &&
+        mergedIntentSource.apiKey === this.interpolateString(existingIntentSource.apiKey)
       ) {
         mergedIntentSource.apiKey = existingIntentSource.apiKey;
       }

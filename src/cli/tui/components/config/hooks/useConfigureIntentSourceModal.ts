@@ -45,7 +45,8 @@ function isDefaultOrEnvApiKey(key: string): boolean {
     if (
       trimmed === IntentSourceFactory.getDefaultApiKey(p) ||
       trimmed === IntentSourceFactory.getDefaultEnvVar(p) ||
-      trimmed === `$${IntentSourceFactory.getDefaultEnvVar(p)}`
+      trimmed === `$${IntentSourceFactory.getDefaultEnvVar(p)}` ||
+      trimmed === `\${${IntentSourceFactory.getDefaultEnvVar(p)}}`
     ) {
       return true;
     }
@@ -68,8 +69,10 @@ export function useConfigureIntentSourceModal({
     return requestedProviders ?? IntentSourceFactory.getAvailableProviders();
   }, [requestedProviders]);
 
-  const currentConfigIntentSource =
-    config?.intentSource;
+  const currentConfigIntentSource = useMemo(
+    () => configService?.loadConfig({ interpolate: false })?.intentSource ?? config?.intentSource,
+    [configService, config?.intentSource, isOpen],
+  );
 
   const initialProvider = currentConfigIntentSource?.provider || 'filesystem';
   const [provider, setProvider] = useState<string>(initialProvider);
@@ -160,8 +163,7 @@ export function useConfigureIntentSourceModal({
   // Sincronizar campos quando o modal abre ou config muda
   useEffect(() => {
     if (isOpen) {
-      const source =
-        config?.intentSource;
+      const source = currentConfigIntentSource;
       const currentProvider = source?.provider || 'filesystem';
       setProvider(currentProvider);
       const proj = (source?.project as string | undefined) || '';
@@ -181,7 +183,7 @@ export function useConfigureIntentSourceModal({
       setFormErrorMessage(null);
       setFeedbackMessage(null);
     }
-  }, [isOpen, config?.intentSource]);
+  }, [isOpen, currentConfigIntentSource]);
 
   // Sincronizar foco de digitação com o NavigationContext
   useEffect(() => {

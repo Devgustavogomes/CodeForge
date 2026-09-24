@@ -36,6 +36,39 @@ describe('ConfigService .env loading, interpolation, and preservation', () => {
   });
 
   describe('.env loading', () => {
+    it('shows the raw API key reference for editing and replaces it when the provider changes', () => {
+      process.env.GITHUB_TOKEN = 'github-secret';
+      process.env.LINEAR_API_KEY = 'linear-secret';
+      workspace.writeFile(PATHS.config, [
+        'environment: codex',
+        'plannerAgent: planner',
+        'executorAgent: executor',
+        'language: en',
+        'intentSource:',
+        '  provider: github',
+        '  apiKey: $GITHUB_TOKEN',
+      ].join('\n'));
+
+      expect(configService.loadConfig()?.intentSource?.apiKey).toBe('github-secret');
+      expect(configService.loadConfig({ interpolate: false })?.intentSource?.apiKey).toBe('$GITHUB_TOKEN');
+
+      const config = configService.loadConfig()!;
+      config.intentSource = { provider: 'linear', apiKey: '$LINEAR_API_KEY' };
+      configService.saveConfig(config);
+
+      expect(yaml.parse(workspace.readFile(PATHS.config)).intentSource.apiKey).toBe('$LINEAR_API_KEY');
+      expect(configService.loadConfig()?.intentSource?.apiKey).toBe('linear-secret');
+    });
+
+    it('replaces an existing API key reference with an explicit new key', () => {
+      process.env.GITHUB_TOKEN = 'github-secret';
+      workspace.writeFile(PATHS.config, 'intentSource:\n  provider: github\n  apiKey: $GITHUB_TOKEN');
+
+      configService.saveConfig({ intentSource: { provider: 'github', apiKey: 'new-literal-key' } });
+
+      expect(yaml.parse(workspace.readFile(PATHS.config)).intentSource.apiKey).toBe('new-literal-key');
+    });
+
     it('loads environment variables from default root .env', () => {
       workspace.writeFile(PATHS.rootEnv, 'ROOT_VAR=root_value\nTEST_API_KEY=key_from_root');
       workspace.writeFile(
