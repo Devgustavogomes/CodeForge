@@ -1,5 +1,6 @@
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
+import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
 
 export type IntentStatus = "not_started" | "planned" | "in_progress" | "completed";
 
@@ -25,7 +26,14 @@ export function extractMarkdownTitle(content: string, fallbackName: string): str
 }
 
 export class ListIntentsUseCase {
-  constructor(private readonly gw: WorkspaceGateway) {}
+  private readonly stateRepo: ExecutionStateRepository;
+
+  constructor(
+    private readonly gw: WorkspaceGateway,
+    stateRepo?: ExecutionStateRepository,
+  ) {
+    this.stateRepo = stateRepo ?? new ExecutionStateRepository(gw);
+  }
 
   execute(): IntentInfo[] {
     const dirs = [PATHS.intentsDir].filter((d) => this.gw.exists(d));
@@ -77,17 +85,9 @@ export class ListIntentsUseCase {
   }
 
   private determineStatus(name: string): IntentStatus {
-    const executionPath = PATHS.executionState(name);
-    if (this.gw.exists(executionPath)) {
-      try {
-        const state = JSON.parse(this.gw.readFile(executionPath)) as { status?: string };
-        if (state.status === "completed") {
-          return "completed";
-        }
-        return "in_progress";
-      } catch {
-        return "in_progress";
-      }
+    const state = this.stateRepo.load(name);
+    if (state) {
+      return state.status === "completed" ? "completed" : "in_progress";
     }
 
     const tasksDir = `${PATHS.tasksDir}/${name}`;

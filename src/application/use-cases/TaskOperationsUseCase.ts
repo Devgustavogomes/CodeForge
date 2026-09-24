@@ -1,4 +1,5 @@
 import { Task } from "../../domain/task.js";
+import { TaskExecutionState } from "../../domain/execution.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
 import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
@@ -26,16 +27,24 @@ export type TaskInfoResult =
 
 export type RetryIntentResult =
   | { kind: "intent-not-found" }
-  | { kind: "no-execution"; intentName: string;}
-  | { kind: "all-completed"; intentName: string;}
-  | { kind: "no-failed-tasks"; intentName: string;pendingCount: number }
-  | { kind: "retried"; intentName: string;retriedTasks: string[] };
+  | { kind: "no-execution"; intentName: string }
+  | { kind: "all-completed"; intentName: string }
+  | { kind: "no-failed-tasks"; intentName: string; pendingCount: number }
+  | { kind: "retried"; intentName: string; retriedTasks: string[] };
+
 export type ResetTaskResult =
   | { kind: "intent-not-found" }
-  | { kind: "no-execution"; intentName: string;}
+  | { kind: "no-execution"; intentName: string }
   | { kind: "task-not-found"; taskId: string }
-  | { kind: "reset-single"; intentName: string;taskId: string }
-  | { kind: "reset-all"; intentName: string;count: number };
+  | { kind: "reset-single"; intentName: string; taskId: string }
+  | { kind: "reset-all"; intentName: string; count: number };
+
+function resetTaskToPending(task: TaskExecutionState): void {
+  task.status = "pending";
+  delete task.startedAt;
+  delete task.completedAt;
+  delete task.errors;
+}
 
 export class TaskOperationsUseCase {
   private readonly stateRepo: ExecutionStateRepository;
@@ -65,23 +74,33 @@ export class TaskOperationsUseCase {
     return tasks;
   }
 
-  markTaskCompleted(
-    intentName: string,
-    taskId: string,
-  ): MarkCompleteResult {
-    const repo = this.stateRepo;
-    let state = repo.load(intentName);
+  private ensureExecutionState(intentName: string) {
+    const existing = this.stateRepo.load(intentName);
+    if (existing) return existing;
+
+    const diskTasks = this.loadTasksFromDisk(intentName);
+    if (diskTasks.length === 0) return null;
+
+    const newState = this.stateRepo.init(intentName, diskTasks);
+    newState.status = "pending";
+    this.stateRepo.save(newState);
+    return newState;
+  }
+
+  markTaskCompleted(intentName: string, taskId: string): MarkCompleteResult {
+    let state = this.stateRepo.load(intentName);
 
     if (!state) {
       const diskTasks = this.loadTasksFromDisk(intentName);
       if (diskTasks.length > 0 && diskTasks.some((t) => t.id === taskId)) {
-        state = repo.init(intentName, diskTasks);
+        state = this.stateRepo.init(intentName, diskTasks);
         state.status = "pending";
-        repo.save(state);
+        this.stateRepo.save(state);
       } else {
         return { kind: "not-found" };
       }
     }
+
     if (!state.tasks[taskId]) {
       return { kind: "not-found" };
     }
@@ -89,7 +108,6 @@ export class TaskOperationsUseCase {
     state.tasks[taskId].status = "completed";
     state.tasks[taskId].completedAt = new Date().toISOString();
 
-    // Check if all tasks are now completed
     const allCompleted = Object.values(state.tasks).every(
       (t) => t.status === "completed",
     );
@@ -99,21 +117,14 @@ export class TaskOperationsUseCase {
       state.completedAt = new Date().toISOString();
     }
 
-    repo.save(state);
+    this.stateRepo.save(state);
     return { kind: "completed", allCompleted };
   }
 
-  retryTask(
-    intentName: string,
-    taskId: string,
-  ): RetryResult {
-    const repo = this.stateRepo;
-    const state = repo.load(intentName);
+  retryTask(intentName: string, taskId: string): RetryResult {
+    const state = this.stateRepo.load(intentName);
 
-    if (!state) {
-      return { kind: "not-found" };
-    }
-    if (!state.tasks[taskId]) {
+    if (!state || !state.tasks[taskId]) {
       return { kind: "not-found" };
     }
 
@@ -132,13 +143,11 @@ export class TaskOperationsUseCase {
       state.status = "pending";
       delete state.completedAt;
     }
-    repo.save(state);
+    this.stateRepo.save(state);
     return { kind: "retried" };
   }
 
-  getAvailableTasks(
-    intentName: string,
-  ): AvailableTasksResult {
+  getAvailableTasks(intentName: string): AvailableTasksResult {
     const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
       return { kind: "intent-not-found" };
@@ -163,10 +172,7 @@ export class TaskOperationsUseCase {
     return { kind: "tasks", tasks };
   }
 
-  getTaskInfo(
-    intentName: string,
-    taskId: string,
-  ): TaskInfoResult {
+  getTaskInfo(intentName: string, taskId: string): TaskInfoResult {
     const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     if (!this.gw.exists(tasksDir)) {
       return { kind: "intent-not-found" };
@@ -193,10 +199,9 @@ export class TaskOperationsUseCase {
       return { kind: "intent-not-found" };
     }
 
-    const repo = this.stateRepo;
-    const state = repo.load(intentName);
+    const state = this.stateRepo.load(intentName);
     if (!state) {
-      return { kind: "no-execution", intentName,};
+      return { kind: "no-execution", intentName };
     }
 
     const taskEntries = Object.entries(state.tasks);
@@ -207,7 +212,7 @@ export class TaskOperationsUseCase {
         taskEntries.length > 0 &&
         taskEntries.every(([_, t]) => t.status === "completed");
       if (allCompleted) {
-        return { kind: "all-completed", intentName,};
+        return { kind: "all-completed", intentName };
       }
 
       const pendingCount = taskEntries.filter(
@@ -226,11 +231,10 @@ export class TaskOperationsUseCase {
 
     state.status = "pending";
     delete state.completedAt;
-    repo.save(state);
+    this.stateRepo.save(state);
 
     return { kind: "retried", intentName, retriedTasks };
   }
-
 
   resetTask(intentName: string, taskId: string): ResetTaskResult {
     return this.resetTasks(intentName, taskId);
@@ -243,17 +247,9 @@ export class TaskOperationsUseCase {
       return { kind: "intent-not-found" };
     }
 
-    const repo = this.stateRepo;
-    let state = repo.load(intentName);
+    const state = this.ensureExecutionState(intentName);
     if (!state) {
-      const diskTasks = this.loadTasksFromDisk(intentName);
-      if (diskTasks.length > 0) {
-        state = repo.init(intentName, diskTasks);
-        state.status = "pending";
-        repo.save(state);
-      } else {
-        return { kind: "no-execution", intentName,};
-      }
+      return { kind: "no-execution", intentName };
     }
 
     if (taskId !== undefined) {
@@ -262,30 +258,23 @@ export class TaskOperationsUseCase {
         return { kind: "task-not-found", taskId };
       }
 
-      task.status = "pending";
-      delete task.startedAt;
-      delete task.completedAt;
-      delete task.errors;
-
+      resetTaskToPending(task);
       state.status = "pending";
       delete state.completedAt;
-      repo.save(state);
+      this.stateRepo.save(state);
 
       return { kind: "reset-single", intentName, taskId };
     }
 
     const taskList = Object.values(state.tasks);
     for (const task of taskList) {
-      task.status = "pending";
-      delete task.startedAt;
-      delete task.completedAt;
-      delete task.errors;
+      resetTaskToPending(task);
     }
 
     state.status = "pending";
     delete state.startedAt;
     delete state.completedAt;
-    repo.save(state);
+    this.stateRepo.save(state);
 
     return { kind: "reset-all", intentName, count: taskList.length };
   }

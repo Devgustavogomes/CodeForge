@@ -49,10 +49,15 @@ export function formatIntentMarkdown(sourceName: string, intent: FetchedIntent):
   ].join("\n");
 }
 
+export type IntentSourceFactoryLike = {
+  create(provider: string): IntentSource;
+};
+
 export class PullIntentUseCase {
   constructor(
     private readonly gw: WorkspaceGateway,
     private readonly defaultIntentSource?: IntentSource,
+    private readonly sourceFactory: IntentSourceFactoryLike = IntentSourceFactory,
   ) {}
 
   async execute(options: PullIntentOptions): Promise<PullIntentResult> {
@@ -63,7 +68,7 @@ export class PullIntentUseCase {
     let source = options.intentSource ?? this.defaultIntentSource;
     if (!source && options.provider) {
       try {
-        source = IntentSourceFactory.create(options.provider);
+        source = this.sourceFactory.create(options.provider);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { kind: "error", error: message };

@@ -1,7 +1,8 @@
-import { IntentExecutionState, TaskStatus } from "../../domain/execution.js";
+import { TaskStatus } from "../../domain/execution.js";
 import { Task } from "../../domain/task.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
+import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
 
 export interface TaskStatusInfo {
   id: string;
@@ -28,7 +29,14 @@ export type IntentStatusResult =
     };
 
 export class GetIntentStatusUseCase {
-  constructor(private readonly gw: WorkspaceGateway) {}
+  private readonly stateRepo: ExecutionStateRepository;
+
+  constructor(
+    private readonly gw: WorkspaceGateway,
+    stateRepo?: ExecutionStateRepository,
+  ) {
+    this.stateRepo = stateRepo ?? new ExecutionStateRepository(gw);
+  }
 
   execute(intentName: string): IntentStatusResult {
     if (!this.gw.exists(PATHS.metadata)) {
@@ -40,14 +48,10 @@ export class GetIntentStatusUseCase {
       return { kind: "intent-not-found" };
     }
 
-    const statePath = PATHS.executionState(intentName);
-    if (!this.gw.exists(statePath)) {
+    const state = this.stateRepo.load(intentName);
+    if (!state) {
       return { kind: "no-execution", intentName };
     }
-
-    const state = JSON.parse(
-      this.gw.readFile(statePath),
-    ) as IntentExecutionState;
 
     const tasks: TaskStatusInfo[] = [];
 
