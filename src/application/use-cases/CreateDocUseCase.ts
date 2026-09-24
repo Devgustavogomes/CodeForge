@@ -9,7 +9,6 @@ import { PATHS } from "../../infrastructure/paths.js";
 export type CreateDocResult =
   | { kind: "not-initialized" }
   | { kind: "intent-not-found" }
-  | { kind: "rules-not-found" }
   | { kind: "already-exists" }
   | { kind: "success" };
 
@@ -29,7 +28,6 @@ export class CreateDocUseCase {
     if (!this.gw.exists(PATHS.metadata)) return { kind: "not-initialized" };
     const intentPath = PATHS.intentFile(intentName);
     if (!this.gw.exists(intentPath)) return { kind: "intent-not-found" };
-    if (!this.gw.exists(PATHS.docsRules)) return { kind: "rules-not-found" };
 
     const docPath = `${PATHS.docsDir}/${docName}.md`;
     const manifest = this.manifestRepo.load();
@@ -47,7 +45,9 @@ export class CreateDocUseCase {
 
     this.manifestRepo.save(manifest);
 
-    const rulesContent = this.gw.readFile(PATHS.docsRules);
+    const rulesContent = this.gw.exists(PATHS.docsRules)
+      ? this.gw.readFile(PATHS.docsRules)
+      : "";
     const intentContent = this.gw.readFile(intentPath);
     const promptStr = buildDocsCreatePrompt(
       docName,

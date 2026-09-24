@@ -218,8 +218,6 @@ export function useUpdateDocModal({
         return translate('tui_docs_edge_no_affected_docs', language);
       case 'intent-not-found':
         return translate('tui_docs_edge_intent_not_found', language, { intent: selectedIntent });
-      case 'rules-not-found':
-        return translate('tui_docs_edge_rules_not_found', language);
       case 'not-initialized':
         return translate('tui_docs_edge_not_initialized', language);
       case 'affected-docs':

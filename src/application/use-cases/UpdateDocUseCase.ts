@@ -16,7 +16,6 @@ import { formatGitDiffSummary } from "../services/diff-formatter.js";
 export type DocsUpdateResult =
   | { kind: "not-initialized" }
   | { kind: "intent-not-found" }
-  | { kind: "rules-not-found" }
   | { kind: "no-git" }
   | { kind: "no-changed-files" }
   | { kind: "no-affected-docs" }
@@ -25,7 +24,6 @@ export type DocsUpdateResult =
 export type ManualDocUpdateResult =
   | { kind: "not-initialized" }
   | { kind: "intent-not-found" }
-  | { kind: "rules-not-found" }
   | { kind: "doc-not-found" }
   | { kind: "doc"; doc: AffectedDoc };
 
@@ -46,7 +44,6 @@ export class UpdateDocUseCase {
     if (!this.gw.exists(PATHS.metadata)) return { kind: "not-initialized" };
     const intentPath = PATHS.intentFile(intentName);
     if (!this.gw.exists(intentPath)) return { kind: "intent-not-found" };
-    if (!this.gw.exists(PATHS.docsUpdateRules)) return { kind: "rules-not-found" };
     if (!this.git.hasRepository()) return { kind: "no-git" };
 
     const changedFiles = this.git.getChangedFiles();
@@ -87,7 +84,6 @@ export class UpdateDocUseCase {
     if (!this.gw.exists(PATHS.metadata)) return { kind: "not-initialized" };
     const intentPath = PATHS.intentFile(intentName);
     if (!this.gw.exists(intentPath)) return { kind: "intent-not-found" };
-    if (!this.gw.exists(PATHS.docsUpdateRules)) return { kind: "rules-not-found" };
 
     const manifest = this.manifestRepo.load();
     const manifestEntry = manifest.documents[docName];
@@ -112,7 +108,9 @@ export class UpdateDocUseCase {
     doc: AffectedDoc,
     isManual: boolean = false,
   ): Promise<void> {
-    const rulesContent = this.gw.readFile(PATHS.docsUpdateRules);
+    const rulesContent = this.gw.exists(PATHS.docsUpdateRules)
+      ? this.gw.readFile(PATHS.docsUpdateRules)
+      : "";
     let promptStr: string;
 
     if (isManual) {

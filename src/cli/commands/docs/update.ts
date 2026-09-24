@@ -88,10 +88,6 @@ export async function docsUpdateAction(
         );
         process.exitCode = 1;
         return { success: false };
-      case "rules-not-found":
-        console.error(translate("docs_update_err_rules_not_found", lang));
-        process.exitCode = 1;
-        return { success: false };
       case "doc-not-found":
         console.error(
           translate("docs_update_err_doc_not_found", lang, {
@@ -121,10 +117,6 @@ export async function docsUpdateAction(
         translate("err_intent_not_found", lang, {
           intent: selectedIntent as string,        }),
       );
-      process.exitCode = 1;
-      return { success: false };
-    case "rules-not-found":
-      console.error(translate("docs_update_err_rules_not_found", lang));
       process.exitCode = 1;
       return { success: false };
     case "no-git":

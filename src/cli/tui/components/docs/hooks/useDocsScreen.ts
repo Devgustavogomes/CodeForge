@@ -297,9 +297,6 @@ export function useDocsScreen({
           if (result.kind === 'intent-not-found') {
             throw new Error(`Intent "${intentNameTrimmed}" not found in .codeforge/intents/.`);
           }
-          if (result.kind === 'rules-not-found') {
-            throw new Error('Documentation rules file not found (.codeforge/rules/docs.md).');
-          }
           if (result.kind === 'already-exists') {
             throw new Error(`Documentation "${docNameTrimmed}" already exists.`);
           }
@@ -359,9 +356,6 @@ export function useDocsScreen({
           }
           if (manualResult.kind === 'intent-not-found') {
             throw new Error(`Intent "${intentNameTrimmed}" not found in .codeforge/intents/.`);
-          }
-          if (manualResult.kind === 'rules-not-found') {
-            throw new Error('Documentation rules file not found (.codeforge/rules/docs.md).');
           }
           if (manualResult.kind === 'doc-not-found') {
             throw new Error(`Documentation "${docNameTrimmed}" not found.`);

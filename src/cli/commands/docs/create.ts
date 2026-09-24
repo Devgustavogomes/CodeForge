@@ -88,10 +88,6 @@ export async function docsCreateAction(
           );
           process.exitCode = 1;
           return { success: false };
-        case "rules-not-found":
-          console.error(translate("docs_create_err_rules_not_found", lang));
-          process.exitCode = 1;
-          return { success: false };
         case "already-exists":
           console.error(
             translate("docs_create_err_already_exists", lang, {
