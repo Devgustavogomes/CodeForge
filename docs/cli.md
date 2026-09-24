@@ -99,7 +99,10 @@ codeforge config
   - System language (`en`, `pt`, `es`)
   - External terminal launch preference
   - AI Review settings
+  - Lifecycle hooks by event (add, edit, and delete commands; choose `notify` or `gate`)
   - Remote Intent Source (`linear`, `github`, `clickup`, `filesystem`)
+
+Select `hooks` to manage commands for each lifecycle event. Select `intentSource` to set the provider, project, team, and API key or environment variable reference. Changes are saved to `.codeforge/config.yaml`.
 
 See [Configuration Guide](configuration.md) for file schema details.
 
@@ -292,7 +295,7 @@ codeforge task complete <intent> <taskId>
 
 ### `codeforge task retry`
 
-Resets failed tasks back to `pending`, injects captured error output and diagnostics from the failure into the prompt, and automatically resumes execution.
+Resets failed tasks back to `pending`, injects captured error output and diagnostics from the failure into the prompt, and automatically resumes execution. Already pending tasks also run; the command shows both counts and the same live progress display as `codeforge run`.
 
 ```bash
 codeforge task retry [intent]

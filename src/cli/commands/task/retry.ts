@@ -5,6 +5,8 @@ import { CommandHookDispatcher } from "../../../infrastructure/hooks/CommandHook
 import { NoopHookDispatcher } from "../../../infrastructure/hooks/NoopHookDispatcher.js";
 import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { ActionResult } from "../../types.js";
+import { CliHookReporter } from "../../ui/CliHookReporter.js";
+import { TerminalSchedulerReporter } from "../../ui/TerminalSchedulerReporter.js";
 import {
   isPromptCancellation,
   handlePromptCancellation,
@@ -66,28 +68,46 @@ export async function taskRetryAction(
         console.log(translate("retry_no_failed_tasks", lang, { intent: intentName }));
         return { success: true };
       case "retried": {
+        const status = container.getIntentStatusUseCase.execute(intentName);
+        const pendingCount = status.kind === "status"
+          ? Math.max(0, status.tasks.filter((task) => task.status === "pending").length - result.retriedTasks.length)
+          : 0;
         console.log(
           translate("retry_success_starting", lang, {
             count: result.retriedTasks.length,
+            pending: pendingCount,
             intent: intentName,
           }),
         );
         const runner = container.runnerProvider(config.environment);
+        const reporter = new TerminalSchedulerReporter({
+          getStatus: (name) => container.getIntentStatusUseCase.execute(name),
+          language: lang,
+        });
         const hooks = config.hooks
-          ? new CommandHookDispatcher(config.hooks, process.cwd(), container.processExecutor)
+          ? new CommandHookDispatcher(
+              config.hooks,
+              process.cwd(),
+              container.processExecutor,
+              new CliHookReporter({ terminalReporter: reporter, language: lang }),
+            )
           : new NoopHookDispatcher();
         const scheduler = container.createTaskScheduler(
           runner,
           config,
-          undefined,
+          reporter,
           hooks,
         );
-        const runResult = await scheduler.run(intentName, config.executorAgent);
-        if (runResult.status === "failed" || runResult.status === "deadlock") {
-          process.exitCode = 1;
-          return { success: false };
+        try {
+          const runResult = await scheduler.run(intentName, config.executorAgent);
+          if (runResult.status === "failed" || runResult.status === "deadlock") {
+            process.exitCode = 1;
+            return { success: false };
+          }
+          return { success: true };
+        } finally {
+          reporter.cleanup();
         }
-        return { success: true };
       }
       default:
         return { success: false };

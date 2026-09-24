@@ -235,6 +235,22 @@ describe("run CLI command", () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it("suggests task retry when a task failed", async () => {
+    const { mockContainer } = setupContainerMock({ status: "failed" });
+    mockContainer.getIntentStatusUseCase.execute.mockReturnValue({
+      kind: "status",
+      intentName: "intent-a",
+      intentStatus: "failed",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      tasks: [{ id: "TASK-001", title: "Task", status: "failed", dependencies: [] }],
+    });
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    await runAction("intent-a");
+
+    expect(log).toHaveBeenCalledWith("Retry failed tasks with `codeforge task retry intent-a`.");
+  });
+
   it("sets exit code 1 when execution deadlocks", async () => {
     setupContainerMock({ status: "deadlock" });
 

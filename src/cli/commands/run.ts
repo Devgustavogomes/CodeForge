@@ -87,6 +87,12 @@ export async function runAction(
       return { success: true };
     }
 
+    if (runResult.status === "failed") {
+      const status = container.getIntentStatusUseCase.execute(intentName);
+      if (status.kind === "status" && status.tasks.some((task) => task.status === "failed")) {
+        console.log(translate("terminal_run_retry_hint", lang, { intent: intentName }));
+      }
+    }
     process.exitCode = 1;
     return { success: false };
   } catch (error) {
@@ -94,6 +100,8 @@ export async function runAction(
     console.error(translate("terminal_run_error", lang, { error: message }));
     process.exitCode = 1;
     return { success: false };
+  } finally {
+    reporter.cleanup();
   }
 }
 
