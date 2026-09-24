@@ -1,4 +1,3 @@
-import { select } from "@inquirer/prompts";
 import { Command } from "commander";
 import { HookDispatcher } from "../../application/ports/HookDispatcher.js";
 import { AppContainer, createAppContainer } from "../../infrastructure/container.js";
@@ -8,6 +7,7 @@ import { ActionResult } from "../types.js";
 import { CliHookReporter } from "../ui/CliHookReporter.js";
 import { translate } from "../ui/i18n.js";
 import { TerminalSchedulerReporter } from "../ui/TerminalSchedulerReporter.js";
+import { promptSelectIntent } from "../common/prompts.js";
 
 export interface RunCommandOptions {
   review?: boolean;
@@ -30,32 +30,24 @@ export async function runAction(
   let intentName = intent;
 
   if (!intentName) {
-    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
-    const intents = listUseCase.execute();
-
-    if (intents.length === 0) {
-      console.error(translate("err_no_intents_run", lang));
-      process.exitCode = 1;
-      return { success: false };
-    }
-
-    intentName = await select({
-      message: translate("run_select_intent", lang),
-      choices: [
-        { name: translate("menu_back", lang), value: "back" },
-        ...intents.map((item) => ({ name: item.name, value: item.name })),
-      ],
+    const selected = await promptSelectIntent(container, lang, {
+      emptyErrorKey: "err_no_intents_run",
+      messageKey: "run_select_intent",
     });
 
-    if (intentName === "back") {
+    if (selected === undefined) {
+      return { success: false };
+    }
+    if (selected === null) {
       return { back: true };
     }
+    intentName = selected;
   }
 
   const runner = container.runnerProvider(config.environment);
   const reporter = new TerminalSchedulerReporter({
     getStatus: (name: string) => {
-      const uc = container.getIntentStatusUseCase ?? container.getIntentStatusUseCase;
+      const uc = container.getIntentStatusUseCase;
       return uc.execute(name);
     },
     language: lang,

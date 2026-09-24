@@ -1,18 +1,21 @@
 import { Command } from "commander";
 import { select, confirm } from "@inquirer/prompts";
-import { createAppContainer } from "../../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { AffectedDoc } from "../../../domain/doc.js";
 import { translate } from "../../ui/i18n.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
-
 import { ActionResult } from "../../types.js";
+import {
+  isPromptCancellation,
+  handlePromptCancellation,
+  promptSelectIntent,
+} from "../../common/prompts.js";
 
 export async function docsUpdateAction(
   intent?: string,
-  options?: { doc?: string }
+  options?: { doc?: string },
+  container: AppContainer = createAppContainer(),
 ): Promise<ActionResult> {
-  const container = createAppContainer();
-
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
 
@@ -24,28 +27,20 @@ export async function docsUpdateAction(
 
   let selectedIntent = intent;
 
-  if (!selectedIntent) {
-    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
-    const intents = listUseCase.execute();
+  try {
+    if (!selectedIntent) {
+      const selected = await promptSelectIntent(container, lang, {
+        messageKey: "docs_update_select_intent",
+      });
 
-    if (intents.length === 0) {
-      console.error(translate("err_no_intents", lang));
-      process.exitCode = 1;
-      return { success: false };
+      if (selected === undefined) {
+        return { success: false };
+      }
+      if (selected === null) {
+        return { back: true };
+      }
+      selectedIntent = selected;
     }
-
-    selectedIntent = await select({
-      message: translate("docs_update_select_intent", lang),
-      choices: [
-        { name: translate("menu_back", lang), value: "back" },
-        ...intents.map((s) => ({ name: s.name, value: s.name })),
-      ],
-    });
-
-    if (selectedIntent === "back") {
-      return { back: true };
-    }
-  }
 
   const useCase = container.updateDocUseCase;
 
@@ -206,6 +201,12 @@ export async function docsUpdateAction(
   }
 
   return { success: true };
+  } catch (error: unknown) {
+    if (isPromptCancellation(error)) {
+      return handlePromptCancellation(lang);
+    }
+    throw error;
+  }
 }
 
 export function registerDocsUpdateCommand(docs: Command): void {

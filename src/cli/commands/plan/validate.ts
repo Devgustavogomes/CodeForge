@@ -1,63 +1,68 @@
 import { Command } from "commander";
-import { select } from "@inquirer/prompts";
-import { createAppContainer } from "../../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { translate } from "../../ui/i18n.js";
 import { ActionResult } from "../../types.js";
+import {
+  isPromptCancellation,
+  handlePromptCancellation,
+  promptSelectIntent,
+} from "../../common/prompts.js";
 
-export async function planValidateAction(intent?: string, taskId?: string): Promise<ActionResult> {
-  const container = createAppContainer();
-
+export async function planValidateAction(
+  intent?: string,
+  taskId?: string,
+  container: AppContainer = createAppContainer(),
+): Promise<ActionResult> {
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
 
   let intentName = intent;
 
-  if (!intentName) {
-    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
-    const intents = listUseCase.execute();
+  try {
+    if (!intentName) {
+      const selected = await promptSelectIntent(container, lang, {
+        emptyErrorKey: "err_no_intents_run",
+        messageKey: "validate_select_intent",
+      });
 
-    if (intents.length === 0) {
-      console.error(translate("err_no_intents_run", lang));
-      process.exitCode = 1;
-      return { success: false };
-    }
-
-    intentName = await select({
-      message: translate("validate_select_intent", lang),
-      choices: [
-        { name: translate("menu_back", lang), value: "back" },
-        ...intents.map((s) => ({ name: s.name, value: s.name }))
-      ],
-    });
-
-    if (intentName === "back") {
-      return { back: true };
-    }
-  }
-
-  const useCase = container.validatePlanUseCase;
-  const result = useCase.execute(intentName as string, taskId);
-
-  switch (result.kind) {
-    case "not-initialized":
-      console.error(translate("err_not_initialized", lang));
-      process.exitCode = 1;
-      return { success: false };
-    case "intent-not-found":
-      console.error(translate("err_tasks_dir_not_found", lang, { intent: intentName,}));
-      process.exitCode = 1;
-      return { success: false };
-    case "invalid":
-      console.error(translate("plan_err_validation_failed", lang, { intent: intentName,}));
-      for (const err of result.errors) {
-        console.error(`  - ${err}`);
+      if (selected === undefined) {
+        return { success: false };
       }
-      console.error(translate("plan_err_fix_instructions", lang));
-      process.exitCode = 1;
-      return { success: false };
-    case "valid":
-      console.log(translate("validate_success", lang, { intent: intentName,}));
-      return { success: true };
+      if (selected === null) {
+        return { back: true };
+      }
+      intentName = selected;
+    }
+
+    const useCase = container.validatePlanUseCase;
+    const result = useCase.execute(intentName, taskId);
+
+    switch (result.kind) {
+      case "not-initialized":
+        console.error(translate("err_not_initialized", lang));
+        process.exitCode = 1;
+        return { success: false };
+      case "intent-not-found":
+        console.error(translate("err_tasks_dir_not_found", lang, { intent: intentName }));
+        process.exitCode = 1;
+        return { success: false };
+      case "invalid":
+        console.error(translate("plan_err_validation_failed", lang, { intent: intentName }));
+        for (const err of result.errors) {
+          console.error(`  - ${err}`);
+        }
+        console.error(translate("plan_err_fix_instructions", lang));
+        process.exitCode = 1;
+        return { success: false };
+      case "valid":
+        console.log(translate("validate_success", lang, { intent: intentName }));
+        return { success: true };
+    }
+  } catch (error: unknown) {
+    if (isPromptCancellation(error)) {
+      return handlePromptCancellation(lang);
+    }
+    throw error;
   }
 }
 

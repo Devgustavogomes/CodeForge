@@ -1,18 +1,19 @@
 import { Command } from "commander";
 import { select, input } from "@inquirer/prompts";
-import { createAppContainer } from "../../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { IntentSourceFactory } from "../../../infrastructure/intent-sources/IntentSourceFactory.js";
 import { PullIntentUseCase } from "../../../application/use-cases/PullIntentUseCase.js";
 import { translate } from "../../ui/i18n.js";
 import { IntentReference, IntentSourceConfig } from "../../../domain/intent-source.js";
 import { IntentSource } from "../../../application/ports/IntentSource.js";
 import { ActionResult } from "../../types.js";
+import { isPromptCancellation } from "../../common/prompts.js";
 
 export async function intentPullAction(
   id?: string,
-  options?: { source?: string; name?: string }
+  options?: { source?: string; name?: string },
+  container: AppContainer = createAppContainer()
 ): Promise<ActionResult> {
-  const container = createAppContainer();
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
 
@@ -130,7 +131,7 @@ export async function intentPullAction(
         return { success: true };
     }
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === "ExitPromptError") {
+    if (isPromptCancellation(error)) {
       return { back: true };
     }
     const message = error instanceof Error ? error.message : String(error);

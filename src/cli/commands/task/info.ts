@@ -1,71 +1,54 @@
 import { Command } from "commander";
-import { select } from "@inquirer/prompts";
-import { createAppContainer } from "../../../infrastructure/container.js";
-import { translate } from "../../ui/i18n.js";
+import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { ActionResult } from "../../types.js";
+import {
+  isPromptCancellation,
+  handlePromptCancellation,
+  promptSelectIntent,
+  promptSelectTask,
+} from "../../common/prompts.js";
 
-export async function taskInfoAction(intent?: string, taskId?: string): Promise<ActionResult> {
-  const container = createAppContainer();
+export async function taskInfoAction(
+  intent?: string,
+  taskId?: string,
+  container: AppContainer = createAppContainer(),
+): Promise<ActionResult> {
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
 
   let intentName = intent;
   let selectedTask = taskId;
 
-  // Select Intent
-  if (!intentName) {
-    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
-    const intents = listUseCase.execute();
-    if (intents.length === 0) {
-      console.error(translate("err_no_intents", lang));
-      process.exitCode = 1;
-      return { success: false };
+  try {
+    // Select Intent
+    if (!intentName) {
+      const selected = await promptSelectIntent(container, lang, {
+        messageKey: "run_select_intent",
+      });
+
+      if (selected === undefined) {
+        return { success: false };
+      }
+      if (selected === null) {
+        return { back: true };
+      }
+      intentName = selected;
     }
 
-    intentName = await select({
-      message: translate("run_select_intent", lang),
-      choices: [
-        { name: translate("menu_back", lang), value: "back" },
-        ...intents.map((s) => ({ name: s.name, value: s.name }))
-      ],
-    });
-
-    if (intentName === "back") {
-      return { back: true };
-    }
-  }
-
-  // Select Task
-  const useCase = container.taskOperationsUseCase;
-  if (!selectedTask) {
-    const tasksResult = useCase.getAvailableTasks(intentName);
-    if (tasksResult.kind === "intent-not-found") {
-      console.error(
-        translate("err_tasks_dir_not_found", lang, { intent: intentName,}),
-      );
-      process.exitCode = 1;
-      return { success: false };
-    }
-    if (tasksResult.kind === "no-tasks") {
-      console.error(translate("task_delete_no_tasks", lang, { intent: intentName,}));
-      process.exitCode = 1;
-      return { success: false };
+    // Select Task
+    const useCase = container.taskOperationsUseCase;
+    if (!selectedTask) {
+      const selected = await promptSelectTask(container, intentName, lang);
+      if (selected === undefined) {
+        return { success: false };
+      }
+      if (selected === null) {
+        return { back: true };
+      }
+      selectedTask = selected;
     }
 
-    selectedTask = await select({
-      message: `Select a task from '${intentName}':`,
-      choices: [
-        { name: translate("menu_back", lang), value: "back" },
-        ...tasksResult.tasks.map((t) => ({ name: `${t.id} - ${t.title}`, value: t.id }))
-      ],
-    });
-
-    if (selectedTask === "back") {
-      return { back: true };
-    }
-  }
-
-  const result = useCase.getTaskInfo(intentName, selectedTask as string);
+    const result = useCase.getTaskInfo(intentName, selectedTask);
 
   switch (result.kind) {
     case "intent-not-found":
@@ -123,6 +106,12 @@ export async function taskInfoAction(intent?: string, taskId?: string): Promise<
     }
     default:
       return { success: false };
+  }
+  } catch (error: unknown) {
+    if (isPromptCancellation(error)) {
+      return handlePromptCancellation(lang);
+    }
+    throw error;
   }
 }
 

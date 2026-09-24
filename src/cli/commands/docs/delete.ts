@@ -1,26 +1,27 @@
-import { confirm, select } from "@inquirer/prompts";
+import { select } from "@inquirer/prompts";
 import { Command } from "commander";
-import { createAppContainer } from "../../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { ActionResult } from "../../types.js";
 import { translate } from "../../ui/i18n.js";
+import {
+  isPromptCancellation,
+  handlePromptCancellation,
+  promptConfirmAction,
+} from "../../common/prompts.js";
 
 export interface DocsDeleteOptions {
   force?: boolean;
 }
 
-function isPromptCancellation(error: unknown): boolean {
-  return error instanceof Error && error.name === "ExitPromptError";
-}
-
 export async function docsDeleteAction(
   name?: string,
   options: DocsDeleteOptions = {},
+  container: AppContainer = createAppContainer(),
 ): Promise<ActionResult> {
   let docName = name;
   let lang: "en" | "pt" | "es" = "en";
 
   try {
-    const container = createAppContainer();
     const config = container.configService.loadConfig();
     lang = config?.language || "en";
 
@@ -51,13 +52,12 @@ export async function docsDeleteAction(
     }
 
     if (!options.force) {
-      const confirmed = await confirm({
-        message: translate("docs_delete_confirm", lang, { doc: docName }),
-        default: false,
-      });
+      const confirmed = await promptConfirmAction(
+        translate("docs_delete_confirm", lang, { doc: docName }),
+        lang,
+      );
 
       if (!confirmed) {
-        console.log(translate("delete_cancelled", lang));
         return { back: true };
       }
     }
@@ -82,8 +82,7 @@ export async function docsDeleteAction(
     }
   } catch (error: unknown) {
     if (isPromptCancellation(error)) {
-      console.log(translate("delete_cancelled", lang));
-      return { back: true };
+      return handlePromptCancellation(lang);
     }
 
     const message = error instanceof Error ? error.message : String(error);

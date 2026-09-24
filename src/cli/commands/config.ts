@@ -2,12 +2,13 @@ import { Command } from "commander";
 import { select, input } from "@inquirer/prompts";
 import { CodeForgeConfig, resolveAiReviewConfig, SupportedLanguage } from "../../config/types.js";
 import { translate } from "../ui/i18n.js";
-import { createAppContainer } from "../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../infrastructure/container.js";
 
 import { ActionResult } from "../types.js";
 
-export async function configAction(): Promise<ActionResult> {
-  const container = createAppContainer();
+export async function configAction(
+  container: AppContainer = createAppContainer(),
+): Promise<ActionResult> {
   const envUseCase = container.configureEnvironmentUseCase;
   const config = envUseCase.loadConfig();
 

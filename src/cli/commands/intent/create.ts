@@ -1,9 +1,13 @@
 import { Command } from "commander";
 import { input } from "@inquirer/prompts";
-import { createAppContainer } from "../../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
+import { isPromptCancellation } from "../../common/prompts.js";
 import { ActionResult } from "../../types.js";
 
-export async function intentCreateAction(name?: string): Promise<ActionResult> {
+export async function intentCreateAction(
+  name?: string,
+  container: AppContainer = createAppContainer()
+): Promise<ActionResult> {
   let intentName = name;
 
   if (!intentName) {
@@ -12,16 +16,18 @@ export async function intentCreateAction(name?: string): Promise<ActionResult> {
         message: "What is the name of your new feature/intent? (e.g. user-authentication):",
         validate: (val) => val.trim().length > 0 || "Name is required",
       });
-    } catch {
-      return { back: true };
+    } catch (e: unknown) {
+      if (isPromptCancellation(e)) {
+        return { back: true };
+      }
+      throw e;
     }
   }
 
   // Format name: lowercase and replace spaces with hyphens
   intentName = intentName.trim().toLowerCase().replace(/\s+/g, "-");
 
-  const container = createAppContainer();
-  const useCase = container.createIntentUseCase ?? container.createIntentUseCase;
+  const useCase = container.createIntentUseCase;
   const result = useCase.execute(intentName);
 
   switch (result.kind) {

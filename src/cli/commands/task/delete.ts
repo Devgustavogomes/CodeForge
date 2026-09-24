@@ -1,33 +1,34 @@
 import { confirm, select } from "@inquirer/prompts";
 import { Command } from "commander";
-import { createAppContainer } from "../../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { ActionResult } from "../../types.js";
 import { translate } from "../../ui/i18n.js";
+import {
+  isPromptCancellation,
+  handlePromptCancellation,
+  promptConfirmAction,
+} from "../../common/prompts.js";
 
 export interface TaskDeleteOptions {
   force?: boolean;
-}
-
-function isPromptCancellation(error: unknown): boolean {
-  return error instanceof Error && error.name === "ExitPromptError";
 }
 
 export async function taskDeleteAction(
   intent?: string,
   taskId?: string,
   options: TaskDeleteOptions = {},
+  container: AppContainer = createAppContainer(),
 ): Promise<ActionResult> {
   let intentName = intent;
   let selectedTaskId = taskId;
   let lang: "en" | "pt" | "es" = "en";
 
   try {
-    const container = createAppContainer();
     const config = container.configService.loadConfig();
     lang = config?.language || "en";
 
     if (!intentName) {
-      const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+      const listUseCase = container.listIntentsUseCase;
       const intents = listUseCase.execute();
       if (intents.length === 0) {
         console.error(translate("err_no_intents", lang));
@@ -57,7 +58,7 @@ export async function taskDeleteAction(
 
       if (tasksResult.kind === "intent-not-found") {
         console.error(
-          translate("task_delete_intent_not_found", lang, { intent: intentName,}),
+          translate("task_delete_intent_not_found", lang, { intent: intentName }),
         );
         process.exitCode = 1;
         return { success: false };
@@ -65,7 +66,7 @@ export async function taskDeleteAction(
 
       if (tasksResult.kind === "no-tasks") {
         console.error(
-          translate("task_delete_no_tasks", lang, { intent: intentName,}),
+          translate("task_delete_no_tasks", lang, { intent: intentName }),
         );
         process.exitCode = 1;
         return { success: false };
@@ -91,15 +92,15 @@ export async function taskDeleteAction(
     }
 
     if (!options.force) {
-      const confirmed = await confirm({
-        message: translate("task_delete_confirm", lang, {
-          intent: intentName,          taskId: selectedTaskId,
+      const confirmed = await promptConfirmAction(
+        translate("task_delete_confirm", lang, {
+          intent: intentName,
+          taskId: selectedTaskId,
         }),
-        default: false,
-      });
+        lang,
+      );
 
       if (!confirmed) {
-        console.log(translate("delete_cancelled", lang));
         return { back: true };
       }
     }
@@ -117,7 +118,7 @@ export async function taskDeleteAction(
 
     if (result.kind === "intent-not-found") {
       console.error(
-        translate("task_delete_intent_not_found", lang, { intent: intentName,}),
+        translate("task_delete_intent_not_found", lang, { intent: intentName }),
       );
       process.exitCode = 1;
       return { success: false };
@@ -126,7 +127,8 @@ export async function taskDeleteAction(
     if (result.kind === "task-not-found") {
       console.error(
         translate("task_delete_not_found", lang, {
-          intent: intentName,          taskId: selectedTaskId,
+          intent: intentName,
+          taskId: selectedTaskId,
         }),
       );
       process.exitCode = 1;
@@ -134,10 +136,10 @@ export async function taskDeleteAction(
     }
 
     if (result.kind === "deleted") {
-      const targetName = result.intentName;
       console.log(
         translate("task_delete_success", lang, {
-          intent: targetName,          taskId: result.taskId,
+          intent: result.intentName,
+          taskId: result.taskId,
         }),
       );
       console.log(
@@ -151,14 +153,14 @@ export async function taskDeleteAction(
     return { success: false };
   } catch (error: unknown) {
     if (isPromptCancellation(error)) {
-      console.log(translate("delete_cancelled", lang));
-      return { back: true };
+      return handlePromptCancellation(lang);
     }
 
     const message = error instanceof Error ? error.message : String(error);
     console.error(
       translate("task_delete_error", lang, {
-        intent: intentName || intent || "",        taskId: selectedTaskId || taskId || "",
+        intent: intentName || intent || "",
+        taskId: selectedTaskId || taskId || "",
         error: message,
       }),
     );

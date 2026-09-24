@@ -1,13 +1,18 @@
 import { Command } from "commander";
-import { select } from "@inquirer/prompts";
-import { createAppContainer } from "../../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { AgentProgressUI } from "../../ui/AgentProgressUI.js";
 import { translate } from "../../ui/i18n.js";
 import { ActionResult } from "../../types.js";
+import {
+  isPromptCancellation,
+  handlePromptCancellation,
+  promptSelectIntent,
+} from "../../common/prompts.js";
 
-export async function planGenerateAction(intent?: string): Promise<ActionResult> {
-  const container = createAppContainer();
-
+export async function planGenerateAction(
+  intent?: string,
+  container: AppContainer = createAppContainer(),
+): Promise<ActionResult> {
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
 
@@ -20,25 +25,23 @@ export async function planGenerateAction(intent?: string): Promise<ActionResult>
   let selectedIntent = intent;
 
   if (!selectedIntent) {
-    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
-    const intents = listUseCase.execute();
+    try {
+      const selected = await promptSelectIntent(container, lang, {
+        messageKey: "plan_select_intent",
+      });
 
-    if (intents.length === 0) {
-      console.error(translate("err_no_intents", lang));
-      process.exitCode = 1;
-      return { success: false };
-    }
-
-    selectedIntent = await select({
-      message: translate("plan_select_intent", lang),
-      choices: [
-        { name: translate("menu_back", lang), value: "back" },
-        ...intents.map((s) => ({ name: s.name, value: s.name })),
-      ],
-    });
-
-    if (selectedIntent === "back") {
-      return { back: true };
+      if (selected === undefined) {
+        return { success: false };
+      }
+      if (selected === null) {
+        return { back: true };
+      }
+      selectedIntent = selected;
+    } catch (error) {
+      if (isPromptCancellation(error)) {
+        return handlePromptCancellation(lang);
+      }
+      throw error;
     }
   }
 

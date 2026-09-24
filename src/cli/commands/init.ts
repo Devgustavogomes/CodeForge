@@ -3,15 +3,15 @@ import { select, input } from "@inquirer/prompts";
 import { translate } from "../ui/i18n.js";
 import { printCodeForgeBanner } from "../ui/banner.js";
 import { CliInstaller } from "../installer/CliInstaller.js";
-import { createAppContainer } from "../../infrastructure/container.js";
+import { AppContainer, createAppContainer } from "../../infrastructure/container.js";
 
 import { ActionResult } from "../types.js";
 
-export async function initAction(): Promise<ActionResult> {
+export async function initAction(
+  container: AppContainer = createAppContainer(),
+): Promise<ActionResult> {
   printCodeForgeBanner();
 
-  const container = createAppContainer();
-  
   const config = container.configService.loadConfig();
   const lang = config?.language || "en";
 
