@@ -11,6 +11,7 @@ import React, {
 import { AppContainer, createAppContainer } from '../../../infrastructure/container.js';
 import { ContainerContext } from './ContainerContext.js';
 import { getIntentTaskCount, } from './ExecutionContext/taskLoader.js';
+import { useConfig } from './ConfigContext.js';
 
 export interface PlanGenerationResult {
   kind:
@@ -52,6 +53,7 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
   container: propContainer,
 }) => {
   const contextContainer = useContext(ContainerContext) ?? undefined;
+  const { config } = useConfig();
   const appContainer = useMemo(
     () => propContainer ?? contextContainer ?? createAppContainer(),
     [propContainer, contextContainer],
@@ -129,12 +131,10 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
       setStatusNotification(null);
 
       try {
-        const config = appContainer.configService?.loadConfig
-          ? appContainer.configService.loadConfig()
-          : null;
-        const model = config?.plannerAgent || 'default';
-
-        const useCaseResult = await appContainer.generatePlanUseCase.execute(intentName, model);
+        const planConfig = { ...config };
+        const model = planConfig.plannerAgent || 'default';
+        const useCase = appContainer.createGeneratePlanUseCase(planConfig);
+        const useCaseResult = await useCase.execute(intentName, model);
 
         if (!isMountedRef.current) return;
 
@@ -193,7 +193,7 @@ export const PlanningProvider: React.FC<PlanningProviderProps> = ({
         }
       }
     },
-    [appContainer],
+    [appContainer, config],
   );
 
   const value = useMemo<PlanningContextValue>(

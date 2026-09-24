@@ -24,6 +24,7 @@ import {
   HookHistoryItem,
 } from './ExecutionContext/types.js';
 import { ReviewResultMetadata } from '../../../domain/hook.js';
+import { useConfig } from './ConfigContext.js';
 
 export const DEFAULT_LOG_FLUSH_INTERVAL_MS = 60;
 const INTERRUPTED_REVIEW_MESSAGE = 'Previous AI review was interrupted. Press [v] to retry.';
@@ -62,6 +63,7 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   hookReporter: propHookReporter,
 }) => {
   const contextContainer = useContext(ContainerContext) ?? undefined;
+  const { config } = useConfig();
   const appContainer = useMemo(
     () => propContainer ?? contextContainer ?? createAppContainer(),
     [propContainer, contextContainer],
@@ -114,17 +116,9 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   const reviewInFlightRef = useRef(false);
   const hookHistoryCounterRef = useRef(0);
 
-  const hasConfiguredHooks = useMemo(() => {
-    try {
-      const config = appContainer.configService.loadConfig();
-      if (!config?.hooks) return false;
-      return Object.values(config.hooks).some(
-        (hooks) => Array.isArray(hooks) && hooks.length > 0,
-      );
-    } catch {
-      return false;
-    }
-  }, [appContainer]);
+  const hasConfiguredHooks = Object.values(config.hooks ?? {}).some(
+    (hooks) => Array.isArray(hooks) && hooks.length > 0,
+  );
 
   const logBufferRef = useRef<LogEventBuffer | null>(null);
   if (!logBufferRef.current) {
@@ -304,8 +298,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   }), [propHookReporter]);
 
   const scheduler = useMemo(
-    () => createSchedulerInstance(appContainer, reporter, propScheduler, hookReporter),
-    [propScheduler, appContainer, reporter, hookReporter],
+    () => createSchedulerInstance(appContainer, reporter, propScheduler, hookReporter, config),
+    [propScheduler, appContainer, reporter, hookReporter, config],
   );
   useEffect(() => {
     if (scheduler) {
@@ -321,7 +315,6 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     if (intent !== activeIntent) setActiveIntent(intent);
     setSchedulerStatus('running');
     try {
-      const config = appContainer.configService.loadConfig();
       const result = await scheduler.run(intent, config?.executorAgent);
       setSchedulerStatus(result.status as ExecutionStatus);
     } catch {
@@ -332,7 +325,7 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
       const state = appContainer.executionStateRepository.load(intent);
       if (state) setSchedulerStatus(state.status as ExecutionStatus);
     }
-  }, [activeIntent, scheduler, schedulerStatus, setActiveIntent, refreshTasks, appContainer, flushLogs]);
+  }, [activeIntent, scheduler, schedulerStatus, setActiveIntent, refreshTasks, appContainer, flushLogs, config]);
 
   const startReview = useCallback(async (intentName?: string): Promise<void> => {
     const intent = intentName || activeIntent;
@@ -344,7 +337,6 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     reviewErrorRef.current = false;
     setReviewError(undefined);
     try {
-      const config = appContainer.configService.loadConfig();
       await scheduler.run(intent, config?.executorAgent, { forceReview: true });
     } catch (error) {
       reviewErrorRef.current = true;
@@ -357,7 +349,7 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
       const state = appContainer.executionStateRepository.load(intent);
       if (state) setSchedulerStatus(state.status as ExecutionStatus);
     }
-  }, [activeIntent, appContainer, flushLogs, refreshTasks, scheduler, schedulerStatus, setActiveIntent]);
+  }, [activeIntent, appContainer, flushLogs, refreshTasks, scheduler, schedulerStatus, setActiveIntent, config]);
 
   const autoStartedIntentRef = useRef<string | null>(null);
   useEffect(() => {

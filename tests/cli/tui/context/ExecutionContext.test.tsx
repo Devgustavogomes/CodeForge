@@ -13,6 +13,7 @@ import { PromptService } from '../../../../src/application/services/PromptServic
 import { Task } from '../../../../src/domain/task.js';
 import { createAppContainer, AppContainer } from '../../../../src/infrastructure/container.js';
 import { renderWithProviders, flushAsync } from '../helpers/renderWithProviders.js';
+import { useConfig } from '../../../../src/cli/tui/context/ConfigContext.js';
 
 describe('ExecutionContext', () => {
   let gw: InMemoryWorkspaceGateway;
@@ -96,6 +97,121 @@ describe('ExecutionContext', () => {
       expect(contextValue?.getTaskLogs('TASK-001')).toHaveLength(3);
     }, { interval: 2, timeout: 100 });
 
+    unmount();
+  });
+
+  it('uses updated environment and executor on the next run while an active run keeps its runner', async () => {
+    const task = TaskBuilder.aTask().withId('TASK-001').withTitle('Task 1').build();
+    writeTask('test-intent', task);
+    let resolveFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => { resolveFirst = resolve; });
+    const oldRunner = new InMemoryAgentRunner({ handler: () => firstGate });
+    const newRunner = new InMemoryAgentRunner();
+    const runnerProvider = vi.fn((environment: string) => environment === 'local' ? oldRunner : newRunner);
+    const dynamicContainer = createAppContainer(gw, { runnerProvider, executionStateRepository: stateRepo, promptService });
+    let contextValue!: ExecutionContextValue;
+    let updateConfig!: ReturnType<typeof useConfig>['updateConfig'];
+    let renderedExecutorAgent!: string;
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      const config = useConfig();
+      updateConfig = config.updateConfig;
+      renderedExecutorAgent = config.config.executorAgent;
+      return null;
+    };
+    const { unmount } = renderWithProviders(<TestConsumer />, { container: dynamicContainer, initialIntent: 'test-intent', flushIntervalMs: 0 });
+
+    await flushAsync(1);
+    const activeRun = contextValue.startRun();
+    await vi.waitFor(() => expect(oldRunner.executedContexts).toHaveLength(1));
+    updateConfig({ environment: 'staging', plannerAgent: 'planner', executorAgent: 'executor-new', language: 'en', hooks: {}, intentSource: { provider: 'filesystem' }, aiReview: { enabled: false, agent: 'default', maxRounds: 3 } });
+    await vi.waitFor(() => expect(renderedExecutorAgent).toBe('executor-new'));
+    await vi.waitFor(() => expect(runnerProvider).toHaveBeenCalledWith('staging'));
+    resolveFirst();
+    await activeRun;
+    const retryState = stateRepo.load('test-intent')!;
+    retryState.status = 'paused';
+    retryState.tasks['TASK-001'].status = 'pending';
+    stateRepo.save(retryState);
+    await flushAsync(1);
+    await contextValue.startRun();
+
+    expect(oldRunner.executedContexts[0].model).toBe('default');
+    expect(newRunner.executedContexts[0].model).toBe('executor-new');
+    expect(runnerProvider).toHaveBeenCalledWith('local');
+    expect(runnerProvider).toHaveBeenCalledWith('staging');
+    unmount();
+  });
+
+  it('dispatches newly saved hooks on the next run and reports that hooks are configured', async () => {
+    const task = TaskBuilder.aTask().withId('TASK-001').withTitle('Task 1').build();
+    writeTask('test-intent', task);
+    const spawn = vi.fn().mockResolvedValue({ exitCode: 0, stdout: 'hook ran', stderr: '' });
+    const dynamicContainer = createAppContainer(gw, {
+      runnerProvider: () => runner,
+      executionStateRepository: stateRepo,
+      promptService,
+      processExecutor: { spawn } as never,
+    });
+    let contextValue!: ExecutionContextValue;
+    let updateConfig!: ReturnType<typeof useConfig>['updateConfig'];
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      updateConfig = useConfig().updateConfig;
+      return null;
+    };
+    const { unmount } = renderWithProviders(<TestConsumer />, {
+      container: dynamicContainer, initialIntent: 'test-intent', flushIntervalMs: 0,
+    });
+    await flushAsync(1);
+    expect(contextValue.hasConfiguredHooks).toBe(false);
+
+    await contextValue.startRun();
+    const state = stateRepo.load('test-intent')!;
+    state.status = 'paused';
+    state.tasks['TASK-001'].status = 'pending';
+    stateRepo.save(state);
+    updateConfig({ environment: 'local', plannerAgent: 'default', executorAgent: 'default', language: 'en', hooks: {
+      'task.started': [{ name: 'announce', run: 'echo started', type: 'notify' }],
+    }, intentSource: { provider: 'filesystem' } });
+    await vi.waitFor(() => expect(contextValue.hasConfiguredHooks).toBe(true));
+
+    await contextValue.startRun();
+    expect(spawn).toHaveBeenCalledTimes(1);
+    expect(spawn.mock.calls[0][0]).toBe('echo started');
+    await vi.waitFor(() => expect(contextValue.hookHistory.some((hook) => hook.name === 'announce' && hook.ok)).toBe(true));
+    unmount();
+  });
+
+  it('applies the current AI review enabled flag and agent to the next run', async () => {
+    const task = TaskBuilder.aTask().withId('TASK-001').withTitle('Task 1').build();
+    writeTask('test-intent', task);
+    const dynamicContainer = createAppContainer(gw, {
+      runnerProvider: () => runner,
+      executionStateRepository: stateRepo,
+      promptService,
+    });
+    let contextValue!: ExecutionContextValue;
+    let updateConfig!: ReturnType<typeof useConfig>['updateConfig'];
+    let configuredReviewAgent = '';
+    const TestConsumer = () => {
+      contextValue = useExecution();
+      const config = useConfig();
+      updateConfig = config.updateConfig;
+      configuredReviewAgent = config.config.aiReview?.agent ?? '';
+      return null;
+    };
+    const { unmount } = renderWithProviders(<TestConsumer />, {
+      container: dynamicContainer, initialIntent: 'test-intent', flushIntervalMs: 0,
+    });
+    await flushAsync(1);
+    updateConfig({ environment: 'local', plannerAgent: 'default', executorAgent: 'executor-v2', language: 'en', hooks: {},
+      intentSource: { provider: 'filesystem' }, aiReview: { enabled: true, agent: 'reviewer-v2', maxRounds: 1 } });
+    await vi.waitFor(() => expect(configuredReviewAgent).toBe('reviewer-v2'));
+
+    await contextValue.startRun();
+    expect(runner.executedContexts.map((item) => item.model)).toEqual(['executor-v2', 'reviewer-v2']);
+    expect(runner.executedContexts[1].model).toBe('reviewer-v2');
     unmount();
   });
 

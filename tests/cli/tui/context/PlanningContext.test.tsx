@@ -11,6 +11,16 @@ import { AppContainer, createAppContainer, AppContainerDependencies } from '../.
 import { InMemoryWorkspaceGateway } from '../../../helpers/in-memory-workspace.js';
 import { InMemoryAgentRunner } from '../../../helpers/in-memory-agent-runner.js';
 import { flushAsync } from '../helpers/flushAsync.js';
+import { ConfigProvider, useConfig } from '../../../../src/cli/tui/context/ConfigContext.js';
+import { ContainerProvider } from '../../../../src/cli/tui/context/ContainerContext.js';
+
+const TestPlanningProviders: React.FC<React.PropsWithChildren<{ container: AppContainer }>> = ({ container, children }) => (
+  <ContainerProvider container={container}>
+    <ConfigProvider>
+      <PlanningProvider container={container}>{children}</PlanningProvider>
+    </ConfigProvider>
+  </ContainerProvider>
+);
 
 describe('PlanningContext & PlanningProvider', () => {
   let gw: InMemoryWorkspaceGateway;
@@ -19,6 +29,51 @@ describe('PlanningContext & PlanningProvider', () => {
   beforeEach(() => {
     gw = new InMemoryWorkspaceGateway();
     runner = new InMemoryAgentRunner();
+  });
+
+  it('uses the latest planner agent and environment for each plan generation', async () => {
+    const oldRunner = new InMemoryAgentRunner({ handler: () => {
+      gw.mkdir('.codeforge');
+      gw.writeFile('.codeforge/tasks/first/TASK-001.json', JSON.stringify({ id: 'TASK-001', title: 'First', description: 'First task', acceptanceCriteria: ['Done'] }));
+      gw.writeFile('.codeforge/tasks/second/TASK-001.json', JSON.stringify({ id: 'TASK-001', title: 'Second', description: 'Second task', acceptanceCriteria: ['Done'] }));
+    } });
+    const newRunner = new InMemoryAgentRunner({ handler: () => {
+      gw.mkdir('.codeforge');
+      gw.writeFile('.codeforge/tasks/second/TASK-002.json', JSON.stringify({ id: 'TASK-002', title: 'Second task', description: 'New task', acceptanceCriteria: ['Done'] }));
+    } });
+    const runnerProvider = vi.fn((environment: string) => environment === 'local' ? oldRunner : newRunner);
+    const container = createTestContainer({
+      runnerProvider,
+      configService: { loadConfig: () => ({ environment: 'local', plannerAgent: 'planner-old', executorAgent: 'default', language: 'en' }) } as unknown as AppContainer['configService'],
+    });
+    let captured!: PlanningContextValue;
+    let updateConfig!: ReturnType<typeof useConfig>['updateConfig'];
+    const ConfigConsumer = () => {
+      const config = useConfig();
+      updateConfig = config.updateConfig;
+      return <Text>Config: {config.config.environment}/{config.config.plannerAgent}</Text>;
+    };
+    const PlanConsumer = () => { captured = usePlanning(); return null; };
+    const { unmount, lastFrame } = render(
+      <ContainerProvider container={container}><ConfigProvider>
+        <ConfigConsumer /><PlanningProvider container={container}><PlanConsumer /></PlanningProvider>
+      </ConfigProvider></ContainerProvider>,
+    );
+
+    gw.writeFile('.codeforge/intents/first.md', 'first intent');
+    gw.writeFile('.codeforge/intents/second.md', 'second intent');
+    gw.writeFile('.codeforge/metadata.json', '{}');
+    await captured.generatePlan('first');
+    updateConfig({ environment: 'staging', plannerAgent: 'planner-new', executorAgent: 'executor', language: 'en', hooks: {}, intentSource: { provider: 'filesystem' } });
+    await vi.waitFor(() => expect(lastFrame()).toContain('Config: staging/planner-new'));
+    await captured.generatePlan('second');
+    expect(oldRunner.executedContexts.length).toBeGreaterThanOrEqual(1);
+    expect(oldRunner.executedContexts.some((context) => context.model === 'planner-old')).toBe(true);
+    expect(newRunner.executedContexts.length).toBeGreaterThanOrEqual(1);
+    expect(newRunner.executedContexts.some((context) => context.model === 'planner-new')).toBe(true);
+    expect(runnerProvider).toHaveBeenCalledWith('local');
+    expect(runnerProvider).toHaveBeenCalledWith('staging');
+    unmount();
   });
 
   function createTestContainer(overrides?: Partial<AppContainerDependencies>): AppContainer {
@@ -52,9 +107,9 @@ describe('PlanningContext & PlanningProvider', () => {
     };
 
     const { unmount } = render(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <TestConsumer />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
     );
 
     expect(captured.isGenerating).toBe(false);
@@ -100,9 +155,9 @@ describe('PlanningContext & PlanningProvider', () => {
     };
 
     const { unmount } = render(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <TestConsumer />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
     );
 
     const promise = captured.generatePlan('auth-intent');
@@ -150,9 +205,9 @@ describe('PlanningContext & PlanningProvider', () => {
     };
 
     const { unmount } = render(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <TestConsumer />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
     );
 
     const planPromise = captured.generatePlan('billing-intent');
@@ -198,9 +253,9 @@ describe('PlanningContext & PlanningProvider', () => {
     };
 
     const { unmount } = render(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <TestConsumer />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
     );
 
     await captured.generatePlan('broken-intent');
@@ -234,9 +289,9 @@ describe('PlanningContext & PlanningProvider', () => {
     };
 
     const { unmount } = render(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <TestConsumer />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
     );
 
     await captured.generatePlan('missing-intent');
@@ -267,9 +322,9 @@ describe('PlanningContext & PlanningProvider', () => {
     };
 
     const { unmount } = render(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <TestConsumer />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
     );
 
     await captured.generatePlan('failing-intent');
@@ -313,9 +368,9 @@ describe('PlanningContext & PlanningProvider', () => {
     };
 
     const { unmount } = render(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <TestConsumer />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
     );
 
     const firstCall = captured.generatePlan('intent-alpha');
@@ -362,9 +417,9 @@ describe('PlanningContext & PlanningProvider', () => {
     };
 
     const { unmount } = render(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <TestConsumer />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
     );
 
     await captured.generatePlan('clean-test');
@@ -417,9 +472,9 @@ describe('PlanningContext & PlanningProvider', () => {
 
     const ParentSwitch = ({ showA }: { showA: boolean }) => {
       return (
-        <PlanningProvider container={container}>
+        <TestPlanningProviders container={container}>
           {showA ? <ConsumerA /> : <ConsumerB />}
-        </PlanningProvider>
+        </TestPlanningProviders>
       );
     };
 

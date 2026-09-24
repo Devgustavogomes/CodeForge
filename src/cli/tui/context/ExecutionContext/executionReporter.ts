@@ -9,6 +9,7 @@ import { AppContainer } from '../../../../infrastructure/container.js';
 import { CommandHookDispatcher } from '../../../../infrastructure/hooks/CommandHookDispatcher.js';
 import { NoopHookDispatcher } from '../../../../infrastructure/hooks/NoopHookDispatcher.js';
 import { ReviewResultMetadata } from '../../../../domain/hook.js';
+import { CodeForgeConfig } from '../../../../config/types.js';
 
 export interface ExecutionReporterCallbacks {
   onStart?: (intentName: string) => void;
@@ -68,6 +69,7 @@ export function createSchedulerInstance(
   reporter: SchedulerReporter,
   propScheduler?: TaskScheduler,
   hookReporter?: HookReporter,
+  selectedConfig?: CodeForgeConfig,
 ): TaskScheduler {
   if (propScheduler) {
     propScheduler.setReporter(reporter);
@@ -76,7 +78,7 @@ export function createSchedulerInstance(
     }
     return propScheduler;
   }
-  const config = appContainer.configService.loadConfig() ?? {
+  const config = selectedConfig ?? appContainer.configService.loadConfig() ?? {
     environment: 'antigravity',
     plannerAgent: 'default',
     executorAgent: 'default',
