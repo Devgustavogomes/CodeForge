@@ -36,6 +36,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   private lastLinesCount: number = 0;
   private cursorHidden: boolean = false;
   private finished: boolean = false;
+  private refreshTimer?: NodeJS.Timeout;
   private readonly getStatus?: StatusLookup;
   private readonly stream: NodeJS.WritableStream & { isTTY?: boolean };
   private readonly color: boolean;
@@ -73,6 +74,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   }
 
   onStart(intentName: string): void {
+    this.cleanup();
     this.intentName = intentName;
     this.startTime = this.clock();
     this.finished = false;
@@ -83,6 +85,12 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     }
 
     this.renderSnapshot(intentName);
+    if (this.interactive) {
+      this.refreshTimer = setInterval(() => {
+        if (this.intentName && !this.finished) this.renderSnapshot(this.intentName);
+      }, 1000);
+      this.refreshTimer.unref();
+    }
   }
 
   onUpdate(intentName: string): void {
@@ -217,6 +225,10 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   }
 
   cleanup(): void {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = undefined;
+    }
     if (this.cursorHidden) {
       this.stream.write("\x1b[?25h");
       this.cursorHidden = false;
@@ -290,6 +302,7 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     if (status && status.kind === "status") {
       return formatSchedulerSnapshot(status, {
         elapsed: elapsedStr,
+        snapshotAt: new Date(this.clock()).toISOString(),
         color: this.color,
         language: this.language,
         progressBar: true,

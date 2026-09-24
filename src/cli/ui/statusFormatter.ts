@@ -13,6 +13,8 @@ export interface StatusFormatterOptions {
   language?: SupportedLanguage;
   /** When provided, renders elapsed time header instead of status header. */
   elapsed?: string;
+  /** Current time for running task durations. */
+  snapshotAt?: string;
   /** When true, includes a visual progress bar. */
   progressBar?: boolean;
 }
@@ -119,24 +121,16 @@ function formatTaskRow(
   const translatedStatus = statusLabel(statusKey, language);
   const marker = style(`[${STATUS_ICON[statusKey] ?? "○"}]`, STATUS_COLOR[statusKey] ?? ANSI.gray, color);
   const status = style(`(${translatedStatus})`, STATUS_COLOR[statusKey] ?? ANSI.gray, color);
-  const details: string[] = [];
+  const duration = translate("terminal_status_duration", language, {
+    duration: taskDuration(task, snapshotAt),
+  });
+  const lines = [`  ${marker} ${task.id}: ${task.title} ${status} [${duration}]`];
 
-  if (task.dependencies && task.dependencies.length > 0) {
-    details.push(
-      translate("terminal_status_dependencies", language, {
-        dependencies: task.dependencies.join(", "),
-      }),
-    );
+  for (const dependency of task.dependencies ?? []) {
+    lines.push(`      [${translate("terminal_status_dependencies", language, {
+      dependencies: dependency,
+    })}]`);
   }
-
-  details.push(
-    translate("terminal_status_duration", language, {
-      duration: taskDuration(task, snapshotAt),
-    }),
-  );
-
-  const detailText = details.map((detail) => `[${detail}]`).join(" ");
-  const lines = [`  ${marker} ${task.id}: ${task.title} ${status} ${detailText}`];
 
   if (task.status === "failed") {
     for (const error of task.errors ?? []) {
@@ -226,7 +220,7 @@ function formatStatus(
   ];
 
   for (const task of result.tasks) {
-    lines.push(...formatTaskRow(task, result.updatedAt, language, color));
+    lines.push(...formatTaskRow(task, options.snapshotAt ?? result.updatedAt, language, color));
   }
 
   return lines.join("\n");
