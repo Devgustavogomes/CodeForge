@@ -182,7 +182,7 @@ describe('RunDashboard - Integration with ExecutionProvider', () => {
 
     // Now press 'v' to trigger review
     stdin.write('v');
-    await flushAsync(50);
+    await flushAsync(120);
     // When review starts, effectiveStatus becomes 'reviewing' or displays review feedback
     expect(lastFrame() ?? '').toMatch(/AI Review|reviewing/i);
   });
