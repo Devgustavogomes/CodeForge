@@ -617,3 +617,109 @@ describe('App - Shared StatusBar Deletion Feedback Integration', () => {
     }
   });
 });
+
+describe('App - Configuration language integration', () => {
+  it('uses an explicit language prop over saved config and reacts when the prop changes', async () => {
+    const container = createInitializedContainer();
+    container.gw.mkdir('.codeforge/intents');
+    container.gw.writeFile('.codeforge/intents/auth.md', '# Auth Intent');
+    container.gw.mkdir('.codeforge/tasks/auth');
+    container.gw.writeFile(
+      '.codeforge/tasks/auth/TASK-001.json',
+      JSON.stringify({ id: 'TASK-001', title: 'Setup auth schema', dependencies: [] }),
+    );
+    const app = (language: 'en' | 'pt') => (
+      <App container={container} initialTab="tasks" language={language} />
+    );
+    const { lastFrame, rerender, stdin, unmount } = renderWithProviders(app('pt'), { container });
+
+    try {
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('[q] Sair');
+        expect(frame).toContain('[3] Tarefas');
+        expect(frame).toContain('TASK-001');
+      });
+      expect(container.configService.loadConfig()?.language).toBe('en');
+
+      // App language overrides disk config for screen content and its modal too.
+      stdin.write('2');
+      await vi.waitFor(() => expect(lastFrame() ?? '').toContain('[2] Intents'));
+      stdin.write('d');
+      await vi.waitFor(() => expect(lastFrame() ?? '').toContain('Excluir Intenção'));
+
+      rerender(app('en'));
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('Delete Intent');
+        expect(frame).toContain('[q] Quit');
+      });
+      expect(lastFrame() ?? '').not.toContain('Excluir Intenção');
+    } finally {
+      unmount();
+    }
+  });
+
+  it('saves language from Config, updates translated UI immediately, and reloads external edits on re-entry', async () => {
+    const container = createInitializedContainer();
+    container.gw.mkdir('.codeforge/intents');
+    container.gw.writeFile('.codeforge/intents/auth.md', '# Auth Intent');
+
+    const { lastFrame, stdin, unmount } = renderWithProviders(
+      <App container={container} initialTab="intents" />,
+      { container },
+    );
+
+    try {
+      await vi.waitFor(() => expect(lastFrame() ?? '').toContain('Intents'));
+
+      stdin.write('5');
+      // Edit before the Config tab's hydration effects run after navigation.
+      stdin.write(' ');
+      await vi.waitFor(() => expect(lastFrame() ?? '').toContain('CodeForge Configuration Editor'));
+
+      // The immediate edit should remain visible and saveable.
+      expect(lastFrame() ?? '').toContain('Unsaved Changes');
+      await vi.waitFor(() => expect(lastFrame() ?? '').toContain('● [pt]'));
+      stdin.write('s');
+      await vi.waitFor(() => expect(lastFrame() ?? '').toContain('Configuração salva'));
+
+      expect(container.configService.loadConfig()?.language).toBe('pt');
+
+      // The active App instance applies the saved language to the tab bar.
+      stdin.write('2');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('[2] Intents');
+        expect(frame).toContain('auth');
+        expect(frame).not.toContain('CodeForge Configuration Editor');
+      });
+      stdin.write('d');
+      await vi.waitFor(() => expect(lastFrame() ?? '').toContain('Excluir Intenção'));
+      stdin.write('n');
+      await vi.waitFor(() => expect(lastFrame() ?? '').not.toContain('Excluir Intenção'));
+
+      // Simulate another process changing config.yaml while Config is inactive.
+      container.gw.writeFile(
+        '.codeforge/config.yaml',
+        [
+          'version: "1.0"',
+          'environment: local',
+          'plannerAgent: default',
+          'executorAgent: default',
+          'language: es',
+        ].join('\n'),
+      );
+      stdin.write('5');
+      await vi.waitFor(() => {
+        const frame = lastFrame() ?? '';
+        expect(frame).toContain('CodeForge Configuration Editor');
+        expect(frame).toContain('[5] Config');
+        expect(frame).toContain('● [es]');
+        expect(frame).not.toContain('● [pt]');
+      });
+    } finally {
+      unmount();
+    }
+  });
+});

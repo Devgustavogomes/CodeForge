@@ -1,6 +1,7 @@
 import React, { ReactElement, ReactNode } from 'react';
 import { render } from 'ink-testing-library';
 import { ContainerProvider } from '../../../../src/cli/tui/context/ContainerContext.js';
+import { ConfigProvider } from '../../../../src/cli/tui/context/ConfigContext.js';
 import { NavigationProvider, TabId } from '../../../../src/cli/tui/context/NavigationContext.js';
 import { ExecutionProvider } from '../../../../src/cli/tui/context/ExecutionContext.js';
 import { PlanningProvider } from '../../../../src/cli/tui/context/PlanningContext.js';
@@ -24,13 +25,16 @@ export interface RenderWithProvidersOptions {
   flushIntervalMs?: number;
 }
 
+export interface SetupWorkspaceConfigOverrides {
+  environment?: string;
+  plannerAgent?: string;
+  executorAgent?: string;
+  language?: string;
+}
+
 export function setupInitializedWorkspace(
   gw: WorkspaceGateway,
-  configOverrides?: {
-    environment?: string;
-    plannerAgent?: string;
-    executorAgent?: string;
-  },
+  configOverrides?: SetupWorkspaceConfigOverrides,
 ): void {
   gw.mkdir('.codeforge');
   gw.writeFile(
@@ -69,9 +73,10 @@ export function createMockContainer(overrides?: Partial<AppContainerDependencies
 
 export function createInitializedContainer(
   overrides?: Partial<AppContainerDependencies>,
+  configOverrides?: SetupWorkspaceConfigOverrides,
 ): AppContainer {
   const container = createMockContainer(overrides);
-  setupInitializedWorkspace(container.gw);
+  setupInitializedWorkspace(container.gw, configOverrides);
   return container;
 }
 
@@ -103,20 +108,22 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
 
   return (
     <ContainerProvider container={resolvedContainer}>
-      <NavigationProvider initialTab={initialTab}>
-        <ExecutionProvider
-          container={resolvedContainer}
-          scheduler={scheduler}
-          initialIntent={intent}
-          autoStart={autoStart}
-          maxLogLines={maxLogLines}
-          flushIntervalMs={flushIntervalMs}
-        >
-          <PlanningProvider container={resolvedContainer}>
-            {children}
-          </PlanningProvider>
-        </ExecutionProvider>
-      </NavigationProvider>
+      <ConfigProvider>
+        <NavigationProvider initialTab={initialTab}>
+          <ExecutionProvider
+            container={resolvedContainer}
+            scheduler={scheduler}
+            initialIntent={intent}
+            autoStart={autoStart}
+            maxLogLines={maxLogLines}
+            flushIntervalMs={flushIntervalMs}
+          >
+            <PlanningProvider container={resolvedContainer}>
+              {children}
+            </PlanningProvider>
+          </ExecutionProvider>
+        </NavigationProvider>
+      </ConfigProvider>
     </ContainerProvider>
   );
 };

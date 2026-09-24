@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { ContainerProvider } from './context/ContainerContext.js';
+import { ConfigProvider, useConfig } from './context/ConfigContext.js';
 import { NavigationProvider, useNavigation, TabId } from './context/NavigationContext.js';
 import { ExecutionProvider, useExecution } from './context/ExecutionContext.js';
 import { PlanningProvider, usePlanning } from './context/PlanningContext.js';
@@ -22,7 +23,7 @@ import { AppContainer, createAppContainer } from '../../infrastructure/container
 import { PATHS } from '../../infrastructure/paths.js';
 import { theme } from './theme.js';
 import { translate } from '../ui/i18n.js';
-import { SupportedLanguage } from '../../config/types.js';
+import { CodeForgeConfig, SupportedLanguage } from '../../config/types.js';
 
 export interface AppProps {
   container?: AppContainer;
@@ -104,6 +105,7 @@ const AppContent: React.FC<{
 }> = ({ container, onExit, enableAlternateScreen, initialTab, language: propLanguage }) => {
   const nav = useNavigation();
   const exec = useExecution();
+  const { config, updateConfig, reloadConfig } = useConfig();
   const { statusNotification, clearStatusNotification } = usePlanning();
   const { exit } = useApp();
   const { rows } = useTerminalDimensions();
@@ -116,20 +118,9 @@ const AppContent: React.FC<{
   } | null>(null);
   const screenNotificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [activeLanguage, setActiveLanguage] = useState<SupportedLanguage>(() => {
-    if (propLanguage) return propLanguage;
-    try {
-      return container?.configService?.loadConfig?.()?.language ?? 'en';
-    } catch {
-      return 'en';
-    }
-  });
-
-  useEffect(() => {
-    if (propLanguage) {
-      setActiveLanguage(propLanguage);
-    }
-  }, [propLanguage]);
+  // An explicit caller language takes precedence. Without one, follow shared
+  // config so language saves update every translated TUI component immediately.
+  const activeLanguage = propLanguage ?? config.language;
 
   const handleQuit = useCallback(() => {
     if (onExit) {
@@ -140,14 +131,17 @@ const AppContent: React.FC<{
 
   const handleOnboardingComplete = useCallback(() => {
     setIsOnboardingActive(false);
-    try {
-      const lang = container?.configService?.loadConfig?.()?.language ?? 'en';
-      setActiveLanguage(lang);
-    } catch {
-      // Keep existing language
-    }
+    reloadConfig();
     nav.setActiveTab(initialTab === 'run' ? 'run' : 'intents');
-  }, [container, initialTab, nav]);
+  }, [reloadConfig, initialTab, nav]);
+
+  const handleConfigSave = useCallback((config: CodeForgeConfig) => {
+    updateConfig(config);
+  }, [updateConfig]);
+
+  useEffect(() => {
+    if (nav.activeTab === 'config') reloadConfig();
+  }, [nav.activeTab, reloadConfig]);
 
   const handleScreenNotification = useCallback(
     (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -287,6 +281,7 @@ const AppContent: React.FC<{
             {(nav.activeTab === 'intents' || (nav.activeTab as string) === 'intents') && (
               <IntentsScreen
                 container={container}
+                language={activeLanguage}
                 isInteractive={isInteractive}
                 onNotification={handleScreenNotification}
                 onFeedback={(feedback) => handleScreenNotification(feedback.message, feedback.type)}
@@ -295,6 +290,7 @@ const AppContent: React.FC<{
             {nav.activeTab === 'tasks' && (
               <TasksScreen
                 container={container}
+                language={activeLanguage}
                 isInteractive={isInteractive}
                 onNotification={handleScreenNotification}
               />
@@ -302,11 +298,14 @@ const AppContent: React.FC<{
             {nav.activeTab === 'docs' && (
               <DocsScreen
                 container={container}
+                language={activeLanguage}
                 isInteractive={isInteractive}
                 onNotification={handleScreenNotification}
               />
             )}
-            {nav.activeTab === 'config' && <ConfigScreen container={container} isInteractive={isInteractive} />}
+            {nav.activeTab === 'config' && (
+              <ConfigScreen container={container} isInteractive={isInteractive} onSave={handleConfigSave} sharedConfig={config} />
+            )}
           </>
         )}
       </Box>
@@ -388,19 +387,21 @@ export const App: React.FC<AppProps> = ({
 
   return (
     <ContainerProvider container={appContainer}>
-      <NavigationProvider initialTab={initialTab}>
-        <ExecutionProvider container={appContainer} initialIntent={resolvedIntent} autoStart={autoStart}>
-          <PlanningProvider container={appContainer}>
-            <AppContent
-              container={appContainer}
-              onExit={onExit}
-              enableAlternateScreen={enableAlternateScreen}
-              initialTab={initialTab}
-              language={language}
-            />
-          </PlanningProvider>
-        </ExecutionProvider>
-      </NavigationProvider>
+      <ConfigProvider>
+        <NavigationProvider initialTab={initialTab}>
+          <ExecutionProvider container={appContainer} initialIntent={resolvedIntent} autoStart={autoStart}>
+            <PlanningProvider container={appContainer}>
+              <AppContent
+                container={appContainer}
+                onExit={onExit}
+                enableAlternateScreen={enableAlternateScreen}
+                initialTab={initialTab}
+                language={language}
+              />
+            </PlanningProvider>
+          </ExecutionProvider>
+        </NavigationProvider>
+      </ConfigProvider>
     </ContainerProvider>
   );
 };

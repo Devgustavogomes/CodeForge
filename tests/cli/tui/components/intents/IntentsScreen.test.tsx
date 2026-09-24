@@ -6,10 +6,20 @@ import { PullIntentUseCase as PullIntentUseCase } from '../../../../../src/appli
 import { ListIntentsUseCase as ListIntentsUseCase } from '../../../../../src/application/use-cases/ListIntentsUseCase.js';
 import { DeleteIntentUseCase as DeleteIntentUseCase } from '../../../../../src/application/use-cases/DeleteIntentUseCase.js';
 import { PlanningProvider } from '../../../../../src/cli/tui/context/PlanningContext.js';
+import { ConfigProvider } from '../../../../../src/cli/tui/context/ConfigContext.js';
+import { ContainerProvider } from '../../../../../src/cli/tui/context/ContainerContext.js';
 import { useNavigation } from '../../../../../src/cli/tui/context/NavigationContext.js';
 import { useExecution } from '../../../../../src/cli/tui/context/ExecutionContext.js';
 import { renderWithProviders, createMockContainer, flushAsync } from '../../helpers/renderWithProviders.js';
 import { translate } from '../../../../../src/cli/ui/i18n.js';
+
+const TestPlanningProviders: React.FC<React.PropsWithChildren<{ container: ReturnType<typeof createMockContainer> }>> = ({ container, children }) => (
+  <ContainerProvider container={container}>
+    <ConfigProvider>
+      <PlanningProvider container={container}>{children}</PlanningProvider>
+    </ConfigProvider>
+  </ContainerProvider>
+);
 
 const normalizeOutput = (value: string): string =>
   value.replace(/[│╭╮╰╯─┌┐└┘]/g, ' ').replace(/\s+/g, ' ');
@@ -262,9 +272,9 @@ describe('IntentsScreen component', () => {
     });
 
     const { lastFrame, stdin } = renderWithProviders(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <IntentsScreen initialIntents={mockIntents} container={container} isInteractive={true} />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
       { container }
     );
 
@@ -305,13 +315,13 @@ describe('IntentsScreen component', () => {
     });
 
     const { lastFrame, stdin } = renderWithProviders(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <IntentsScreen
           initialIntents={mockIntents}
           container={container}
           isInteractive={true}
         />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
       { container }
     );
 
@@ -338,7 +348,7 @@ describe('IntentsScreen component', () => {
     };
 
     const { stdin } = renderWithProviders(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <Observer />
         <IntentsScreen
           initialIntents={mockIntents}
@@ -346,7 +356,7 @@ describe('IntentsScreen component', () => {
           isInteractive={true}
           onOpenTasks={onOpenTasks}
         />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
       { container }
     );
 
@@ -373,14 +383,14 @@ describe('IntentsScreen component', () => {
     });
 
     const { stdin } = renderWithProviders(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <Observer />
         <IntentsScreen
           initialIntents={mockIntents}
           container={container}
           isInteractive={true}
         />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
       { container }
     );
 
@@ -407,13 +417,13 @@ describe('IntentsScreen component', () => {
     });
 
     const { lastFrame, stdin } = renderWithProviders(
-      <PlanningProvider container={container}>
+      <TestPlanningProviders container={container}>
         <IntentsScreen
           initialIntents={mockIntents}
           container={container}
           isInteractive={true}
         />
-      </PlanningProvider>,
+      </TestPlanningProviders>,
       { container }
     );
 
