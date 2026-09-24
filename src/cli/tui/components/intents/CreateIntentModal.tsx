@@ -59,7 +59,6 @@ export const CreateIntentModal: React.FC<CreateIntentModalProps> = ({
         const appContainer = container ?? createAppContainer();
         const useCase =
           createIntentUseCase ??
-          appContainer.createIntentUseCase ??
           appContainer.createIntentUseCase;
         const result: CreateIntentResult = useCase.execute(trimmed);
 
@@ -89,7 +88,7 @@ export const CreateIntentModal: React.FC<CreateIntentModalProps> = ({
         setErrorMessage(`Failed to create intent: ${msg}`);
       }
     },
-    [container, createIntentUseCase, createIntentUseCase, onSuccess, handleClose],
+    [container, createIntentUseCase, onSuccess, handleClose],
   );
 
   const { value: title, setValue: setTitle } = useTextInput({

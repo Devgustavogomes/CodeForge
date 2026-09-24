@@ -251,13 +251,13 @@ const AppContent: React.FC<{
         paddingX={1}
         width="100%"
       >
-        <Header activeIntent={exec.activeIntent ?? exec.activeIntent} borderStyle="none" language={activeLanguage} />
+        <Header activeIntent={exec.activeIntent} borderStyle="none" language={activeLanguage} />
         <TabBar activeTab={nav.activeTab} borderStyle="none" language={activeLanguage} />
       </Box>
 
       {/* Active Tab Screen */}
       <Box flexGrow={1} flexDirection="column" overflow="hidden">
-        {nav.modal?.type === 'create_intent' || nav.modal?.type === 'create_intent' ? (
+        {nav.modal?.type === 'create_intent' ? (
           <CreateIntentModal
             isOpen={true}
             container={container}
@@ -269,7 +269,7 @@ const AppContent: React.FC<{
               nav.setActiveTab('intents');
             }}
           />
-        ) : nav.modal?.type === 'pull_intent' || nav.modal?.type === 'pull_intent' ? (
+        ) : nav.modal?.type === 'pull_intent' ? (
           <PullIntentModal
             isOpen={true}
             container={container}

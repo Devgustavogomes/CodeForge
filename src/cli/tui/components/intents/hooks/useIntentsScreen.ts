@@ -78,7 +78,7 @@ export function useIntentsScreen({
   const [localValidationErrors, setLocalValidationErrors] = useState<string[] | null>(null);
 
   const loadIntents = useCallback((): IntentItemWithStats[] => {
-    const listUseCase = container.listIntentsUseCase ?? container.listIntentsUseCase;
+    const listUseCase = container.listIntentsUseCase;
     const rawIntents = listUseCase.execute();
     const enriched: IntentItemWithStats[] = rawIntents.map((s) => {
       const taskCount = getIntentTaskCount(container.gw, s.name);
@@ -376,7 +376,7 @@ export function useIntentsScreen({
     const intentName = selectedIntent.name;
     setActiveModal(null);
 
-    const deleteUseCase = container.deleteIntentUseCase ?? container.deleteIntentUseCase;
+    const deleteUseCase = container.deleteIntentUseCase;
     let result: ReturnType<typeof deleteUseCase.execute>;
     try {
       result = deleteUseCase.execute(intentName);
