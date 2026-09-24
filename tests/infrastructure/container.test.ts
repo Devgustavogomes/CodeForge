@@ -205,7 +205,7 @@ describe("Constructor injection in use cases", () => {
     };
     const runnerProvider = vi.fn().mockReturnValue(mockRunner);
 
-    const useCase = new ConfigureEnvironmentUseCase(memoryGw, customConfigService, runnerProvider);
+    const useCase = new ConfigureEnvironmentUseCase(customConfigService, runnerProvider);
 
     const agents = await useCase.getAgentsForEnvironment("custom-env");
     expect(runnerProvider).toHaveBeenCalledWith("custom-env");

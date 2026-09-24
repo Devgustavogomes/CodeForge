@@ -169,23 +169,19 @@ export function createAppContainer(
     overrides?.configureEnvironmentUseCase ??
     overrides?.configureEnvUseCase ??
     new ConfigureEnvironmentUseCase(
-      workspaceGateway,
       configService,
       runnerProvider,
     );
 
   const listIntentsUseCase =
     overrides?.listIntentsUseCase ??
-    overrides?.listIntentsUseCase ??
-    new ListIntentsUseCase(workspaceGateway);
+    new ListIntentsUseCase(workspaceGateway, stateRepo);
 
   const getIntentStatusUseCase =
     overrides?.getIntentStatusUseCase ??
-    overrides?.getIntentStatusUseCase ??
-    new GetIntentStatusUseCase(workspaceGateway);
+    new GetIntentStatusUseCase(workspaceGateway, stateRepo);
 
   const createIntentUseCase =
-    overrides?.createIntentUseCase ??
     overrides?.createIntentUseCase ??
     new CreateIntentUseCase(workspaceGateway);
 
@@ -193,17 +189,18 @@ export function createAppContainer(
     overrides?.validatePlanUseCase ??
     new ValidatePlanUseCase(workspaceGateway);
 
+  const intentSourceFactory =
+    overrides?.intentSourceFactory ?? IntentSourceFactory;
+
   const pullIntentUseCase =
     overrides?.pullIntentUseCase ??
-    overrides?.pullIntentUseCase ??
-    new PullIntentUseCase(workspaceGateway);
+    new PullIntentUseCase(workspaceGateway, undefined, intentSourceFactory);
 
   const taskOperationsUseCase =
     overrides?.taskOperationsUseCase ??
     new TaskOperationsUseCase(workspaceGateway, stateRepo);
 
   const deleteIntentUseCase =
-    overrides?.deleteIntentUseCase ??
     overrides?.deleteIntentUseCase ??
     new DeleteIntentUseCase(workspaceGateway, docsRepo);
 
@@ -214,9 +211,6 @@ export function createAppContainer(
   const deleteDocUseCase =
     overrides?.deleteDocUseCase ??
     new DeleteDocUseCase(workspaceGateway, docsRepo);
-
-  const intentSourceFactory =
-    overrides?.intentSourceFactory ?? IntentSourceFactory;
 
   const hookReporter = overrides?.hookReporter;
 
@@ -271,7 +265,7 @@ export function createAppContainer(
         language: "en",
       };
       const runner = runnerProvider(config.environment);
-      return new GeneratePlanUseCase(workspaceGateway, runner, config);
+      return new GeneratePlanUseCase(workspaceGateway, runner, config, validatePlanUseCase);
     },
 
     get createDocUseCase(): CreateDocUseCase {
@@ -285,7 +279,7 @@ export function createAppContainer(
         language: "en",
       };
       const runner = runnerProvider(config.environment);
-      return new CreateDocUseCase(workspaceGateway, runner, config);
+      return new CreateDocUseCase(workspaceGateway, runner, config, docsRepo);
     },
 
     get updateDocUseCase(): UpdateDocUseCase {
@@ -299,7 +293,7 @@ export function createAppContainer(
         language: "en",
       };
       const runner = runnerProvider(config.environment);
-      return new UpdateDocUseCase(workspaceGateway, gitGateway, runner, config);
+      return new UpdateDocUseCase(workspaceGateway, gitGateway, runner, config, docsRepo);
     },
 
     get executeReviewUseCase(): ExecuteReviewUseCase {
