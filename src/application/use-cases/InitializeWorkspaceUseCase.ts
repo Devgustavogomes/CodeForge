@@ -50,25 +50,20 @@ export class InitializeWorkspaceUseCase {
       }
     }
 
-    // Write planning rules
-    this.gw.writeFile(PATHS.planningRules, planningRule);
-    created.push(PATHS.planningRules);
-
-    // Write running rules
-    this.gw.writeFile(PATHS.runningRules, runningRule);
-    created.push(PATHS.runningRules);
-
-    // Write docs rules
-    this.gw.writeFile(PATHS.docsRules, docsRule);
-    created.push(PATHS.docsRules);
-
-    // Write docs-update rules
-    this.gw.writeFile(PATHS.docsUpdateRules, docsUpdateRule);
-    created.push(PATHS.docsUpdateRules);
-
-    // Write review rules
-    this.gw.writeFile(PATHS.reviewRules, reviewRule);
-    created.push(PATHS.reviewRules);
+    // Seed optional, project-specific guidance without replacing user edits.
+    const ruleTemplates: [string, string][] = [
+      [PATHS.planningRules, planningRule],
+      [PATHS.runningRules, runningRule],
+      [PATHS.docsRules, docsRule],
+      [PATHS.docsUpdateRules, docsUpdateRule],
+      [PATHS.reviewRules, reviewRule],
+    ];
+    for (const [rulePath, content] of ruleTemplates) {
+      if (!this.gw.exists(rulePath)) {
+        this.gw.writeFile(rulePath, content);
+        created.push(rulePath);
+      }
+    }
 
     // Write docs/manifest.json
     if (!this.gw.exists(PATHS.docsManifest)) {

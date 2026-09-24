@@ -29,9 +29,42 @@ describe("InitializeWorkspaceUseCase", () => {
     expect(content).toContain('version: "1.0"');
   });
 
-  it("creates rules/planning.md from embedded ts constant", () => {
+  it("creates five concise, customizable project guidance rule files", () => {
     useCase.execute();
-    expect(gateway.exists(".codeforge/rules/planning.md")).toBe(true);
+    const paths = [
+      ".codeforge/rules/planning.md",
+      ".codeforge/rules/running.md",
+      ".codeforge/rules/review.md",
+      ".codeforge/rules/docs.md",
+      ".codeforge/rules/docs-update.md",
+    ];
+    for (const path of paths) {
+      expect(gateway.exists(path)).toBe(true);
+      expect(gateway.readFile(path).length).toBeLessThan(1000);
+    }
+
+    expect(gateway.readFile(paths[0])).toContain("preferred task size");
+    expect(gateway.readFile(paths[1])).toContain("existing architecture");
+    expect(gateway.readFile(paths[2])).toContain("edge cases");
+    expect(gateway.readFile(paths[3])).toContain("Documentation");
+    expect(gateway.readFile(paths[4])).toContain("documentation conventions");
+    for (const path of paths) {
+      const content = gateway.readFile(path);
+      expect(content).not.toContain("TASK-XXX.json");
+      expect(content).not.toContain("Dependencies must reference valid task IDs and form a DAG");
+      expect(content).not.toContain("NO_UPDATE_NEEDED");
+    }
+  });
+
+  it("preserves existing customized rules during incomplete initialization", () => {
+    gateway.mkdir(".codeforge");
+    gateway.mkdir(".codeforge/rules");
+    gateway.writeFile(".codeforge/rules/planning.md", "My planning rules\n");
+
+    useCase.execute();
+
+    expect(gateway.readFile(".codeforge/rules/planning.md")).toBe("My planning rules\n");
+    expect(gateway.exists(".codeforge/rules/running.md")).toBe(true);
   });
 
   it("creates metadata.json with initialized: true", () => {

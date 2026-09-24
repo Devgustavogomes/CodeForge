@@ -1,11 +1,7 @@
-export const planningRule = `# Planning Rules (Project Custom)
+export const planningRule = `# Project planning guidelines
 
-<!-- Custom Planning Rules: Add project-specific guidelines below for how tasks should be organized, sliced, or prioritized.
-The task JSON schema, DAG validation, and task output directory are enforced by CodeForge automatically. -->
+<!-- Customize task organization and project-specific planning preferences here. CodeForge enforces the Task JSON schema, output path, and DAG validation. -->
 
-## Guidelines
-- Keep tasks small, coherent, and implementable within a single context window.
-- Ensure every task defines explicit, verifiable acceptance criteria.
-- Group related file changes into a single task rather than splitting single-line changes across multiple tasks.
-- Avoid introducing requirements or scope not specified in the intent.
+- Describe preferred task size, sequencing, and architectural boundaries.
+- Add domain-specific guidance for slicing work.
 `;
