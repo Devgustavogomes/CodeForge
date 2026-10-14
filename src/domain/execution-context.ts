@@ -1,6 +1,13 @@
 import type { Task } from "./task.js";
 
+/** Orchestration artifacts stay central; source inspection and edits use executionRoot. */
+export interface ExecutionRoots {
+  orchestrationRoot: string;
+  executionRoot: string;
+}
+
 export interface ExecutionContext {
+  roots?: ExecutionRoots;
   task: Task;
 
   intentContext: string;
