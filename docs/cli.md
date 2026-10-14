@@ -160,7 +160,7 @@ codeforge intent list
 
 ### `codeforge intent delete`
 
-Deletes an intent and cleans up its associated tasks (`.codeforge/tasks/<name>`), execution records (`.codeforge/executions/<name>.json`), and linked documentation.
+Deletes an eligible intent and its associated tasks, execution records, and linked documentation. Intents with execution/Git recovery evidence are protected. `--force` skips confirmation but does not bypass protection or delete retained Git artifacts.
 
 ```bash
 codeforge intent delete [name] [options]
@@ -216,7 +216,7 @@ codeforge plan validate [intent] [taskId]
 
 ### `codeforge run`
 
-Starts or resumes autonomous execution of an intent's task graph. Spawns the executor agent in isolated child processes for each ready task in the DAG.
+Starts or resumes autonomous execution of an intent's task graph. Each ready task uses a separate Git worktree and an explicit agent working directory. Approved commits are integrated serially before dependent tasks, review, or delivery to the original checkout.
 
 ```bash
 codeforge run [intent] [options]
@@ -228,17 +228,58 @@ codeforge run [intent] [options]
   - `--review`: Force the post-execution AI review phase even if disabled in config.
   - `--skip-review`: Skip the AI review phase for this run.
 - **Exit codes**:
-  - `0`: Execution completed or paused normally.
-  - `1`: Execution failed with errors or unrecoverable deadlock.
+  - `0`: Execution completed and the accepted result was delivered to the original checkout.
+  - `1`: Delivery did not complete, including paused/blocked recovery, pending reviewer follow-up tasks, failures, and deadlocks.
 - **Examples**:
   ```bash
   codeforge run user-authentication
   codeforge run user-authentication --skip-review
   ```
 
+### Execution Lifecycle and Recovery
+
+**Starting prerequisites:** Git must be available; the original checkout must be on a named branch with a HEAD commit and no staged, unstaged, or nonignored untracked changes. Commit or stash local changes first. Preparation runs `npm ci` in every integration and task worktree: npm and committed package/lock files must be usable in a fresh checkout. Installation failure is recorded before the task agent or task hooks launch.
+
+**Artifact identity:** Branches use `codex/<runId>-<taskId|integration>-<uniqueId>` regardless of the selected agent. Worktrees live under `<Git common directory>/codeforge-worktrees/<token>`, normally inside `.git/`. Exact paths and operations are recorded in `.codeforge/executions/<intent>.json`. Intents, task definitions, rules, and prompts remain in the original checkout's central `.codeforge/`; prompts distinguish this orchestration root from the execution worktree.
+
+| Outcome | Meaning |
+| :--- | :--- |
+| Task approved (`status: completed`) | Verification passed and `resultCommit` identifies the committed result, including the existing HEAD for a no-change task. |
+| Task integrated | That result was accepted into the integration branch with a recorded `acceptedCommit`. Dependents may now start from accepted history. |
+| Delivery pending | The accepted result is retained, but the original checkout has not received it. Every task can be integrated while the run is paused. |
+| Delivered | The guarded original-branch update succeeded and `deliveredCommit` matches the accepted result. Cleanup is separate. |
+
+**Retry versus restart:** Use `codeforge task retry <intent>` for failed tasks needing another agent attempt. Their worktree, base, edits, existing commits, and diagnostics are preserved. Retry does not rerun an already committed/integrated result; use `codeforge run <intent>` to resume its integration/delivery. Restart reconciliation compares recorded operations with Git and inspects previous processes, including surviving descendants. Matching evidence allows recovery of a commit, integration, or delivery interrupted before its state save without duplicating the Git operation.
+
+**Conflicts:** Integration is serialized in its dedicated worktree. Conflicts invoke the resolver there, followed by existing `task.verify` hooks there. At most two automatic attempts are allowed per conflict record; an interrupted attempt consumes its reserved attempt. Exhaustion retains conflict files, diagnostics, incoming commits, and the last accepted commit while blocking dependents, review, and delivery. Inspect the reported integration path. Restarting does not reset the budget or discard conflicts.
+
+**Guarded delivery:** The integration checkout must match the complete accepted result. The original checkout must still be clean on its recorded branch and starting commit. User edits, untracked files, new commits, or a branch switch leave delivery pending. Preserve user work and reconcile the checkout with the recorded identity before running the same intent again. CodeForge does not overwrite those changes; accepted results remain on the reported integration branch.
+
+**Cleanup:** After successful delivery, only owned, unchanged, clean worktrees with commits included in delivered history and resolved inactive process occupancy can be removed. Dirty, conflicted, occupied, redirected, or mismatched artifacts remain with diagnostics; other eligible worktrees can still be removed. Branch refs and execution records are retained. Cleanup failure does not undo delivery. Run the same intent again to retry cleanup after resolving the reported condition; there is no separate cleanup command.
+
+```bash
+codeforge status user-authentication --once
+codeforge task info user-authentication TASK-002
+# Failed agent or task gate; preserves the task worktree
+codeforge task retry user-authentication
+# Interrupted operations, pending integration/delivery, or cleanup
+codeforge run user-authentication
+```
+
+| Blocked condition | Action |
+| :--- | :--- |
+| Missing Git/HEAD, detached branch, or dirty starting checkout | Prepare a named committed branch and preserve local changes before starting. |
+| `npm ci` failed | Inspect preparation diagnostics and package/lock files in the reported worktree; retry after fixing the cause. |
+| Active or unresolved process ownership | Inspect the recorded host, PID, command, launch status, and descendants. Resolve previous processes before reuse; restarting the TUI alone does not prove they exited. |
+| Git identity, operation evidence, or lock is ambiguous | Inspect recorded branches, commits, paths, and diagnostics; preserve artifacts until the discrepancy is understood. |
+| Legacy execution requires Git ownership evidence | Old completion flags do not establish commits or integration. Automatic migration/resumption of that record is unavailable; retain it and inspect its work separately. |
+| Review produced follow-up tasks | Inspect/validate the central task files and run the same intent again. |
+
+See [process ownership](process-ownership.md) for inspection details. Isolation is filesystem-only: ignored `.env` files are not copied, and external ports, databases, and services remain shared. Ordinary integration and delivery add no common verification gates. Individually approved results do not prove semantic correctness of combined changes.
+
 ### `codeforge status`
 
-Displays the execution progress and state of all tasks for an intent.
+Displays task progress, approval/result commits, integration acceptance, branch/worktree paths, stages, process ownership, conflict attempts, delivery state, and cleanup diagnostics. Approval does not imply integration; all tasks integrated does not imply delivery.
 
 ```bash
 codeforge status [intent] [options]
@@ -279,15 +320,15 @@ codeforge task info [intent] [taskId]
 
 ### `codeforge task complete`
 
-Manually marks a specific task as `completed` in the execution state. Useful for bypassing tasks resolved manually or unblocking execution.
+Records completion only when the task already has a recorded result commit and successful integration of that same result, all dependencies are integrated, and task process ownership is inactive/resolved. It cannot bypass verification, commit, integration, or active execution. Blocked completion exits with code `1`. Resume the existing run to finish outstanding operations; manual completion does not deliver the intent.
 
 ```bash
-codeforge task complete <intent> <taskId>
+codeforge task complete [intent-name] [task-id]
 ```
 
 - **Arguments**:
-  - `<intent>`: Name of the intent.
-  - `<taskId>`: ID of the task to mark completed.
+  - `[intent-name]`: *(Optional)* Name of the intent. Prompts interactively if omitted.
+  - `[task-id]`: *(Optional)* Task ID. Prompts interactively if omitted.
 - **Example**:
   ```bash
   codeforge task complete user-authentication TASK-002
@@ -295,7 +336,7 @@ codeforge task complete <intent> <taskId>
 
 ### `codeforge task retry`
 
-Resets failed tasks back to `pending`, injects captured error output and diagnostics from the failure into the prompt, and automatically resumes execution. Already pending tasks also run; the command shows both counts and the same live progress display as `codeforge run`.
+Resets eligible failed tasks to `pending`, preserves their worktree and diagnostics for the next prompt, and resumes execution. Already pending tasks also run. Retry is blocked for active/unresolved ownership or committed/integrated results requiring recovery instead of another agent attempt. The command shows counts and the same live progress display as `codeforge run`.
 
 ```bash
 codeforge task retry [intent]
@@ -310,7 +351,7 @@ codeforge task retry [intent]
 
 ### `codeforge task reset`
 
-Resets tasks back to `pending` without immediately triggering execution.
+Resets eligible tasks to `pending` without immediately triggering execution. Tasks with execution/Git recovery evidence or consumed dependencies are protected. Reset cannot discard an existing worktree result; use retry/resume or a follow-up task as appropriate.
 
 ```bash
 codeforge task reset [intent] [taskId]
@@ -326,7 +367,7 @@ codeforge task reset [intent] [taskId]
 
 ### `codeforge task delete`
 
-Deletes a specific task definition file from `.codeforge/tasks/<intent>/<taskId>.json`.
+Deletes an eligible definition from `.codeforge/tasks/<intent>/<taskId>.json`. Tasks with execution/Git recovery evidence or consumed results are protected. `--force` skips confirmation, not these protections; it does not remove Git branches or worktrees.
 
 ```bash
 codeforge task delete [intent] [taskId] [options]

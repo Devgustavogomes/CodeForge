@@ -26,7 +26,13 @@ Instead of asking an AI agent to implement an entire feature in one long, halluc
        ▼           ▼
    HOOK GATE   HOOK GATE  (Linters / Tests / Typecheck)
        │           │
+       ▼           ▼
+   TASK COMMIT  TASK COMMIT
+       │           │
        └─────┬─────┘
+             ▼
+    SERIAL INTEGRATION
+             │
              ▼
         NEXT TASKS
              │
@@ -34,10 +40,13 @@ Instead of asking an AI agent to implement an entire feature in one long, halluc
        AI REVIEW PHASE    (Holistic Diff Verification)
              │
              ▼
-       DOCUMENTATION      (Self-Updating Technical Docs)
+     GUARDED DELIVERY     (Original Checkout)
              │
              ▼
           COMPLETE
+             │
+             ▼
+       DOCUMENTATION      (Separate Docs Commands)
 ```
 
 > **CodeForge manages the engineering process. Your AI agent handles the implementation.**
@@ -134,7 +143,7 @@ codeforge plan generate user-authentication
 
 #### Step 3: Run Autonomous Execution
 
-CodeForge executes tasks in topological order, isolating context per task and running verification hooks:
+CodeForge executes tasks in topological order, using a separate worktree and verification hooks for each task, then integrates approved commits, performs configured review, and delivers the accepted result:
 
 ```bash
 codeforge run user-authentication
@@ -142,11 +151,27 @@ codeforge run user-authentication
 
 #### Step 4: Generate Technical Documentation
 
-When all tasks pass verification and AI review, generate technical documentation:
+After the accepted result has been delivered to the original checkout, generate technical documentation:
 
 ```bash
 codeforge docs create auth-architecture --intent user-authentication
 ```
+
+---
+
+## Worktree Execution
+
+A run requires Git, a named checked-out branch with a HEAD commit, and a clean checkout (including staged, unstaged, and nonignored untracked files). Commit or stash your changes before starting. The current preparation step runs `npm ci` in each integration and task worktree, so commit a usable `package.json` and `package-lock.json` and make npm available.
+
+Every task uses its own Git worktree, even during sequential execution. New tasks start from the accepted integration commit; dependencies become ready only after their results are integrated. Independent tasks can keep an older base while integration serializes their approved results. Agents and task hooks run with an explicit worktree `cwd`; hooks receive that directory as `CODEFORGE_CWD`. Intents, task definitions, rules, prompts, and execution records remain in the original checkout's central `.codeforge/` workspace.
+
+Approval, integration, and delivery are separate outcomes. Passing `task.verify` records a task result commit; integration accepts it into a dedicated branch. Only guarded delivery updates the original checkout. If you edit that checkout, switch its branch, or advance its HEAD during a run, delivery remains pending and the accepted result stays on the integration branch.
+
+Owned branches use `codex/<runId>-<taskId|integration>-<uniqueId>` regardless of the configured AI CLI. Worktrees live under `<Git common directory>/codeforge-worktrees/<token>` (normally `.git/codeforge-worktrees/`). Find exact paths, commits, recovery issues, and cleanup diagnostics with `codeforge status <intent> --once`. Retry preserves the task worktree; restart reconciliation uses recorded Git and process evidence. Conflicts have at most two automatic resolution attempts, each followed by `task.verify` in the integration worktree. Failed or blocked artifacts are retained. After successful delivery, eligible clean, inactive worktrees are removed and branch refs remain available.
+
+Isolation covers filesystem worktrees and local dependency installations. Ignored `.env` files are not copied; ports, databases, external services, and inherited environment variables are not isolated. Ordinary integration and final delivery run no common lint, build, or test gates. Individually approved results and AI review do not guarantee semantic correctness of the combined changes.
+
+See the [CLI execution and recovery guide](docs/cli.md#execution-lifecycle-and-recovery), [hook working directories](docs/hooks.md#working-directories-and-isolation), and [process ownership guide](docs/process-ownership.md).
 
 ---
 

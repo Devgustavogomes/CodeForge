@@ -23,9 +23,10 @@ language: en
 externalTerminal: true
 
 # AI Review configuration
-review:
-  enabled: true                  # Run automated AI review after all tasks complete
-  model: gemini-3.8-flash-high   # Model used during the review phase
+aiReview:
+  enabled: true                  # Review after all task results are integrated (default: false)
+  agent: default                 # Review agent/model (default: "default")
+  maxRounds: 3                   # Maximum rounds producing follow-up tasks (default: 3)
 
 # Remote Intent Source configuration (optional - defaults to filesystem)
 intentSource:
@@ -74,6 +75,22 @@ intentSource:
 ```
 
 If an interpolated variable is not defined, CodeForge defaults to an empty string.
+
+---
+
+## Worktree Preparation and Runtime Context
+
+Execution requires Git, a clean named branch with a HEAD commit, npm, and committed `package.json`/`package-lock.json` files usable by `npm ci`. The integration worktree and every task worktree receive their own installation before use. There is no configuration switch to run tasks in the original checkout or skip this preparation.
+
+The `environment`, `executorAgent`, hooks, and review controls select the existing runners and behavior. `codex/` branch names identify CodeForge-owned artifacts for every runner; they do not select the Codex provider. Worktree paths and exact identities are execution records, not user-configurable paths.
+
+Configuration, intent/task definitions, rules, prompts, and state are read from the original checkout's central `.codeforge/`. Agents receive an explicit worktree `cwd`; hooks receive their actual working directory as `CODEFORGE_CWD` and stdin `cwd`. Relative project commands execute against that worktree's files and installed dependencies.
+
+Loading the original checkout's `.env` into CodeForge's process is separate from creating a file in a worktree. Ignored `.env` files are not copied. Child processes can inherit the parent environment, but tools that require a local dotenv file must account for its absence. Worktrees do not isolate external ports, databases, services, or inherited credentials.
+
+Only `task.verify` gates ordinary task approval. No configuration option adds a common integration/final-delivery gate. Conflict resolver attempts reuse `task.verify` in the integration worktree; individual approvals do not establish semantic correctness of the combined result.
+
+See [execution and recovery](cli.md#execution-lifecycle-and-recovery) and [hook working directories](hooks.md#working-directories-and-isolation).
 
 ---
 

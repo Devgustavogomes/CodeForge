@@ -22,18 +22,20 @@ CodeForge distinguishes between two types of hooks based on how their exit codes
 
 ## Lifecycle Events
 
-CodeForge exposes 8 granular lifecycle events:
+CodeForge exposes the following lifecycle events:
 
 | Event | When It Fires | Gate Capable? |
 | :--- | :--- | :---: |
 | `run.started` | An intent run begins | No |
-| `run.completed` | All tasks in the intent have finished successfully | No |
+| `run.completed` | The accepted result was delivered successfully; cleanup may have separate diagnostics | No |
 | `run.failed` | The run terminated with at least one failed task | No |
 | `run.deadlock` | Pending tasks remain but dependencies can never be resolved | No |
-| `task.started` | A specific task is dispatched to the AI coding agent | No |
+| `task.started` | A prepared task worktree is ready, before agent launch | No |
 | `task.verify` | The agent returned, **before** the task is marked complete | **Yes** |
-| `task.completed` | A task passed all verification and is officially marked done | No |
-| `task.failed` | A task failed (due to agent error or gate hook veto) | No |
+| `task.completed` | Task verification passed and its result commit was recorded; integration may still be pending | No |
+| `task.failed` | Execution, verification, or commit failed after the task working directory became available | No |
+| `review.started` | AI review begins after task integrations settle | No |
+| `review.completed` | Review approved the result or produced validated follow-up tasks | No |
 
 ---
 
@@ -52,10 +54,10 @@ Gate hooks on `task.verify` create an automated, deterministic verification loop
      Exit 0              Exit != 0
         │                   │
         ▼                   ▼
-  Task Completed      Task Vetoed & Failed
+  Commit Result       Task Vetoed & Failed
         │                   │
         ▼                   ▼
-  Next DAG Task     Output Captured as Diagnostics
+  Integrate Result  Output Captured as Diagnostics
                             │
                             ▼
               codeforge task retry <intent>
@@ -67,11 +69,11 @@ Gate hooks on `task.verify` create an automated, deterministic verification loop
                    Agent Fixes Defects
 ```
 
-1. The AI agent finishes modifying the codebase and exits.
+1. The AI agent finishes modifying its task worktree and exits.
 2. CodeForge immediately runs the configured `task.verify` gate hooks in sequence (e.g., type check, linter, tests).
 3. If a gate hook exits with a non-zero code, CodeForge intercepts the failure, marks the task as failed, and captures the stdout/stderr diagnostics.
 4. When retried, CodeForge builds a fresh prompt for the agent containing the **exact compiler/linter error output**.
-5. The agent fixes the issues without human intervention or copy-pasting error messages.
+5. Retry reuses the same worktree and its edits/commits. Once verification passes, CodeForge records the result commit and integrates it before releasing dependent tasks.
 
 ---
 
@@ -116,7 +118,7 @@ When CodeForge executes a hook, it provides execution context in two ways:
 - `CODEFORGE_EVENT`: Name of the triggering event (e.g. `task.verify`).
 - `CODEFORGE_INTENT`: Name/slug of the active intent.
 - `CODEFORGE_TASK_ID`: ID of the current task (e.g. `TASK-001`), if applicable.
-- `CODEFORGE_CWD`: Current workspace directory.
+- `CODEFORGE_CWD`: The explicit hook working directory: a task worktree for ordinary task events, the integration worktree for conflict verification, or the original orchestration checkout for run/review notification events.
 
 ### 2. Standard Input (stdin)
 The full context payload is piped as JSON into the hook process's `stdin`:
@@ -124,11 +126,19 @@ The full context payload is piped as JSON into the hook process's `stdin`:
 ```json
 {
   "event": "task.verify",
-  "intent": "user-authentication",
+  "intentName": "user-authentication",
   "taskId": "TASK-002",
-  "timestamp": "2026-09-24T14:00:00.000Z"
+  "cwd": "/projects/my-project/.git/codeforge-worktrees/<task-token>"
 }
 ```
+
+## Working Directories and Isolation
+
+Hook processes use `context.cwd` as their actual working directory; stdin `cwd` and `CODEFORGE_CWD` identify that same directory. Relative commands such as `npm run lint` use the prepared worktree's files and local `node_modules`. Commit scripts and package/lock files needed by hooks: ignored files from the original checkout, including `.env`, are not copied. The central orchestration `.codeforge/` remains in the original checkout; do not assume it exists relative to a task hook's cwd.
+
+`task.verify` is the sole ordinary task gate. Passing it records a task result before integration. Independent approved results integrate serially without a common integration gate, and final delivery does not rerun lint/build/tests. If Git conflicts occur, each of the two allowed resolver attempts uses `task.verify` in the integration worktree. That conflict check does not create an ordinary combined-result or final gate.
+
+Worktrees isolate files and local installations; inherited environment variables, ports, databases, and external services remain shared. Configure hook commands with this boundary in mind. A task passing its gates does not guarantee semantic correctness when combined with other approved tasks.
 
 ### Example Hook Script
 
@@ -138,6 +148,7 @@ The full context payload is piped as JSON into the hook process's `stdin`:
 
 echo "Verifying $CODEFORGE_TASK_ID for intent $CODEFORGE_INTENT..."
 
-# Run project linter and tests
+# The hook already runs in the task worktree.
+echo "Working directory: $CODEFORGE_CWD"
 npm run lint && npm test
 ```

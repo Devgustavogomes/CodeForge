@@ -170,6 +170,22 @@ src/
   npm test
   ```
 
+### Worktree Lifecycle Invariants
+
+Execution starts only with available Git, a named branch with a HEAD commit, and a clean original checkout, including staged, unstaged, and nonignored untracked files. Integration and task environments use distinct owned worktrees and separate `npm ci` installations; even sequential tasks must be isolated. Commit package/lock files and scripts needed by a fresh worktree. Owned branches use `codex/<runId>-<taskId|integration>-<uniqueId>`, and paths live below the Git common directory's `codeforge-worktrees/` directory.
+
+Pass explicit execution `cwd` through agents and hooks. `CODEFORGE_CWD` must equal the hook process directory. Keep orchestration context (intents, tasks, rules, prompts, state, and documentation) in the original checkout's central `.codeforge/`, independent of the execution worktree. Ignored `.env` files are not copied. Isolation covers files and local installations, not inherited variables, ports, databases, or external services.
+
+Preserve approval, integration, and delivery as separate records. Ordinary task approval requires `task.verify` followed by a recorded result commit. Integration serializes approved results; newly prepared dependents use accepted history, while independent tasks retain their recorded bases. Ordinary integration and final delivery add no common lint/build/test gates. AI review does not prove semantic correctness of combined changes.
+
+Persist operation intent before Git mutation and observed outcomes after inspecting Git. Recovery must compare recorded run/branch/worktree/commit evidence and inspect prior process launches, including descendants, before reuse. Retry preserves the same worktree, base, edits, commits, and gate diagnostics. Committed results resume integration instead of rerunning the agent. Keep the current legacy-evidence block; do not infer integration from old completion flags.
+
+Conflict resolution uses the integration worktree and at most two reserved attempts per conflict record, each followed by `task.verify` there. Interrupted attempts consume their reservation. Exhaustion preserves conflict files, diagnostics, incoming results, and the last accepted commit; it does not reset/abort the work or release dependents.
+
+Delivery must protect the original branch, HEAD, index, and files. Changes there leave delivery pending and retain accepted integration artifacts. Cleanup occurs only after verified delivery, checks exact ownership/identity, clean state, delivered ancestry, and resolved inactive occupancy, and retains branch refs. Cleanup diagnostics must not erase successful delivery or prevent other eligible artifacts from being cleaned.
+
+Use disposable Git repositories for lifecycle tests, including paths with spaces. The shared fixture is `tests/helpers/worktree-repository.ts`; integration scenarios live under `tests/integration/worktree-*.test.ts`. Cover preparation failures, dependency bases, older-base integration, conflicts, interruption windows, surviving processes, guarded delivery, review follow-ups, and cleanup eligibility. Never mutate a contributor's real branches or worktrees in tests. See [CLI lifecycle](docs/cli.md#execution-lifecycle-and-recovery) and [process ownership](docs/process-ownership.md).
+
 ### Code Quality & Linting
 
 - Use ESLint to maintain consistent code quality:
