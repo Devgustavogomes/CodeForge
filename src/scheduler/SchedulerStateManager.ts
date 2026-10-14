@@ -1,6 +1,6 @@
 import { ExecutionStateRepository } from "../infrastructure/repositories/ExecutionStateRepository.js";
 import { Task } from "../domain/task.js";
-import { IntentExecutionState } from "../domain/execution.js";
+import { IntentExecutionState, isTaskIntegrated } from "../domain/execution.js";
 import { SchedulerRunOptions, SchedulerRunResult } from "./types.js";
 import { createResult } from "./helpers.js";
 
@@ -32,7 +32,8 @@ export class SchedulerStateManager {
 
   allTasksCompleted(state: IntentExecutionState): boolean {
     const counts = this.getTaskCounts(state);
-    return counts.running === 0 && counts.pending === 0 && counts.failed === 0;
+    return counts.running === 0 && counts.pending === 0 && counts.failed === 0 &&
+      Object.keys(state.tasks).every(id => isTaskIntegrated(state, id));
   }
 
   prepareState(
@@ -47,12 +48,20 @@ export class SchedulerStateManager {
       return { ready: true };
     }
 
-    if (state.status === "completed" && !options.forceReview) {
+    if (this.allTasksCompleted(state) && state.delivery?.status === "succeeded" &&
+        state.delivery.deliveredCommit === state.lastAcceptedCommit && !options.forceReview) {
+      if (state.status !== "completed") this.recordCompletion(state);
       return { ready: false, result: createResult("completed", intentName) };
     }
 
+    if (state.owner || Object.values(state.tasks).some(task => task.status === "running")) {
+      return { ready: false, result: createResult("paused", intentName,
+        "Startup recovery must settle previous process ownership before resumed scheduling.") };
+    }
+
     const { pending, failed } = this.getTaskCounts(state);
-    if (pending === 0 && failed > 0) {
+    if (pending === 0 && failed > 0 && !Object.values(state.tasks).some(task =>
+      task.status === "running" || (task.status === "completed" && task.integration?.status === "pending"))) {
       const reason = "Intent execution has failed tasks.";
       return {
         ready: false,
@@ -60,8 +69,7 @@ export class SchedulerStateManager {
       };
     }
 
-    state.status = "running";
-    this.stateRepo.save(state);
+    this.stateRepo.update(intentName, (current) => { current.status = "running"; });
     return { ready: true };
   }
 
@@ -73,28 +81,36 @@ export class SchedulerStateManager {
     }
 
     const round = (state.reviewRounds ?? 0) + 1;
-    state.status = "paused";
-    state.reviewError = message;
-    this.stateRepo.save(state);
+    this.stateRepo.update(intentName, (current) => {
+      current.status = "paused";
+      current.reviewError = message;
+    });
     return { message, round };
   }
 
   recordCompletion(state: IntentExecutionState): void {
-    state.status = "completed";
-    state.reviewApproved = true;
-    state.completedAt = new Date().toISOString();
-    this.stateRepo.save(state);
+    this.stateRepo.update(state.intentId, (current) => {
+      if (!this.allTasksCompleted(current) || current.delivery?.status !== "succeeded" ||
+          !current.delivery.deliveredCommit || current.delivery.deliveredCommit !== current.lastAcceptedCommit) {
+        throw new Error("Verified delivery is required before completing a run.");
+      }
+      current.status = "completed";
+      current.reviewApproved = true;
+      current.completedAt = new Date().toISOString();
+    });
   }
 
   recordDeadlock(state: IntentExecutionState): void {
-    state.status = "failed";
-    state.completedAt = new Date().toISOString();
-    this.stateRepo.save(state);
+    this.stateRepo.update(state.intentId, (current) => {
+      current.status = "failed";
+      current.completedAt = new Date().toISOString();
+    });
   }
 
   recordFailure(state: IntentExecutionState): void {
-    state.status = "failed";
-    state.completedAt = new Date().toISOString();
-    this.stateRepo.save(state);
+    this.stateRepo.update(state.intentId, (current) => {
+      current.status = "failed";
+      current.completedAt = new Date().toISOString();
+    });
   }
 }

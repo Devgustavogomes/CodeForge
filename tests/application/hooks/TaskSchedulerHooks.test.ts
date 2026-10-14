@@ -1,3 +1,5 @@
+import { fakeRecoveryCoordinator, fakeWorktreeLifecycle, fakeDeliveryGit, fakeTaskResultGit } from "../../helpers/fake-worktree-lifecycle.js";
+import { recordIntegration } from "../../helpers/integrated-execution.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TaskScheduler } from "../../../src/scheduler/TaskScheduler.js";
 import { InMemoryWorkspaceGateway } from "../../helpers/in-memory-workspace.js";
@@ -67,6 +69,7 @@ describe("TaskScheduler hook dispatch", () => {
     expect(HOOK_EVENTS.filter((event) => event === "review.completed")).toHaveLength(1);
 
     const context: HookContext = {
+      cwd: process.cwd(),
       event: "review.completed",
       intentName: "intent",
       reviewResult: {
@@ -87,8 +90,18 @@ describe("TaskScheduler hook dispatch", () => {
     state.tasks[task.id].status = "completed";
     state.status = "completed";
     repository.save(state);
+    recordIntegration(repository, "intent", task.id);
+    repository.update("intent", current => {
+      current.reviewApproved = true;
+      current.delivery = { status: "succeeded", deliveredCommit: current.lastAcceptedCommit };
+    });
     const runner = { execute: vi.fn() } as unknown as AgentRunner;
     const scheduler = new TaskScheduler({
+      recoveryCoordinator: fakeRecoveryCoordinator(repository),
+      worktreeLifecycle: fakeWorktreeLifecycle(repository),
+      taskResultGit: fakeTaskResultGit(),
+      deliveryGit: fakeDeliveryGit(new ExecutionStateRepository(gw), "intent"),
+      integrationGit: fakeTaskResultGit(),
       gw,
       runner,
       config: { ...config, aiReview: { enabled: true, agent: "default", maxRounds: 3 } },
@@ -106,6 +119,10 @@ describe("TaskScheduler hook dispatch", () => {
 
   function schedulerFor(runner: AgentRunner, withHooks = true): TaskScheduler {
     return new TaskScheduler({
+      worktreeLifecycle: fakeWorktreeLifecycle(new ExecutionStateRepository(gw)),
+      taskResultGit: fakeTaskResultGit(),
+      deliveryGit: fakeDeliveryGit(new ExecutionStateRepository(gw), "intent"),
+      integrationGit: fakeTaskResultGit(),
       gw,
       runner,
       config,
@@ -118,6 +135,26 @@ describe("TaskScheduler hook dispatch", () => {
   function writeTask(task: Task): void {
     gw.writeFile(`.codeforge/tasks/intent/${task.id}.json`, JSON.stringify(task));
   }
+
+  it("forwards the explicitly selected checkout to run hooks and task execution", async () => {
+    writeTask(taskFixture());
+    const cwd = "C:/Explicit Checkout";
+    const runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
+    const scheduler = new TaskScheduler({
+      worktreeLifecycle: fakeWorktreeLifecycle(new ExecutionStateRepository(gw), cwd),
+      taskResultGit: fakeTaskResultGit(),
+      deliveryGit: fakeDeliveryGit(new ExecutionStateRepository(gw), "intent"),
+      integrationGit: fakeTaskResultGit(),
+      cwd, gw, runner, config, hooks,
+      stateRepo: new ExecutionStateRepository(gw),
+      promptService: new PromptService(gw),
+    });
+    await scheduler.run("intent");
+    expect(hooks.contexts.every((context) => context.cwd === (context.taskId ? new ExecutionStateRepository(gw).load("intent")?.tasks[context.taskId].worktreePath : cwd))).toBe(true);
+    expect(hooks.events()).toContain("run.started");
+    expect(hooks.events()).toContain("run.completed");
+    expect(runner.execute).toHaveBeenCalledWith(expect.objectContaining({ cwd: new ExecutionStateRepository(gw).load("intent")?.tasks["TASK-001"].worktreePath }));
+  });
 
   it("announces the run and the task around a successful execution", async () => {
     writeTask(taskFixture());
@@ -141,10 +178,11 @@ describe("TaskScheduler hook dispatch", () => {
     await schedulerFor(runner).run("intent");
 
     const started = hooks.contexts.find((c) => c.event === "task.started");
-    expect(started).toEqual({ event: "task.started", intentName: "intent", taskId: "TASK-001" });
+    expect(started).toEqual({ cwd: new ExecutionStateRepository(gw).load("intent")?.tasks["TASK-001"].worktreePath, event: "task.started", intentName: "intent", taskId: "TASK-001", onProcessRecord: expect.any(Function) });
     expect(started?.intentName).toBe("intent");
     const runStarted = hooks.contexts.find((c) => c.event === "run.started");
     expect(runStarted).toEqual({
+      cwd: process.cwd(),
       event: "run.started",
       intentName: "intent",
     });
@@ -178,9 +216,16 @@ describe("TaskScheduler hook dispatch", () => {
     expect(runner.execute).toHaveBeenCalledTimes(0);
   });
 
-  it("announces each task of a dependency chain in order", async () => {
+  it("announces each task of an integrated dependency chain in order", async () => {
     writeTask(taskFixture({ id: "TASK-001" }));
     writeTask(taskFixture({ id: "TASK-002", dependencies: ["TASK-001"] }));
+    const dispatch = hooks.dispatch.bind(hooks);
+    vi.spyOn(hooks, "dispatch").mockImplementation(async (context) => {
+      if (context.event === "task.completed" && context.taskId) {
+        recordIntegration(new ExecutionStateRepository(gw), "intent", context.taskId);
+      }
+      return dispatch(context);
+    });
     const runner = { execute: vi.fn().mockResolvedValue(undefined) } as unknown as AgentRunner;
 
     await schedulerFor(runner).run("intent");
@@ -207,6 +252,10 @@ describe("TaskScheduler hook dispatch", () => {
       setReporter: vi.fn(),
     };
     const scheduler = new TaskScheduler({
+      worktreeLifecycle: fakeWorktreeLifecycle(new ExecutionStateRepository(gw)),
+      taskResultGit: fakeTaskResultGit(),
+      deliveryGit: fakeDeliveryGit(new ExecutionStateRepository(gw), "intent"),
+      integrationGit: fakeTaskResultGit(),
       gw,
       runner,
       config,
