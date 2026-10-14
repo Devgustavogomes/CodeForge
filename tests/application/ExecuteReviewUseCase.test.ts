@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import path from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecuteReviewUseCase } from "../../src/application/use-cases/ExecuteReviewUseCase.js";
 import { PromptService } from "../../src/application/services/PromptService.js";
 import { PATHS } from "../../src/infrastructure/paths.js";
@@ -33,8 +34,50 @@ describe("ExecuteReviewUseCase", () => {
   function createUseCase() {
     return new ExecuteReviewUseCase(workspace, git, runner, new PromptService(workspace), {
       environment: "test", plannerAgent: "planner", executorAgent: "executor", language: "pt", aiReview: { enabled: true, agent: "reviewer-model" },
-    });
+    }, "C:/Checkout Directory");
   }
+
+
+  it("reviews the recorded accumulated range even when the original checkout is unchanged", async () => {
+    const accumulatedResult = { directory: "C:/Integration Tree", baseCommit: "original-base", resultCommit: "accepted-result" };
+    const rangeGit = {
+      ...git,
+      getChangedFiles: vi.fn(() => []),
+      getFileDiff: vi.fn(() => null),
+      getCommitChangedFiles: vi.fn(() => ["new.ts", "deleted.ts", "renamed.ts"]),
+      getCommitFileDiff: vi.fn((_directory, _base, _result, file) => "diff --git a/" + file + " b/" + file + "\n+accumulated change"),
+    };
+    git = rangeGit;
+    runner.withHandler(() => {
+      const prompt = workspace.readFile(PATHS.reviewPrompt("review-me"));
+      expect(prompt).toContain("Original base commit: original-base");
+      expect(prompt).toContain("Accepted integration commit: accepted-result");
+      expect(prompt).toContain(path.resolve("C:/Checkout Directory", PATHS.tasksDir, "review-me"));
+      for (const file of ["new.ts", "deleted.ts", "renamed.ts"]) expect(prompt).toContain("### File: " + file);
+    });
+    await createUseCase().execute({ intentName: "review-me", completedTasks: [task], accumulatedResult });
+    expect(runner.executedContexts[0].cwd).toBe(accumulatedResult.directory);
+    expect(rangeGit.getCommitChangedFiles).toHaveBeenCalledWith(accumulatedResult.directory, "original-base", "accepted-result");
+    expect(rangeGit.getCommitFileDiff).toHaveBeenCalledTimes(3);
+    expect(rangeGit.getChangedFiles).not.toHaveBeenCalled();
+    expect(rangeGit.getFileDiff).not.toHaveBeenCalled();
+  });
+
+  it("fails instead of reviewing an empty checkout when range support is unavailable", async () => {
+    await expect(createUseCase().execute({ intentName: "review-me", completedTasks: [task],
+      accumulatedResult: { directory: "integration", baseCommit: "base", resultCommit: "result" },
+    })).rejects.toThrow("does not support accumulated-result review");
+    expect(runner.executedContexts).toHaveLength(0);
+  });
+
+  it("keeps the central prompt path when review executes in a different directory", async () => {
+    const cwd = "C:/Review Work Tree";
+    await createUseCase().execute({ cwd, intentName: "review-me", completedTasks: [task] });
+    expect(runner.executedContexts[0].cwd).toBe(cwd);
+    expect(runner.executedContexts[0].promptFilePath).toBe(
+      path.resolve("C:/Checkout Directory", PATHS.reviewPrompt("review-me")),
+    );
+  });
 
   it("uses the configured model and returns only newly created task files", async () => {
     runner.withHandler(() => {
@@ -43,11 +86,13 @@ describe("ExecuteReviewUseCase", () => {
 
     await expect(createUseCase().execute({ intentName: "review-me", completedTasks: [task] }))
       .resolves.toEqual({ newTaskIds: ["TASK-002"], newTaskFiles: ["TASK-002.json"] });
+    expect(runner.executedContexts[0].cwd).toBe("C:/Checkout Directory");
+    expect(runner.executedContexts[0].promptFilePath).toBe(path.resolve("C:/Checkout Directory", PATHS.reviewPrompt("review-me")));
     expect(runner.executedContexts[0].model).toBe("reviewer-model");
     expect(workspace.exists(PATHS.reviewPrompt("review-me"))).toBe(false);
   });
 
-  it("approves when the reviewer creates no task files and cleans up after failure", async () => {
+  it("approves without new tasks and preserves the prompt after failure", async () => {
     await expect(createUseCase().execute({ intentName: "review-me", completedTasks: [task] }))
       .resolves.toEqual({ newTaskIds: [], newTaskFiles: [] });
     expect(workspace.exists(PATHS.reviewPrompt("review-me"))).toBe(false);
@@ -55,7 +100,7 @@ describe("ExecuteReviewUseCase", () => {
     runner.withError("Reviewer timeout");
     await expect(createUseCase().execute({ intentName: "review-me", completedTasks: [task] }))
       .rejects.toThrow("Reviewer timeout");
-    expect(workspace.exists(PATHS.reviewPrompt("review-me"))).toBe(false);
+    expect(workspace.exists(PATHS.reviewPrompt("review-me"))).toBe(true);
   });
 
   it("approves without creating tasks when optional review rules are absent", async () => {

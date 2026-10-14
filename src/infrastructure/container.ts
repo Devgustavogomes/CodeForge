@@ -1,3 +1,7 @@
+import { ExecutionRecoveryCoordinator } from "../scheduler/ExecutionRecoveryCoordinator.js";
+import { CleanupCoordinator } from "../scheduler/CleanupCoordinator.js";
+import { WorktreeLifecycle } from "./worktrees/WorktreeLifecycle.js";
+import { DirectoryGitGateway } from "./git/GitGateway.js";
 import { WorkspaceGateway, NodeWorkspaceGateway } from "./workspace.js";
 import { ProcessExecutor } from "./process/ProcessExecutor.js";
 import { NodeProcessExecutor } from "./process/NodeProcessExecutor.js";
@@ -32,6 +36,7 @@ import { IntentSourceFactory } from "./intent-sources/IntentSourceFactory.js";
 import { ExecuteReviewUseCase } from "../application/use-cases/ExecuteReviewUseCase.js";
 
 export interface AppContainerDependencies {
+  cwd?: string;
   workspaceGateway?: WorkspaceGateway;
   gw?: WorkspaceGateway;
   processExecutor?: ProcessExecutor;
@@ -43,6 +48,9 @@ export interface AppContainerDependencies {
   promptService?: PromptService;
   runnerProvider?: (environment: string) => AgentRunner;
   gitGateway?: GitGateway;
+  worktreeLifecycle?: WorktreeLifecycle;
+  cleanupCoordinator?: CleanupCoordinator;
+  recoveryCoordinator?: ExecutionRecoveryCoordinator;
   intentSourceFactory?: typeof IntentSourceFactory;
   hookReporter?: HookReporter;
 
@@ -76,6 +84,8 @@ export interface AppContainer {
   configService: ConfigService;
   promptService: PromptService;
   gitGateway: GitGateway;
+  worktreeLifecycle: WorktreeLifecycle;
+  cleanupCoordinator: CleanupCoordinator;
   runnerProvider: (environment: string) => AgentRunner;
   intentSourceFactory: typeof IntentSourceFactory;
 
@@ -129,25 +139,30 @@ export function createAppContainer(
     overrides = gwOrOverrides as Partial<AppContainerDependencies>;
   }
 
+  const cwd = overrides?.cwd ?? process.cwd();
   const workspaceGateway =
     overrides?.workspaceGateway ??
     overrides?.gw ??
     initialGw ??
-    new NodeWorkspaceGateway(process.cwd());
+    new NodeWorkspaceGateway(cwd);
 
-  const processExecutor =
-    overrides?.processExecutor ?? new NodeProcessExecutor();
 
   const configService =
     overrides?.configService ?? new ConfigService(workspaceGateway);
 
   const promptService =
-    overrides?.promptService ?? new PromptService(workspaceGateway);
+    overrides?.promptService ?? new PromptService(workspaceGateway, cwd);
 
   const stateRepo =
     overrides?.stateRepo ??
     overrides?.executionStateRepository ??
     new ExecutionStateRepository(workspaceGateway);
+
+  const processExecutor = overrides?.processExecutor ?? new NodeProcessExecutor((record) => {
+    if (record.intentName && stateRepo.load(record.intentName)) {
+      stateRepo.recordProcess(record.intentName, record);
+    }
+  });
 
   const docsRepo =
     overrides?.docsRepo ??
@@ -161,6 +176,14 @@ export function createAppContainer(
 
   const gitGateway =
     overrides?.gitGateway ?? new NodeGitGateway(workspaceGateway);
+
+  const worktreeLifecycle = overrides?.worktreeLifecycle ?? new WorktreeLifecycle(
+    "getRepositoryInfo" in gitGateway ? gitGateway as DirectoryGitGateway : new NodeGitGateway(cwd),
+    processExecutor, stateRepo,
+  );
+
+  const cleanupCoordinator = overrides?.cleanupCoordinator ?? new CleanupCoordinator(stateRepo,
+    "removeWorktree" in gitGateway ? gitGateway as DirectoryGitGateway : new NodeGitGateway(cwd), processExecutor);
 
   const initializeWorkspaceUseCase =
     overrides?.initializeWorkspaceUseCase ??
@@ -200,7 +223,7 @@ export function createAppContainer(
 
   const taskOperationsUseCase =
     overrides?.taskOperationsUseCase ??
-    new TaskOperationsUseCase(workspaceGateway, stateRepo);
+    new TaskOperationsUseCase(workspaceGateway, stateRepo, processExecutor);
 
   const deleteIntentUseCase =
     overrides?.deleteIntentUseCase ??
@@ -227,6 +250,8 @@ export function createAppContainer(
     configService,
     promptService,
     gitGateway,
+    worktreeLifecycle,
+    cleanupCoordinator,
     runnerProvider,
     intentSourceFactory,
     hookReporter,
@@ -267,7 +292,7 @@ export function createAppContainer(
         language: "en",
       };
       const runner = runnerProvider(config.environment);
-      return new GeneratePlanUseCase(workspaceGateway, runner, config, validatePlanUseCase);
+      return new GeneratePlanUseCase(workspaceGateway, runner, config, validatePlanUseCase, cwd);
     },
 
     createGeneratePlanUseCase(config: CodeForgeConfig): GeneratePlanUseCase {
@@ -275,7 +300,7 @@ export function createAppContainer(
         return overrides.generatePlanUseCase;
       }
       const runner = runnerProvider(config.environment);
-      return new GeneratePlanUseCase(workspaceGateway, runner, config, validatePlanUseCase);
+      return new GeneratePlanUseCase(workspaceGateway, runner, config, validatePlanUseCase, cwd);
     },
 
     get createDocUseCase(): CreateDocUseCase {
@@ -289,7 +314,7 @@ export function createAppContainer(
         language: "en",
       };
       const runner = runnerProvider(config.environment);
-      return new CreateDocUseCase(workspaceGateway, runner, config, docsRepo);
+      return new CreateDocUseCase(workspaceGateway, runner, config, docsRepo, cwd);
     },
 
     get updateDocUseCase(): UpdateDocUseCase {
@@ -303,7 +328,7 @@ export function createAppContainer(
         language: "en",
       };
       const runner = runnerProvider(config.environment);
-      return new UpdateDocUseCase(workspaceGateway, gitGateway, runner, config, docsRepo);
+      return new UpdateDocUseCase(workspaceGateway, gitGateway, runner, config, docsRepo, cwd);
     },
 
     get executeReviewUseCase(): ExecuteReviewUseCase {
@@ -322,6 +347,7 @@ export function createAppContainer(
         runnerProvider(config.environment),
         promptService,
         config,
+        cwd,
       );
     },
 
@@ -333,10 +359,19 @@ export function createAppContainer(
       schedulerHookReporter?: HookReporter,
     ): TaskScheduler {
       return new TaskScheduler({
+        cwd,
         gw: workspaceGateway,
         runner,
         config,
         stateRepo,
+        worktreeLifecycle,
+        cleanupCoordinator,
+        recoveryCoordinator: overrides?.recoveryCoordinator ?? new ExecutionRecoveryCoordinator(stateRepo,
+          "listWorktrees" in gitGateway ? gitGateway as DirectoryGitGateway : new NodeGitGateway(cwd), processExecutor),
+        deliveryGit: "updateOriginalBranch" in gitGateway ? gitGateway as DirectoryGitGateway : new NodeGitGateway(cwd),
+        conflictResolutionGit: "getConflicts" in gitGateway ? gitGateway as DirectoryGitGateway : new NodeGitGateway(cwd),
+        integrationGit: "integrate" in gitGateway ? gitGateway as DirectoryGitGateway : new NodeGitGateway(cwd),
+        taskResultGit: "getCommitMessage" in gitGateway ? gitGateway as DirectoryGitGateway : new NodeGitGateway(cwd),
         promptService,
         reporter,
         hooks,
@@ -349,6 +384,7 @@ export function createAppContainer(
             runner,
             promptService,
             config,
+            cwd,
           ),
         validatePlanUseCase,
       });

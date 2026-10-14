@@ -5,9 +5,11 @@ import { PATHS } from "../../infrastructure/paths.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { AgentRunner } from "../../runners/AgentRunner.js";
 import { PromptService } from "../services/PromptService.js";
-import { formatGitDiffSummary } from "../services/diff-formatter.js";
+import { formatGitDiffSummary, GitDiffRange } from "../services/diff-formatter.js";
 
 export interface ExecuteReviewInput {
+  cwd?: string;
+  accumulatedResult?: GitDiffRange;
   intentName: string;
   completedTasks: Task[];
   onLog?: (chunk: string) => void;
@@ -19,15 +21,20 @@ export interface ExecuteReviewResult {
 }
 
 export class ExecuteReviewUseCase {
+  private readonly workspace: WorkspaceGateway;
+
   constructor(
-    private readonly workspace: WorkspaceGateway,
+    workspace: WorkspaceGateway,
     private readonly git: GitGateway,
     private readonly runner: AgentRunner,
     private readonly promptService: PromptService,
     private readonly config: CodeForgeConfig,
-  ) {}
+    private readonly cwd: string = process.cwd(),
+  ) {
+    this.workspace = workspace.executionWorkspace();
+  }
 
-  async execute({ intentName, completedTasks, onLog }: ExecuteReviewInput): Promise<ExecuteReviewResult> {
+  async execute({ intentName, completedTasks, onLog, accumulatedResult, cwd = accumulatedResult?.directory ?? this.cwd }: ExecuteReviewInput): Promise<ExecuteReviewResult> {
     const taskDirectory = `${PATHS.tasksDir}/${intentName}`;
     if (!this.workspace.exists(taskDirectory)) {
       this.workspace.mkdir(taskDirectory);
@@ -37,30 +44,30 @@ export class ExecuteReviewUseCase {
     const promptPath = this.promptService.createReviewPromptFile(
       intentName,
       completedTasks,
-      this.getGitDiffSummary(),
+      formatGitDiffSummary(this.git, undefined, accumulatedResult),
       before,
       this.config.language,
+      { orchestrationRoot: this.cwd, executionRoot: cwd },
+      accumulatedResult,
     );
 
-    try {
-      await this.runner.execute({
-        promptFilePath: promptPath,
-        intentName,
-        model: this.config.aiReview?.agent ?? "default",
-        silent: true,
-        quietTerminal: true,
-        onLog,
-      });
+    await this.runner.execute({
+      cwd,
+      promptFilePath: promptPath,
+      intentName,
+      model: this.config.aiReview?.agent ?? "default",
+      silent: true,
+      quietTerminal: true,
+      onLog,
+    });
 
-      const newTaskFiles = this.listTaskFiles(taskDirectory)
-        .filter((file) => !before.includes(file));
-      return {
-        newTaskFiles,
-        newTaskIds: newTaskFiles.map((file) => file.slice(0, -".json".length)),
-      };
-    } finally {
-      this.promptService.deletePromptFile(promptPath);
-    }
+    const newTaskFiles = this.listTaskFiles(taskDirectory)
+      .filter((file) => !before.includes(file));
+    this.promptService.deletePromptFile(promptPath);
+    return {
+      newTaskFiles,
+      newTaskIds: newTaskFiles.map((file) => file.slice(0, -".json".length)),
+    };
   }
 
   private listTaskFiles(taskDirectory: string): string[] {
@@ -72,7 +79,4 @@ export class ExecuteReviewUseCase {
       .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   }
 
-  private getGitDiffSummary(): string {
-    return formatGitDiffSummary(this.git);
-  }
 }

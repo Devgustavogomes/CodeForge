@@ -58,7 +58,7 @@ describe("CreateDocUseCase", () => {
       executorAgent: "mock-executor",
       language: "en",
     };
-    useCase = new CreateDocUseCase(gateway, runner, config);
+    useCase = new CreateDocUseCase(gateway, runner, config, undefined, "C:/Checkout Directory");
   });
 
   it("returns notInitialized when metadata.json is missing", async () => {
@@ -117,7 +117,7 @@ describe("CreateDocUseCase", () => {
     const result = await useCase.execute("my-doc", "auth");
 
     expect(result).toEqual({ kind: "success" });
-    expect(runner.execute).toHaveBeenCalled();
+    expect(runner.execute).toHaveBeenCalledWith(expect.objectContaining({ cwd: "C:/Checkout Directory" }));
     expect(gateway.exists(".codeforge/docs/manifest.json")).toBe(true);
 
     const manifest = JSON.parse(
@@ -174,7 +174,7 @@ describe("UpdateDocUseCase", () => {
       executorAgent: "mock-executor",
       language: "en",
     };
-    useCase = new UpdateDocUseCase(gateway, mockGit, mockRunner, mockConfig);
+    useCase = new UpdateDocUseCase(gateway, mockGit, mockRunner, mockConfig, undefined, "C:/Checkout Directory");
   });
 
   describe("getAffectedDocs", () => {
@@ -304,6 +304,7 @@ describe("UpdateDocUseCase", () => {
       await useCase.execute("auth", doc, true);
 
       expect(mockRunner.execute).toHaveBeenCalledTimes(1);
+      expect(mockRunner.execute).toHaveBeenCalledWith(expect.objectContaining({ cwd: "C:/Checkout Directory" }));
     });
   });
 });

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { WorktreeLifecycle } from "../../src/infrastructure/worktrees/WorktreeLifecycle.js";
 import { createAppContainer } from "../../src/infrastructure/container.js";
 import { InMemoryWorkspaceGateway } from "../helpers/in-memory-workspace.js";
 import { FakeProcessExecutor } from "../helpers/fake-process-executor.js";
@@ -20,6 +21,7 @@ describe("AppContainer composition root", () => {
     expect(container.gw).toBeDefined();
     expect(container.workspaceGateway).toBe(container.gw);
     expect(container.processExecutor).toBeDefined();
+    expect(container.worktreeLifecycle).toBeInstanceOf(WorktreeLifecycle);
     expect(container.stateRepo).toBeDefined();
     expect(container.executionStateRepository).toBe(container.stateRepo);
     expect(container.docsRepo).toBeDefined();
@@ -142,6 +144,16 @@ describe("AppContainer composition root", () => {
     expect(docContainer.deleteDocUseCase).toBe(deleteDocUseCase);
     expect(docContainer.deleteIntentUseCase).toBeInstanceOf(DeleteIntentUseCase);
     expect(docContainer.deleteTaskUseCase).toBeInstanceOf(DeleteTaskUseCase);
+  });
+
+  it("shares the overridden lifecycle with schedulers", () => {
+    const worktreeLifecycle = {} as WorktreeLifecycle;
+    const container = createAppContainer(new InMemoryWorkspaceGateway(), { worktreeLifecycle });
+    const scheduler = container.createTaskScheduler({ execute: vi.fn() }, {
+      environment: "test", plannerAgent: "p", executorAgent: "e", language: "en",
+    });
+    expect(container.worktreeLifecycle).toBe(worktreeLifecycle);
+    expect(scheduler).toMatchObject({ worktrees: worktreeLifecycle });
   });
 
   it("creates TaskScheduler via helper method", () => {
