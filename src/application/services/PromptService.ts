@@ -1,3 +1,6 @@
+import path from "node:path";
+import type { GitDiffRange } from "./diff-formatter.js";
+import type { ExecutionRoots } from "../../domain/execution-context.js";
 import { Task } from "../../domain/task.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 import { PATHS } from "../../infrastructure/paths.js";
@@ -6,24 +9,57 @@ import { buildRetryPrompt } from "../../infrastructure/assets/prompts/retry.js";
 import { buildReviewPrompt } from "../../infrastructure/assets/prompts/review.js";
 
 export class PromptService {
-  constructor(private gw: WorkspaceGateway) {}
+  private readonly gw: WorkspaceGateway;
+  private readonly promptPaths = new Map<string, string>();
+
+  constructor(gw: WorkspaceGateway, private readonly orchestrationRoot: string = process.cwd()) {
+    this.gw = gw.executionWorkspace();
+  }
+
+  private defaultRoots(): ExecutionRoots {
+    return { orchestrationRoot: this.orchestrationRoot, executionRoot: this.orchestrationRoot };
+  }
+
+  private contextReferences(intentName: string, taskId: string | undefined, roots: ExecutionRoots): string {
+    return [
+      "--- EXECUTION CONTEXT ---",
+      `Execution directory: ${path.resolve(roots.executionRoot)}`,
+      `Central orchestration directory: ${path.resolve(roots.orchestrationRoot)}`,
+      ...(taskId ? [`Task definition: ${path.resolve(roots.orchestrationRoot, PATHS.taskFile(intentName, taskId))}`] : []),
+      `Running rules: ${path.resolve(roots.orchestrationRoot, PATHS.runningRules)}`,
+      `Review rules: ${path.resolve(roots.orchestrationRoot, PATHS.reviewRules)}`,
+      `Documentation: ${path.resolve(roots.orchestrationRoot, PATHS.docsDir)}`,
+      "Resolve .codeforge references in task context, rules, and documentation against the central orchestration directory.",
+      "Inspect and edit source files only in the execution directory. Do not copy central execution state or ignored user files into it.",
+    ].join("\n");
+  }
+
+  private writePrompt(relativePath: string, content: string, roots: ExecutionRoots): string {
+    this.gw.writeFile(relativePath, content);
+    const absolutePath = path.resolve(roots.orchestrationRoot, relativePath);
+    this.promptPaths.set(absolutePath, relativePath);
+    return absolutePath;
+  }
 
   private buildContextPrompt(
     intentName: string,
     task: Task,
     language: string,
-    previousErrors?: string[]
+    previousErrors?: string[],
+    roots: ExecutionRoots = this.defaultRoots(),
   ): string {
-    const intentPath = PATHS.intentFile(intentName);
+    const intentPath = path.resolve(roots.orchestrationRoot, PATHS.intentFile(intentName));
     const intentRef = `Intent: ${intentName} (${intentPath})`;
 
     let filesContext = "";
     if (task.files && task.files.length > 0) {
       for (const file of task.files) {
-        if (this.gw.exists(file)) {
-          filesContext += `\n### File: ${file}\n`;
+        const sourcePath = path.resolve(roots.executionRoot, file);
+        const gatewayPath = path.relative(roots.orchestrationRoot, sourcePath);
+        if (this.gw.exists(gatewayPath)) {
+          filesContext += `\n### File: ${file}\nPath: ${sourcePath}\n`;
         } else {
-          filesContext += `\n### File: ${file}\n(File does not exist yet. You will need to create it.)\n`;
+          filesContext += `\n### File: ${file}\nPath: ${sourcePath}\n(File does not exist yet. You will need to create it.)\n`;
         }
       }
     } else {
@@ -34,26 +70,47 @@ export class PromptService {
     const runningRulesContent = this.gw.exists(runningRulesPath) ? this.gw.readFile(runningRulesPath) : "";
 
     if (previousErrors && previousErrors.length > 0) {
-      return buildRetryPrompt(task, intentRef, runningRulesContent, filesContext, previousErrors, language);
+      return buildRetryPrompt(task, intentRef, runningRulesContent, filesContext, previousErrors, language, this.contextReferences(intentName, task.id, roots));
     }
 
-    return buildRunningPrompt(task, intentRef, runningRulesContent, filesContext, language);
+    return buildRunningPrompt(task, intentRef, runningRulesContent, filesContext, language, this.contextReferences(intentName, task.id, roots));
   }
 
   createPromptFile(
     intentName: string,
     task: Task,
     language: string,
-    previousErrors?: string[]
+    previousErrors?: string[],
+    roots: ExecutionRoots = this.defaultRoots(),
   ): string {
     const intentExecDir = `${PATHS.executionsDir}/${intentName}`;
     if (!this.gw.exists(intentExecDir)) {
       this.gw.mkdir(intentExecDir);
     }
     const promptPath = `${intentExecDir}/${task.id}.temp.prompt.md`;
-    const promptContent = this.buildContextPrompt(intentName, task, language, previousErrors);
-    this.gw.writeFile(promptPath, promptContent);
-    return promptPath;
+    const promptContent = this.buildContextPrompt(intentName, task, language, previousErrors, roots);
+    return this.writePrompt(promptPath, promptContent, roots);
+  }
+
+  createConflictPromptFile(
+    intentName: string, task: Task, language: string,
+    resolution: import("../../domain/execution.js").ConflictResolutionRecord,
+    roots: ExecutionRoots,
+  ): string {
+    const directory = PATHS.executionsDir + "/" + intentName;
+    if (!this.gw.exists(directory)) this.gw.mkdir(directory);
+    return this.writePrompt(directory + "/" + task.id + ".conflict-" + resolution.attempts + ".prompt.md", [
+      this.buildContextPrompt(intentName, task, language, undefined, roots),
+      "--- INTEGRATION CONFLICT RESOLUTION ---",
+      "Conflict identity: " + resolution.id,
+      "Incoming result: " + resolution.incomingCommit,
+      "Last accepted integration: " + resolution.lastAcceptedCommit,
+      "Automatic attempt: " + resolution.attempts + " of 2",
+      "Conflicted files: " + resolution.conflicts.join(", "),
+      ...resolution.diagnostics,
+      "Resolve the integration conflict in the execution directory, preserving both task results and existing resolution work.",
+      "Stage resolved files. Do not commit, abort, reset, or discard the merge. CodeForge runs task.verify gates and finalizes the merge after approval.",
+    ].join("\n\n"), roots);
   }
 
   createReviewPromptFile(
@@ -62,6 +119,8 @@ export class PromptService {
     gitDiffSummary: string,
     existingTaskFiles: string[],
     language: string,
+    roots: ExecutionRoots = this.defaultRoots(),
+    accumulatedResult?: GitDiffRange,
   ): string {
     const intentExecDir = `${PATHS.executionsDir}/${intentName}`;
     if (!this.gw.exists(intentExecDir)) {
@@ -76,7 +135,7 @@ export class PromptService {
       ? this.gw.readFile(PATHS.reviewRules)
       : "";
     const promptPath = PATHS.reviewPrompt(intentName);
-    this.gw.writeFile(promptPath, buildReviewPrompt(
+    return this.writePrompt(promptPath, buildReviewPrompt(
       intentName,
       intentContent,
       completedTasks,
@@ -84,11 +143,17 @@ export class PromptService {
       rulesContent,
       existingTaskFiles,
       language,
-    ));
-    return promptPath;
+      path.resolve(roots.orchestrationRoot, PATHS.tasksDir, intentName),
+      this.contextReferences(intentName, undefined, roots),
+      accumulatedResult,
+    ), roots);
   }
 
   deletePromptFile(promptPath: string): void {
+    const absolutePath = promptPath;
+    promptPath = this.promptPaths.get(promptPath)
+      ?? (path.isAbsolute(promptPath) ? path.relative(this.orchestrationRoot, promptPath) : promptPath);
+    this.promptPaths.delete(absolutePath);
     if (this.gw.exists(promptPath)) {
       this.gw.deleteFile(promptPath);
     }
@@ -111,7 +176,7 @@ export class PromptService {
 }
 
 /**
- * Ensures prompt directory exists, writes temporary prompt file, executes callback, and guarantees cleanup.
+ * Cleans up after success; failed or interrupted operations retain their recovery context.
  */
 export async function executeWithTempPrompt<T>(
   gw: WorkspaceGateway,
@@ -129,11 +194,9 @@ export async function executeWithTempPrompt<T>(
   }
 
   gw.writeFile(promptPath, promptContent);
-  try {
-    return await action();
-  } finally {
-    if (gw.exists(promptPath)) {
-      gw.deleteFile(promptPath);
-    }
+  const result = await action();
+  if (gw.exists(promptPath)) {
+    gw.deleteFile(promptPath);
   }
+  return result;
 }

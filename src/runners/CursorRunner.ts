@@ -16,7 +16,6 @@ export class CursorRunner extends BaseProcessRunner {
 
     return this.spawnProcess("agent", args, context, {
       shell: process.platform === "win32",
-      cwd: process.cwd(),
       pipePromptToStdin: true,
     });
   }

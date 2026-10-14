@@ -5,7 +5,8 @@ export function buildRunningPrompt(
   intentRef: string,
   rulesContent: string,
   filesContext: string,
-  language: string
+  language: string,
+  executionContext: string = "",
 ): string {
   const userRules = rulesContent && rulesContent.trim().length > 0
     ? `\n--- PROJECT CODING RULES ---\n${rulesContent.trim()}\n`
@@ -21,6 +22,7 @@ export function buildRunningPrompt(
 
   return `CodeForge task execution | ${task.id}: ${task.title}
 ${intentRef}
+${executionContext}
 
 Objective: ${task.objective}
 Context: ${task.context}

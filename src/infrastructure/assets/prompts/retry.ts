@@ -6,7 +6,8 @@ export function buildRetryPrompt(
   rulesContent: string,
   filesContext: string,
   errors: string[],
-  language: string
+  language: string,
+  executionContext: string = "",
 ): string {
   const userRules = rulesContent && rulesContent.trim().length > 0
     ? `\n--- PROJECT CODING RULES ---\n${rulesContent.trim()}\n`
@@ -24,6 +25,7 @@ export function buildRetryPrompt(
 
   return `CodeForge task retry | ${task.id}: ${task.title}
 ${intentRef}
+${executionContext}
 
 --- PREVIOUS ATTEMPT FAILURE & ERRORS ---
 ${formattedErrors}

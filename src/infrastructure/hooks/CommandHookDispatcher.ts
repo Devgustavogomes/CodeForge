@@ -27,7 +27,6 @@ const MAX_OUTPUT_CHARS = 5_000;
 export class CommandHookDispatcher implements HookDispatcher {
   constructor(
     private readonly hooks: HookMap,
-    private readonly cwd: string = process.cwd(),
     private readonly processExecutor: ProcessExecutor = new NodeProcessExecutor(),
     private reporter?: HookReporter,
   ) {}
@@ -75,7 +74,11 @@ export class CommandHookDispatcher implements HookDispatcher {
       const intentName = context.intentName;
       const processResult = await this.processExecutor.spawn(definition.run, [], {
         shell: true,
-        cwd: this.cwd,
+        cwd: context.cwd,
+        intentName: context.intentName,
+        taskId: context.taskId,
+        kind: "hook",
+        onProcessRecord: context.onProcessRecord,
         stdio: ["pipe", "pipe", "pipe"],
         timeout: timeoutMs,
         env: {
@@ -83,7 +86,7 @@ export class CommandHookDispatcher implements HookDispatcher {
           CODEFORGE_EVENT: context.event,
           CODEFORGE_INTENT: intentName,
           CODEFORGE_TASK_ID: context.taskId ?? "",
-          CODEFORGE_CWD: this.cwd,
+          CODEFORGE_CWD: context.cwd,
         },
         pipeStdinContent: JSON.stringify(context),
       });

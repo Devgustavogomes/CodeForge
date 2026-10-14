@@ -11,7 +11,7 @@ export class AntigravityRunner extends BaseProcessRunner {
 
   async execute(context: TaskContext): Promise<void> {
     const absolutePromptPath = path.resolve(
-      process.cwd(),
+      context.cwd,
       context.promptFilePath,
     );
     const args = [
@@ -21,7 +21,7 @@ export class AntigravityRunner extends BaseProcessRunner {
       "2h",
       "--dangerously-skip-permissions",
       "--add-dir",
-      process.cwd(),
+      context.cwd,
     ];
     if (context.model) {
       args.unshift("--model", context.model);
