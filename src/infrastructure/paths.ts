@@ -1,4 +1,5 @@
 export const PATHS = {
+  worktreesDir: "codeforge-worktrees",
   metadata: ".codeforge/metadata.json",
   config: ".codeforge/config.yaml",
   rootEnv: ".env",
@@ -18,5 +19,6 @@ export const PATHS = {
   intentFile: (name: string) => `.codeforge/intents/${name}.md`,
   taskFile: (intent: string, id: string) => `.codeforge/tasks/${intent}/${id}.json`,
   executionState: (intent: string) => `.codeforge/executions/${intent}.json`,
+  executionLock: (intent: string) => `.codeforge/executions/${intent}.json.lock`,
   reviewPrompt: (intent: string) => `.codeforge/executions/${intent}/review.temp.prompt.md`,
 } as const;

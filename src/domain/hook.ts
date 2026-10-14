@@ -1,3 +1,5 @@
+import type { ProcessTrackingOptions } from "../infrastructure/process/ProcessExecutor.js";
+
 export const HOOK_EVENTS = [
   "run.started",
   "run.completed",
@@ -37,7 +39,9 @@ export interface ReviewResultMetadata {
   taskIds: string[];
 }
 
-export interface HookContext {
+export interface HookContext extends ProcessTrackingOptions {
+  /** Execution directory for this invocation, also exposed as CODEFORGE_CWD. */
+  cwd: string;
   event: HookEvent;
   intentName: string;
   taskId?: string;
