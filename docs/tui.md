@@ -49,7 +49,7 @@ The TUI is organized into 5 primary screens accessible via `Tab` / `Shift+Tab` o
 
 ### 1. Intents Screen (`1`)
 Manage and monitor all feature intents:
-- **Browse Intents**: View local intents, their total task count, and execution status (`completed`, `in_progress`, `failed`, `pending`).
+- **Browse Intents**: View local intents, their total task count, and execution status, including `pending`, `running`, `reviewing`, `paused`, `failed`, and `completed`.
 - **Create Intent (`c`)**: Opens the creation modal to scaffold a new local intent markdown file.
 - **Pull Remote Intent (`p`)**: Opens the remote pull modal to query configured external issue trackers (Linear, GitHub, ClickUp) or paste an issue ID/URL.
 - **Generate Plan (`g`)**: Triggers the planner agent in the background to decompose the selected intent into a task DAG.
@@ -66,9 +66,9 @@ Inspect and interact with the Directed Acyclic Graph (DAG) of tasks:
   - Dependencies & Target files
   - Constraints & Acceptance criteria
 - **Task Actions**:
-  - `c`: Manually mark the selected task as completed.
-  - `x`: Reset the selected task (or all tasks) back to pending.
-  - `d`: Delete the task JSON definition.
+  - `c`: Record manual completion only for an already committed/integrated result with integrated dependencies and resolved task ownership.
+  - `x`: Reset an eligible task to pending; execution/Git evidence and consumed dependencies block reset.
+  - `d`: Delete an eligible definition; tasks with recovery evidence or consumed results are protected.
 
 ### 3. Run Dashboard (`3`)
 Real-time execution dashboard for autonomous runs:
@@ -76,12 +76,22 @@ Real-time execution dashboard for autonomous runs:
 - **Progress & Metrics**:
   - Dynamic progress bar showing percent complete.
   - Elapsed run timer and per-task duration tracking.
-  - Metrics breakdown: Completed, In Progress, Pending, Failed.
+  - Metrics distinguish approved task results from integrated results; inspect delivery separately from task counts.
 - **Hooks Panel**: Displays the currently running lifecycle hook and recent execution history (linters, test suites, notifications).
 - **AI Review Controls**:
-  - Automatically triggers when all tasks succeed (if configured).
-  - Can be manually triggered via `v` to run a post-implementation review.
+  - Automatically triggers after all task results are integrated (if configured).
+  - `v` requests review from the task panel only when all tasks are integrated and the dashboard is neither running nor reviewing.
   - Live review logs and verdict indicators.
+
+### Reading Execution Outcomes
+
+Task rows/details distinguish `APPROVED` (a completed task) from `INTEGRATED` (its recorded result accepted into integration history). Details show approval/result commits, integration acceptance, branch/worktree paths, stages, owner PID/host, conflict attempts, and diagnostics. The run summary separately shows delivery, retained integration artifacts, recovery/process issues, and cleanup outcomes. A full task progress bar alone does not mean the original checkout received the result.
+
+With the task panel focused, `Enter` or `Space` starts/resumes a run when it is neither running nor reviewing. `r` retries a selected failed task and `R` retries failed tasks; retry preserves worktrees, edits, commits, and diagnostics and can be blocked by process ownership or an already committed result. For pending integration or delivery, resume the run instead of rerunning the agent. `c`, `x`, and `X` cannot bypass completion/reset protections; blocked actions show feedback.
+
+After restarting CodeForge, recovery inspects recorded Git operations and previous processes before reuse. A surviving child process or unknown occupancy leaves the run blocked; inspect the host/PID and diagnostics. Conflict resolution allows two automatic attempts in the integration worktree, each checked by `task.verify`; exhaustion retains files and blocks dependents. A changed original checkout leaves delivery pending and retains accepted results on the displayed integration branch.
+
+Cleanup follows successful delivery. Owned worktrees are removed only with matching identity, clean files, delivered commits, and inactive/resolved occupancy. Ineligible worktrees remain with diagnostics, and branch refs remain available. Resolve the reported issue and resume the same intent to retry eligible cleanup. See [CLI recovery guidance](cli.md#execution-lifecycle-and-recovery).
 
 ### 4. Docs Screen (`4`)
 Manage technical documentation generated from intents:
