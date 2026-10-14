@@ -19,12 +19,14 @@ export function createResult(
 export function createHookContext(
   event: HookEvent,
   intentName: string,
+  cwd: string,
   taskId?: string,
   errors?: string[],
 ): HookContext {
   return {
     event,
     intentName,
+    cwd,
     ...(taskId ? { taskId } : {}),
     ...(errors ? { errors } : {}),
   };

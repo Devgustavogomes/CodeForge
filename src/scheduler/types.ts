@@ -1,3 +1,4 @@
+import { WorktreeLifecycle } from "../infrastructure/worktrees/WorktreeLifecycle.js";
 import { WorkspaceGateway } from "../infrastructure/workspace.js";
 import { AgentRunner } from "../runners/AgentRunner.js";
 import { CodeForgeConfig } from "../config/types.js";
@@ -31,7 +32,21 @@ export interface SchedulerRunOptions {
   skipReview?: boolean;
 }
 
+export type TaskResultGit = Pick<import("../infrastructure/git/GitGateway.js").DirectoryGitGateway,
+  "getRepositoryInfo" | "getStatus" | "stageAll" | "commit" | "getCommitMessage" | "isAncestor">;
+
+export type IntegrationGit = Pick<import("../infrastructure/git/GitGateway.js").DirectoryGitGateway,
+  "getRepositoryInfo" | "getStatus" | "isAncestor" | "integrate">;
+
 export interface TaskSchedulerDependencies {
+  recoveryCoordinator?: Pick<import("./ExecutionRecoveryCoordinator.js").ExecutionRecoveryCoordinator, "reconcile">;
+  cleanupCoordinator?: Pick<import("./CleanupCoordinator.js").CleanupCoordinator, "cleanup">;
+  deliveryGit?: import("./DeliveryCoordinator.js").DeliveryGit;
+  integrationGit?: IntegrationGit;
+  conflictResolutionGit?: import("./ConflictResolutionCoordinator.js").ConflictResolutionGit;
+  taskResultGit?: TaskResultGit;
+  worktreeLifecycle?: Pick<WorktreeLifecycle, "initializeRun" | "prepareIntegration" | "prepareTask" | "getIntegrationCommit">;
+  cwd?: string;
   gw: WorkspaceGateway;
   runner: AgentRunner;
   config: CodeForgeConfig;
@@ -45,6 +60,12 @@ export interface TaskSchedulerDependencies {
 }
 
 export interface TaskExecutionContext {
+  prepareWorktree?: () => Promise<import("../infrastructure/git/GitGateway.js").OwnedWorktree>;
+  runId?: string;
+  worktreePath?: string;
+  baseCommit?: string;
+  attempt?: number;
+  cwd: string;
   model?: string;
   reporter?: SchedulerReporter;
   hooks?: HookDispatcher;
@@ -53,6 +74,7 @@ export interface TaskExecutionContext {
 import { IntentExecutionState } from "../domain/execution.js";
 
 export interface ReviewExecutionContext {
+  cwd: string;
   options: SchedulerRunOptions;
   reporter?: SchedulerReporter;
   hooks?: HookDispatcher;

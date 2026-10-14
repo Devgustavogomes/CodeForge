@@ -199,7 +199,7 @@ describe("Test Infrastructure Helpers", () => {
     it("succeeds immediately and records TaskContext", async () => {
       const runner = new InMemoryAgentRunner();
       const context = {
-        promptFilePath: "/path/to/prompt.md",
+        cwd: process.cwd(), promptFilePath: "/path/to/prompt.md",
         intentName: "my-intent",
         taskId: "TASK-001",
       };
@@ -214,7 +214,7 @@ describe("Test Infrastructure Helpers", () => {
       const runner = new InMemoryAgentRunner().withError("Runner failed");
 
       await expect(
-        runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T1" })
+        runner.execute({ cwd: process.cwd(), promptFilePath: "p", intentName: "s", taskId: "T1" })
       ).rejects.toThrow("Runner failed");
     });
 
@@ -222,11 +222,11 @@ describe("Test Infrastructure Helpers", () => {
       const runner = new InMemoryAgentRunner().withErrorForTask("T2", "Task T2 failed");
 
       await expect(
-        runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T1" })
+        runner.execute({ cwd: process.cwd(), promptFilePath: "p", intentName: "s", taskId: "T1" })
       ).resolves.toBeUndefined();
 
       await expect(
-        runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T2" })
+        runner.execute({ cwd: process.cwd(), promptFilePath: "p", intentName: "s", taskId: "T2" })
       ).rejects.toThrow("Task T2 failed");
     });
 
@@ -236,8 +236,8 @@ describe("Test Infrastructure Helpers", () => {
         executed.push(ctx.taskId!);
       });
 
-      await runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T1" });
-      await runner.execute({ promptFilePath: "p", intentName: "s", taskId: "T2" });
+      await runner.execute({ cwd: process.cwd(), promptFilePath: "p", intentName: "s", taskId: "T1" });
+      await runner.execute({ cwd: process.cwd(), promptFilePath: "p", intentName: "s", taskId: "T2" });
 
       expect(executed).toEqual(["T1", "T2"]);
     });

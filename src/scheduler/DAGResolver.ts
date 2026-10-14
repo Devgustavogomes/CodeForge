@@ -1,4 +1,4 @@
-import { IntentExecutionState } from "../domain/execution.js";
+import { IntentExecutionState, isTaskIntegrated } from "../domain/execution.js";
 
 export class DAGResolver {
   getReadyTasks(state: IntentExecutionState): string[] {
@@ -10,12 +10,11 @@ export class DAGResolver {
       }
 
       const dependencies = taskState.dependencies || [];
-      const allDepsCompleted = dependencies.every((dep) => {
-        const depState = state.tasks[dep];
-        return depState && depState.status === "completed";
+      const allDepsIntegrated = dependencies.every((dep) => {
+        return isTaskIntegrated(state, dep);
       });
 
-      if (allDepsCompleted) {
+      if (allDepsIntegrated) {
         readyTasks.push(taskId);
       }
     }
