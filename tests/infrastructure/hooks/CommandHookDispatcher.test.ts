@@ -5,7 +5,7 @@ import { HookReporter } from "../../../src/application/ports/HookReporter.js";
 import { FakeProcessExecutor, ProcessSpawnOptions } from "../../helpers/fake-process-executor.js";
 
 function contextFor(overrides: Partial<HookContext> = {}): HookContext {
-  return { event: "task.verify", intentName: "intent", taskId: "TASK-001", ...overrides };
+  return { cwd: process.cwd(), event: "task.verify", intentName: "intent", taskId: "TASK-001", ...overrides };
 }
 
 function createDefaultExecutor(): FakeProcessExecutor {
@@ -58,10 +58,33 @@ function dispatcherFor(
   executor: FakeProcessExecutor = createDefaultExecutor(),
   reporter?: HookReporter,
 ): CommandHookDispatcher {
-  return new CommandHookDispatcher(hooks, process.cwd(), executor, reporter);
+  return new CommandHookDispatcher(hooks, executor, reporter);
 }
 
 describe("CommandHookDispatcher", () => {
+  it("keeps concurrent invocation directories and environment values distinct", async () => {
+    const executor = new FakeProcessExecutor();
+    const waiting: Array<() => void> = [];
+    executor.setDefaultHandler(async () => {
+      await new Promise<void>((resolve) => waiting.push(resolve));
+      return { stdout: "", stderr: "", exitCode: 0 };
+    });
+    const dispatcher = dispatcherFor({ "task.verify": [{ name: "gate", run: "check", type: "gate" }] }, executor);
+    const contexts = [
+      contextFor({ cwd: "C:\\Work Trees\\task one", taskId: "TASK-001" }),
+      contextFor({ cwd: "C:\\Work Trees\\task two", taskId: "TASK-002" }),
+    ];
+    const calls = contexts.map((context) => dispatcher.dispatch(context));
+    expect(waiting).toHaveLength(2);
+    for (const [index, call] of executor.spawnCalls.entries()) {
+      expect(call.options?.cwd).toBe(contexts[index].cwd);
+      expect(call.options?.env?.CODEFORGE_CWD).toBe(contexts[index].cwd);
+      expect(JSON.parse(call.options?.pipeStdinContent ?? "{}")).toEqual(contexts[index]);
+    }
+    waiting.reverse().forEach((resolve) => resolve());
+    await expect(Promise.all(calls)).resolves.toHaveLength(2);
+  });
+
   it("reports nothing when the event has no hooks configured", async () => {
     const dispatcher = dispatcherFor({ "run.completed": [{ name: "other", run: "exit 0" }] });
 
@@ -121,6 +144,7 @@ describe("CommandHookDispatcher", () => {
     const [result] = await dispatcher.dispatch(contextFor());
 
     expect(JSON.parse(result.output)).toEqual({
+      cwd: process.cwd(),
       event: "task.verify",
       intentName: "intent",
       taskId: "TASK-001",

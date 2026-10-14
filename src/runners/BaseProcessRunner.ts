@@ -1,3 +1,4 @@
+import path from "node:path";
 import { SpawnOptions } from "child_process";
 import { AgentRunner, TaskContext } from "./AgentRunner.js";
 import { ProcessExecutor, ProcessSpawnOptions } from "../infrastructure/process/ProcessExecutor.js";
@@ -39,14 +40,18 @@ export abstract class BaseProcessRunner implements AgentRunner {
     }
 
     const spawnOptions: ProcessSpawnOptions = {
-      cwd: typeof options.cwd === "string" ? options.cwd : undefined,
+      cwd: context.cwd,
+      intentName: context.intentName,
+      taskId: context.taskId,
+      kind: context.kind ?? "agent",
+      onProcessRecord: context.onProcessRecord,
       env: context.quietTerminal
         ? { ...process.env, ...options.env, CI: "1", NO_COLOR: "1", TERM: "dumb", CLICOLOR: "0", FORCE_COLOR: "0" }
         : options.env as NodeJS.ProcessEnv,
       timeout: options.timeout,
       shell: options.shell,
       stdio,
-      pipePromptFile: options.pipePromptToStdin ? context.promptFilePath : undefined,
+      pipePromptFile: options.pipePromptToStdin ? path.resolve(context.cwd, context.promptFilePath) : undefined,
       onStdout: context.onLog,
       onStderr: context.onLog,
     };

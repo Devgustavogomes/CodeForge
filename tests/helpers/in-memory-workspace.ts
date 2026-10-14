@@ -12,6 +12,8 @@ export class InMemoryWorkspaceGateway implements WorkspaceGateway {
     }
   }
 
+  executionWorkspace(): WorkspaceGateway { return this; }
+
   private normalize(p: string): string {
     if (!p) return "";
     let normalized = p.replace(/\\/g, "/");
@@ -38,6 +40,16 @@ export class InMemoryWorkspaceGateway implements WorkspaceGateway {
     if (lastSlash !== -1) {
       this.mkdir(p.substring(0, lastSlash));
     }
+  }
+
+  writeFileAtomic(relativePath: string, content: string): void {
+    this.writeFile(relativePath, content);
+  }
+
+  withFileLock<T>(relativePath: string, action: () => T): T {
+    if (this.exists(relativePath)) throw new Error("Execution state is locked");
+    this.writeFile(relativePath, "locked");
+    try { return action(); } finally { this.deleteFile(relativePath); }
   }
 
   exists(relativePath: string): boolean {

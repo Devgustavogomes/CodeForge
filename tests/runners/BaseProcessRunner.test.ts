@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
 import { TaskContext } from "../../src/runners/AgentRunner.js";
@@ -39,7 +40,7 @@ class TestRunner extends BaseProcessRunner {
 
 function createContext(overrides: Partial<TaskContext> = {}): TaskContext {
   return {
-    promptFilePath: "prompts/test.md",
+    cwd: process.cwd(), promptFilePath: "prompts/test.md",
     intentName: "intent-test",
     taskId: "TASK-001",
     ...overrides,
@@ -130,7 +131,7 @@ describe("BaseProcessRunner - Log Streaming", () => {
     await runner.execute(context);
 
     expect(capturedOptions?.stdio).toEqual(["pipe", "pipe", "pipe"]);
-    expect(capturedOptions?.pipePromptFile).toBe(context.promptFilePath);
+    expect(capturedOptions?.pipePromptFile).toBe(path.resolve(context.cwd, context.promptFilePath));
   });
 
   it("preserves explicit stdio option when passed in RunnerSpawnOptions", async () => {
@@ -191,6 +192,7 @@ describe("BaseProcessRunner - Log Streaming", () => {
     const context = createContext({ onLog });
 
     const executePromise = runner.execute(context);
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
 
     // Emit stdout chunks
     child.stdout.emit("data", Buffer.from("Compiling sources...\n"));
@@ -216,6 +218,7 @@ describe("BaseProcessRunner - Log Streaming", () => {
     const context = createContext({ silent: true });
 
     const executePromise = runner.execute(context);
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
 
     child.stdout.emit("data", "Some output");
     child.emit("close", 0);
@@ -228,6 +231,7 @@ describe("BaseProcessRunner - Log Streaming", () => {
     const context = createContext({ silent: true });
 
     const executePromise = runner.execute(context);
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
 
     child.stderr.emit("data", "Fatal error occurred\n");
     child.emit("close", 1);
@@ -258,6 +262,8 @@ describe("NodeProcessExecutor - Chunk forwarding & Buffer truncation", () => {
       onStdout: (chunk) => stdoutChunks.push(chunk),
       onStderr: (chunk) => stderrChunks.push(chunk),
     });
+
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
 
     const largeChunkA = "A".repeat(4000);
     const largeChunkB = "B".repeat(3000);

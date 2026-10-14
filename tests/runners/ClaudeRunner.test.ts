@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EventEmitter } from "node:events";
 import { TaskContext } from "../../src/runners/AgentRunner.js";
@@ -23,7 +24,7 @@ class FakeChildProcess extends EventEmitter {
 
 function contextFor(overrides: Partial<TaskContext> = {}): TaskContext {
   return {
-    promptFilePath: ".codeforge/executions/intent/TASK-001.temp.prompt.md",
+    cwd: process.cwd(), promptFilePath: ".codeforge/executions/intent/TASK-001.temp.prompt.md",
     intentName: "intent",
     taskId: "TASK-001",
     silent: true,
@@ -47,7 +48,7 @@ describe("ClaudeRunner", () => {
       queueMicrotask(() => child.emit("close", 0));
       return child;
     });
-    createReadStreamMock.mockReturnValue({ pipe: vi.fn() });
+    createReadStreamMock.mockReturnValue({ pipe: vi.fn(), on: vi.fn(), destroy: vi.fn() });
   });
 
   it("invokes the claude CLI in print mode", async () => {
@@ -75,7 +76,7 @@ describe("ClaudeRunner", () => {
 
     await new ClaudeRunner().execute(context);
 
-    expect(createReadStreamMock).toHaveBeenCalledWith(context.promptFilePath);
+    expect(createReadStreamMock).toHaveBeenCalledWith(path.resolve(context.cwd, context.promptFilePath));
     expect(spawnArgs()).toEqual(["-p"]);
   });
 

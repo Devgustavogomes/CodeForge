@@ -3,7 +3,11 @@ import { PATHS } from "../infrastructure/paths.js";
 import { Task } from "../domain/task.js";
 
 export class TaskStorage {
-  constructor(private gw: WorkspaceGateway) {}
+  private readonly gw: WorkspaceGateway;
+
+  constructor(gw: WorkspaceGateway) {
+    this.gw = gw.executionWorkspace();
+  }
 
   loadTasks(intentName: string): Task[] {
     const tasksDir = `${PATHS.tasksDir}/${intentName}`;

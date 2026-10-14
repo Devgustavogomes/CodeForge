@@ -42,6 +42,10 @@ export class InMemoryAgentRunner implements AgentRunner {
     }
   }
 
+  async runTask(context: TaskContext): Promise<void> {
+    await this.execute(context);
+  }
+
   async getAvailableAgents(): Promise<string[]> {
     return [...this.availableAgents];
   }

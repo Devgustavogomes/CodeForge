@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, expect, it, vi } from 'vitest';
 import { CodexRunner } from '../../src/runners/CodexRunner.js';
 import type { ProcessExecutor } from '../../src/infrastructure/process/ProcessExecutor.js';
@@ -9,17 +10,17 @@ describe('CodexRunner', () => {
     const onLog = vi.fn();
 
     await new CodexRunner(executor).execute({
-      promptFilePath: 'review.md', intentName: 'example', model: 'gpt-5.6-terra',
+      cwd: process.cwd(), promptFilePath: 'review.md', intentName: 'example', model: 'gpt-5.6-terra',
       silent: true, quietTerminal: true, onLog,
     });
 
     expect(spawn).toHaveBeenCalledWith('codex', [
       '--ask-for-approval', 'never', 'exec', '--sandbox', 'workspace-write',
-      '--model', 'gpt-5.6-terra', '-',
+      '--model', 'gpt-5.6-terra', '--cd', process.cwd(), '-',
     ], expect.objectContaining({
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
-      pipePromptFile: 'review.md',
+      pipePromptFile: path.resolve(process.cwd(), 'review.md'),
       onStdout: onLog,
       onStderr: onLog,
     }));

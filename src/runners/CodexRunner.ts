@@ -15,13 +15,12 @@ export class CodexRunner extends BaseProcessRunner {
       args.push("--model", context.model);
     }
 
-    args.push("-");
+    args.push("--cd", context.cwd, "-");
 
     return this.spawnProcess("codex", args, context, {
       // Codex ships as an executable on Windows. A shell is unnecessary here
       // and makes Node emit DEP0190 directly on CodeForge's stderr.
       shell: false,
-      cwd: process.cwd(),
       pipePromptToStdin: true,
     });
   }
