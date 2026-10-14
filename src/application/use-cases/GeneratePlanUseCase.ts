@@ -24,6 +24,7 @@ export class GeneratePlanUseCase {
     private readonly runner: AgentRunner,
     private readonly config: CodeForgeConfig,
     validateUseCase?: ValidatePlanUseCase,
+    private readonly cwd: string = process.cwd(),
   ) {
     this.validateUseCase = validateUseCase ?? new ValidatePlanUseCase(workspace);
   }
@@ -60,6 +61,7 @@ export class GeneratePlanUseCase {
 
     const promptPath = `${PATHS.plansDir}/${intentName}.temp.prompt.md`;
     const context: TaskContext = {
+      cwd: this.cwd,
       promptFilePath: promptPath,
       intentName,
       model,

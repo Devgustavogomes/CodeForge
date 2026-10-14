@@ -20,6 +20,7 @@ export class CreateDocUseCase {
     private readonly runner: AgentRunner,
     private readonly config: CodeForgeConfig,
     manifestRepo?: DocsManifestRepository,
+    private readonly cwd: string = process.cwd(),
   ) {
     this.manifestRepo = manifestRepo ?? new DocsManifestRepository(gw);
   }
@@ -58,6 +59,7 @@ export class CreateDocUseCase {
 
     const promptPath = `${PATHS.docsDir}/${docName}.prompt.md`;
     const context: TaskContext = {
+      cwd: this.cwd,
       promptFilePath: promptPath,
       intentName,
       model: this.config.plannerAgent,

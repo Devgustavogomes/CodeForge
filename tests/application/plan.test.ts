@@ -27,7 +27,7 @@ describe("GeneratePlanUseCase", () => {
       executorAgent: "mock-executor",
       language: "en",
     };
-    useCase = new GeneratePlanUseCase(gateway, runner, config);
+    useCase = new GeneratePlanUseCase(gateway, runner, config, undefined, "C:/Checkout Directory");
   });
 
   it("returns notInitialized if metadata.json is missing", async () => {
@@ -65,7 +65,7 @@ describe("GeneratePlanUseCase", () => {
 
     expect(result.kind).toBe("valid");
     expect(gateway.exists(".codeforge/tasks/auth")).toBe(true);
-    expect(runner.execute).toHaveBeenCalled();
+    expect(runner.execute).toHaveBeenCalledWith(expect.objectContaining({ cwd: "C:/Checkout Directory" }));
     expect(runner.execute).toHaveBeenCalledTimes(1);
     expect(readFile).toHaveBeenCalledWith(PATHS.intentFile("auth"));
     expect(readFile.mock.calls.some(([path]) => path === PATHS.planningRules)).toBe(rules !== undefined);
