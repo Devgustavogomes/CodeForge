@@ -78,6 +78,10 @@ export async function taskResetAction(
     const result = useCase.resetTasks(intentName, targetTaskId);
 
     switch (result.kind) {
+      case "blocked":
+        console.error(`\n✗ ${result.message}\n`);
+        process.exitCode = 1;
+        return { success: false };
       case "intent-not-found":
         console.error(translate("err_intent_not_found", lang, { intent: intentName }));
         process.exitCode = 1;

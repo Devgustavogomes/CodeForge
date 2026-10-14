@@ -1,3 +1,4 @@
+import { recordIntegration } from "../helpers/integrated-execution.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DeleteTaskUseCase } from "../../src/application/use-cases/DeleteTaskUseCase.js";
 import {
@@ -207,7 +208,7 @@ describe("DeleteTaskUseCase", () => {
   ])(
     "recalculates the intent as $expectedStatus when a remaining task is $remainingStatus",
     ({ remainingStatus, expectedStatus, expectsCompletedAt }) => {
-      const tasks = [makeTask("TASK-001", [TARGET_ID]), makeTask(TARGET_ID)];
+      const tasks = [makeTask("TASK-001"), makeTask(TARGET_ID)];
       gateway = initializedWorkspace(tasks);
       repository = new ExecutionStateRepository(gateway);
       useCase = new DeleteTaskUseCase(gateway, repository);
@@ -249,7 +250,7 @@ describe("DeleteTaskUseCase", () => {
       tasks,
       {
         "TASK-001": "completed",
-        [TARGET_ID]: "running",
+        [TARGET_ID]: "pending",
         "TASK-003": "completed",
       },
       { status: "running" },
@@ -262,7 +263,7 @@ describe("DeleteTaskUseCase", () => {
     expect(updatedState.completedAt).toEqual(expect.any(String));
   });
 
-  it("preserves unrelated execution task data while cleaning stale dependencies", () => {
+  it("rejects deletion when a started dependent has consumed the task", () => {
     const tasks = [makeTask("TASK-001", [TARGET_ID, "TASK-000"]), makeTask(TARGET_ID)];
     gateway = initializedWorkspace(tasks);
     repository = new ExecutionStateRepository(gateway);
@@ -284,14 +285,14 @@ describe("DeleteTaskUseCase", () => {
     state.tasks["TASK-001"].errors = ["Preserved error"];
     repository.save(state);
 
-    useCase.execute(INTENT_NAME, TARGET_ID);
+    expect(useCase.execute(INTENT_NAME, TARGET_ID).kind).toBe("blocked");
 
     const updatedState = repository.load(INTENT_NAME)!;
     expect(updatedState.startedAt).toBe("2026-09-01T09:00:00.000Z");
     expect(updatedState.completedAt).toBe("2026-09-01T10:00:00.000Z");
-    expect(updatedState.tasks["TASK-001"]).toEqual({
+    expect(updatedState.tasks["TASK-001"]).toMatchObject({
       status: "failed",
-      dependencies: ["TASK-000"],
+      dependencies: [TARGET_ID, "TASK-000"],
       title: "Preserved execution title",
       startedAt: "2026-09-01T09:05:00.000Z",
       completedAt: "2026-09-01T09:10:00.000Z",
@@ -312,5 +313,21 @@ describe("DeleteTaskUseCase", () => {
     expect(updatedState.tasks).toEqual({});
     expect(updatedState.status).toBe("completed");
     expect(updatedState.completedAt).toEqual(expect.any(String));
+  });
+});
+
+
+describe("DeleteTaskUseCase recovery protection", () => {
+  it.each(["failed", "completed"] as const)("preserves %s task artifacts and dependent references", status => {
+    const tasks = [makeTask(TARGET_ID), makeTask("TASK-003", [TARGET_ID])];
+    const gw = initializedWorkspace(tasks);
+    const repo = new ExecutionStateRepository(gw);
+    saveExecutionState(repo, tasks, { [TARGET_ID]: status, "TASK-003": "pending" });
+    recordIntegration(repo, INTENT_NAME, TARGET_ID);
+    repo.updateTask(INTENT_NAME, "TASK-003", task => { task.baseCommit = "accepted"; });
+    const before = new Map(gw.files);
+    const result = new DeleteTaskUseCase(gw, repo).execute(INTENT_NAME, TARGET_ID);
+    expect(result.kind).toBe("blocked");
+    expect(gw.files).toEqual(before);
   });
 });

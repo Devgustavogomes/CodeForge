@@ -110,6 +110,12 @@ export async function taskDeleteAction(
       selectedTaskId,
     );
 
+    if (result.kind === "blocked") {
+      console.error(`\n✗ ${result.message}\n`);
+      process.exitCode = 1;
+      return { success: false };
+    }
+
     if (result.kind === "not-initialized") {
       console.error(translate("err_not_initialized", lang));
       process.exitCode = 1;

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { DeleteIntentUseCase } from "../../src/application/use-cases/DeleteIntentUseCase.js";
+import { ExecutionStateRepository } from "../../src/infrastructure/repositories/ExecutionStateRepository.js";
 import { DocsManifest } from "../../src/domain/doc.js";
 import { PATHS } from "../../src/infrastructure/paths.js";
 import { DocsManifestRepository } from "../../src/infrastructure/repositories/DocsManifestRepository.js";
@@ -75,7 +76,8 @@ describe("DeleteIntentUseCase", () => {
     workspace.writeFile(PATHS.intentFile("auth"), "# Auth");
     workspace.writeFile(`${PATHS.tasksDir}/auth/TASK-001.json`, "task one");
     workspace.writeFile(`${PATHS.tasksDir}/auth/nested/TASK-002.json`, "task two");
-    workspace.writeFile(PATHS.executionState("auth"), "execution");
+    const execution = new ExecutionStateRepository(workspace);
+    execution.save(execution.init("auth", []));
     workspace.writeFile(`${PATHS.plansDir}/auth.temp.prompt.md`, "prompt");
     writeManifest({ version: "1.0", documents: {} });
 
@@ -184,6 +186,23 @@ describe("DeleteIntentUseCase", () => {
     });
     expect(workspace.exists(`${PATHS.docsDir}/shared-guide.md`)).toBe(true);
     expect(workspace.exists(`${PATHS.docsDir}/auth-guide.md`)).toBe(true);
+  });
+
+  it.each(["worktree", "archived", "process", "corrupt"])("preserves %s execution evidence and every cascade artifact", evidence => {
+    initializeWorkspace();
+    workspace.writeFile(PATHS.intentFile("auth"), "# Auth");
+    workspace.writeFile(`${PATHS.tasksDir}/auth/TASK-001.json`, "task");
+    workspace.writeFile(`${PATHS.plansDir}/auth.temp.prompt.md`, "diagnostics");
+    const repo = new ExecutionStateRepository(workspace);
+    const state = repo.init("auth", []);
+    if (evidence === "worktree") state.integrationWorktreePath = "/owned/integration";
+    if (evidence === "archived") state.archivedTasks = { removed: [{ status: "failed", dependencies: [], branch: "codex/owned" }] };
+    if (evidence === "process") state.owner = { pid: 42, host: "host", token: "token", startedAt: "time" };
+    repo.save(state);
+    if (evidence === "corrupt") workspace.writeFile(PATHS.executionState("auth"), "unreadable evidence");
+    const before = new Map(workspace.files);
+    expect(useCase.execute("auth").kind).toBe("blocked");
+    expect(workspace.files).toEqual(before);
   });
 
   it("preserves unrelated intent artifacts", () => {

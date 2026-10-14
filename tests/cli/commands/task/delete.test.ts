@@ -202,11 +202,12 @@ describe("task delete CLI command", () => {
   });
 
   it.each([
+    ["blocked", "Preserve recovery evidence"],
     ["not-initialized", "not initialized"],
     ["intent-not-found", "Intent not found"],
     ["task-not-found", "Task not found"],
   ])("maps the %s result to a localized failure", async (kind, text) => {
-    setup({ kind });
+    setup({ kind, message: "Preserve recovery evidence" });
     vi.mocked(confirm).mockResolvedValue(true);
     const error = vi
       .spyOn(console, "error")

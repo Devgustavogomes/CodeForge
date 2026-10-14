@@ -50,6 +50,10 @@ export async function taskCompleteAction(
     const result = useCase.markTaskCompleted(selectedIntent, selectedTask);
 
     switch (result.kind) {
+      case "blocked":
+        console.error(`\n✗ ${result.message}\n`);
+        process.exitCode = 1;
+        return { success: false };
       case "not-found":
         console.error(
           `\n✗ Failed to mark task as completed. Check if intent '${selectedIntent}' is running and task '${selectedTask}' exists.\n`,
@@ -62,7 +66,7 @@ export async function taskCompleteAction(
         );
         if (result.allCompleted) {
           console.log(
-            `\n🎉 All tasks for intent '${selectedIntent}' are completed! Execution status updated to 'completed'.\n`,
+            `\n🎉 All tasks for intent '${selectedIntent}' have integrated results. Resume the run to check final delivery.\n`,
           );
         } else {
           console.log(
