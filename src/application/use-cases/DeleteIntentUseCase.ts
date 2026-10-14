@@ -2,7 +2,11 @@ import { PATHS } from "../../infrastructure/paths.js";
 import { DocsManifestRepository } from "../../infrastructure/repositories/DocsManifestRepository.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 
+import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
+import { intentMutationBlock, ProtectedOperationResult } from "./TaskStateProtection.js";
+
 export type DeleteIntentResult =
+  | ProtectedOperationResult
   | { kind: "not-initialized" }
   | { kind: "intent-not-found" }
   | { kind: "deleted"; intentName: string };
@@ -21,6 +25,23 @@ export class DeleteIntentUseCase {
     const intentPath = PATHS.intentFile(intentName);
     if (!this.workspace.exists(intentPath)) {
       return { kind: "intent-not-found" };
+    }
+
+    return this.workspace.executionWorkspace().withFileLock(PATHS.executionLock(intentName),
+      () => this.deleteArtifacts(intentName, intentPath));
+  }
+
+  private deleteArtifacts(intentName: string, intentPath: string): DeleteIntentResult {
+    if (this.workspace.exists(PATHS.executionState(intentName))) {
+      try {
+        const state = new ExecutionStateRepository(this.workspace).load(intentName);
+        if (state) {
+          const block = intentMutationBlock(state);
+          if (block) return block;
+        }
+      } catch {
+        return { kind: "blocked", message: "Execution evidence cannot be read. Preserve the intent and repair or inspect its execution record before deletion." };
+      }
     }
 
     this.workspace.deleteFile(intentPath);

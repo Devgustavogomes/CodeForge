@@ -72,6 +72,7 @@ describe("run CLI command", () => {
     const getIntentStatus = vi.fn().mockReturnValue({
       kind: "status",
       intentName: "intent-a",
+      delivered: status === "completed",
       intentStatus: status,
       tasks: [],
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -101,6 +102,22 @@ describe("run CLI command", () => {
       listIntents,
     };
   }
+
+  it("prints initial preparation and recovery block reasons", async () => {
+    const { mockScheduler } = setupContainerMock();
+    mockScheduler.run.mockResolvedValue({ status: "paused", intentName: "intent-a", reason: "Previous agents remain live; inspect /retained/worktree before resuming." } as any);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await runAction("intent-a")).toEqual({ success: false });
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("inspect /retained/worktree"));
+  });
+
+  it("rejects completed scheduler results without persisted delivery", async () => {
+    const { mockContainer } = setupContainerMock();
+    mockContainer.getIntentStatusUseCase.execute.mockReturnValue({ kind: "status", intentName: "intent-a",
+      intentStatus: "completed", delivered: false, tasks: [], updatedAt: "2026-01-01" });
+    expect(await runAction("intent-a")).toEqual({ success: false });
+    expect(process.exitCode).toBe(1);
+  });
 
   it("executes TaskScheduler without mounting or calling runInteractiveMenu", async () => {
     const { mockScheduler, createTaskScheduler } = setupContainerMock();
@@ -282,7 +299,7 @@ describe("run CLI command", () => {
     });
   });
 
-  it("treats a generated-task pause as a successful, actionable exit", async () => {
+  it("does not report full success while review tasks remain pending", async () => {
     const { mockScheduler } = setupContainerMock({ status: "completed" });
     mockScheduler.run.mockResolvedValue({
       status: "pending",
@@ -292,8 +309,8 @@ describe("run CLI command", () => {
 
     const result = await runAction("intent-a");
 
-    expect(result).toEqual({ success: true });
-    expect(process.exitCode).toBe(0);
+    expect(result).toEqual({ success: false });
+    expect(process.exitCode).toBe(1);
   });
 
   it("catches unhandled scheduler exceptions, logs error, and sets exit code 1", async () => {

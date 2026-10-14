@@ -51,9 +51,13 @@ export async function taskRetryAction(
     }
 
     const useCase = container.taskOperationsUseCase;
-    const result = useCase.retryIntent(intentName);
+    const result = await useCase.retryIntent(intentName);
 
     switch (result.kind) {
+      case "blocked":
+        console.error(`\n✗ ${result.message}\n`);
+        process.exitCode = 1;
+        return { success: false };
       case "intent-not-found":
         console.error(translate("err_intent_not_found", lang, { intent: intentName }));
         process.exitCode = 1;
@@ -87,7 +91,6 @@ export async function taskRetryAction(
         const hooks = config.hooks
           ? new CommandHookDispatcher(
               config.hooks,
-              process.cwd(),
               container.processExecutor,
               new CliHookReporter({ terminalReporter: reporter, language: lang }),
             )

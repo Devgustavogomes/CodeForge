@@ -1,3 +1,4 @@
+import { formatStatusOutput } from "../ui/statusFormatter.js";
 import { Command } from "commander";
 import { HookDispatcher } from "../../application/ports/HookDispatcher.js";
 import { AppContainer, createAppContainer } from "../../infrastructure/container.js";
@@ -56,7 +57,6 @@ export async function runAction(
   const hooks: HookDispatcher = config.hooks
     ? new CommandHookDispatcher(
         config.hooks,
-        process.cwd(),
         container.processExecutor,
         new CliHookReporter({
           terminalReporter: reporter,
@@ -82,10 +82,14 @@ export async function runAction(
       ? await scheduler.run(intentName, config.executorAgent, reviewOptions)
       : await scheduler.run(intentName, config.executorAgent);
 
-    if (runResult.status === "completed" || runResult.status === "pending") {
+    const snapshot = container.getIntentStatusUseCase.execute(intentName);
+    if (runResult.status === "completed" && snapshot.kind === "status" && snapshot.delivered === true) {
       process.exitCode = 0;
       return { success: true };
     }
+
+    if ("reason" in runResult && runResult.reason) console.error(translate("terminal_run_error", lang, { error: runResult.reason }));
+    if (snapshot.kind === "status") console.log(formatStatusOutput(snapshot, { language: lang }));
 
     if (runResult.status === "failed") {
       const status = container.getIntentStatusUseCase.execute(intentName);

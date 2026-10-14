@@ -4,7 +4,10 @@ import { PATHS } from "../../infrastructure/paths.js";
 import { ExecutionStateRepository } from "../../infrastructure/repositories/ExecutionStateRepository.js";
 import { WorkspaceGateway } from "../../infrastructure/workspace.js";
 
+import { ProtectedOperationResult, taskMutationBlock } from "./TaskStateProtection.js";
+
 export type DeleteTaskResult =
+  | ProtectedOperationResult
   | { kind: "not-initialized" }
   | { kind: "intent-not-found" }
   | { kind: "task-not-found" }
@@ -55,23 +58,29 @@ export class DeleteTaskUseCase {
       return { kind: "task-not-found" };
     }
 
+    const state = this.stateRepo.load(intentName);
+    if (state) {
+      const block = taskMutationBlock(state, taskId);
+      if (block) return block;
+    }
+
     const tasksDir = `${PATHS.tasksDir}/${intentName}`;
     const siblingUpdates = this.collectSiblingUpdates(
       tasksDir,
       `${taskId}.json`,
       taskId,
     );
-    const state = this.stateRepo.load(intentName);
+    // Persist the guarded transition first: a concurrent execution must reject
+    // this stale save before any task files or dependency references are removed.
+    if (state) {
+      this.cleanExecutionState(state, taskId);
+      this.stateRepo.save(state);
+    }
 
     for (const update of siblingUpdates) {
       this.gw.writeFile(update.path, JSON.stringify(update.task, null, 2));
     }
     this.gw.deleteFile(taskPath);
-
-    if (state) {
-      this.cleanExecutionState(state, taskId);
-      this.stateRepo.save(state);
-    }
 
     return {
       kind: "deleted",
