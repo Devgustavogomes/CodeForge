@@ -1,3 +1,4 @@
+import { createExecutionReporter } from "../../src/cli/tui/context/ExecutionContext/executionReporter.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TerminalSchedulerReporter } from "../../src/cli/ui/TerminalSchedulerReporter.js";
 import { formatSchedulerSnapshot } from "../../src/cli/ui/statusFormatter.js";
@@ -26,6 +27,41 @@ afterEach(() => {
 });
 
 describe("TerminalSchedulerReporter", () => {
+  it("bridges pending outcomes and cleanup warnings without completing the TUI", () => {
+    const onComplete = vi.fn();
+    const onOutcome = vi.fn();
+    const onWarning = vi.fn();
+    const onError = vi.fn();
+    const reporter = createExecutionReporter({ onComplete, onOutcome, onWarning, onError });
+    const state = { intentId: "demo", status: "completed" as const, updatedAt: startedAt,
+      tasks: { "TASK-001": { status: "completed" as const, dependencies: [] } }, delivery: { status: "pending" as const } };
+    reporter.onComplete("demo", state);
+    reporter.onWarning?.("Cleanup retained worktree");
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onOutcome).toHaveBeenCalledWith("demo", state);
+    expect(onWarning).toHaveBeenCalledWith("Cleanup retained worktree");
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("suppresses success for approved tasks until delivery is confirmed", () => {
+    const writes: string[] = [];
+    const current = snapshot();
+    current.intentStatus = "completed";
+    current.tasks[0].status = "completed";
+    const reporter = new TerminalSchedulerReporter({ getStatus: () => current, color: false, interactive: false,
+      stream: { write: (chunk: string) => { writes.push(chunk); return true; } } as NodeJS.WritableStream });
+    reporter.onComplete("demo");
+    expect(writes.join("")).toContain("delivery pending");
+    expect(writes.join("")).not.toContain("Execution of intent 'demo' completed");
+    writes.length = 0;
+    current.delivered = true;
+    reporter.onWarning("Dirty worktree retained");
+    expect(reporter.isFinished()).toBe(true);
+    reporter.onComplete("demo");
+    expect(writes.join("")).toContain("Dirty worktree retained");
+    expect(writes.join("")).toContain("Execution of intent 'demo' completed");
+  });
+
   it("updates elapsed time and running task duration every second, then stops", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(startedAt));

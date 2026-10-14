@@ -1,4 +1,7 @@
-import React from 'react';
+import { formatExecutionOutcomes } from '../../../../ui/statusFormatter.js';
+import { ExecutionContext } from '../../../context/ExecutionContext.js';
+import { ConfigContext } from '../../../context/ConfigContext.js';
+import React, { useContext } from 'react';
 import { Box, Text } from 'ink';
 import { TaskStatus } from '../../../../../domain/execution.js';
 import { theme } from '../../../theme.js';
@@ -23,7 +26,7 @@ export const STATUS_ICONS: Record<
   completed: {
     icon: theme.status.completed.icon,
     color: theme.status.completed.color,
-    label: '[COMPLETED]',
+    label: '[APPROVED]',
   },
   failed: {
     icon: theme.status.failed.icon,
@@ -61,6 +64,10 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
   onSearchSubmit: _onSearchSubmit,
   onSearchCancel: _onSearchCancel,
 }) => {
+  const exec = useContext(ExecutionContext);
+  const execution = exec?.execution;
+  const executionError = exec?.executionError;
+  const language = useContext(ConfigContext)?.config.language ?? "en";
   return (
     <Box
       flexDirection="column"
@@ -94,6 +101,11 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
           <Text color={theme.colors.muted}>[←/→]</Text>
         </Box>
       </Box>
+
+      {execution?.intentId === currentIntent && formatExecutionOutcomes(execution, language).map((line, index) => (
+        <Text key={index} color={theme.colors.muted} wrap="wrap">{line}</Text>
+      ))}
+      {executionError && <Text color={theme.colors.error}>{executionError}</Text>}
 
       {/* Intent Search Bar */}
       {isSearchingIntent && (
@@ -161,7 +173,7 @@ export const TaskTree: React.FC<TaskTreeProps> = ({
 
                 {/* Status Badge */}
                 <Box flexShrink={0} paddingLeft={1}>
-                  <Text color={statusInfo.color}>{statusInfo.label}</Text>
+                  <Text color={statusInfo.color}>{task.integrated ? "[INTEGRATED]" : task.integration?.status === "blocked" ? "[INTEGRATION BLOCKED]" : statusInfo.label}</Text>
                 </Box>
               </Box>
             );

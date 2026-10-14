@@ -77,7 +77,7 @@ export function useRunDashboard() {
   const onStartRun = useCallback(async () => {
     if (!currentIntent) return;
     beginAction();
-    try { await exec.startRun(currentIntent); } catch { /* sem feedback falso */ }
+    try { await exec.startRun(currentIntent); } catch (error) { publishFeedback(error instanceof Error ? error.message : String(error)); }
   }, [beginAction, currentIntent, exec]);
   const onStartReview = useCallback(async () => {
     if (!currentIntent) return;
@@ -95,7 +95,7 @@ export function useRunDashboard() {
       await exec.retryTask(selectedTask.id, currentIntent);
       await exec.startRun(currentIntent);
       publishFeedback(`✓ Task ${selectedTask.id} retried — scheduler resuming`);
-    } catch { /* sem feedback falso */ }
+    } catch (error) { publishFeedback(error instanceof Error ? error.message : String(error)); }
   }, [beginAction, currentIntent, exec, publishFeedback, selectedTask]);
   const onRetryAllFailed = useCallback(async () => {
     if (!currentIntent) return;
@@ -109,7 +109,7 @@ export function useRunDashboard() {
       await exec.retryAllFailed();
       await exec.startRun(currentIntent);
       publishFeedback(`✓ ${failures} failed tasks retried — scheduler resuming`);
-    } catch { /* sem feedback falso */ }
+    } catch (error) { publishFeedback(error instanceof Error ? error.message : String(error)); }
   }, [beginAction, currentIntent, exec, publishFeedback]);
   const onResetAllTasks = useCallback(async () => {
     if (!currentIntent) return;
@@ -118,7 +118,7 @@ export function useRunDashboard() {
       await exec.resetAllTasks(currentIntent);
       await exec.startRun(currentIntent);
       publishFeedback('✓ All tasks reset — restarting execution');
-    } catch { /* sem feedback falso */ }
+    } catch (error) { publishFeedback(error instanceof Error ? error.message : String(error)); }
   }, [beginAction, currentIntent, exec, publishFeedback]);
   const onResetTask = useCallback(async () => {
     if (!currentIntent || !selectedTask) return;
@@ -126,7 +126,7 @@ export function useRunDashboard() {
     try {
       await exec.resetTask(selectedTask.id, currentIntent);
       publishFeedback(`✓ Task ${selectedTask.id} reset to pending`);
-    } catch { /* sem feedback falso */ }
+    } catch (error) { publishFeedback(error instanceof Error ? error.message : String(error)); }
   }, [beginAction, currentIntent, exec, publishFeedback, selectedTask]);
   const onCompleteTask = useCallback(async () => {
     if (!currentIntent || !selectedTask || selectedTask.status === 'completed') return;
@@ -134,7 +134,7 @@ export function useRunDashboard() {
     try {
       await exec.completeTask(selectedTask.id, currentIntent);
       publishFeedback(`✓ Task ${selectedTask.id} marked as completed`);
-    } catch { /* sem feedback falso */ }
+    } catch (error) { publishFeedback(error instanceof Error ? error.message : String(error)); }
   }, [beginAction, currentIntent, exec, publishFeedback, selectedTask]);
   const onSelectIntent = useCallback(() => {
     beginAction();

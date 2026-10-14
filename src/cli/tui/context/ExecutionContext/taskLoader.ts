@@ -1,17 +1,11 @@
+import { TaskStatusInfo } from '../../../../application/use-cases/GetIntentStatusUseCase.js';
 import { Task } from '../../../../domain/task.js';
-import { TaskStatus } from '../../../../domain/execution.js';
+import { isTaskIntegrated } from '../../../../domain/execution.js';
 import { PATHS } from '../../../../infrastructure/paths.js';
 import { WorkspaceGateway } from '../../../../infrastructure/workspace.js';
 import { ExecutionStateRepository } from '../../../../infrastructure/repositories/ExecutionStateRepository.js';
 
-export interface TaskItem {
-  id: string;
-  title: string;
-  status: TaskStatus;
-  dependencies: string[];
-  startedAt?: string;
-  completedAt?: string;
-  errors?: string[];
+export interface TaskItem extends TaskStatusInfo {
   objective?: string;
   files?: string[];
   context?: string;
@@ -50,6 +44,8 @@ export function loadTasksFromDisk(
     seen.add(def.id);
     const taskState = state?.tasks[def.id];
     items.push({
+      ...taskState,
+      integrated: state ? isTaskIntegrated(state, def.id) : false,
       id: def.id,
       title: def.title || def.id,
       status: taskState?.status ?? 'pending',
@@ -69,6 +65,8 @@ export function loadTasksFromDisk(
     for (const [id, taskState] of Object.entries(state.tasks)) {
       if (!seen.has(id)) {
         items.push({
+          ...taskState,
+          integrated: isTaskIntegrated(state, id),
           id,
           title: taskState.title || id,
           status: taskState.status,
@@ -101,6 +99,7 @@ export function areTasksEqual(
     const prev = prevTasks[i];
     const next = newTasks[i];
 
+    if (JSON.stringify(prev) !== JSON.stringify(next)) return false;
     if (prev.id !== next.id) return false;
     if (prev.status !== next.status) return false;
     if (prev.startedAt !== next.startedAt) return false;

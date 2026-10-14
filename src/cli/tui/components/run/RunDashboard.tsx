@@ -1,3 +1,6 @@
+import { Box, Text } from 'ink';
+import { useConfig } from '../../context/ConfigContext.js';
+import { formatExecutionOutcomes } from '../../../ui/statusFormatter.js';
 import React, { memo } from 'react';
 import { useTerminalDimensions } from '../../hooks/useTerminalDimensions.js';
 import { useRunDashboard, DashboardPanel } from './hooks/useRunDashboard.js';
@@ -37,6 +40,8 @@ const RunDashboardContent: React.FC<RunDashboardProps> = memo(({
   hasConfiguredHooks: propHasConfiguredHooks,
 }) => {
   const navigation = useNavigation();
+  const exec = useExecution();
+  const { config } = useConfig();
   const terminalDims = useTerminalDimensions();
   const dashboardState = useRunDashboard();
   const {
@@ -80,7 +85,7 @@ const RunDashboardContent: React.FC<RunDashboardProps> = memo(({
     selectedTaskId,
     selectedTaskStatus: dashboardState.selectedTaskStatus,
     effectiveStatus,
-    allTasksCompleted: tasks.length > 0 && completedCount === tasks.length,
+    allTasksCompleted: tasks.length > 0 && tasks.every(task => task.integrated),
     onTogglePanel: dashboardState.onTogglePanel,
     onStartRun: dashboardState.onStartRun,
     onStartReview: dashboardState.onStartReview,
@@ -109,6 +114,7 @@ const RunDashboardContent: React.FC<RunDashboardProps> = memo(({
   }
 
   const topMetricsPanel = (
+    <Box flexDirection="column">
     <DashboardMetricsPanel
       intentName={effectiveIntentName}
       tasks={tasks}
@@ -119,6 +125,9 @@ const RunDashboardContent: React.FC<RunDashboardProps> = memo(({
       reviewResult={reviewResult}
       reviewError={reviewError}
     />
+    {exec.execution && formatExecutionOutcomes(exec.execution, config.language).map((line, index) => <Text key={index} wrap="wrap">{line}</Text>)}
+    {exec.executionError && <Text color="red">{exec.executionError}</Text>}
+    </Box>
   );
 
   const actionBar = (

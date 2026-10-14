@@ -1,3 +1,5 @@
+import { IntentExecutionState } from '../../../../domain/execution.js';
+import { isRunDelivered } from '../../../../application/use-cases/GetIntentStatusUseCase.js';
 import { SchedulerReporter } from '../../../../application/ports/SchedulerReporter.js';
 import {
   HookReporter,
@@ -12,6 +14,8 @@ import { ReviewResultMetadata } from '../../../../domain/hook.js';
 import { CodeForgeConfig } from '../../../../config/types.js';
 
 export interface ExecutionReporterCallbacks {
+  onOutcome?: (intentName: string, state: IntentExecutionState) => void;
+  onWarning?: (message: string) => void;
   onStart?: (intentName: string) => void;
   onUpdate?: (intentName: string) => void;
   onComplete?: (intentName: string) => void;
@@ -36,9 +40,14 @@ export function createExecutionReporter(
   callbacks: ExecutionReporterCallbacks,
 ): SchedulerReporter {
   return {
+    onOutcome: (name, state) => callbacks.onOutcome?.(name, state),
+    onWarning: (message) => callbacks.onWarning?.(message),
     onStart: (intentName: string) => callbacks.onStart?.(intentName),
     onUpdate: (intentName: string) => callbacks.onUpdate?.(intentName),
-    onComplete: (intentName: string) => callbacks.onComplete?.(intentName),
+    onComplete: (intentName: string, state?: IntentExecutionState) => {
+      if (state && isRunDelivered(state)) callbacks.onComplete?.(intentName);
+      else if (state) callbacks.onOutcome?.(intentName, state);
+    },
     onFail: (intentName: string) => callbacks.onFail?.(intentName),
     onDeadlock: (intentName?: string) => callbacks.onDeadlock?.(intentName),
     onError: (error: string | Error) => callbacks.onError?.(error),
@@ -90,7 +99,6 @@ export function createSchedulerInstance(
     const hooks = config.hooks
       ? new CommandHookDispatcher(
           config.hooks,
-          process.cwd(),
           appContainer.processExecutor,
           effectiveHookReporter,
         )

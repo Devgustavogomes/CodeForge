@@ -1,6 +1,6 @@
-import { IntentStatusResult, TaskStatusInfo } from "../../application/use-cases/GetIntentStatusUseCase.js";
+import { isRunDelivered, IntentStatusResult, TaskStatusInfo } from "../../application/use-cases/GetIntentStatusUseCase.js";
 import { SupportedLanguage } from "../../config/types.js";
-import { TaskStatus } from "../../domain/execution.js";
+import { IntentExecutionState, TaskStatus } from "../../domain/execution.js";
 import { translate, TranslationKey } from "./i18n.js";
 
 export type { TaskStatusInfo };
@@ -118,7 +118,7 @@ function formatTaskRow(
   color: boolean,
 ): string[] {
   const statusKey = (task.status in STATUS_ICON ? task.status : "pending") as TaskStatus;
-  const translatedStatus = statusLabel(statusKey, language);
+  const translatedStatus = statusKey === "completed" ? translate("execution_approved", language) : statusLabel(statusKey, language);
   const marker = style(`[${STATUS_ICON[statusKey] ?? "○"}]`, STATUS_COLOR[statusKey] ?? ANSI.gray, color);
   const status = style(`(${translatedStatus})`, STATUS_COLOR[statusKey] ?? ANSI.gray, color);
   const duration = translate("terminal_status_duration", language, {
@@ -139,6 +139,7 @@ function formatTaskRow(
     }
   }
 
+  lines.push(...formatTaskOutcomes(task, language).map(line => `      ${line}`));
   return lines;
 }
 
@@ -184,7 +185,9 @@ function formatStatus(
   const percent = total === 0 ? 0 : Math.round((counts.completed / total) * 100);
   const intentName = result.intentName ?? "";
   const rawStatus = (result.intentStatus ?? "pending") as TaskStatus;
-  const translatedStatus = STATUS_TRANSLATION[rawStatus]
+  const translatedStatus = rawStatus === "completed"
+    ? translate(result.delivered ? "execution_delivered" : "execution_pending_delivery", language)
+    : STATUS_TRANSLATION[rawStatus]
     ? statusLabel(rawStatus, language)
     : String(rawStatus);
 
@@ -215,6 +218,7 @@ function formatStatus(
     style(header, STATUS_COLOR[rawStatus] ?? ANSI.bold, color),
     style(`${progress}${progressBar}`, ANSI.cyan, color),
     summary,
+    translate("execution_integrated_count", language, { accepted: result.tasks.filter(task => task.integrated).length, total, blocked: result.tasks.filter(task => task.integration?.status === "blocked" || task.integration?.status === "failed").length }),
     "",
     style(translate("terminal_status_tasks", language), ANSI.bold, color),
   ];
@@ -223,6 +227,7 @@ function formatStatus(
     lines.push(...formatTaskRow(task, options.snapshotAt ?? result.updatedAt, language, color));
   }
 
+  if (result.execution) lines.push("", ...formatExecutionOutcomes(result.execution, language));
   return lines.join("\n");
 }
 
@@ -262,4 +267,40 @@ export function formatSchedulerSnapshot(
       progressBar: options.progressBar ?? true,
     },
   );
+}
+
+export function formatTaskOutcomes(task: TaskStatusInfo, language: SupportedLanguage = "en"): string[] {
+  const lines: string[] = [];
+  if (task.resultCommit || task.status === "completed") lines.push(translate("execution_approval", language, {
+    status: task.resultCommit ? "approved" : "commit evidence missing", commit: task.resultCommit ?? "-",
+  }));
+  if (task.integration || task.status === "completed") lines.push(translate("execution_integration", language, {
+    status: task.integrated ? "accepted" : task.integration?.status === "succeeded" ? "acceptance evidence missing" : task.integration?.status ?? "pending",
+    commit: task.integration?.acceptedCommit ?? "-",
+  }));
+  if (task.branch || task.worktreePath) lines.push(translate("execution_artifact", language, { branch: task.branch ?? "-", path: task.worktreePath ?? "-" }));
+  if (task.stage) lines.push(translate("execution_diagnostic", language, { stage: task.stage, message: task.stages?.[task.stage]?.status ?? task.status, operation: task.stages?.[task.stage]?.operationId ?? "" }));
+  if (task.owner) lines.push(translate("execution_owner", language, { pid: task.owner.pid, host: task.owner.host, path: task.owner.worktreePath ?? task.worktreePath ?? "-" }));
+  for (const diagnostic of task.diagnostics ?? []) lines.push(translate("execution_diagnostic", language, { stage: diagnostic.stage, message: diagnostic.message, operation: diagnostic.operationId ?? "" }));
+  const resolution = task.integration?.resolution;
+  if (resolution) {
+    lines.push(translate("execution_diagnostic", language, { stage: "integration", message: "Conflict resolution " + resolution.status + "; attempts " + resolution.attempts + "/2; conflicts: " + resolution.conflicts.join(", ") + "; inspect " + resolution.worktreePath, operation: resolution.id }));
+    lines.push(...resolution.diagnostics);
+  }
+  if (task.cleanup) lines.push(translate("execution_cleanup", language, { status: task.cleanup.status, path: task.cleanup.worktreePath }));
+  return lines;
+}
+
+export function formatExecutionOutcomes(state: IntentExecutionState, language: SupportedLanguage = "en"): string[] {
+  const lines = [translate("execution_delivery", language, { status: isRunDelivered(state) ? "delivered" : state.delivery?.status === "succeeded" ? "delivery evidence incomplete" : state.delivery?.status ?? "pending", commit: state.delivery?.deliveredCommit ?? state.lastAcceptedCommit ?? "-" })];
+  if (state.integrationBranch || state.integrationWorktreePath) lines.push(translate("execution_artifact", language, { branch: state.integrationBranch ?? "-", path: state.integrationWorktreePath ?? "-" }));
+  for (const owner of [state.owner, state.integrationOwner]) if (owner) lines.push(translate("execution_owner", language, { pid: owner.pid, host: owner.host, path: owner.worktreePath ?? state.integrationWorktreePath ?? "-" }));
+  for (const record of state.processes ?? []) if (["running", "launching", "interrupted", "unknown"].includes(record.status)) {
+    lines.push(translate("execution_diagnostic", language, { stage: "recovery", message: "Process " + record.status + " (PID " + (record.pid ?? "unrecorded") + " on " + record.host + "; " + record.command + ") in " + record.cwd + "; inspect ownership before resuming. " + record.diagnostics.join(" "), operation: record.id }));
+  }
+  if (state.recovery) lines.push(translate("execution_diagnostic", language, { stage: "recovery", message: "Legacy execution requires recorded Git ownership evidence before resuming.", operation: "" }));
+  for (const diagnostic of state.diagnostics ?? []) lines.push(translate("execution_diagnostic", language, { stage: diagnostic.stage, message: diagnostic.message, operation: diagnostic.operationId ?? "" }));
+  for (const op of state.operations ?? []) if (op.status !== "succeeded") lines.push(translate("execution_diagnostic", language, { stage: op.kind, message: op.status + "; inspect " + op.before.branch + " at " + op.before.worktreePath + ". " + (op.outcome?.diagnostics?.join(" ") ?? ""), operation: op.id }));
+  for (const cleanup of state.cleanup ?? []) lines.push(translate("execution_cleanup", language, { status: cleanup.status, path: cleanup.worktreePath }));
+  return lines;
 }
