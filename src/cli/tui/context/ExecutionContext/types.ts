@@ -1,3 +1,4 @@
+import { IntentExecutionState } from '../../../../domain/execution.js';
 import React from 'react';
 import { TaskScheduler } from '../../../../scheduler/TaskScheduler.js';
 import { SchedulerStatus } from '../../../../scheduler/types.js';
@@ -33,6 +34,8 @@ export interface HookHistoryItem {
 }
 
 export interface ExecutionContextValue {
+  execution?: IntentExecutionState;
+  executionError?: string;
   activeHook: ActiveHookState | null;
   hookHistory: HookHistoryItem[];
   hasConfiguredHooks?: boolean;

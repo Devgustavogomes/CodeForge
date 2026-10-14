@@ -75,7 +75,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
         >
           <Box justifyContent="space-between" width="100%">
             <Text bold color={theme.colors.success}>
-              ✓ Execution Completed Successfully
+              ✓ Result Delivered Successfully
             </Text>
             <Text color={theme.colors.success} bold>
               Total Time:{" "}
@@ -89,7 +89,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
 
           <Box gap={2} marginY={0}>
             <Text color={theme.colors.success} bold>
-              ✓ {completedCount}/{totalCount} tasks completed
+              ✓ {completedCount}/{totalCount} tasks approved and integrated
             </Text>
             <Text color={theme.colors.borderSubtle}>│</Text>
             <Text color={theme.colors.success}>{failedCount} failures</Text>
@@ -128,7 +128,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
 
           <Box gap={2} marginY={0} flexWrap="wrap">
             <Text color={theme.colors.success} bold>
-              ✓ {completedCount} completed
+              ✓ {completedCount} approved
             </Text>
             <Text color={theme.colors.borderSubtle}>│</Text>
             <Text color={theme.colors.error} bold>
@@ -184,7 +184,7 @@ export const DashboardMetricsPanel: React.FC<DashboardMetricsPanelProps> = memo(
 
         <Box marginY={0} width="100%" overflow="hidden">
           <Text wrap="truncate-end" color={theme.colors.text}>
-            Parallel: {runningCount}  |  Completed: {completedCount}  |  Failed: {failedCount}  |  Remaining: {pendingCount}
+            Parallel: {runningCount}  |  Approved: {completedCount}  |  Integrated: {tasks.filter(task => task.integrated).length}  |  Failed: {failedCount}  |  Remaining: {pendingCount}
           </Text>
         </Box>
 

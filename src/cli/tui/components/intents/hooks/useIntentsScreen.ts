@@ -394,6 +394,9 @@ export function useIntentsScreen({
     }
 
     switch (result.kind) {
+      case 'blocked':
+        publishDeleteFeedback({ type: 'error', message: result.message });
+        return;
       case 'deleted': {
         loadIntents();
         const deletedName = result.intentName || intentName;

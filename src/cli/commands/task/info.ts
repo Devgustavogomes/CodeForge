@@ -1,3 +1,4 @@
+import { formatTaskOutcomes } from "../../ui/statusFormatter.js";
 import { Command } from "commander";
 import { AppContainer, createAppContainer } from "../../../infrastructure/container.js";
 import { ActionResult } from "../../types.js";
@@ -65,6 +66,11 @@ export async function taskInfoAction(
       return { success: false };
     case "info": {
       const taskData = result.task;
+      const snapshot = container.getIntentStatusUseCase.execute(intentName);
+      if (snapshot.kind === "status") {
+        const state = snapshot.tasks.find(task => task.id === selectedTask);
+        if (state) console.log(formatTaskOutcomes(state, lang).join("\n"));
+      }
       console.log(`\n==================================================`);
       console.log(` TASK: ${taskData.id}`);
       console.log(` TITLE: ${taskData.title}`);

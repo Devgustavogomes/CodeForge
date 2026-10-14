@@ -1,3 +1,5 @@
+import { IntentExecutionState } from '../../../domain/execution.js';
+import { isRunDelivered } from '../../../application/use-cases/GetIntentStatusUseCase.js';
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createAppContainer } from '../../../infrastructure/container.js';
 import { ContainerContext } from './ContainerContext.js';
@@ -27,6 +29,11 @@ import { ReviewResultMetadata } from '../../../domain/hook.js';
 import { useConfig } from './ConfigContext.js';
 
 export const DEFAULT_LOG_FLUSH_INTERVAL_MS = 60;
+function persistedStatus(state: IntentExecutionState): ExecutionStatus {
+  if (isRunDelivered(state)) return 'completed';
+  return state.status === 'completed' || state.status === 'reviewing' ? 'paused' : state.status === 'pending' ? 'idle' : state.status;
+}
+
 const INTERRUPTED_REVIEW_MESSAGE = 'Previous AI review was interrupted. Press [v] to retry.';
 
 export type {
@@ -96,7 +103,7 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   const [schedulerStatus, setSchedulerStatus] = useState<ExecutionStatus>(() => {
     if (effectiveInitial) {
       const state = appContainer.executionStateRepository.load(effectiveInitial);
-      if (state) return state.status === 'reviewing' ? 'paused' : state.status as ExecutionStatus;
+      if (state) return persistedStatus(state);
     }
     return propScheduler ? propScheduler.getStatus() : 'idle';
   });
@@ -106,6 +113,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   const [completedAt, setCompletedAt] = useState<string | undefined>(
     () => (effectiveInitial ? appContainer.executionStateRepository.load(effectiveInitial)?.completedAt : undefined),
   );
+  const [execution, setExecution] = useState<IntentExecutionState | undefined>(() => effectiveInitial ? appContainer.executionStateRepository.load(effectiveInitial) ?? undefined : undefined);
+  const [executionError, setExecutionError] = useState<string | undefined>();
   const [logs, setLogs] = useState<Record<string, string[]>>({});
   const [activeHook, setActiveHook] = useState<ActiveHookState | null>(null);
   const [hookHistory, setHookHistory] = useState<HookHistoryItem[]>([]);
@@ -152,6 +161,7 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   }, [flushIntervalMs, flushLogs]);
 
   const refreshTasks = useCallback((intent: string) => {
+    setExecution(appContainer.executionStateRepository.load(intent) ?? undefined);
     const items = loadTasksFromDisk(appContainer.workspaceGateway, appContainer.executionStateRepository, intent);
     if (!areTasksEqual(tasksRef.current, items)) {
       tasksRef.current = items;
@@ -172,7 +182,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     if (intentName) {
       refreshTasks(intentName);
       const state = appContainer.executionStateRepository.load(intentName);
-      setSchedulerStatus(state?.status === 'reviewing' ? 'paused' : (state?.status as ExecutionStatus) ?? 'idle');
+      setSchedulerStatus(state ? persistedStatus(state) : 'idle');
+      setExecutionError(undefined);
       setStartedAt(state?.startedAt);
       setCompletedAt(state?.completedAt);
       setReviewStartedAt(undefined);
@@ -181,6 +192,8 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
       setReviewError(restoredError);
       reviewErrorRef.current = Boolean(restoredError);
     } else {
+      setExecution(undefined);
+      setExecutionError(undefined);
       tasksRef.current = [];
       setTasksState([]);
       setSelectedTaskId(null);
@@ -203,7 +216,13 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   }, []);
 
   const reporter = useMemo(() => createExecutionReporter({
+    onOutcome: (s, state) => {
+      setExecution(state);
+      refreshTasks(s);
+    },
+    onWarning: (message) => appendLog("run", message),
     onStart: (s) => {
+      setExecutionError(undefined);
       setSchedulerStatus('running');
       setStartedAt(new Date().toISOString());
       setCompletedAt(undefined);
@@ -230,7 +249,10 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
       setCompletedAt(new Date().toISOString());
       if (s) refreshTasks(s);
     },
-    onError: () => {
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setExecutionError(message);
+      appendLog("run", message);
       if (!reviewErrorRef.current) setSchedulerStatus('failed');
     },
     onLog: (taskId, chunk) => appendLog(taskId, chunk),
@@ -317,13 +339,15 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     try {
       const result = await scheduler.run(intent, config?.executorAgent);
       setSchedulerStatus(result.status as ExecutionStatus);
-    } catch {
+      setExecutionError("reason" in result ? result.reason : undefined);
+    } catch (error) {
+      setExecutionError(error instanceof Error ? error.message : String(error));
       setSchedulerStatus('failed');
     } finally {
       flushLogs();
       refreshTasks(intent);
       const state = appContainer.executionStateRepository.load(intent);
-      if (state) setSchedulerStatus(state.status as ExecutionStatus);
+      if (state && (state.status !== "running" || isRunDelivered(state))) setSchedulerStatus(persistedStatus(state));
     }
   }, [activeIntent, scheduler, schedulerStatus, setActiveIntent, refreshTasks, appContainer, flushLogs, config]);
 
@@ -331,7 +355,7 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
     const intent = intentName || activeIntent;
     if (!intent || !scheduler || reviewInFlightRef.current || schedulerStatus === 'running' || schedulerStatus === 'reviewing') return;
     // A review is deliberately only available once every existing task has finished.
-    if (tasksRef.current.length === 0 || !tasksRef.current.every((task) => task.status === 'completed')) return;
+    if (tasksRef.current.length === 0 || !tasksRef.current.every((task) => task.integrated)) return;
     reviewInFlightRef.current = true;
     if (intent !== activeIntent) setActiveIntent(intent);
     reviewErrorRef.current = false;
@@ -347,7 +371,7 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
       flushLogs();
       refreshTasks(intent);
       const state = appContainer.executionStateRepository.load(intent);
-      if (state) setSchedulerStatus(state.status as ExecutionStatus);
+      if (state && (state.status !== "running" || isRunDelivered(state))) setSchedulerStatus(persistedStatus(state));
     }
   }, [activeIntent, appContainer, flushLogs, refreshTasks, scheduler, schedulerStatus, setActiveIntent, config]);
 
@@ -376,14 +400,14 @@ export const ExecutionProvider: React.FC<ExecutionProviderProps> = ({
   const selectedTask = useMemo(() => (selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) || null : null), [tasks, selectedTaskId]);
 
   const value: ExecutionContextValue = useMemo(() => ({
-    activeIntent, tasks, selectedTaskId, selectedTask, status: schedulerStatus,
+    execution, executionError, activeIntent, tasks, selectedTaskId, selectedTask, status: schedulerStatus,
     schedulerStatus, logs, getTaskLogs, setSelectedTaskId, selectTask,
     setActiveIntent, startRun, retryTask, retryAllFailed, completeTask,
     resetTask, resetAllTasks, refreshTasks, clearLogs, scheduler, startedAt, completedAt,
     reviewStartedAt, reviewResult, reviewError, startReview,
     activeHook, hookHistory, hasConfiguredHooks,
   }), [
-    activeIntent, tasks, selectedTaskId, selectedTask, schedulerStatus, logs, getTaskLogs,
+    execution, executionError, activeIntent, tasks, selectedTaskId, selectedTask, schedulerStatus, logs, getTaskLogs,
     selectTask, setActiveIntent, startRun, retryTask, retryAllFailed, completeTask,
     resetTask, resetAllTasks, refreshTasks, clearLogs, scheduler, startedAt, completedAt,
     reviewStartedAt, reviewResult, reviewError, startReview,

@@ -1,3 +1,4 @@
+import { formatTaskOutcomes } from "../../../ui/statusFormatter.js";
 import React from "react";
 import { Box, Text } from "ink";
 import { TaskItem, useExecution } from "../../context/ExecutionContext.js";
@@ -35,6 +36,7 @@ export function areTaskDetailsPropsEqual(
   if (prev.task === next.task) return true;
   if (!prev.task || !next.task) return false;
   return (
+    JSON.stringify(prev.task) === JSON.stringify(next.task) &&
     prev.task.id === next.task.id &&
     prev.task.status === next.task.status &&
     prev.task.title === next.task.title &&
@@ -113,12 +115,14 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
             </Box>
             <Box gap={1} flexShrink={0} paddingLeft={1}>
               <Text color={statusCfg.color} bold>
-                [{task.status.toUpperCase()}]
+                [{task.integrated ? "INTEGRATED" : task.status === "completed" ? "APPROVED" : task.status.toUpperCase()}]
               </Text>
               <Text color={theme.colors.borderSubtle}>│</Text>
               <Text dimColor>{duration}</Text>
             </Box>
           </Box>
+
+          {formatTaskOutcomes(task).map((line, index) => <Text key={index} dimColor wrap="wrap">{line}</Text>)}
 
           {Boolean(task.objective) && (
             <Box marginTop={0}>
@@ -178,10 +182,12 @@ const TaskDetailsPresenter: React.FC<TaskDetailsProps> = React.memo(
           </Box>
           <Box flexShrink={0} paddingLeft={1}>
             <Text color={statusCfg.color} bold>
-              [{task.status.toUpperCase()}]
+              [{task.integrated ? "INTEGRATED" : task.status === "completed" ? "APPROVED" : task.status.toUpperCase()}]
             </Text>
           </Box>
         </Box>
+
+        {formatTaskOutcomes(task).map((line, index) => <Text key={index} dimColor wrap="wrap">{line}</Text>)}
 
         {/* Objective */}
         {Boolean(task.objective) && (

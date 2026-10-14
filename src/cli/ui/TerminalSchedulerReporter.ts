@@ -1,3 +1,5 @@
+import { IntentExecutionState, isTaskIntegrated } from "../../domain/execution.js";
+import { isRunDelivered } from "../../application/use-cases/GetIntentStatusUseCase.js";
 import { ReviewErrorMetadata, ReviewStartMetadata, SchedulerReporter } from "../../application/ports/SchedulerReporter.js";
 import { ReviewResultMetadata } from "../../domain/hook.js";
 import {
@@ -31,6 +33,7 @@ export interface TerminalSchedulerReporterOptions {
 }
 
 export class TerminalSchedulerReporter implements SchedulerReporter {
+  private outcome?: IntentExecutionState;
   private startTime: number = 0;
   private intentName?: string;
   private lastLinesCount: number = 0;
@@ -101,7 +104,26 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
     this.renderSnapshot(intentName);
   }
 
-  onComplete(intentName: string): void {
+  onOutcome(intentName: string, state: IntentExecutionState): void {
+    this.outcome = state;
+    this.onUpdate(intentName);
+  }
+
+  onWarning(message: string): void {
+    this.printLine(translate("execution_diagnostic", this.language, { stage: "cleanup", message, operation: "" }));
+  }
+
+  onComplete(intentName: string, state?: IntentExecutionState): void {
+    if (state) this.outcome = state;
+    const snapshot = this.getStatus?.(intentName);
+    if (!(state ? isRunDelivered(state) : snapshot?.kind === "status" && snapshot.delivered === true) ||
+        (snapshot?.kind === "status" && snapshot.delivered !== true)) {
+      this.finished = true;
+      this.renderFinal(intentName);
+      this.printLine(translate("execution_pending_delivery", this.language));
+      this.cleanup();
+      return;
+    }
     this.finished = true;
     this.intentName = intentName;
     if (!this.startTime) {
@@ -295,7 +317,13 @@ export class TerminalSchedulerReporter implements SchedulerReporter {
   }
 
   private getSnapshotContent(intentName: string): string | undefined {
-    const status = this.getStatus?.(intentName);
+    const lookup = this.getStatus?.(intentName);
+    const state = this.outcome?.intentId === intentName ? this.outcome : undefined;
+    const status = lookup?.kind === "status" ? lookup : state ? {
+      kind: "status" as const, intentName, intentStatus: state.status, updatedAt: state.updatedAt,
+      execution: state, delivered: isRunDelivered(state),
+      tasks: Object.entries(state.tasks).map(([id, task]) => ({ ...task, id, title: task.title ?? id, integrated: isTaskIntegrated(state, id) })),
+    } : lookup;
     const elapsedMs = Math.max(0, this.clock() - this.startTime);
     const elapsedStr = formatElapsed(elapsedMs);
 

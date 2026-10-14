@@ -12,7 +12,7 @@ export const STATUS_CONFIG: Record<
 > = {
   pending: { icon: theme.status.pending.icon, color: theme.status.pending.color, label: 'Pending' },
   running: { icon: theme.status.running.icon, color: theme.status.running.color, label: 'Running' },
-  completed: { icon: theme.status.completed.icon, color: theme.status.completed.color, label: 'Completed' },
+  completed: { icon: theme.status.completed.icon, color: theme.status.completed.color, label: 'Approved' },
   failed: { icon: theme.status.failed.icon, color: theme.status.failed.color, label: 'Failed' },
 };
 
@@ -33,6 +33,8 @@ export function areTaskRowPropsEqual(prev: TaskRowProps, next: TaskRowProps): bo
   return (
     p.id === n.id &&
     p.status === n.status &&
+    p.integrated === n.integrated &&
+    p.integration?.status === n.integration?.status &&
     p.title === n.title &&
     p.startedAt === n.startedAt &&
     p.completedAt === n.completedAt
@@ -82,6 +84,8 @@ export const TaskRow: React.FC<TaskRowProps> = React.memo(({
           {task.title}
         </Text>
       </Box>
+
+      <Text color={statusCfg.color}>{task.integrated ? "Integrated" : task.integration?.status === "blocked" ? "Integration blocked" : statusCfg.label}</Text>
 
       {/* Duration */}
       <Box flexShrink={0} paddingLeft={1}>

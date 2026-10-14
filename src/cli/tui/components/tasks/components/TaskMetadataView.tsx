@@ -1,4 +1,6 @@
-import React from 'react';
+import { formatTaskOutcomes } from '../../../../ui/statusFormatter.js';
+import { ConfigContext } from '../../../context/ConfigContext.js';
+import React, { useContext } from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../../../theme.js';
 import { TaskScreenItem, STATUS_ICONS } from './TaskTree.js';
@@ -23,6 +25,7 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
   feedback,
   isSideBySide,
 }) => {
+  const language = useContext(ConfigContext)?.config.language ?? "en";
   return (
     <Box
       flexDirection="column"
@@ -94,6 +97,10 @@ export const TaskMetadataView: React.FC<TaskMetadataViewProps> = ({
                 {selectedTask.title}
               </Text>
             </Box>
+
+            {formatTaskOutcomes(selectedTask, language).map((line, index) => (
+              <Text key={index} color={theme.colors.muted} wrap="wrap">{line}</Text>
+            ))}
 
             {selectedTask.objective && (
               <Box marginBottom={0} flexDirection={isExpanded ? 'column' : 'row'}>

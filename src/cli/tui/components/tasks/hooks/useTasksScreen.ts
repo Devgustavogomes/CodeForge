@@ -130,6 +130,7 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
         selectedTask.id,
       );
 
+      if (result.kind === 'blocked') throw new Error(result.message);
       if (result.kind === 'not-found') {
         if (!options?.initialTasks) {
           setFeedback({
@@ -180,6 +181,7 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
         selectedTask.id,
       );
 
+      if (result.kind === 'blocked') throw new Error(result.message);
       if (result.kind !== 'reset-single' && result.kind !== 'reset-all') {
         if (!options?.initialTasks) {
           const msg =
@@ -319,6 +321,9 @@ export function useTasksScreen(options?: UseTasksScreenOptions) {
     }
 
     switch (result.kind) {
+      case 'blocked':
+        publishDeleteFeedback({ type: 'error', message: result.message });
+        return;
       case 'deleted':
         loadTasksForIntent(intentName, false);
         publishDeleteFeedback({
