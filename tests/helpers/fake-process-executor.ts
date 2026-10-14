@@ -1,4 +1,8 @@
+import { randomUUID } from "node:crypto";
+import os from "node:os";
 import {
+  ProcessInspection,
+  ProcessRecord,
   ProcessOutput,
   ProcessExecOptions,
   ProcessSpawnOptions,
@@ -23,6 +27,14 @@ export type CommandHandler = (
 ) => ProcessOutput | Promise<ProcessOutput>;
 
 export class FakeProcessExecutor implements ProcessExecutor {
+  public records: ProcessRecord[] = [];
+  public inspections: ProcessRecord[] = [];
+  public inspection: ProcessInspection = { status: "interrupted", safeToReuse: true, processes: [], diagnostics: [] };
+  async inspect(record: ProcessRecord): Promise<ProcessInspection> {
+    this.inspections.push(structuredClone(record));
+    return structuredClone(this.inspection);
+  }
+
   public readonly calls: ExecutedCommand[] = [];
   private handlers: Array<{ matcher: CommandMatcher; handler: CommandHandler }> = [];
   private defaultResponse: ProcessOutput = {
@@ -60,6 +72,9 @@ export class FakeProcessExecutor implements ProcessExecutor {
 
   reset(): void {
     this.calls.length = 0;
+    this.inspections = [];
+    this.records = [];
+    this.inspection = { status: "interrupted", safeToReuse: true, processes: [], diagnostics: [] };
     this.handlers = [];
     this.defaultHandler = undefined;
     this.defaultResponse = { stdout: "", stderr: "", exitCode: 0 };
@@ -127,13 +142,37 @@ export class FakeProcessExecutor implements ProcessExecutor {
     return { ...this.defaultResponse };
   }
 
+  private async trackedCommand(command: string, args: string[] | undefined,
+    options?: ProcessExecOptions | ProcessSpawnOptions): Promise<ProcessOutput> {
+    if (!options?.onProcessRecord) return this.resolveCommand(command, args, options);
+    const record: ProcessRecord = {
+      id: randomUUID(), token: randomUUID(), host: os.hostname(), platform: process.platform,
+      command, args: args ?? [], cwd: options.cwd ?? process.cwd(),
+      intentName: options.intentName, taskId: options.taskId, kind: options.kind,
+      startedAt: new Date().toISOString(), status: "launching", identities: [], diagnostics: [],
+    };
+    const report = () => {
+      this.records.push(structuredClone(record));
+      options.onProcessRecord!(structuredClone(record));
+    };
+    report(); record.status = "running"; report();
+    try {
+      const result = await this.resolveCommand(command, args, options);
+      record.status = "exited"; record.exitCode = result.exitCode;
+      record.endedAt = new Date().toISOString(); report(); return result;
+    } catch (error) {
+      record.status = "launch-failed"; record.endedAt = new Date().toISOString();
+      record.diagnostics.push(String(error)); report(); throw error;
+    }
+  }
+
   async exec(command: string, options?: ProcessExecOptions): Promise<ProcessOutput> {
     this.calls.push({ type: "exec", command, options });
-    return this.resolveCommand(command, undefined, options);
+    return this.trackedCommand(command, undefined, options);
   }
 
   async spawn(command: string, args: string[], options?: ProcessSpawnOptions): Promise<ProcessOutput> {
     this.calls.push({ type: "spawn", command, args: [...args], options });
-    return this.resolveCommand(command, args, options);
+    return this.trackedCommand(command, args, options);
   }
 }
