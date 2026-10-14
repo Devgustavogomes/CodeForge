@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fakeWorktreeLifecycle, fakeTaskResultGit, fakeDeliveryGit, fakeRecoveryCoordinator } from "../../helpers/fake-worktree-lifecycle.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TaskScheduler } from "../../../src/scheduler/TaskScheduler.js";
 import { InMemoryWorkspaceGateway } from "../../helpers/in-memory-workspace.js";
@@ -79,6 +81,12 @@ describe("task.verify gate", () => {
 
   function schedulerFor(hooks: HookDispatcher): TaskScheduler {
     return new TaskScheduler({
+      worktreeLifecycle: fakeWorktreeLifecycle(stateRepo),
+      deliveryGit: fakeDeliveryGit(stateRepo, "intent"),
+      recoveryCoordinator: fakeRecoveryCoordinator(stateRepo),
+      cleanupCoordinator: { cleanup: async () => ({ failures: [] }) },
+      taskResultGit: fakeTaskResultGit(),
+      integrationGit: fakeTaskResultGit(),
       gw,
       runner,
       config,
@@ -91,7 +99,7 @@ describe("task.verify gate", () => {
   it("lets the task complete when the gate passes", async () => {
     const hooks = new StubHookDispatcher([[gate(true)]]);
 
-    await schedulerFor(hooks).run("intent");
+    expect((await schedulerFor(hooks).run("intent")).status).toBe("completed");
 
     expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("completed");
     expect(hooks.events()).toEqual(["run.started", "task.started", "task.verify", "task.completed", "run.completed"]);
@@ -159,19 +167,17 @@ describe("task.verify gate", () => {
 
     expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("failed");
 
-    const retry = new TaskOperationsUseCase(gw).retryIntent("intent");
+    const retry = await new TaskOperationsUseCase(gw).retryIntent("intent");
     expect(retry.kind).toBe("retried");
 
-    const written: string[] = [];
-    vi.spyOn(gw, "writeFile").mockImplementation((path, content) => {
-      if (path.endsWith(".temp.prompt.md")) written.push(content);
-      InMemoryWorkspaceGateway.prototype.writeFile.call(gw, path, content);
-    });
+    const prompt = vi.spyOn(promptService, "createPromptFile");
+    const hooks = new StubHookDispatcher([[gate(true)]]);
+    expect((await schedulerFor(hooks).run("intent")).status).toBe("completed");
 
-    await schedulerFor(new StubHookDispatcher([[gate(true)]])).run("intent");
-
-    expect(written).toHaveLength(1);
-    expect(written).toHaveLength(1);
+    expect(prompt).toHaveBeenCalledOnce();
+    expect(gw.readFile(path.relative(process.cwd(), prompt.mock.results[0].value))).toContain("sf: dependency lock is stale");
+    expect(runner.execute).toHaveBeenCalledTimes(2);
+    expect(hooks.events().filter(event => event === "task.verify")).toHaveLength(1);
     expect(stateRepo.load("intent")?.tasks["TASK-001"].status).toBe("completed");
   });
 });
